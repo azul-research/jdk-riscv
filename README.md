@@ -2,6 +2,8 @@
 
 Main branch is `riscv`. `master` branch must remain unchanged.
 
+All scripts, docs and other supplimentary files should go to `dev-riscv` directory.
+
 ## Participiants
 
 Small changes (docs, typos, ...) may go directly into `riscv` branch.
