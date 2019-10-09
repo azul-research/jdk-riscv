@@ -1,10 +1,16 @@
 # Java + RISC-V project
 
+## Links
+
+[RISC-V emulator](./dev-riscv/emulator/README.md)
+
+## Process
+
 Main branch is `riscv`. `master` branch must remain unchanged.
 
 All scripts, docs and other supplimentary files should go to `dev-riscv` directory.
 
-## Participiants
+### Participiants
 
 Small changes (docs, typos, ...) may go directly into `riscv` branch.
 
