@@ -6,7 +6,7 @@ Install `qemu-system-risc64` and follow instructions at https://wiki.qemu.org/Do
 
 Install `docker`. To start the emulator, run 
  
-    $ docker run -it -p 2222:22 --rm azulresearch/dev-riscv
+    $ docker run -it -p 2222:22 --rm azulresearch/riscv-emu
 
 or (from this directory)
 
