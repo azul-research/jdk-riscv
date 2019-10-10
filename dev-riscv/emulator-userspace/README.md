@@ -14,11 +14,15 @@ If your distribution supports it, you can use `systemd-binfmt` to achieve that.
 If you don't properly configure binfmt, then you won't be able to build or run
 the Docker image.
 
-Only then can you build the Docker image:
+To start the container, run:
+
+    $ docker run --rm -it azulresearch/riscv-emu-user
+
+Alternatively, you can build the Docker image yourself:
 
     $ docker build --tag=riscv-emu-user .
 
-To start the container, run:
+This way, to start the container, run:
 
     $ docker run --rm -it riscv-emu-user
 
