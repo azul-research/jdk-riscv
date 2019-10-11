@@ -1,0 +1,266 @@
+diff -ru a/linux-user/main.c b/linux-user/main.c
+--- a/linux-user/main.c	2019-08-15 22:01:42.000000000 +0300
++++ b/linux-user/main.c	2019-10-11 16:12:57.279656191 +0300
+@@ -92,6 +92,7 @@
+ 
+ static const char *interp_prefix = CONFIG_QEMU_INTERP_PREFIX;
+ const char *qemu_uname_release;
++const char *qemu_execve_path;
+ 
+ /* XXX: on x86 MAP_GROWSDOWN only works if ESP <= address + 32, so
+    we allocate a bigger stack. Need a better solution, for example
+@@ -335,6 +336,11 @@
+     have_guest_base = 1;
+ }
+ 
++static void handle_arg_execve(const char *arg)
++{
++    qemu_execve_path = strdup(arg);
++}
++
+ static void handle_arg_reserved_va(const char *arg)
+ {
+     char *p;
+@@ -424,6 +430,8 @@
+      "uname",      "set qemu uname release string to 'uname'"},
+     {"B",          "QEMU_GUEST_BASE",  true,  handle_arg_guest_base,
+      "address",    "set guest_base address to 'address'"},
++    {"execve",     "QEMU_EXECVE",      true,   handle_arg_execve,
++     "path",       "use interpreter at 'path' when a process calls execve()"},
+     {"R",          "QEMU_RESERVED_VA", true,  handle_arg_reserved_va,
+      "size",       "reserve 'size' bytes for guest virtual address space"},
+     {"d",          "QEMU_LOG",         true,  handle_arg_log,
+diff -ru a/linux-user/qemu.h b/linux-user/qemu.h
+--- a/linux-user/qemu.h	2019-08-15 22:01:42.000000000 +0300
++++ b/linux-user/qemu.h	2019-10-11 16:12:57.279656191 +0300
+@@ -160,6 +160,7 @@
+ void task_settid(TaskState *);
+ void stop_all_tasks(void);
+ extern const char *qemu_uname_release;
++extern const char *qemu_execve_path;
+ extern unsigned long mmap_min_addr;
+ 
+ /* ??? See if we can avoid exposing so much of the loader internals.  */
+diff -ru a/linux-user/syscall.c b/linux-user/syscall.c
+--- a/linux-user/syscall.c	2019-08-15 22:01:42.000000000 +0300
++++ b/linux-user/syscall.c	2019-10-11 17:57:49.417457869 +0300
+@@ -1058,7 +1058,7 @@
+ {
+     abi_ulong target_rlim_swap;
+     rlim_t result;
+-    
++
+     target_rlim_swap = tswapal(target_rlim);
+     if (target_rlim_swap == TARGET_RLIM_INFINITY)
+         return RLIM_INFINITY;
+@@ -1066,7 +1066,7 @@
+     result = target_rlim_swap;
+     if (target_rlim_swap != (rlim_t)result)
+         return RLIM_INFINITY;
+-    
++
+     return result;
+ }
+ 
+@@ -1074,13 +1074,13 @@
+ {
+     abi_ulong target_rlim_swap;
+     abi_ulong result;
+-    
++
+     if (rlim == RLIM_INFINITY || rlim != (abi_long)rlim)
+         target_rlim_swap = TARGET_RLIM_INFINITY;
+     else
+         target_rlim_swap = rlim;
+     result = tswapal(target_rlim_swap);
+-    
++
+     return result;
+ }
+ 
+@@ -1520,9 +1520,9 @@
+     abi_ulong target_cmsg_addr;
+     struct target_cmsghdr *target_cmsg, *target_cmsg_start;
+     socklen_t space = 0;
+-    
++
+     msg_controllen = tswapal(target_msgh->msg_controllen);
+-    if (msg_controllen < sizeof (struct target_cmsghdr)) 
++    if (msg_controllen < sizeof (struct target_cmsghdr))
+         goto the_end;
+     target_cmsg_addr = tswapal(target_msgh->msg_control);
+     target_cmsg = lock_user(VERIFY_READ, target_cmsg_addr, msg_controllen, 1);
+@@ -1604,7 +1604,7 @@
+     socklen_t space = 0;
+ 
+     msg_controllen = tswapal(target_msgh->msg_controllen);
+-    if (msg_controllen < sizeof (struct target_cmsghdr)) 
++    if (msg_controllen < sizeof (struct target_cmsghdr))
+         goto the_end;
+     target_cmsg_addr = tswapal(target_msgh->msg_control);
+     target_cmsg = lock_user(VERIFY_WRITE, target_cmsg_addr, msg_controllen, 0);
+@@ -5484,7 +5484,7 @@
+     }
+     unlock_user_struct(target_ldt_info, ptr, 1);
+ 
+-    if (ldt_info.entry_number < TARGET_GDT_ENTRY_TLS_MIN || 
++    if (ldt_info.entry_number < TARGET_GDT_ENTRY_TLS_MIN ||
+         ldt_info.entry_number > TARGET_GDT_ENTRY_TLS_MAX)
+            return -TARGET_EINVAL;
+     seg_32bit = ldt_info.flags & 1;
+@@ -5562,7 +5562,7 @@
+     lp = (uint32_t *)(gdt_table + idx);
+     entry_1 = tswap32(lp[0]);
+     entry_2 = tswap32(lp[1]);
+-    
++
+     read_exec_only = ((entry_2 >> 9) & 1) ^ 1;
+     contents = (entry_2 >> 10) & 3;
+     seg_not_present = ((entry_2 >> 15) & 1) ^ 1;
+@@ -5578,8 +5578,8 @@
+         (read_exec_only << 3) | (limit_in_pages << 4) |
+         (seg_not_present << 5) | (useable << 6) | (lm << 7);
+     limit = (entry_1 & 0xffff) | (entry_2  & 0xf0000);
+-    base_addr = (entry_1 >> 16) | 
+-        (entry_2 & 0xff000000) | 
++    base_addr = (entry_1 >> 16) |
++        (entry_2 & 0xff000000) |
+         ((entry_2 & 0xff) << 16);
+     target_ldt_info->base_addr = tswapal(base_addr);
+     target_ldt_info->limit = tswap32(limit);
+@@ -7148,6 +7148,112 @@
+     return timerid;
+ }
+ 
++#define BINPRM_BUF_SIZE 128
++
++/* qemu_execve() Must return target values and target errnos. */
++static abi_long qemu_execve(char *filename, char *argv[],
++                  char *envp[])
++{
++    char *i_arg = NULL, *i_name = NULL;
++    char **new_argp;
++    int argc, fd, ret, i, offset = 5;
++    char *cp;
++    char buf[BINPRM_BUF_SIZE];
++
++    for (argc = 0; argv[argc] != NULL; argc++) {
++        /* nothing */ ;
++    }
++
++    fd = open(filename, O_RDONLY);
++    if (fd == -1) {
++        return -ENOENT;
++    }
++
++    ret = read(fd, buf, BINPRM_BUF_SIZE);
++    if (ret == -1) {
++        close(fd);
++        return -ENOENT;
++    }
++
++    close(fd);
++
++    /* adapted from the kernel
++     * https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/fs/binfmt_script.c
++     */
++    if ((buf[0] == '#') && (buf[1] == '!')) {
++        /*
++         * This section does the #! interpretation.
++         * Sorta complicated, but hopefully it will work.  -TYT
++         */
++
++        buf[BINPRM_BUF_SIZE - 1] = '\0';
++        cp = strchr(buf, '\n');
++        if (cp == NULL) {
++            cp = buf+BINPRM_BUF_SIZE-1;
++        }
++        *cp = '\0';
++        while (cp > buf) {
++            cp--;
++            if ((*cp == ' ') || (*cp == '\t')) {
++                *cp = '\0';
++            } else {
++                break;
++            }
++        }
++        for (cp = buf+2; (*cp == ' ') || (*cp == '\t'); cp++) {
++            /* nothing */ ;
++        }
++        if (*cp == '\0') {
++            return -ENOEXEC; /* No interpreter name found */
++        }
++        i_name = cp;
++        i_arg = NULL;
++        for ( ; *cp && (*cp != ' ') && (*cp != '\t'); cp++) {
++            /* nothing */ ;
++        }
++        while ((*cp == ' ') || (*cp == '\t')) {
++            *cp++ = '\0';
++        }
++        if (*cp) {
++            i_arg = cp;
++        }
++
++        if (i_arg) {
++            offset = 7;
++        } else {
++            offset = 6;
++        }
++    }
++
++    new_argp = alloca((argc + offset + 1) * sizeof(void *));
++
++    /* Copy the original arguments with offset */
++    for (i = 0; i < argc; i++) {
++        new_argp[i + offset] = argv[i];
++    }
++
++    /* This definitely looks like a memory leak     - TsarN */
++    new_argp[0] = strdup(qemu_execve_path);
++    new_argp[1] = strdup("-execve");
++    new_argp[2] = strdup(qemu_execve_path);
++    new_argp[3] = strdup("-0");
++    new_argp[offset] = filename;
++    new_argp[argc + offset] = NULL;
++
++    if (i_name) {
++        new_argp[4] = i_name;
++        new_argp[5] = i_name;
++
++        if (i_arg) {
++            new_argp[6] = i_arg;
++        }
++    } else {
++        new_argp[4] = argv[0];
++    }
++
++    return get_errno(safe_execve(qemu_execve_path, new_argp, envp));
++}
++
+ static int target_to_host_cpu_mask(unsigned long *host_mask,
+                                    size_t host_size,
+                                    abi_ulong target_addr,
+@@ -7504,7 +7610,12 @@
+              * before the execve completes and makes it the other
+              * program's problem.
+              */
+-            ret = get_errno(safe_execve(p, argp, envp));
++
++            if (qemu_execve_path && *qemu_execve_path) {
++                ret = get_errno(qemu_execve(p, argp, envp));
++            } else {
++                ret = get_errno(safe_execve(p, argp, envp));
++            }
+             unlock_user(p, arg1, 0);
+ 
+             goto execve_end;
+@@ -10441,7 +10552,7 @@
+         return get_errno(fchown(arg1, low2highuid(arg2), low2highgid(arg3)));
+ #if defined(TARGET_NR_fchownat)
+     case TARGET_NR_fchownat:
+-        if (!(p = lock_user_string(arg2))) 
++        if (!(p = lock_user_string(arg2)))
+             return -TARGET_EFAULT;
+         ret = get_errno(fchownat(arg1, p, low2highuid(arg3),
+                                  low2highgid(arg4), arg5));
