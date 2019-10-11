@@ -123,7 +123,6 @@ bash configure \
     --with-jvm-variants=zero \
     --disable-warnings-as-errors \
     --openjdk-target=riscv64-unknown-linux-gnu \
-    --with-freetype=bundled \
     --with-sysroot=/opt/riscv/sysroot \
     --x-includes=/opt/riscv/sysroot/usr/include \
     --x-libraries=/opt/riscv/sysroot/usr/lib \
