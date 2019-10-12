@@ -1,7 +1,5 @@
 FROM debian:unstable AS builder
 
-COPY ./qemu-user-execve.diff /
-
 COPY ./scripts/prepare.sh /prepare.sh
 RUN /prepare.sh
 
@@ -15,5 +13,5 @@ FROM scratch
 
 COPY --from=builder /riscv /
 
-ENTRYPOINT ["/usr/bin/qemu-riscv64-static", "-execve", "/usr/bin/qemu-riscv64-static"]
+ENTRYPOINT ["/usr/bin/qemu-riscv64-static", "-e", "/usr/bin/qemu-riscv64-static"]
 CMD ["/bin/bash"]

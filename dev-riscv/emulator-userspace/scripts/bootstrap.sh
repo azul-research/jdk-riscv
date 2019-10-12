@@ -9,4 +9,4 @@ debootstrap --arch=riscv64 --foreign --keyring /usr/share/keyrings/debian-ports-
 mkdir -p "$rootfs/usr/bin"
 cp /usr/bin/qemu-riscv64-static "$rootfs/usr/bin/"
 
-chroot "$rootfs" /usr/bin/qemu-riscv64-static --execve /usr/bin/qemu-riscv64-static /bin/bash /debootstrap/debootstrap --second-stage
+chroot "$rootfs" /usr/bin/qemu-riscv64-static -e /usr/bin/qemu-riscv64-static /bin/bash /debootstrap/debootstrap --second-stage
