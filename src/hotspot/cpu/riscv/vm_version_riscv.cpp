@@ -45,8 +45,8 @@
 #if defined(LINUX) && defined(VM_LITTLE_ENDIAN)
 #include <sys/auxv.h>
 
-#ifndef PPC_FEATURE2_HTM_NOSC
-#define PPC_FEATURE2_HTM_NOSC (1 << 24)
+#ifndef RISCV_FEATURE2_HTM_NOSC
+#define RISCV_FEATURE2_HTM_NOSC (1 << 24)
 #endif
 #endif
 
@@ -64,38 +64,38 @@ void VM_Version::initialize() {
   // Test which instructions are supported and measure cache line size.
   determine_features();
 
-  // If PowerArchitecturePPC64 hasn't been specified explicitly determine from features.
-  if (FLAG_IS_DEFAULT(PowerArchitecturePPC64)) {
+  // If PowerArchitectureRISCV64 hasn't been specified explicitly determine from features.
+  if (FLAG_IS_DEFAULT(PowerArchitectureRISCV64)) {
     if (VM_Version::has_darn()) {
-      FLAG_SET_ERGO(PowerArchitecturePPC64, 9);
+      FLAG_SET_ERGO(PowerArchitectureRISCV64, 9);
     } else if (VM_Version::has_lqarx()) {
-      FLAG_SET_ERGO(PowerArchitecturePPC64, 8);
+      FLAG_SET_ERGO(PowerArchitectureRISCV64, 8);
     } else if (VM_Version::has_popcntw()) {
-      FLAG_SET_ERGO(PowerArchitecturePPC64, 7);
+      FLAG_SET_ERGO(PowerArchitectureRISCV64, 7);
     } else if (VM_Version::has_cmpb()) {
-      FLAG_SET_ERGO(PowerArchitecturePPC64, 6);
+      FLAG_SET_ERGO(PowerArchitectureRISCV64, 6);
     } else if (VM_Version::has_popcntb()) {
-      FLAG_SET_ERGO(PowerArchitecturePPC64, 5);
+      FLAG_SET_ERGO(PowerArchitectureRISCV64, 5);
     } else {
-      FLAG_SET_ERGO(PowerArchitecturePPC64, 0);
+      FLAG_SET_ERGO(PowerArchitectureRISCV64, 0);
     }
   }
 
-  bool PowerArchitecturePPC64_ok = false;
-  switch (PowerArchitecturePPC64) {
+  bool PowerArchitectureRISCV64_ok = false;
+  switch (PowerArchitectureRISCV64) {
     case 9: if (!VM_Version::has_darn()   ) break;
     case 8: if (!VM_Version::has_lqarx()  ) break;
     case 7: if (!VM_Version::has_popcntw()) break;
     case 6: if (!VM_Version::has_cmpb()   ) break;
     case 5: if (!VM_Version::has_popcntb()) break;
-    case 0: PowerArchitecturePPC64_ok = true; break;
+    case 0: PowerArchitectureRISCV64_ok = true; break;
     default: break;
   }
-  guarantee(PowerArchitecturePPC64_ok, "PowerArchitecturePPC64 cannot be set to "
-            UINTX_FORMAT " on this machine", PowerArchitecturePPC64);
+  guarantee(PowerArchitectureRISCV64_ok, "PowerArchitectureRISCV64 cannot be set to "
+            UINTX_FORMAT " on this machine", PowerArchitectureRISCV64);
 
   // Power 8: Configure Data Stream Control Register.
-  if (PowerArchitecturePPC64 >= 8 && has_mfdscr()) {
+  if (PowerArchitectureRISCV64 >= 8 && has_mfdscr()) {
     config_dscr();
   }
 
@@ -115,13 +115,13 @@ void VM_Version::initialize() {
   }
 
   // On Power6 test for section size.
-  if (PowerArchitecturePPC64 == 6) {
+  if (PowerArchitectureRISCV64 == 6) {
     determine_section_size();
-  // TODO: PPC port } else {
-  // TODO: PPC port PdScheduling::power6SectorSize = 0x20;
+  // TODO: RISCV port } else {
+  // TODO: RISCV port PdScheduling::power6SectorSize = 0x20;
   }
 
-  if (PowerArchitecturePPC64 >= 8) {
+  if (PowerArchitectureRISCV64 >= 8) {
     if (FLAG_IS_DEFAULT(SuperwordUseVSX)) {
       FLAG_SET_ERGO(SuperwordUseVSX, true);
     }
@@ -133,17 +133,17 @@ void VM_Version::initialize() {
   }
   MaxVectorSize = SuperwordUseVSX ? 16 : 8;
 
-  if (PowerArchitecturePPC64 >= 9) {
-    if (FLAG_IS_DEFAULT(UseCountTrailingZerosInstructionsPPC64)) {
-      FLAG_SET_ERGO(UseCountTrailingZerosInstructionsPPC64, true);
+  if (PowerArchitectureRISCV64 >= 9) {
+    if (FLAG_IS_DEFAULT(UseCountTrailingZerosInstructionsRISCV64)) {
+      FLAG_SET_ERGO(UseCountTrailingZerosInstructionsRISCV64, true);
     }
     if (FLAG_IS_DEFAULT(UseCharacterCompareIntrinsics)) {
       FLAG_SET_ERGO(UseCharacterCompareIntrinsics, true);
     }
   } else {
-    if (UseCountTrailingZerosInstructionsPPC64) {
-      warning("UseCountTrailingZerosInstructionsPPC64 specified, but needs at least Power9.");
-      FLAG_SET_DEFAULT(UseCountTrailingZerosInstructionsPPC64, false);
+    if (UseCountTrailingZerosInstructionsRISCV64) {
+      warning("UseCountTrailingZerosInstructionsRISCV64 specified, but needs at least Power9.");
+      FLAG_SET_DEFAULT(UseCountTrailingZerosInstructionsRISCV64, false);
     }
     if (UseCharacterCompareIntrinsics) {
       warning("UseCharacterCompareIntrinsics specified, but needs at least Power9.");
@@ -155,7 +155,7 @@ void VM_Version::initialize() {
   // Create and print feature-string.
   char buf[(num_features+1) * 16]; // Max 16 chars per feature.
   jio_snprintf(buf, sizeof(buf),
-               "ppc64%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+               "riscv64%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
                (has_fsqrt()   ? " fsqrt"   : ""),
                (has_isel()    ? " isel"    : ""),
                (has_lxarxeh() ? " lxarxeh" : ""),
@@ -181,7 +181,7 @@ void VM_Version::initialize() {
     print_features();
   }
 
-  // PPC64 supports 8-byte compare-exchange operations (see Atomic::cmpxchg)
+  // RISCV64 supports 8-byte compare-exchange operations (see Atomic::cmpxchg)
   // and 'atomic long memory ops' (see Unsafe_GetLongVolatile).
   _supports_cx8 = true;
 
@@ -341,7 +341,7 @@ void VM_Version::initialize() {
     // setting during arguments processing. See use_biased_locking().
     // VM_Version_init() is executed after UseBiasedLocking is used
     // in Thread::allocate().
-    if (PowerArchitecturePPC64 < 8) {
+    if (PowerArchitectureRISCV64 < 8) {
       vm_exit_during_initialization("RTM instructions are not available on this CPU.");
     }
 
@@ -395,7 +395,7 @@ void VM_Version::check_virtualizations() {
     Abstract_VM_Version::_detected_virtualization = PowerVM;
   }
 #else
-  const char* info_file = "/proc/ppc64/lparcfg";
+  const char* info_file = "/proc/riscv64/lparcfg";
   // system_type=...qemu indicates PowerKVM
   // e.g. system_type=IBM pSeries (emulated by qemu)
   char line[500];
@@ -481,7 +481,7 @@ void VM_Version::print_platform_virtualization_info(outputStream* st) {
   st->print_cr("LPAR maximum memory       : %llu MB", pinfo.max_memory);
   st->print_cr("LPAR minimum memory       : %llu MB", pinfo.min_memory);
 #else
-  const char* info_file = "/proc/ppc64/lparcfg";
+  const char* info_file = "/proc/riscv64/lparcfg";
   const char* kw[] = { "system_type=", // qemu indicates PowerKVM
                        "partition_entitled_capacity=", // entitled processor capacity percentage
                        "partition_max_entitled_capacity=",
@@ -743,21 +743,21 @@ void VM_Version::determine_section_size() {
     }
   }
 
-#if 0 // TODO: PPC port
+#if 0 // TODO: RISCV port
   // Set sector size (if not set explicitly).
-  if (FLAG_IS_DEFAULT(Power6SectorSize128PPC64)) {
+  if (FLAG_IS_DEFAULT(Power6SectorSize128RISCV64)) {
     if (rel_diff > 12.0) {
       PdScheduling::power6SectorSize = 0x20;
     } else {
       PdScheduling::power6SectorSize = 0x80;
     }
-  } else if (Power6SectorSize128PPC64) {
+  } else if (Power6SectorSize128RISCV64) {
     PdScheduling::power6SectorSize = 0x80;
   } else {
     PdScheduling::power6SectorSize = 0x20;
   }
 #endif
-  if (UsePower6SchedulerPPC64) Unimplemented();
+  if (UsePower6SchedulerRISCV64) Unimplemented();
 }
 #endif // COMPILER2
 
@@ -891,8 +891,8 @@ void VM_Version::determine_features() {
 #if defined(LINUX) && defined(VM_LITTLE_ENDIAN)
   unsigned long auxv = getauxval(AT_HWCAP2);
 
-  if (auxv & PPC_FEATURE2_HTM_NOSC) {
-    if (auxv & PPC_FEATURE2_HAS_HTM) {
+  if (auxv & RISCV_FEATURE2_HTM_NOSC) {
+    if (auxv & RISCV_FEATURE2_HAS_HTM) {
       // TM on POWER8 and POWER9 in compat mode (VM) is supported by the JVM.
       // TM on POWER9 DD2.1 NV (baremetal) is not supported by the JVM (TM on
       // POWER9 DD2.1 NV has a few issues that need a couple of firmware
@@ -941,21 +941,21 @@ void VM_Version::config_dscr() {
     tty->print_cr("dscr value was 0x%lx" , _dscr_val);
   }
   bool change_requested = false;
-  if (DSCR_PPC64 != (uintx)-1) {
-    _dscr_val = DSCR_PPC64;
+  if (DSCR_RISCV64 != (uintx)-1) {
+    _dscr_val = DSCR_RISCV64;
     change_requested = true;
   }
-  if (DSCR_DPFD_PPC64 <= 7) {
+  if (DSCR_DPFD_RISCV64 <= 7) {
     uint64_t mask = 0x7;
-    if ((_dscr_val & mask) != DSCR_DPFD_PPC64) {
-      _dscr_val = (_dscr_val & ~mask) | (DSCR_DPFD_PPC64);
+    if ((_dscr_val & mask) != DSCR_DPFD_RISCV64) {
+      _dscr_val = (_dscr_val & ~mask) | (DSCR_DPFD_RISCV64);
       change_requested = true;
     }
   }
-  if (DSCR_URG_PPC64 <= 7) {
+  if (DSCR_URG_RISCV64 <= 7) {
     uint64_t mask = 0x7 << 6;
-    if ((_dscr_val & mask) != DSCR_DPFD_PPC64 << 6) {
-      _dscr_val = (_dscr_val & ~mask) | (DSCR_URG_PPC64 << 6);
+    if ((_dscr_val & mask) != DSCR_DPFD_RISCV64 << 6) {
+      _dscr_val = (_dscr_val & ~mask) | (DSCR_URG_RISCV64 << 6);
       change_requested = true;
     }
   }

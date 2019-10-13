@@ -38,7 +38,7 @@
 #include "runtime/stubRoutines.hpp"
 
 // Macro to print instruction bits.
-// numbering of instruction bits on ppc64 is (highest) 0 1 ... 30 31 (lowest).
+// numbering of instruction bits on riscv64 is (highest) 0 1 ... 30 31 (lowest).
 #define print_instruction_bits(st, instruction, start_bit, end_bit) \
   { assert((start_bit) <= (end_bit), "sanity check"); \
     for (int i=(31-(start_bit));i>=(31-(end_bit));i--) { \

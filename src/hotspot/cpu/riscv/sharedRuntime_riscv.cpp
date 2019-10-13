@@ -554,7 +554,7 @@ void RegisterSaver::restore_result_registers(MacroAssembler* masm, int frame_siz
 
 // Is vector's size (in bytes) bigger than a size saved by default?
 bool SharedRuntime::is_wide_vector(int size) {
-  // Note, MaxVectorSize == 8/16 on PPC64.
+  // Note, MaxVectorSize == 8/16 on RISCV64.
   assert(size <= (SuperwordUseVSX ? 16 : 8), "%d bytes vectors are not supported", size);
   return size > 8;
 }
@@ -745,7 +745,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
                                         int total_args_passed) {
   // Calling conventions for C runtime calls and calls to JNI native methods.
   //
-  // PPC64 convention: Hoist the first 8 int/ptr/long's in the first 8
+  // RISCV64 convention: Hoist the first 8 int/ptr/long's in the first 8
   // int regs, leaving int regs undefined if the arg is flt/dbl. Hoist
   // the first 13 flt/dbl's in the first 13 fp regs but additionally
   // copy flt/dbl to the stack if they are beyond the 8th argument.
@@ -1729,7 +1729,7 @@ static void unpack_array_argument(MacroAssembler* masm, VMRegPair reg, BasicType
   __ addi(tmp_reg, reg.first()->as_Register(), arrayOopDesc::base_offset_in_bytes(in_elem_type));
   __ bind(set_out_args);
   move_ptr(masm, tmp, body_arg, r_caller_sp, /*unused*/ R0);
-  move_ptr(masm, tmp2, length_arg, r_caller_sp, /*unused*/ R0); // Same as move32_64 on PPC64.
+  move_ptr(masm, tmp2, length_arg, r_caller_sp, /*unused*/ R0); // Same as move32_64 on RISCV64.
 }
 
 static void verify_oop_args(MacroAssembler* masm,
@@ -1893,7 +1893,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
 
   // Calculate the total number of C arguments and create arrays for the
   // signature and the outgoing registers.
-  // On ppc64, we have two arrays for the outgoing registers, because
+  // On riscv64, we have two arrays for the outgoing registers, because
   // some floating-point arguments must be passed in registers _and_
   // in stack locations.
   bool method_is_static = method->is_static();
@@ -2377,7 +2377,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // Transition from _thread_in_Java to _thread_in_native.
   __ li(R0, _thread_in_native);
   __ release();
-  // TODO: PPC port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
+  // TODO: RISCV port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
   __ stw(R0, thread_(thread_state));
 
 
@@ -2456,7 +2456,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // Transition from _thread_in_native to _thread_in_native_trans.
   __ li(R0, _thread_in_native_trans);
   __ release();
-  // TODO: PPC port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
+  // TODO: RISCV port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
   __ stw(R0, thread_(thread_state));
 
 
@@ -2477,11 +2477,11 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     Register suspend_flags   = r_temp_6;
 
     // No synchronization in progress nor yet synchronized
-    // (cmp-br-isync on one path, release (same as acquire on PPC64) on the other path).
+    // (cmp-br-isync on one path, release (same as acquire on RISCV64) on the other path).
     __ safepoint_poll(sync, sync_state);
 
     // Not suspended.
-    // TODO: PPC port assert(4 == Thread::sz_suspend_flags(), "unexpected field size");
+    // TODO: RISCV port assert(4 == Thread::sz_suspend_flags(), "unexpected field size");
     __ lwz(suspend_flags, thread_(suspend_flags));
     __ cmpwi(CCR1, suspend_flags, 0);
     __ beq(CCR1, no_block);
@@ -2515,7 +2515,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // Transition from _thread_in_native_trans to _thread_in_Java.
   __ li(R0, _thread_in_Java);
   __ lwsync(); // Acquire safepoint and suspend state, release thread state.
-  // TODO: PPC port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
+  // TODO: RISCV port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
   __ stw(R0, thread_(thread_state));
   __ bind(after_transition);
 
@@ -2615,7 +2615,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // --------------------------------------------------------------------------
   if (!is_critical_native) {
   __ ld(r_temp_1, thread_(active_handles));
-  // TODO: PPC port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
+  // TODO: RISCV port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
   __ li(r_temp_2, 0);
   __ stw(r_temp_2, JNIHandleBlock::top_offset_in_bytes(), r_temp_1);
 

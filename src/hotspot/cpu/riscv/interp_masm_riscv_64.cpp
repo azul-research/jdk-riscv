@@ -1415,7 +1415,7 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
   assert_different_registers(Rdst, Rtmp1);
   const Register invocation_counter = Rtmp1;
   const Register counter = Rdst;
-  // TODO: PPC port: assert(4 == InvocationCounter::sz_counter(), "unexpected field size.");
+  // TODO: RISCV port: assert(4 == InvocationCounter::sz_counter(), "unexpected field size.");
 
   // Load backedge counter.
   lwz(counter, in_bytes(MethodCounters::backedge_counter_offset()) +

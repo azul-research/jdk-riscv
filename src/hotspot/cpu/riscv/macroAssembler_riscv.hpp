@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_MACROASSEMBLER_PPC_HPP
-#define CPU_PPC_MACROASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_MACROASSEMBLER_RISCV_HPP
+#define CPU_RISCV_MACROASSEMBLER_RISCV_HPP
 
 #include "asm/assembler.hpp"
 #include "oops/accessDecorators.hpp"
@@ -972,4 +972,4 @@ class SkipIfEqualZero : public StackObj {
    ~SkipIfEqualZero();
 };
 
-#endif // CPU_PPC_MACROASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_MACROASSEMBLER_RISCV_HPP

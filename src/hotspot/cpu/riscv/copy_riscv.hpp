@@ -23,11 +23,11 @@
  *
  */
 
-#ifndef CPU_PPC_COPY_PPC_HPP
-#define CPU_PPC_COPY_PPC_HPP
+#ifndef CPU_RISCV_COPY_RISCV_HPP
+#define CPU_RISCV_COPY_RISCV_HPP
 
-//#ifndef PPC64
-//#error "copy currently only implemented for PPC64"
+//#ifndef RISCV64
+//#error "copy currently only implemented for RISCV64"
 //#endif
 
 // Inline functions for memory copy and fill.
@@ -168,4 +168,4 @@ static void pd_zero_to_bytes(void* to, size_t count) {
   (void)memset(to, 0, count);
 }
 
-#endif // CPU_PPC_COPY_PPC_HPP
+#endif // CPU_RISCV_COPY_RISCV_HPP

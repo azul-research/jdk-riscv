@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_RELOCINFO_PPC_HPP
-#define CPU_PPC_RELOCINFO_PPC_HPP
+#ifndef CPU_RISCV_RELOCINFO_RISCV_HPP
+#define CPU_RISCV_RELOCINFO_RISCV_HPP
 
   // machine-dependent parts of class relocInfo
  private:
@@ -49,4 +49,4 @@
   // listed in the oop section.
   static bool mustIterateImmediateOopsInCode() { return false; }
 
-#endif // CPU_PPC_RELOCINFO_PPC_HPP
+#endif // CPU_RISCV_RELOCINFO_RISCV_HPP

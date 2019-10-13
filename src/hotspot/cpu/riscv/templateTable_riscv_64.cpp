@@ -81,11 +81,11 @@ static void do_oop_load(InterpreterMacroAssembler* _masm,
 // Platform-dependent initialization
 
 void TemplateTable::pd_initialize() {
-  // No ppc64 specific initialization.
+  // No riscv64 specific initialization.
 }
 
 Address TemplateTable::at_bcp(int offset) {
-  // Not used on ppc.
+  // Not used on riscv.
   ShouldNotReachHere();
   return Address();
 }
@@ -2197,7 +2197,7 @@ void TemplateTable::_return(TosState state) {
     case atos: __ mr(R3_RET, R17_tos); break;
     case ftos:
     case dtos: __ fmr(F1_RET, F15_ftos); break;
-    case vtos: // This might be a constructor. Final fields (and volatile fields on PPC64) need
+    case vtos: // This might be a constructor. Final fields (and volatile fields on RISCV64) need
                // to get visible before the reference to the object gets stored anywhere.
                __ membar(Assembler::StoreStore); break;
     default  : ShouldNotReachHere();
@@ -2288,12 +2288,12 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
 //   - Robj, Roffset, Rflags
 void TemplateTable::load_field_cp_cache_entry(Register Robj,
                                               Register Rcache,
-                                              Register Rindex /* unused on PPC64 */,
+                                              Register Rindex /* unused on RISCV64 */,
                                               Register Roffset,
                                               Register Rflags,
                                               bool is_static = false) {
   assert_different_registers(Rcache, Rflags, Roffset);
-  // assert(Rindex == noreg, "parameter not used on PPC64");
+  // assert(Rindex == noreg, "parameter not used on RISCV64");
 
   ByteSize cp_base_offset = ConstantPoolCache::base_offset();
   __ ld(Rflags, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::flags_offset()), Rcache);
@@ -2449,7 +2449,7 @@ void TemplateTable::pop_and_check_object(Register Roop) {
   __ verify_oop(Roop);
 }
 
-// PPC64: implement volatile loads as fence-store-acquire.
+// RISCV64: implement volatile loads as fence-store-acquire.
 void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteControl rc) {
   transition(vtos, vtos);
 
@@ -2482,7 +2482,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   // Get volatile flag.
   __ rldicl(Rscratch, Rflags, 64-ConstantPoolCacheEntry::is_volatile_shift, 63); // Extract volatile bit.
-  // Note: sync is needed before volatile load on PPC64.
+  // Note: sync is needed before volatile load on RISCV64.
 
   // Check field type.
   __ rldicl(Rflags, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
@@ -2785,7 +2785,7 @@ void TemplateTable::jvmti_post_field_mod(Register Rcache, Register Rscratch, boo
   }
 }
 
-// PPC64: implement volatile stores as release-store (return bytecode contains an additional release).
+// RISCV64: implement volatile stores as release-store (return bytecode contains an additional release).
 void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteControl rc) {
   Label Lvolatile;
 
@@ -3029,7 +3029,7 @@ void TemplateTable::putstatic(int byte_no) {
   putfield_or_static(byte_no, true);
 }
 
-// See SPARC. On PPC64, we have a different jvmti_post_field_mod which does the job.
+// See SPARC. On RISCV64, we have a different jvmti_post_field_mod which does the job.
 void TemplateTable::jvmti_post_fast_field_mod() {
   __ should_not_reach_here();
 }
@@ -3752,7 +3752,7 @@ void TemplateTable::_new() {
   // Load index of constant pool entry.
   __ get_2_byte_integer_at_bcp(1, Rindex, InterpreterMacroAssembler::Unsigned);
 
-  // Note: compared to other architectures, PPC's implementation always goes
+  // Note: compared to other architectures, RISCV's implementation always goes
   // to the slow path if TLAB is used and fails.
   if (UseTLAB) {
     // Make sure the class we're about to instantiate has been resolved

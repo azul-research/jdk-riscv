@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_BYTES_PPC_HPP
-#define CPU_PPC_BYTES_PPC_HPP
+#ifndef CPU_RISCV_BYTES_RISCV_HPP
+#define CPU_RISCV_BYTES_RISCV_HPP
 
 #include "memory/allocation.hpp"
 
@@ -268,4 +268,4 @@ class Bytes: AllStatic {
 
 #include OS_CPU_HEADER_INLINE(bytes)
 
-#endif // CPU_PPC_BYTES_PPC_HPP
+#endif // CPU_RISCV_BYTES_RISCV_HPP

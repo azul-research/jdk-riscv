@@ -23,9 +23,9 @@
  *
  */
 
-#ifndef CPU_PPC_DEPCHECKER_PPC_HPP
-#define CPU_PPC_DEPCHECKER_PPC_HPP
+#ifndef CPU_RISCV_DEPCHECKER_RISCV_HPP
+#define CPU_RISCV_DEPCHECKER_RISCV_HPP
 
-// Nothing to do on ppc64
+// Nothing to do on riscv64
 
-#endif // CPU_PPC_DEPCHECKER_PPC_HPP
+#endif // CPU_RISCV_DEPCHECKER_RISCV_HPP

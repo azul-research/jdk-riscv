@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_C1_MACROASSEMBLER_PPC_HPP
-#define CPU_PPC_C1_MACROASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_C1_MACROASSEMBLER_RISCV_HPP
+#define CPU_RISCV_C1_MACROASSEMBLER_RISCV_HPP
 
   void pd_init() { /* nothing to do */ }
 
@@ -70,7 +70,7 @@
   );
 
   enum {
-    max_array_allocation_length = 0x40000000 // ppc friendly value, requires lis only
+    max_array_allocation_length = 0x40000000 // riscv friendly value, requires lis only
   };
 
   // Allocation of arrays
@@ -90,4 +90,4 @@
 
   address call_c_with_frame_resize(address dest, int frame_resize);
 
-#endif // CPU_PPC_C1_MACROASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_C1_MACROASSEMBLER_RISCV_HPP

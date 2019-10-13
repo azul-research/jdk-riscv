@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_INTERPRETERRT_PPC_HPP
-#define CPU_PPC_INTERPRETERRT_PPC_HPP
+#ifndef CPU_RISCV_INTERPRETERRT_RISCV_HPP
+#define CPU_RISCV_INTERPRETERRT_RISCV_HPP
 
 // This is included in the middle of class Interpreter.
 // Do not include files here.
@@ -57,4 +57,4 @@ static address get_result_handler(JavaThread* thread, Method* method);
 // A function to get the signature.
 static address get_signature(JavaThread* thread, Method* method);
 
-#endif // CPU_PPC_INTERPRETERRT_PPC_HPP
+#endif // CPU_RISCV_INTERPRETERRT_RISCV_HPP

@@ -23,13 +23,13 @@
  *
  */
 
-#ifndef OS_CPU_LINUX_PPC_ORDERACCESS_LINUX_PPC_HPP
-#define OS_CPU_LINUX_PPC_ORDERACCESS_LINUX_PPC_HPP
+#ifndef OS_CPU_LINUX_RISCV_ORDERACCESS_LINUX_RISCV_HPP
+#define OS_CPU_LINUX_RISCV_ORDERACCESS_LINUX_RISCV_HPP
 
 // Included in orderAccess.hpp header file.
 
-//#ifndef PPC64
-//#error "OrderAccess currently only implemented for PPC64"
+//#ifndef RISCV64
+//#error "OrderAccess currently only implemented for RISCV64"
 //#endif
 
 // Compiler version last used for testing: gcc 4.1.2
@@ -95,4 +95,4 @@ struct OrderAccess::PlatformOrderedLoad<byte_size, X_ACQUIRE>
 #undef inlasm_isync
 #undef inlasm_acquire_reg
 
-#endif // OS_CPU_LINUX_PPC_ORDERACCESS_LINUX_PPC_HPP
+#endif // OS_CPU_LINUX_RISCV_ORDERACCESS_LINUX_RISCV_HPP

@@ -23,15 +23,15 @@
  *
  */
 
-#ifndef CPU_PPC_DISASSEMBLER_PPC_HPP
-#define CPU_PPC_DISASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_DISASSEMBLER_RISCV_HPP
+#define CPU_RISCV_DISASSEMBLER_RISCV_HPP
 
   static int pd_instruction_alignment() {
     return sizeof(int);
   }
 
   static const char* pd_cpu_opts() {
-    return "ppc64";
+    return "riscv64";
   }
 
   // Find preceding instruction.
@@ -53,4 +53,4 @@
   // platform-specific instruction annotations (like value of loaded constants)
   static void annotate(address pc, outputStream* st);
 
-#endif // CPU_PPC_DISASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_DISASSEMBLER_RISCV_HPP

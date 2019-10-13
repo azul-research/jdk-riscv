@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_REGISTERMAP_PPC_HPP
-#define CPU_PPC_REGISTERMAP_PPC_HPP
+#ifndef CPU_RISCV_REGISTERMAP_RISCV_HPP
+#define CPU_RISCV_REGISTERMAP_RISCV_HPP
 
 // machine-dependent implemention for register maps
   friend class frame;
@@ -42,4 +42,4 @@
   void pd_initialize() {}
   void pd_initialize_from(const RegisterMap* map) {}
 
-#endif // CPU_PPC_REGISTERMAP_PPC_HPP
+#endif // CPU_RISCV_REGISTERMAP_RISCV_HPP

@@ -402,7 +402,7 @@ RegisterOrConstant MacroAssembler::delayed_value_impl(intptr_t* delayed_value_ad
 
 #ifndef PRODUCT
 void MacroAssembler::pd_print_patched_instruction(address branch) {
-  Unimplemented(); // TODO: PPC port
+  Unimplemented(); // TODO: RISCV port
 }
 #endif // ndef PRODUCT
 
@@ -556,7 +556,7 @@ void MacroAssembler::set_dest_of_bc_far_at(address instruction_addr, address des
       masm.b(dest);
     }
   }
-  ICache::ppc64_flush_icache_bytes(instruction_addr, code_size);
+  ICache::riscv64_flush_icache_bytes(instruction_addr, code_size);
 }
 
 // Emit a NOT mt-safe patchable 64 bit absolute call/jump.
@@ -696,7 +696,7 @@ void MacroAssembler::set_dest_of_bxx64_patchable_at(address instruction_addr, ad
   CodeBuffer buf(instruction_addr, code_size);
   MacroAssembler masm(&buf);
   masm.bxx64_patchable(dest, relocInfo::none, link);
-  ICache::ppc64_flush_icache_bytes(instruction_addr, code_size);
+  ICache::riscv64_flush_icache_bytes(instruction_addr, code_size);
 }
 
 // Get dest address of a bxx64_patchable instruction.
@@ -878,7 +878,7 @@ void MacroAssembler::save_LR_CR(Register tmp) {
   std(tmp, _abi(cr), R1_SP);
   mflr(tmp);
   std(tmp, _abi(lr), R1_SP);
-  // Tmp must contain lr on exit! (see return_addr and prolog in ppc64.ad)
+  // Tmp must contain lr on exit! (see return_addr and prolog in riscv64.ad)
 }
 
 void MacroAssembler::restore_LR_CR(Register tmp) {
@@ -1304,7 +1304,7 @@ bool MacroAssembler::is_load_from_polling_page(int instruction, void* ucontext,
 
 void MacroAssembler::bang_stack_with_offset(int offset) {
   // When increasing the stack, the old stack pointer will be written
-  // to the new top of stack according to the PPC64 abi.
+  // to the new top of stack according to the RISCV64 abi.
   // Therefore, stack banging is not necessary when increasing
   // the stack by <= os::vm_page_size() bytes.
   // When increasing the stack by a larger amount, this method is
@@ -1317,7 +1317,7 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
 
   if (is_simm(stdoffset, 16)) {
     // Signed 16 bit offset, a simple std is ok.
-    if (UseLoadInstructionsForStackBangingPPC64) {
+    if (UseLoadInstructionsForStackBangingRISCV64) {
       ld(R0, (int)(signed short)stdoffset, R1_SP);
     } else {
       std(R0,(int)(signed short)stdoffset, R1_SP);
@@ -1328,7 +1328,7 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
 
     Register tmp = R11;
     addis(tmp, R1_SP, hi);
-    if (UseLoadInstructionsForStackBangingPPC64) {
+    if (UseLoadInstructionsForStackBangingRISCV64) {
       ld(R0,  lo, tmp);
     } else {
       std(R0, lo, tmp);
@@ -1348,8 +1348,8 @@ address MacroAssembler::get_stack_bang_address(int instruction, void *ucontext) 
   ucontext_t* uc = (ucontext_t*) ucontext;
   int rs = inv_rs_field(instruction);
   int ra = inv_ra_field(instruction);
-  if (   (is_ld(instruction)   && rs == 0 &&  UseLoadInstructionsForStackBangingPPC64)
-      || (is_std(instruction)  && rs == 0 && !UseLoadInstructionsForStackBangingPPC64)
+  if (   (is_ld(instruction)   && rs == 0 &&  UseLoadInstructionsForStackBangingRISCV64)
+      || (is_std(instruction)  && rs == 0 && !UseLoadInstructionsForStackBangingRISCV64)
       || (is_stdu(instruction) && rs == 1)) {
     int ds = inv_ds_field(instruction);
     // return banged address
@@ -1397,7 +1397,7 @@ void MacroAssembler::getandsetd(Register dest_current_value, Register exchange_v
   bind(retry);
   ldarx(dest_current_value, addr_base, cmpxchgx_hint);
   stdcx_(exchange_value, addr_base);
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(CCR0, retry); // StXcx_ sets CCR0.
   } else {
     bne(                  CCR0, retry); // StXcx_ sets CCR0.
@@ -1411,7 +1411,7 @@ void MacroAssembler::getandaddd(Register dest_current_value, Register inc_value,
   ldarx(dest_current_value, addr_base, cmpxchgx_hint);
   add(tmp, dest_current_value, inc_value);
   stdcx_(tmp, addr_base);
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(CCR0, retry); // StXcx_ sets CCR0.
   } else {
     bne(                  CCR0, retry); // StXcx_ sets CCR0.
@@ -1484,7 +1484,7 @@ void MacroAssembler::atomic_get_and_modify_generic(Register dest_current_value, 
     default: ShouldNotReachHere();
   }
 
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(CCR0, retry); // StXcx_ sets CCR0.
   } else {
     bne(                  CCR0, retry); // StXcx_ sets CCR0.
@@ -1554,7 +1554,7 @@ void MacroAssembler::cmpxchg_loop_body(ConditionRegister flag, Register dest_cur
   };
 
   cmpw(flag, dest_current_value, compare_value);
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(flag, failed);
   } else {
     bne(                  flag, failed);
@@ -1617,7 +1617,7 @@ void MacroAssembler::cmpxchg_generic(ConditionRegister flag, Register dest_curre
   cmpxchg_loop_body(flag, dest_current_value, compare_value, exchange_value, addr_base, tmp1, tmp2,
                     retry, failed, cmpxchgx_hint, size);
   if (!weak || use_result_reg) {
-    if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+    if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
       bne_predict_not_taken(CCR0, weak ? failed : retry); // StXcx_ sets CCR0.
     } else {
       bne(                  CCR0, weak ? failed : retry); // StXcx_ sets CCR0.
@@ -1705,7 +1705,7 @@ void MacroAssembler::cmpxchgd(ConditionRegister flag,
 
   ldarx(dest_current_value, addr_base, cmpxchgx_hint);
   cmpd(flag, compare_value, dest_current_value);
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(flag, failed);
   } else {
     bne(                  flag, failed);
@@ -1713,7 +1713,7 @@ void MacroAssembler::cmpxchgd(ConditionRegister flag,
 
   stdcx_(exchange_value, addr_base);
   if (!weak || use_result_reg || failed_ext) {
-    if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+    if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
       bne_predict_not_taken(CCR0, weak ? failed : retry); // stXcx_ sets CCR0
     } else {
       bne(                  CCR0, weak ? failed : retry); // stXcx_ sets CCR0
@@ -1971,7 +1971,7 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
 
   ld(array_ptr, source_offset, sub_klass);
 
-  // TODO: PPC port: assert(4 == arrayOopDesc::length_length_in_bytes(), "precondition violated.");
+  // TODO: RISCV port: assert(4 == arrayOopDesc::length_length_in_bytes(), "precondition violated.");
   lwz(temp, length_offset, array_ptr);
   cmpwi(CCR0, temp, 0);
   beq(CCR0, result_reg!=noreg ? failure : fallthru); // length 0
@@ -2381,14 +2381,14 @@ address MacroAssembler::emit_trampoline_stub(int destination_toc_offset,
   return stub;
 }
 
-// TM on PPC64.
+// TM on RISCV64.
 void MacroAssembler::atomic_inc_ptr(Register addr, Register result, int simm16) {
   Label retry;
   bind(retry);
   ldarx(result, addr, /*hint*/ false);
   addi(result, result, simm16);
   stdcx_(result, addr);
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(CCR0, retry); // stXcx_ sets CCR0
   } else {
     bne(                  CCR0, retry); // stXcx_ sets CCR0
@@ -2401,7 +2401,7 @@ void MacroAssembler::atomic_ori_int(Register addr, Register result, int uimm16) 
   lwarx(result, addr, /*hint*/ false);
   ori(result, result, uimm16);
   stwcx_(result, addr);
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     bne_predict_not_taken(CCR0, retry); // stXcx_ sets CCR0
   } else {
     bne(                  CCR0, retry); // stXcx_ sets CCR0
@@ -2415,7 +2415,7 @@ void MacroAssembler::atomic_ori_int(Register addr, Register result, int uimm16) 
 //        rtm_counters_Reg (RTMLockingCounters*)
 void MacroAssembler::rtm_counters_update(Register abort_status, Register rtm_counters_Reg) {
   // Mapping to keep PreciseRTMLockingStatistics similar to x86.
-  // x86 ppc (! means inverted, ? means not the same)
+  // x86 riscv (! means inverted, ? means not the same)
   //  0   31  Set if abort caused by XABORT instruction.
   //  1  ! 7  If set, the transaction may succeed on a retry. This bit is always clear if bit 0 is set.
   //  2   13  Set if another logical processor conflicted with a memory address that was part of the transaction that aborted.
@@ -4922,7 +4922,7 @@ void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_of
 
 void MacroAssembler::verify_thread() {
   if (VerifyThread) {
-    unimplemented("'VerifyThread' currently not implemented on PPC");
+    unimplemented("'VerifyThread' currently not implemented on RISCV");
   }
 }
 
@@ -4987,8 +4987,8 @@ const char* stop_types[] = {
 };
 
 static void stop_on_request(int tp, const char* msg) {
-  tty->print("PPC assembly code requires stop: (%s) %s\n", stop_types[tp%/*stop_end*/4], msg);
-  guarantee(false, "PPC assembly code requires stop: %s", msg);
+  tty->print("RISCV assembly code requires stop: (%s) %s\n", stop_types[tp%/*stop_end*/4], msg);
+  guarantee(false, "RISCV assembly code requires stop: %s", msg);
 }
 
 // Call a C-function that prints output.

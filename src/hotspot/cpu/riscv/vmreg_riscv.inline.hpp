@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_VMREG_PPC_INLINE_HPP
-#define CPU_PPC_VMREG_PPC_INLINE_HPP
+#ifndef CPU_RISCV_VMREG_RISCV_INLINE_HPP
+#define CPU_RISCV_VMREG_RISCV_INLINE_HPP
 
 inline VMReg RegisterImpl::as_VMReg() {
   if (this == noreg) return VMRegImpl::Bad();
@@ -50,4 +50,4 @@ inline VMReg SpecialRegisterImpl::as_VMReg() {
 }
 
 
-#endif // CPU_PPC_VMREG_PPC_INLINE_HPP
+#endif // CPU_RISCV_VMREG_RISCV_INLINE_HPP

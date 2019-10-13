@@ -2235,7 +2235,7 @@ class StubGenerator: public StubCodeGenerator {
 
     const Register R3_from   = R3_ARG1;      // source array address
     const Register R4_to     = R4_ARG2;      // destination array address
-    const Register R5_count  = R5_ARG3;      // elements count (as long on PPC64)
+    const Register R5_count  = R5_ARG3;      // elements count (as long on RISCV64)
 
     const Register R6_bits   = R6_ARG4;      // test copy of low bits
     const Register R7_tmp    = R7_ARG5;

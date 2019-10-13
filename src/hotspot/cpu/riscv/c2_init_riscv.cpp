@@ -29,20 +29,20 @@
 #include "runtime/globals.hpp"
 #include "utilities/debug.hpp"
 
-// Processor dependent initialization of C2 compiler for ppc.
+// Processor dependent initialization of C2 compiler for riscv.
 
 void Compile::pd_compiler2_init() {
 
   // Power7 and later.
-  if (PowerArchitecturePPC64 > 6) {
+  if (PowerArchitectureRISCV64 > 6) {
     if (FLAG_IS_DEFAULT(UsePopCountInstruction)) {
       FLAG_SET_ERGO(UsePopCountInstruction, true);
     }
   }
 
-  if (PowerArchitecturePPC64 == 6) {
-    if (FLAG_IS_DEFAULT(InsertEndGroupPPC64)) {
-      FLAG_SET_ERGO(InsertEndGroupPPC64, true);
+  if (PowerArchitectureRISCV64 == 6) {
+    if (FLAG_IS_DEFAULT(InsertEndGroupRISCV64)) {
+      FLAG_SET_ERGO(InsertEndGroupRISCV64, true);
     }
   }
 

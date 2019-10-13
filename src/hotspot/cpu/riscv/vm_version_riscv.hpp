@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_VM_VERSION_PPC_HPP
-#define CPU_PPC_VM_VERSION_PPC_HPP
+#ifndef CPU_RISCV_VM_VERSION_RISCV_HPP
+#define CPU_RISCV_VM_VERSION_RISCV_HPP
 
 #include "runtime/globals_extension.hpp"
 #include "runtime/vm_version.hpp"
@@ -95,7 +95,7 @@ public:
   // Override Abstract_VM_Version implementation
   static bool use_biased_locking();
 
-  // PPC64 supports fast class initialization checks for static methods.
+  // RISCV64 supports fast class initialization checks for static methods.
   static bool supports_fast_class_init_checks() { return true; }
 
   static bool is_determine_features_test_running() { return _is_determine_features_test_running; }
@@ -130,4 +130,4 @@ public:
   static uint64_t _dscr_val;
 };
 
-#endif // CPU_PPC_VM_VERSION_PPC_HPP
+#endif // CPU_RISCV_VM_VERSION_RISCV_HPP

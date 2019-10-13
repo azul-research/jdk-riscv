@@ -23,30 +23,30 @@
  *
  */
 
-#ifndef CPU_PPC_ICACHE_PPC_HPP
-#define CPU_PPC_ICACHE_PPC_HPP
+#ifndef CPU_RISCV_ICACHE_RISCV_HPP
+#define CPU_RISCV_ICACHE_RISCV_HPP
 
 // Interface for updating the instruction cache.  Whenever the VM modifies
 // code, part of the processor instruction cache potentially has to be flushed.
 
 class ICache : public AbstractICache {
   friend class ICacheStubGenerator;
-  static int ppc64_flush_icache(address start, int lines, int magic);
+  static int riscv64_flush_icache(address start, int lines, int magic);
 
  public:
   enum {
     // Actually, cache line size is 64, but keeping it as it is to be
-    // on the safe side on ALL PPC64 implementations.
+    // on the safe side on ALL RISCV64 implementations.
     log2_line_size = 5,
     line_size      = 1 << log2_line_size
   };
 
-  static void ppc64_flush_icache_bytes(address start, int bytes) {
+  static void riscv64_flush_icache_bytes(address start, int bytes) {
     // Align start address to an icache line boundary and transform
     // nbytes to an icache line count.
     const uint line_offset = mask_address_bits(start, line_size - 1);
-    ppc64_flush_icache(start - line_offset, (bytes + line_offset + line_size - 1) >> log2_line_size, 0);
+    riscv64_flush_icache(start - line_offset, (bytes + line_offset + line_size - 1) >> log2_line_size, 0);
   }
 };
 
-#endif // CPU_PPC_ICACHE_PPC_HPP
+#endif // CPU_RISCV_ICACHE_RISCV_HPP

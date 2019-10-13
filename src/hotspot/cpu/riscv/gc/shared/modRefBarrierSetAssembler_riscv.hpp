@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_GC_SHARED_MODREFBARRIERSETASSEMBLER_PPC_HPP
-#define CPU_PPC_GC_SHARED_MODREFBARRIERSETASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_GC_SHARED_MODREFBARRIERSETASSEMBLER_RISCV_HPP
+#define CPU_RISCV_GC_SHARED_MODREFBARRIERSETASSEMBLER_RISCV_HPP
 
 #include "asm/macroAssembler.hpp"
 #include "gc/shared/barrierSetAssembler.hpp"
@@ -53,4 +53,4 @@ public:
                         Register tmp1, Register tmp2, Register tmp3, bool needs_frame);
 };
 
-#endif // CPU_PPC_GC_SHARED_MODREFBARRIERSETASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_GC_SHARED_MODREFBARRIERSETASSEMBLER_RISCV_HPP

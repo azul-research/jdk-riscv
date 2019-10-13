@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_INTERP_MASM_PPC_HPP
-#define CPU_PPC_INTERP_MASM_PPC_HPP
+#ifndef CPU_RISCV_INTERP_MASM_RISCV_HPP
+#define CPU_RISCV_INTERP_MASM_RISCV_HPP
 
 #include "asm/macroAssembler.hpp"
 #include "interpreter/invocationCounter.hpp"
@@ -268,4 +268,4 @@ class InterpreterMacroAssembler: public MacroAssembler {
                           NotifyMethodExitMode mode, bool check_exceptions);
 };
 
-#endif // CPU_PPC_INTERP_MASM_PPC_HPP
+#endif // CPU_RISCV_INTERP_MASM_RISCV_HPP

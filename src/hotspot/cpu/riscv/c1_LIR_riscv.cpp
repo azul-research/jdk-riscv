@@ -47,7 +47,7 @@ LIR_Opr LIR_OprFact::double_fpu(int reg1, int reg2) {
 
 #ifndef PRODUCT
 void LIR_Address::verify() const {
-  assert(scale() == times_1, "Scaled addressing mode not available on PPC and should not be used");
+  assert(scale() == times_1, "Scaled addressing mode not available on RISCV and should not be used");
   assert(disp() == 0 || index()->is_illegal(), "can't have both");
 #ifdef _LP64
   assert(base()->is_cpu_register(), "wrong base operand");

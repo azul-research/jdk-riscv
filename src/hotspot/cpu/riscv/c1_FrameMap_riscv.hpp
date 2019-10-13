@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_C1_FRAMEMAP_PPC_HPP
-#define CPU_PPC_C1_FRAMEMAP_PPC_HPP
+#ifndef CPU_RISCV_C1_FRAMEMAP_RISCV_HPP
+#define CPU_RISCV_C1_FRAMEMAP_RISCV_HPP
 
  public:
 
@@ -199,4 +199,4 @@
   // R29: global TOC
   static bool reg_needs_save(Register r) { return r != R0 && r != R1 && r != R13 && r != R16 && r != R29; }
 
-#endif // CPU_PPC_C1_FRAMEMAP_PPC_HPP
+#endif // CPU_RISCV_C1_FRAMEMAP_RISCV_HPP

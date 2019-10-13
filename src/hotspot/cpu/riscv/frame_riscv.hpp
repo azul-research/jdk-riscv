@@ -23,17 +23,17 @@
  *
  */
 
-#ifndef CPU_PPC_FRAME_PPC_HPP
-#define CPU_PPC_FRAME_PPC_HPP
+#ifndef CPU_RISCV_FRAME_RISCV_HPP
+#define CPU_RISCV_FRAME_RISCV_HPP
 
 #include "runtime/synchronizer.hpp"
 
-  //  C frame layout on PPC-64.
+  //  C frame layout on RISCV-64.
   //
   //  In this figure the stack grows upwards, while memory grows
   //  downwards. See "64-bit PowerPC ELF ABI Supplement Version 1.7",
   //  IBM Corp. (2003-10-29)
-  //  (http://math-atlas.sourceforge.net/devel/assembly/PPC-elf64abi-1.7.pdf).
+  //  (http://math-atlas.sourceforge.net/devel/assembly/RISCV-elf64abi-1.7.pdf).
   //
   //  Square brackets denote stack regions possibly larger
   //  than a single 64 bit slot.
@@ -186,7 +186,7 @@
   #define _spill_nonvolatiles_neg(_component) \
      (int)(-frame::spill_nonvolatiles_size + offset_of(frame::spill_nonvolatiles, _component))
 
-  // Frame layout for the Java template interpreter on PPC64.
+  // Frame layout for the Java template interpreter on RISCV64.
   //
   // In these figures the stack grows upwards, while memory grows
   // downwards. Square brackets denote regions possibly larger than
@@ -306,7 +306,7 @@
   //          [TOP_IJAVA_FRAME]
   //         ...
   //
-  //  JIT_FRAME (is a C frame according to PPC-64 ABI):
+  //  JIT_FRAME (is a C frame according to RISCV-64 ABI):
   //          [out_preserve]
   //          [out_args]
   //          [spills]
@@ -427,4 +427,4 @@
 
   static jint interpreter_frame_expression_stack_direction() { return -1; }
 
-#endif // CPU_PPC_FRAME_PPC_HPP
+#endif // CPU_RISCV_FRAME_RISCV_HPP

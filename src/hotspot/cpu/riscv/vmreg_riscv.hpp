@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_VMREG_PPC_HPP
-#define CPU_PPC_VMREG_PPC_HPP
+#ifndef CPU_RISCV_VMREG_RISCV_HPP
+#define CPU_RISCV_VMREG_RISCV_HPP
 
 inline bool is_Register() {
   return (unsigned int)value() < (unsigned int)ConcreteRegisterImpl::max_gpr;
@@ -50,4 +50,4 @@ inline bool is_concrete() {
   return is_even(value());
 }
 
-#endif // CPU_PPC_VMREG_PPC_HPP
+#endif // CPU_RISCV_VMREG_RISCV_HPP

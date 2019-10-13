@@ -507,9 +507,9 @@ int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp,
 }
 
 #ifndef PRODUCT
-// Test of ppc assembler.
+// Test of riscv assembler.
 void Assembler::test_asm() {
-  // PPC 1, section 3.3.8, Fixed-Point Arithmetic Instructions
+  // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
   addi(   R0,  R1,  10);
   addis(  R5,  R2,  11);
   addic_( R3,  R31, 42);
@@ -540,7 +540,7 @@ void Assembler::test_asm() {
 
   li(     R3, -4711);
 
-  // PPC 1, section 3.3.9, Fixed-Point Compare Instructions
+  // RISCV 1, section 3.3.9, Fixed-Point Compare Instructions
   cmpi(   CCR7,  0, R27, 4711);
   cmp(    CCR0, 1, R14, R11);
   cmpli(  CCR5,  1, R17, 45);
@@ -556,7 +556,7 @@ void Assembler::test_asm() {
   cmpldi( CCR5,  R17, 45);
   cmpld(  CCR3, R9,  R10);
 
-  // PPC 1, section 3.3.11, Fixed-Point Logical Instructions
+  // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
   andi_(  R4,  R5,  0xff);
   andis_( R12, R13, 0x7b51);
   ori(    R1,  R4,  13);
@@ -580,7 +580,7 @@ void Assembler::test_asm() {
 
   nop();
 
-  // PPC 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
+  // RISCV 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
   sld(    R5,  R6,  R8);
   sld_(   R3,  R5,  R9);
   slw(    R2,  R1,  R10);
@@ -616,7 +616,7 @@ void Assembler::test_asm() {
   rlwinm( R23, R2,  25, 10, 11);
   rlwinm_(R24, R3,  12, 13, 14);
 
-  // PPC 1, section 3.3.2 Fixed-Point Load Instructions
+  // RISCV 1, section 3.3.2 Fixed-Point Load Instructions
   lwzx(   R3,  R5, R7);
   lwz(    R11,  0, R1);
   lwzu(   R31, -4, R11);
@@ -640,7 +640,7 @@ void Assembler::test_asm() {
   ldx(    R3,  R5, R7);
   ldu(    R31, -4, R11);
 
-  //  PPC 1, section 3.3.3 Fixed-Point Store Instructions
+  //  RISCV 1, section 3.3.3 Fixed-Point Store Instructions
   stwx(   R3,  R5, R7);
   stw(    R31, -4, R11);
   stwu(   R11,  0, R1);
@@ -657,7 +657,7 @@ void Assembler::test_asm() {
   stdx(   R3,  R5, R7);
   stdu(   R31, -4, R11);
 
- // PPC 1, section 3.3.13 Move To/From System Register Instructions
+ // RISCV 1, section 3.3.13 Move To/From System Register Instructions
   mtlr(   R3);
   mflr(   R3);
   mtctr(  R3);
@@ -668,7 +668,7 @@ void Assembler::test_asm() {
   mtcr(   R15);
   mfcr(   R15);
 
- // PPC 1, section 2.4.1 Branch Instructions
+ // RISCV 1, section 2.4.1 Branch Instructions
   Label lbl1, lbl2, lbl3;
   bind(lbl1);
 
@@ -717,8 +717,8 @@ void Assembler::test_asm() {
   icbi( R1, R2);
   dcbst(R2, R3);
 
-  // FLOATING POINT instructions ppc.
-  // PPC 1, section 4.6.2 Floating-Point Load Instructions
+  // FLOATING POINT instructions riscv.
+  // RISCV 1, section 4.6.2 Floating-Point Load Instructions
   lfs( F1, -11, R3);
   lfsu(F2, 123, R4);
   lfsx(F3, R5,  R6);
@@ -726,7 +726,7 @@ void Assembler::test_asm() {
   lfdu(F5, 789, R8);
   lfdx(F6, R10, R11);
 
-  // PPC 1, section 4.6.3 Floating-Point Store Instructions
+  // RISCV 1, section 4.6.3 Floating-Point Store Instructions
   stfs(  F7,  876, R12);
   stfsu( F8,  543, R13);
   stfsx( F9,  R14, R15);
@@ -734,7 +734,7 @@ void Assembler::test_asm() {
   stfdu( F11, 111, R17);
   stfdx( F12, R18, R19);
 
-  // PPC 1, section 4.6.4 Floating-Point Move Instructions
+  // RISCV 1, section 4.6.4 Floating-Point Move Instructions
   fmr(   F13, F14);
   fmr_(  F14, F15);
   fneg(  F16, F17);
@@ -744,7 +744,7 @@ void Assembler::test_asm() {
   fnabs( F24, F25);
   fnabs_(F26, F27);
 
-  // PPC 1, section 4.6.5.1 Floating-Point Elementary Arithmetic
+  // RISCV 1, section 4.6.5.1 Floating-Point Elementary Arithmetic
   // Instructions
   fadd(  F28, F29, F30);
   fadd_( F31, F0,  F1);
@@ -763,7 +763,7 @@ void Assembler::test_asm() {
   fdivs( F6,  F7,  F8);
   fdivs_(F9,  F10, F11);
 
-  // PPC 1, section 4.6.6 Floating-Point Rounding and Conversion
+  // RISCV 1, section 4.6.6 Floating-Point Rounding and Conversion
   // Instructions
   frsp(  F12, F13);
   fctid( F14, F15);
@@ -772,7 +772,7 @@ void Assembler::test_asm() {
   fctiwz(F20, F21);
   fcfid( F22, F23);
 
-  // PPC 1, section 4.6.7 Floating-Point Compare Instructions
+  // RISCV 1, section 4.6.7 Floating-Point Compare Instructions
   fcmpu( CCR7, F24, F25);
 
   tty->print_cr("\ntest_asm disassembly (0x%lx 0x%lx):", p2i(code()->insts_begin()), p2i(code()->insts_end()));

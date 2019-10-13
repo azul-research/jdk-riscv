@@ -22,8 +22,8 @@
  *
  */
 
-#ifndef CPU_PPC_VM_VERSION_EXT_PPC_HPP
-#define CPU_PPC_VM_VERSION_EXT_PPC_HPP
+#ifndef CPU_RISCV_VM_VERSION_EXT_RISCV_HPP
+#define CPU_RISCV_VM_VERSION_EXT_RISCV_HPP
 
 #include "utilities/macros.hpp"
 #include "vm_version_riscv.hpp"
@@ -59,4 +59,4 @@ class VM_Version_Ext : public VM_Version {
   static const char* cpu_description(void);
 };
 
-#endif // CPU_PPC_VM_VERSION_EXT_PPC_HPP
+#endif // CPU_RISCV_VM_VERSION_EXT_RISCV_HPP

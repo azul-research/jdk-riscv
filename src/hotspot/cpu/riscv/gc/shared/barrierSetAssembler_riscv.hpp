@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_GC_SHARED_BARRIERSETASSEMBLER_PPC_HPP
-#define CPU_PPC_GC_SHARED_BARRIERSETASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_GC_SHARED_BARRIERSETASSEMBLER_RISCV_HPP
+#define CPU_RISCV_GC_SHARED_BARRIERSETASSEMBLER_RISCV_HPP
 
 #include "asm/macroAssembler.hpp"
 #include "memory/allocation.hpp"
@@ -52,4 +52,4 @@ public:
   virtual void barrier_stubs_init() {}
 };
 
-#endif // CPU_PPC_GC_SHARED_BARRIERSETASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_GC_SHARED_BARRIERSETASSEMBLER_RISCV_HPP

@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_GLOBALS_PPC_HPP
-#define CPU_PPC_GLOBALS_PPC_HPP
+#ifndef CPU_RISCV_GLOBALS_RISCV_HPP
+#define CPU_RISCV_GLOBALS_RISCV_HPP
 
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/macros.hpp"
@@ -91,7 +91,7 @@ define_pd_global(bool, ThreadLocalHandshakes, true);
                    constraint,   \
                    writeable)    \
                                                                             \
-  product(uintx, PowerArchitecturePPC64, 0,                                 \
+  product(uintx, PowerArchitectureRISCV64, 0,                                 \
           "CPU Version: x for PowerX. Currently recognizes Power5 to "      \
           "Power8. Default is 0. Newer CPUs will be recognized as Power8.") \
                                                                             \
@@ -104,48 +104,48 @@ define_pd_global(bool, ThreadLocalHandshakes, true);
           "Reoptimize code-sequences of calls at runtime.")                 \
                                                                             \
   /* Power 8: Configure Data Stream Control Register. */                    \
-  product(uint64_t,DSCR_PPC64, (uintx)-1,                                   \
+  product(uint64_t,DSCR_RISCV64, (uintx)-1,                                   \
           "Power8 or later: Specify encoded value for Data Stream Control " \
           "Register")                                                       \
-  product(uint64_t,DSCR_DPFD_PPC64, 8,                                      \
+  product(uint64_t,DSCR_DPFD_RISCV64, 8,                                      \
           "Power8 or later: DPFD (default prefetch depth) value of the "    \
           "Data Stream Control Register."                                   \
           " 0: hardware default, 1: none, 2-7: min-max, 8: don't touch")    \
-  product(uint64_t,DSCR_URG_PPC64, 8,                                       \
+  product(uint64_t,DSCR_URG_RISCV64, 8,                                       \
           "Power8 or later: URG (depth attainment urgency) value of the "   \
           "Data Stream Control Register."                                   \
           " 0: hardware default, 1: none, 2-7: min-max, 8: don't touch")    \
                                                                             \
-  product(bool, UseLoadInstructionsForStackBangingPPC64, false,             \
+  product(bool, UseLoadInstructionsForStackBangingRISCV64, false,             \
           "Use load instructions for stack banging.")                       \
                                                                             \
   /* special instructions */                                                \
                                                                             \
-  product(bool, UseCountLeadingZerosInstructionsPPC64, true,                \
+  product(bool, UseCountLeadingZerosInstructionsRISCV64, true,                \
           "Use count leading zeros instructions.")                          \
                                                                             \
-  product(bool, UseCountTrailingZerosInstructionsPPC64, false,              \
+  product(bool, UseCountTrailingZerosInstructionsRISCV64, false,              \
           "Use count trailing zeros instructions.")                         \
                                                                             \
-  product(bool, UseExtendedLoadAndReserveInstructionsPPC64, false,          \
+  product(bool, UseExtendedLoadAndReserveInstructionsRISCV64, false,          \
           "Use extended versions of load-and-reserve instructions.")        \
                                                                             \
-  product(bool, UseRotateAndMaskInstructionsPPC64, true,                    \
+  product(bool, UseRotateAndMaskInstructionsRISCV64, true,                    \
           "Use rotate and mask instructions.")                              \
                                                                             \
-  product(bool, UseStaticBranchPredictionInCompareAndSwapPPC64, true,       \
+  product(bool, UseStaticBranchPredictionInCompareAndSwapRISCV64, true,       \
           "Use static branch prediction hints in CAS operations.")          \
-  product(bool, UseStaticBranchPredictionForUncommonPathsPPC64, false,      \
+  product(bool, UseStaticBranchPredictionForUncommonPathsRISCV64, false,      \
           "Use static branch prediction hints for uncommon paths.")         \
                                                                             \
-  product(bool, UsePower6SchedulerPPC64, false,                             \
+  product(bool, UsePower6SchedulerRISCV64, false,                             \
           "Use Power6 Scheduler.")                                          \
                                                                             \
-  product(bool, InsertEndGroupPPC64, false,                                 \
+  product(bool, InsertEndGroupRISCV64, false,                                 \
           "Insert EndGroup instructions to optimize for Power6.")           \
                                                                             \
   /* Trap based checks. */                                                  \
-  /* Trap based checks use the ppc trap instructions to check certain */    \
+  /* Trap based checks use the riscv trap instructions to check certain */    \
   /* conditions. This instruction raises a SIGTRAP caught by the      */    \
   /* exception handler of the VM.                                     */    \
   product(bool, UseSIGTRAP, true,                                           \
@@ -178,7 +178,7 @@ define_pd_global(bool, ThreadLocalHandshakes, true);
                                                                             \
   experimental(int, RTMSpinLoopCount, 100,                                  \
           "Spin count for lock to become free before RTM retry")            \
-          range(0, 32767) /* immediate operand limit on ppc */              \
+          range(0, 32767) /* immediate operand limit on riscv */              \
                                                                             \
   experimental(int, RTMAbortThreshold, 1000,                                \
           "Calculate abort ratio after this number of aborts")              \
@@ -195,7 +195,7 @@ define_pd_global(bool, ThreadLocalHandshakes, true);
                                                                             \
   experimental(int, RTMTotalCountIncrRate, 64,                              \
           "Increment total RTM attempted lock count once every n times")    \
-          range(1, 32767) /* immediate operand limit on ppc */              \
+          range(1, 32767) /* immediate operand limit on riscv */              \
           constraint(RTMTotalCountIncrRateConstraintFunc,AfterErgo)         \
                                                                             \
   experimental(intx, RTMLockingCalculationDelay, 0,                         \
@@ -205,4 +205,4 @@ define_pd_global(bool, ThreadLocalHandshakes, true);
   experimental(bool, UseRTMXendForLockBusy, true,                           \
           "Use RTM Xend instead of Xabort when lock busy")                  \
 
-#endif // CPU_PPC_GLOBALS_PPC_HPP
+#endif // CPU_RISCV_GLOBALS_RISCV_HPP

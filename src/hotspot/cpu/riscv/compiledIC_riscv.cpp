@@ -37,7 +37,7 @@
 
 // ----------------------------------------------------------------------------
 
-// A PPC CompiledDirectStaticCall looks like this:
+// A RISCV CompiledDirectStaticCall looks like this:
 //
 // >>>> consts
 //

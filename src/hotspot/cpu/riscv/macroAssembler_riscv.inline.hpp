@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_MACROASSEMBLER_PPC_INLINE_HPP
-#define CPU_PPC_MACROASSEMBLER_PPC_INLINE_HPP
+#ifndef CPU_RISCV_MACROASSEMBLER_RISCV_INLINE_HPP
+#define CPU_RISCV_MACROASSEMBLER_RISCV_INLINE_HPP
 
 #include "asm/assembler.inline.hpp"
 #include "asm/macroAssembler.hpp"
@@ -77,7 +77,7 @@ inline void MacroAssembler::endgroup_if_needed(bool needed) {
 inline void MacroAssembler::membar(int bits) {
   // Comment: Usage of elemental_membar(bits) is not recommended for Power 8.
   // If elemental_membar(bits) is used, disable optimization of acquire-release
-  // (Matcher::post_membar_release where we use PPC64_ONLY(xop == Op_MemBarRelease ||))!
+  // (Matcher::post_membar_release where we use RISCV64_ONLY(xop == Op_MemBarRelease ||))!
   if (bits & StoreLoad) { sync(); }
   else if (bits) { lwsync(); }
 }
@@ -481,4 +481,4 @@ inline address MacroAssembler::function_entry() { return pc(); }
 inline address MacroAssembler::function_entry() { return emit_fd(); }
 #endif
 
-#endif // CPU_PPC_MACROASSEMBLER_PPC_INLINE_HPP
+#endif // CPU_RISCV_MACROASSEMBLER_RISCV_INLINE_HPP

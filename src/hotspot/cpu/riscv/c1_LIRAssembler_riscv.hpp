@@ -23,15 +23,15 @@
  *
  */
 
-#ifndef CPU_PPC_C1_LIRASSEMBLER_PPC_HPP
-#define CPU_PPC_C1_LIRASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_C1_LIRASSEMBLER_RISCV_HPP
+#define CPU_RISCV_C1_LIRASSEMBLER_RISCV_HPP
 
  private:
 
   //////////////////////////////////////////////////////////////////////////////
-  // PPC64 load/store emission
+  // RISCV64 load/store emission
   //
-  // The PPC ld/st instructions cannot accomodate displacements > 16 bits long.
+  // The RISCV ld/st instructions cannot accomodate displacements > 16 bits long.
   // The following "pseudo" instructions (load/store) make it easier to
   // use the indexed addressing mode by allowing 32 bit displacements:
   //
@@ -67,7 +67,7 @@ enum {
   _deopt_handler_size = MacroAssembler::bl64_patchable_size
 };
 
-  // '_static_call_stub_size' is only used on ppc (see LIR_Assembler::emit_static_call_stub()
+  // '_static_call_stub_size' is only used on riscv (see LIR_Assembler::emit_static_call_stub()
   // in c1_LIRAssembler_riscv.cpp. The other, shared getters are defined in c1_LIRAssembler.hpp
   static int static_call_stub_size() {
     if (UseAOT) {
@@ -77,4 +77,4 @@ enum {
     }
   }
 
-#endif // CPU_PPC_C1_LIRASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_C1_LIRASSEMBLER_RISCV_HPP

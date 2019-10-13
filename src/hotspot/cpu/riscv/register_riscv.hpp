@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_REGISTER_PPC_HPP
-#define CPU_PPC_REGISTER_PPC_HPP
+#ifndef CPU_RISCV_REGISTER_RISCV_HPP
+#define CPU_RISCV_REGISTER_RISCV_HPP
 
 #include "asm/register.hpp"
 
@@ -33,10 +33,10 @@ class Address;
 class VMRegImpl;
 typedef VMRegImpl* VMReg;
 
-//  PPC64 registers
+//  RISCV64 registers
 //
 //  See "64-bit PowerPC ELF ABI Supplement 1.7", IBM Corp. (2003-10-29).
-//  (http://math-atlas.sourceforge.net/devel/assembly/PPC-elf64abi-1.7.pdf)
+//  (http://math-atlas.sourceforge.net/devel/assembly/RISCV-elf64abi-1.7.pdf)
 //
 //  r0        Register used in function prologs (volatile)
 //  r1        Stack pointer (nonvolatile)
@@ -103,7 +103,7 @@ class RegisterImpl: public AbstractRegisterImpl {
   const char* name() const;
 };
 
-// The integer registers of the PPC architecture
+// The integer registers of the RISCV architecture
 CONSTANT_REGISTER_DECLARATION(Register, noreg, (-1));
 
 CONSTANT_REGISTER_DECLARATION(Register, R0,   (0));
@@ -196,7 +196,7 @@ inline ConditionRegister as_ConditionRegister(int encoding) {
   return (ConditionRegister)(intptr_t)encoding;
 }
 
-// The implementation of condition register(s) for the PPC architecture
+// The implementation of condition register(s) for the RISCV architecture
 class ConditionRegisterImpl: public AbstractRegisterImpl {
  public:
   enum {
@@ -217,7 +217,7 @@ class ConditionRegisterImpl: public AbstractRegisterImpl {
   const char* name() const;
 };
 
-// The (parts of the) condition register(s) of the PPC architecture
+// The (parts of the) condition register(s) of the RISCV architecture
 // sys/ioctl.h on AIX defines CR0-CR3, so I name these CCR.
 CONSTANT_REGISTER_DECLARATION(ConditionRegister, CCR0,   (0));
 CONSTANT_REGISTER_DECLARATION(ConditionRegister, CCR1,   (1));
@@ -255,7 +255,7 @@ inline FloatRegister as_FloatRegister(int encoding) {
   return (FloatRegister)(intptr_t)encoding;
 }
 
-// The implementation of float registers for the PPC architecture
+// The implementation of float registers for the RISCV architecture
 class FloatRegisterImpl: public AbstractRegisterImpl {
  public:
   enum {
@@ -279,7 +279,7 @@ class FloatRegisterImpl: public AbstractRegisterImpl {
   VectorSRegister to_vsr() const;
 };
 
-// The float registers of the PPC architecture
+// The float registers of the RISCV architecture
 CONSTANT_REGISTER_DECLARATION(FloatRegister, fnoreg, (-1));
 
 CONSTANT_REGISTER_DECLARATION(FloatRegister, F0,  ( 0));
@@ -379,7 +379,7 @@ class SpecialRegisterImpl: public AbstractRegisterImpl {
   const char* name() const;
 };
 
-// The special registers of the PPC architecture
+// The special registers of the RISCV architecture
 CONSTANT_REGISTER_DECLARATION(SpecialRegister, SR_XER,     (0));
 CONSTANT_REGISTER_DECLARATION(SpecialRegister, SR_LR,      (1));
 CONSTANT_REGISTER_DECLARATION(SpecialRegister, SR_CTR,     (2));
@@ -666,7 +666,7 @@ CONSTANT_REGISTER_DECLARATION(VectorSRegister, VSR63, (63));
 #endif // DONT_USE_REGISTER_DEFINES
 
 // Maximum number of incoming arguments that can be passed in i registers.
-const int PPC_ARGS_IN_REGS_NUM = 8;
+const int RISCV_ARGS_IN_REGS_NUM = 8;
 
 
 // Need to know the total number of registers of all sorts for SharedInfo.
@@ -818,4 +818,4 @@ REGISTER_DECLARATION(Register, R12_scratch2, R12);
 #define R12_scratch2   AS_REGISTER(Register, R12)
 #endif
 
-#endif // CPU_PPC_REGISTER_PPC_HPP
+#endif // CPU_RISCV_REGISTER_RISCV_HPP

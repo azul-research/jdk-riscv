@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_JNITYPES_PPC_HPP
-#define CPU_PPC_JNITYPES_PPC_HPP
+#ifndef CPU_RISCV_JNITYPES_RISCV_HPP
+#define CPU_RISCV_JNITYPES_RISCV_HPP
 
 #include "jni.h"
 #include "memory/allocation.hpp"
@@ -45,9 +45,9 @@ class JNITypes : AllStatic {
 
  private:
 
-//#ifndef PPC64
-//#error "ppc32 support currently not implemented!!!"
-//#endif // PPC64
+//#ifndef RISCV64
+//#error "riscv32 support currently not implemented!!!"
+//#endif // RISCV64
 
  public:
   // Ints are stored in native format in one JavaCallArgument slot at *to.
@@ -107,4 +107,4 @@ class JNITypes : AllStatic {
   static inline jdouble get_double(intptr_t *from) { return *(jdouble *)(from + 1); }
 };
 
-#endif // CPU_PPC_JNITYPES_PPC_HPP
+#endif // CPU_RISCV_JNITYPES_RISCV_HPP

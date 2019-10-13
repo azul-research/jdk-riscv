@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_STUBROUTINES_PPC_HPP
-#define CPU_PPC_STUBROUTINES_PPC_HPP
+#ifndef CPU_RISCV_STUBROUTINES_RISCV_HPP
+#define CPU_RISCV_STUBROUTINES_RISCV_HPP
 
 // This file holds the platform specific parts of the StubRoutines
 // definition. See stubRoutines.hpp for a description on how to
@@ -48,4 +48,4 @@ enum platform_dependent_constants {
 
 static address generate_crc_constants(juint reverse_poly);
 
-#endif // CPU_PPC_STUBROUTINES_PPC_HPP
+#endif // CPU_RISCV_STUBROUTINES_RISCV_HPP

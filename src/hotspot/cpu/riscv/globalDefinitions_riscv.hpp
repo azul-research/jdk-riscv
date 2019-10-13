@@ -23,14 +23,14 @@
  *
  */
 
-#ifndef CPU_PPC_GLOBALDEFINITIONS_PPC_HPP
-#define CPU_PPC_GLOBALDEFINITIONS_PPC_HPP
+#ifndef CPU_RISCV_GLOBALDEFINITIONS_RISCV_HPP
+#define CPU_RISCV_GLOBALDEFINITIONS_RISCV_HPP
 
 #ifdef CC_INTERP
 #error "CC_INTERP is no longer supported. Removed in change 8145117."
 #endif
 
-// Size of PPC Instructions
+// Size of RISCV Instructions
 const int BytesPerInstWord = 4;
 
 const int StackAlignmentInBytes = 16;
@@ -41,7 +41,7 @@ const bool CCallingConventionRequiresIntsAsLongs = true;
 
 #define SUPPORTS_NATIVE_CX8
 
-// The PPC CPUs are NOT multiple-copy-atomic.
+// The RISCV CPUs are NOT multiple-copy-atomic.
 #define CPU_NOT_MULTIPLE_COPY_ATOMIC
 
 // The expected size in bytes of a cache line, used to pad data structures.
@@ -60,4 +60,4 @@ const bool CCallingConventionRequiresIntsAsLongs = true;
 // Define the condition to use this -XX flag.
 #define USE_POLL_BIT_ONLY UseSIGTRAP
 
-#endif // CPU_PPC_GLOBALDEFINITIONS_PPC_HPP
+#endif // CPU_RISCV_GLOBALDEFINITIONS_RISCV_HPP

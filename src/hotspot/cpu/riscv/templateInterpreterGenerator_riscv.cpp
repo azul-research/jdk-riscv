@@ -70,7 +70,7 @@ int TemplateInterpreter::InterpreterCodeSize = 256*K;
 //-----------------------------------------------------------------------------
 
 address TemplateInterpreterGenerator::generate_slow_signature_handler() {
-  // Slow_signature handler that respects the PPC C calling conventions.
+  // Slow_signature handler that respects the RISCV C calling conventions.
   //
   // We get called by the native entry code with our output register
   // area == 8. First we call InterpreterRuntime::get_result_handler
@@ -134,7 +134,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     Label L;
     // test if static
     // _access_flags._flags must be at offset 0.
-    // TODO PPC port: requires change in shared code.
+    // TODO RISCV port: requires change in shared code.
     //assert(in_bytes(AccessFlags::flags_offset()) == 0,
     //       "MethodDesc._access_flags == MethodDesc._access_flags._flags");
     // _access_flags must be a 32 bit value.
@@ -1109,7 +1109,7 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
   int num_args = 1;
   bool double_precision = true;
 
-  // PPC64 specific:
+  // RISCV64 specific:
   switch (kind) {
     case Interpreter::java_lang_math_sqrt: use_instruction = VM_Version::has_fsqrt(); break;
     case Interpreter::java_lang_math_abs:  use_instruction = true; break;
@@ -1382,7 +1382,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // compute_interpreter_state. SP+16 ends up pointing to the ABI
   // outgoing argument area.
   //
-  // Not needed on PPC64.
+  // Not needed on RISCV64.
   //__ add(SP, SP, Argument::n_register_parameters*BytesPerWord);
 
   assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
@@ -1433,7 +1433,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ li(R0, _thread_in_native);
   __ release();
 
-  // TODO PPC port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
+  // TODO RISCV port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
   __ stw(R0, thread_(thread_state));
 
   //=============================================================================
@@ -1487,14 +1487,14 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Acquire isn't strictly necessary here because of the fence, but
   // sync_state is declared to be volatile, so we do it anyway
-  // (cmp-br-isync on one path, release (same as acquire on PPC64) on the other path).
+  // (cmp-br-isync on one path, release (same as acquire on RISCV64) on the other path).
 
   Label do_safepoint, sync_check_done;
   // No synchronization in progress nor yet synchronized.
   __ safepoint_poll(do_safepoint, sync_state);
 
   // Not suspended.
-  // TODO PPC port assert(4 == Thread::sz_suspend_flags(), "unexpected field size");
+  // TODO RISCV port assert(4 == Thread::sz_suspend_flags(), "unexpected field size");
   __ lwz(suspend_flags, thread_(suspend_flags));
   __ cmpwi(CCR1, suspend_flags, 0);
   __ beq(CCR1, sync_check_done);
@@ -1530,7 +1530,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // this changes then the interpreter_frame_result implementation
   // will need to be updated too.
 
-  // On PPC64, we have stored the result directly after the native call.
+  // On RISCV64, we have stored the result directly after the native call.
 
   //=============================================================================
   // Back in Java
@@ -1572,7 +1572,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Reset active handles after returning from native.
   // thread->active_handles()->clear();
   __ ld(active_handles, thread_(active_handles));
-  // TODO PPC port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
+  // TODO RISCV port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
   __ li(R0, 0);
   __ stw(R0, JNIHandleBlock::top_offset_in_bytes(), active_handles);
 
@@ -1778,7 +1778,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 // Contract on scratch and work registers.
 // =======================================
 //
-// On ppc, the register set {R2..R12} is available in the interpreter as scratch/work registers.
+// On riscv, the register set {R2..R12} is available in the interpreter as scratch/work registers.
 // You should, however, keep in mind that {R3_ARG1..R10_ARG8} is the C-ABI argument register set.
 // You can't rely on these registers across calls.
 //
@@ -2201,7 +2201,7 @@ address TemplateInterpreterGenerator::generate_earlyret_entry_for(TosState state
     case atos: __ mr(R3_RET, R17_tos); break;
     case ftos:
     case dtos: __ fmr(F1_RET, F15_ftos); break;
-    case vtos: // This might be a constructor. Final fields (and volatile fields on PPC64) need
+    case vtos: // This might be a constructor. Final fields (and volatile fields on RISCV64) need
                // to get visible before the reference to the object gets stored anywhere.
                __ membar(Assembler::StoreStore); break;
     default  : ShouldNotReachHere();

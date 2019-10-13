@@ -30,5 +30,5 @@
 
 void LinearScan::allocate_fpu_stack() {
   Unimplemented();
-  // No FPU stack on PPC
+  // No FPU stack on RISCV
 }

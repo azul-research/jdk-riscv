@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_JAVAFRAMEANCHOR_PPC_HPP
-#define CPU_PPC_JAVAFRAMEANCHOR_PPC_HPP
+#ifndef CPU_RISCV_JAVAFRAMEANCHOR_RISCV_HPP
+#define CPU_RISCV_JAVAFRAMEANCHOR_RISCV_HPP
 
 public:
   // Each arch must define reset, save, restore
@@ -75,4 +75,4 @@ public:
 
   void set_last_Java_sp(intptr_t* sp) { OrderAccess::release(); _last_Java_sp = sp; }
 
-#endif // CPU_PPC_JAVAFRAMEANCHOR_PPC_HPP
+#endif // CPU_RISCV_JAVAFRAMEANCHOR_RISCV_HPP

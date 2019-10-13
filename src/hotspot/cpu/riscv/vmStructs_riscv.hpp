@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_VMSTRUCTS_PPC_HPP
-#define CPU_PPC_VMSTRUCTS_PPC_HPP
+#ifndef CPU_RISCV_VMSTRUCTS_RISCV_HPP
+#define CPU_RISCV_VMSTRUCTS_RISCV_HPP
 
 // These are the CPU-specific fields, types and integer
 // constants required by the Serviceability Agent. This file is
@@ -38,4 +38,4 @@
 
 #define VM_LONG_CONSTANTS_CPU(declare_constant, declare_preprocessor_constant, declare_c1_constant, declare_c2_constant, declare_c2_preprocessor_constant)
 
-#endif // CPU_PPC_VMSTRUCTS_PPC_HPP
+#endif // CPU_RISCV_VMSTRUCTS_RISCV_HPP

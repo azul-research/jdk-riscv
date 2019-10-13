@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_C2_GLOBALS_PPC_HPP
-#define CPU_PPC_C2_GLOBALS_PPC_HPP
+#ifndef CPU_RISCV_C2_GLOBALS_RISCV_HPP
+#define CPU_RISCV_C2_GLOBALS_RISCV_HPP
 
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/macros.hpp"
@@ -101,4 +101,4 @@ define_pd_global(size_t,   MetaspaceSize,                ScaleForWordSize(16*M))
 // Ergonomics related flags
 define_pd_global(bool,     NeverActAsServerClassMachine, false);
 
-#endif // CPU_PPC_C2_GLOBALS_PPC_HPP
+#endif // CPU_RISCV_C2_GLOBALS_RISCV_HPP

@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_CODEBUFFER_PPC_HPP
-#define CPU_PPC_CODEBUFFER_PPC_HPP
+#ifndef CPU_RISCV_CODEBUFFER_RISCV_HPP
+#define CPU_RISCV_CODEBUFFER_RISCV_HPP
 
 private:
   void pd_initialize() {}
@@ -32,4 +32,4 @@ private:
 public:
   void flush_bundle(bool start_new_bundle) {}
 
-#endif // CPU_PPC_CODEBUFFER_PPC_HPP
+#endif // CPU_RISCV_CODEBUFFER_RISCV_HPP

@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_NATIVEINST_PPC_HPP
-#define CPU_PPC_NATIVEINST_PPC_HPP
+#ifndef CPU_RISCV_NATIVEINST_RISCV_HPP
+#define CPU_RISCV_NATIVEINST_RISCV_HPP
 
 #include "asm/macroAssembler.hpp"
 #include "runtime/icache.hpp"
@@ -124,14 +124,14 @@ inline NativeInstruction* nativeInstruction_at(address address) {
 // instructions. It is used to manipulate inline caches, primitive &
 // dll calls, etc.
 //
-// Sparc distinguishes `NativeCall' and `NativeFarCall'. On PPC64,
+// Sparc distinguishes `NativeCall' and `NativeFarCall'. On RISCV64,
 // at present, we provide a single class `NativeCall' representing the
 // sequence `load_const, mtctr, bctrl' or the sequence 'ld_from_toc,
 // mtctr, bctrl'.
 class NativeCall: public NativeInstruction {
  public:
 
-  enum ppc_specific_constants {
+  enum riscv_specific_constants {
     load_const_instruction_size                 = 28,
     load_const_from_method_toc_instruction_size = 16,
     instruction_size                            = 16 // Used in shared code for calls with reloc_info.
@@ -166,7 +166,7 @@ class NativeCall: public NativeInstruction {
 
   address get_trampoline();
 
-  void verify_alignment() {} // do nothing on ppc
+  void verify_alignment() {} // do nothing on riscv
   void verify() NOT_DEBUG_RETURN;
 };
 
@@ -239,7 +239,7 @@ inline NativeFarCall* nativeFarCall_at(address instr) {
 class NativeMovConstReg: public NativeInstruction {
  public:
 
-  enum ppc_specific_constants {
+  enum riscv_specific_constants {
     load_const_instruction_size                 = 20,
     load_const_from_method_toc_instruction_size =  8,
     instruction_size                            =  8 // Used in shared code for calls with reloc_info.
@@ -278,7 +278,7 @@ class NativeJump: public NativeInstruction {
   // We use MacroAssembler::b64_patchable() for implementing a
   // jump-anywhere instruction.
 
-  enum ppc_specific_constants {
+  enum riscv_specific_constants {
     instruction_size = MacroAssembler::b64_patchable_size
   };
 
@@ -332,7 +332,7 @@ class NativeJump: public NativeInstruction {
   void verify() NOT_DEBUG_RETURN;
 
   static void check_verified_entry_alignment(address entry, address verified_entry) {
-    // We just patch one instruction on ppc64, so the jump doesn't have to
+    // We just patch one instruction on riscv64, so the jump doesn't have to
     // be aligned. Nothing to do here.
   }
 };
@@ -419,7 +419,7 @@ inline NativeGeneralJump* nativeGeneralJump_at(address address);
 class NativeGeneralJump: public NativeInstruction {
  public:
 
-  enum PPC64_specific_constants {
+  enum RISCV64_specific_constants {
     instruction_size = 4
   };
 
@@ -456,7 +456,7 @@ inline NativeMovRegMem* nativeMovRegMem_at(address address);
 class NativeMovRegMem: public NativeInstruction {
  public:
 
-  enum PPC64_specific_constants {
+  enum RISCV64_specific_constants {
     instruction_size = 8
   };
 
@@ -483,7 +483,7 @@ class NativeMovRegMem: public NativeInstruction {
 #endif
     *hi_ptr = x >> 16;
     *lo_ptr = x & 0xFFFF;
-    ICache::ppc64_flush_icache_bytes(addr_at(0), NativeMovRegMem::instruction_size);
+    ICache::riscv64_flush_icache_bytes(addr_at(0), NativeMovRegMem::instruction_size);
   }
 
   void add_offset_in_bytes(intptr_t radd_offset) {
@@ -503,4 +503,4 @@ class NativeMovRegMem: public NativeInstruction {
   }
 };
 
-#endif // CPU_PPC_NATIVEINST_PPC_HPP
+#endif // CPU_RISCV_NATIVEINST_RISCV_HPP

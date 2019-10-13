@@ -23,14 +23,14 @@
  *
  */
 
-#ifndef CPU_PPC_ASSEMBLER_PPC_HPP
-#define CPU_PPC_ASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_ASSEMBLER_RISCV_HPP
+#define CPU_RISCV_ASSEMBLER_RISCV_HPP
 
 #include "asm/register.hpp"
 
 // Address is an abstraction used to represent a memory location
 // as used in assembler instructions.
-// PPC instructions grok either baseReg + indexReg or baseReg + disp.
+// RISCV instructions grok either baseReg + indexReg or baseReg + disp.
 class Address {
  private:
   Register _base;         // Base register.
@@ -114,7 +114,7 @@ class AddressLiteral {
 // Argument is an abstraction used to represent an outgoing
 // actual argument or an incoming formal parameter, whether
 // it resides in memory or in a register, in a manner consistent
-// with the PPC Application Binary Interface, or ABI. This is
+// with the RISCV Application Binary Interface, or ABI. This is
 // often referred to as the native or C calling convention.
 
 class Argument {
@@ -127,7 +127,7 @@ class Argument {
     // Can have up to 8 floating registers.
     n_float_register_parameters = 8,
 
-    // PPC C calling conventions.
+    // RISCV C calling conventions.
     // The first eight arguments are passed in int regs if they are int.
     n_int_register_parameters_c = 8,
     // The first thirteen float arguments are passed in float regs.
@@ -152,7 +152,7 @@ class Argument {
 };
 
 #if !defined(ABI_ELFv2)
-// A ppc64 function descriptor.
+// A riscv64 function descriptor.
 struct FunctionDescriptor {
  private:
   address _entry;
@@ -192,7 +192,7 @@ struct FunctionDescriptor {
 #endif
 
 
-// The PPC Assembler: Pure assembler doing NO optimizations on the
+// The RISCV Assembler: Pure assembler doing NO optimizations on the
 // instruction level; i.e., what you write is what you get. The
 // Assembler is generating code into a CodeBuffer.
 
@@ -460,7 +460,7 @@ class Assembler : public AbstractAssembler {
     FSUB_OPCODE    = (63u << OPCODE_SHIFT |   20u << 1),
     FSUBS_OPCODE   = (59u << OPCODE_SHIFT |   20u << 1),
 
-    // PPC64-internal FPU conversion opcodes
+    // RISCV64-internal FPU conversion opcodes
     FCFID_OPCODE   = (63u << OPCODE_SHIFT |  846u << 1),
     FCFIDS_OPCODE  = (59u << OPCODE_SHIFT |  846u << 1),
     FCTID_OPCODE   = (63u << OPCODE_SHIFT |  814u << 1),
@@ -907,8 +907,8 @@ class Assembler : public AbstractAssembler {
     }
   }
 
-  // PPC branch instructions
-  enum ppcops {
+  // RISCV branch instructions
+  enum riscvops {
     b_op    = 18,
     bc_op   = 16,
     bcr_op  = 19
@@ -930,7 +930,7 @@ class Assembler : public AbstractAssembler {
   enum Predict { pt = 1, pn = 0 }; // pt = predict taken
 
   //---<  calculate length of instruction  >---
-  // With PPC64 being a RISC architecture, this always is BytesPerInstWord
+  // With RISCV64 being a RISC architecture, this always is BytesPerInstWord
   // instruction must start at passed address
   static unsigned int instr_len(unsigned char *instr) { return BytesPerInstWord; }
 
@@ -1020,7 +1020,7 @@ class Assembler : public AbstractAssembler {
     return r;
   }
 
-  // inv_op for ppc instructions
+  // inv_op for riscv instructions
   static int inv_op_riscv(int x) { return inv_u_field(x, 31, 26); }
 
   // Determine target address from li, bd field of branch instruction.
@@ -1252,7 +1252,7 @@ class Assembler : public AbstractAssembler {
 #endif
 
   /////////////////////////////////////////////////////////////////////////////////////
-  // PPC instructions
+  // RISCV instructions
   /////////////////////////////////////////////////////////////////////////////////////
 
   // Memory instructions use r0 as hard coded 0, e.g. to simulate loading
@@ -1264,7 +1264,7 @@ class Assembler : public AbstractAssembler {
   inline void illtrap();
   static inline bool is_illtrap(int x);
 
-  // PPC 1, section 3.3.8, Fixed-Point Arithmetic Instructions
+  // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
   inline void addi( Register d, Register a, int si16);
   inline void addis(Register d, Register a, int si16);
  private:
@@ -1275,7 +1275,7 @@ class Assembler : public AbstractAssembler {
   inline void subfic( Register d, Register a, int si16);
   inline void add(    Register d, Register a, Register b);
   inline void add_(   Register d, Register a, Register b);
-  inline void subf(   Register d, Register a, Register b);  // d = b - a    "Sub_from", as in ppc spec.
+  inline void subf(   Register d, Register a, Register b);  // d = b - a    "Sub_from", as in riscv spec.
   inline void sub(    Register d, Register a, Register b);  // d = a - b    Swap operands of subf for readability.
   inline void subf_(  Register d, Register a, Register b);
   inline void addc(   Register d, Register a, Register b);
@@ -1437,7 +1437,7 @@ class Assembler : public AbstractAssembler {
 
 
  private:
-  // PPC 1, section 3.3.9, Fixed-Point Compare Instructions
+  // RISCV 1, section 3.3.9, Fixed-Point Compare Instructions
   inline void cmpi( ConditionRegister bf, int l, Register a, int si16);
   inline void cmp(  ConditionRegister bf, int l, Register a, Register b);
   inline void cmpli(ConditionRegister bf, int l, Register a, int ui16);
@@ -1464,7 +1464,7 @@ class Assembler : public AbstractAssembler {
   // Set d = 0 if (cr.cc) equals 1, otherwise b.
   inline void isel_0( Register d, ConditionRegister cr, Condition cc, Register b = noreg);
 
-  // PPC 1, section 3.3.11, Fixed-Point Logical Instructions
+  // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
          void andi(   Register a, Register s, long ui16);   // optimized version
   inline void andi_(  Register a, Register s, int ui16);
   inline void andis_( Register a, Register s, int ui16);
@@ -1522,7 +1522,7 @@ class Assembler : public AbstractAssembler {
   inline void cnttzd(  Register a, Register s);
   inline void cnttzd_( Register a, Register s);
 
-  // PPC 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
+  // RISCV 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
   inline void sld(     Register a, Register s, Register b);
   inline void sld_(    Register a, Register s, Register b);
   inline void slw(     Register a, Register s, Register b);
@@ -1581,7 +1581,7 @@ class Assembler : public AbstractAssembler {
   inline void insrdi(  Register a, Register s, int n,   int b);
   inline void insrwi(  Register a, Register s, int n,   int b);
 
-  // PPC 1, section 3.3.2 Fixed-Point Load Instructions
+  // RISCV 1, section 3.3.2 Fixed-Point Load Instructions
   // 4 bytes
   inline void lwzx( Register d, Register s1, Register s2);
   inline void lwz(  Register d, int si16,    Register s1);
@@ -1624,7 +1624,7 @@ class Assembler : public AbstractAssembler {
   inline void ld_ptr(Register d, int b, Register s1);
   DEBUG_ONLY(inline void ld_ptr(Register d, ByteSize b, Register s1);)
 
-  //  PPC 1, section 3.3.3 Fixed-Point Store Instructions
+  //  RISCV 1, section 3.3.3 Fixed-Point Store Instructions
   inline void stwx( Register d, Register s1, Register s2);
   inline void stw(  Register d, int si16,    Register s1);
   inline void stwu( Register d, int si16,    Register s1);
@@ -1648,7 +1648,7 @@ class Assembler : public AbstractAssembler {
   inline void st_ptr(Register d, int si16,    Register s1);
   DEBUG_ONLY(inline void st_ptr(Register d, ByteSize b, Register s1);)
 
-  // PPC 1, section 3.3.13 Move To/From System Register Instructions
+  // RISCV 1, section 3.3.13 Move To/From System Register Instructions
   inline void mtlr( Register s1);
   inline void mflr( Register d);
   inline void mtctr(Register s1);
@@ -1701,7 +1701,7 @@ class Assembler : public AbstractAssembler {
     tm_transaction_level  = 52, // Transaction level (nesting depth + 1).
   };
 
-  // PPC 1, section 2.4.1 Branch Instructions
+  // RISCV 1, section 2.4.1 Branch Instructions
   inline void b(  address a, relocInfo::relocType rt = relocInfo::none);
   inline void b(  Label& L);
   inline void bl( address a, relocInfo::relocType rt = relocInfo::none);
@@ -1960,8 +1960,8 @@ class Assembler : public AbstractAssembler {
   }
 
  public:
-  // PPC floating point instructions
-  // PPC 1, section 4.6.2 Floating-Point Load Instructions
+  // RISCV floating point instructions
+  // RISCV 1, section 4.6.2 Floating-Point Load Instructions
   inline void lfs(  FloatRegister d, int si16,   Register a);
   inline void lfsu( FloatRegister d, int si16,   Register a);
   inline void lfsx( FloatRegister d, Register a, Register b);
@@ -1969,7 +1969,7 @@ class Assembler : public AbstractAssembler {
   inline void lfdu( FloatRegister d, int si16,   Register a);
   inline void lfdx( FloatRegister d, Register a, Register b);
 
-  // PPC 1, section 4.6.3 Floating-Point Store Instructions
+  // RISCV 1, section 4.6.3 Floating-Point Store Instructions
   inline void stfs(  FloatRegister s, int si16,   Register a);
   inline void stfsu( FloatRegister s, int si16,   Register a);
   inline void stfsx( FloatRegister s, Register a, Register b);
@@ -1977,7 +1977,7 @@ class Assembler : public AbstractAssembler {
   inline void stfdu( FloatRegister s, int si16,   Register a);
   inline void stfdx( FloatRegister s, Register a, Register b);
 
-  // PPC 1, section 4.6.4 Floating-Point Move Instructions
+  // RISCV 1, section 4.6.4 Floating-Point Move Instructions
   inline void fmr(  FloatRegister d, FloatRegister b);
   inline void fmr_( FloatRegister d, FloatRegister b);
 
@@ -1995,7 +1995,7 @@ class Assembler : public AbstractAssembler {
   inline void fnabs( FloatRegister d, FloatRegister b);
   inline void fnabs_(FloatRegister d, FloatRegister b);
 
-  // PPC 1, section 4.6.5.1 Floating-Point Elementary Arithmetic Instructions
+  // RISCV 1, section 4.6.5.1 Floating-Point Elementary Arithmetic Instructions
   inline void fadd(  FloatRegister d, FloatRegister a, FloatRegister b);
   inline void fadd_( FloatRegister d, FloatRegister a, FloatRegister b);
   inline void fadds( FloatRegister d, FloatRegister a, FloatRegister b);
@@ -2033,7 +2033,7 @@ class Assembler : public AbstractAssembler {
   inline void fnmsubs( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
   inline void fnmsubs_(FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
 
-  // PPC 1, section 4.6.6 Floating-Point Rounding and Conversion Instructions
+  // RISCV 1, section 4.6.6 Floating-Point Rounding and Conversion Instructions
   inline void frsp(  FloatRegister d, FloatRegister b);
   inline void fctid( FloatRegister d, FloatRegister b);
   inline void fctidz(FloatRegister d, FloatRegister b);
@@ -2042,7 +2042,7 @@ class Assembler : public AbstractAssembler {
   inline void fcfid( FloatRegister d, FloatRegister b);
   inline void fcfids(FloatRegister d, FloatRegister b);
 
-  // PPC 1, section 4.6.7 Floating-Point Compare Instructions
+  // RISCV 1, section 4.6.7 Floating-Point Compare Instructions
   inline void fcmpu( ConditionRegister crx, FloatRegister a, FloatRegister b);
 
   inline void fsqrt( FloatRegister d, FloatRegister b);
@@ -2324,9 +2324,9 @@ class Assembler : public AbstractAssembler {
   inline void std(  Register d, int si16);
   inline void stdbrx( Register d, Register s2);
 
-  // PPC 2, section 3.2.1 Instruction Cache Instructions
+  // RISCV 2, section 3.2.1 Instruction Cache Instructions
   inline void icbi(    Register s2);
-  // PPC 2, section 3.2.2 Data Cache Instructions
+  // RISCV 2, section 3.2.2 Data Cache Instructions
   //inlinevoid dcba(   Register s2); // Instruction for embedded processor only.
   inline void dcbz(    Register s2);
   inline void dcbst(   Register s2);
@@ -2452,4 +2452,4 @@ class Assembler : public AbstractAssembler {
 };
 
 
-#endif // CPU_PPC_ASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_ASSEMBLER_RISCV_HPP

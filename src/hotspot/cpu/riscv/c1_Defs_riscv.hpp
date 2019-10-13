@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_C1_DEFS_PPC_HPP
-#define CPU_PPC_C1_DEFS_PPC_HPP
+#ifndef CPU_RISCV_C1_DEFS_RISCV_HPP
+#define CPU_RISCV_C1_DEFS_RISCV_HPP
 
 // Native word offsets from memory address.
 enum {
@@ -73,4 +73,4 @@ enum {
   pd_float_saved_as_double = true
 };
 
-#endif // CPU_PPC_C1_DEFS_PPC_HPP
+#endif // CPU_RISCV_C1_DEFS_RISCV_HPP

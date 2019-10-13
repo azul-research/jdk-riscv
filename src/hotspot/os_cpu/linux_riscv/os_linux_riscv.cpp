@@ -34,7 +34,7 @@
 #include "code/vtableStubs.hpp"
 #include "interpreter/interpreter.hpp"
 #include "memory/allocation.inline.hpp"
-#include "nativeInst_ppc.hpp"
+#include "nativeInst_riscv.hpp"
 #include "os_share_linux.hpp"
 #include "prims/jniFastGetField.hpp"
 #include "prims/jvm_misc.hpp"
@@ -625,6 +625,6 @@ void os::verify_stack_alignment() {
 #endif
 
 int os::extra_bang_size_in_bytes() {
-  // PPC does not require the additional stack bang.
+  // RISCV does not require the additional stack bang.
   return 0;
 }

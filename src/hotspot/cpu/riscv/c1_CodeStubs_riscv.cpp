@@ -305,7 +305,7 @@ void MonitorExitStub::emit_code(LIR_Assembler* ce) {
 int PatchingStub::_patch_info_offset = -(5 * BytesPerInstWord);
 
 void PatchingStub::align_patch_site(MacroAssembler* ) {
-  // Patch sites on ppc are always properly aligned.
+  // Patch sites on riscv are always properly aligned.
 }
 
 #ifdef ASSERT

@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_GC_G1_G1BARRIERSETASSEMBLER_PPC_HPP
-#define CPU_PPC_GC_G1_G1BARRIERSETASSEMBLER_PPC_HPP
+#ifndef CPU_RISCV_GC_G1_G1BARRIERSETASSEMBLER_RISCV_HPP
+#define CPU_RISCV_GC_G1_G1BARRIERSETASSEMBLER_RISCV_HPP
 
 #include "asm/macroAssembler.hpp"
 #include "gc/shared/modRefBarrierSetAssembler.hpp"
@@ -66,4 +66,4 @@ public:
   virtual void resolve_jobject(MacroAssembler* masm, Register value, Register tmp1, Register tmp2, bool needs_frame);
 };
 
-#endif // CPU_PPC_GC_G1_G1BARRIERSETASSEMBLER_PPC_HPP
+#endif // CPU_RISCV_GC_G1_G1BARRIERSETASSEMBLER_RISCV_HPP

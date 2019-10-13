@@ -23,14 +23,14 @@
  *
  */
 
-#ifndef CPU_PPC_FRAME_PPC_INLINE_HPP
-#define CPU_PPC_FRAME_PPC_INLINE_HPP
+#ifndef CPU_RISCV_FRAME_RISCV_INLINE_HPP
+#define CPU_RISCV_FRAME_RISCV_INLINE_HPP
 
 #include "code/codeCache.hpp"
 #include "code/vmreg.inline.hpp"
 #include "utilities/align.hpp"
 
-// Inline functions for ppc64 frames:
+// Inline functions for riscv64 frames:
 
 // Find codeblob and set deopt_state.
 inline void frame::find_codeblob_and_set_pc_and_deopt_state(address pc) {
@@ -83,12 +83,12 @@ inline intptr_t* frame::id(void) const {
 // the frame represented by id.
 inline bool frame::is_older(intptr_t* id) const {
    assert(this->id() != NULL && id != NULL, "NULL frame id");
-   // Stack grows towards smaller addresses on ppc64.
+   // Stack grows towards smaller addresses on riscv64.
    return this->id() > id;
 }
 
 inline int frame::frame_size(RegisterMap* map) const {
-  // Stack grows towards smaller addresses on PPC64: sender is at a higher address.
+  // Stack grows towards smaller addresses on RISCV64: sender is at a higher address.
   return sender_sp() - sp();
 }
 
@@ -220,4 +220,4 @@ inline void frame::set_saved_oop_result(RegisterMap* map, oop obj) {
   *((oop*)map->location(R3->as_VMReg())) = obj;
 }
 
-#endif // CPU_PPC_FRAME_PPC_INLINE_HPP
+#endif // CPU_RISCV_FRAME_RISCV_INLINE_HPP

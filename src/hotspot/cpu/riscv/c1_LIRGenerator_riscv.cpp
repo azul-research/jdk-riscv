@@ -104,7 +104,7 @@ LIR_Opr LIRGenerator::rlock_byte(BasicType type) {
 
 //--------- loading items into registers --------------------------------
 
-// PPC cannot inline all constants.
+// RISCV cannot inline all constants.
 bool LIRGenerator::can_store_as_constant(Value v, BasicType type) const {
   if (v->type()->as_IntConstant() != NULL) {
     return Assembler::is_simm16(v->type()->as_IntConstant()->value());

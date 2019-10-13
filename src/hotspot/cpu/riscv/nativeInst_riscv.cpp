@@ -126,7 +126,7 @@ void NativeCall::set_destination_mt_safe(address dest, bool assert_lock) {
   OrderAccess::release();
   a->bl(dest);
 
-  ICache::ppc64_flush_icache_bytes(addr_call, code_size);
+  ICache::riscv64_flush_icache_bytes(addr_call, code_size);
 }
 
 address NativeCall::get_trampoline() {
@@ -156,7 +156,7 @@ void NativeCall::verify() {
 
   if (!NativeCall::is_call_at(addr)) {
     tty->print_cr("not a NativeCall at " PTR_FORMAT, p2i(addr));
-    // TODO: PPC port: Disassembler::decode(addr - 20, addr + 20, tty);
+    // TODO: RISCV port: Disassembler::decode(addr - 20, addr + 20, tty);
     fatal("not a NativeCall at " PTR_FORMAT, p2i(addr));
   }
 }
@@ -169,7 +169,7 @@ void NativeFarCall::verify() {
   NativeInstruction::verify();
   if (!NativeFarCall::is_far_call_at(addr)) {
     tty->print_cr("not a NativeFarCall at " PTR_FORMAT, p2i(addr));
-    // TODO: PPC port: Disassembler::decode(addr, 20, 20, tty);
+    // TODO: RISCV port: Disassembler::decode(addr, 20, 20, tty);
     fatal("not a NativeFarCall at " PTR_FORMAT, p2i(addr));
   }
 }
@@ -231,7 +231,7 @@ address NativeMovConstReg::set_data_plain(intptr_t data, CodeBlob *cb) {
                                                                    (address)data);
       assert(inst1_addr != NULL && inst1_addr < inst2_addr, "first instruction must be found");
       const int range = inst2_addr - inst1_addr + BytesPerInstWord;
-      ICache::ppc64_flush_icache_bytes(inst1_addr, range);
+      ICache::riscv64_flush_icache_bytes(inst1_addr, range);
     }
     next_address = addr + 1 * BytesPerInstWord;
   } else if (MacroAssembler::is_load_const_at(addr)) {
@@ -239,7 +239,7 @@ address NativeMovConstReg::set_data_plain(intptr_t data, CodeBlob *cb) {
     if (MacroAssembler::get_const(addr) != (long)data) {
       // This is not mt safe, ok in methods like CodeBuffer::copy_code().
       MacroAssembler::patch_const(addr, (long)data);
-      ICache::ppc64_flush_icache_bytes(addr, load_const_instruction_size);
+      ICache::riscv64_flush_icache_bytes(addr, load_const_instruction_size);
     }
     next_address = addr + 5 * BytesPerInstWord;
   } else if (MacroAssembler::is_bl(* (int*) addr)) {
@@ -249,7 +249,7 @@ address NativeMovConstReg::set_data_plain(intptr_t data, CodeBlob *cb) {
     CodeBuffer cb(addr, code_size + 1);
     MacroAssembler* a = new MacroAssembler(&cb);
     a->bl((address) data);
-    ICache::ppc64_flush_icache_bytes(addr, code_size);
+    ICache::riscv64_flush_icache_bytes(addr, code_size);
     next_address = addr + code_size;
   } else {
     ShouldNotReachHere();
@@ -300,7 +300,7 @@ void NativeMovConstReg::set_narrow_oop(narrowOop data, CodeBlob *code /* = NULL 
     MacroAssembler::patch_set_narrow_oop(inst2_addr, cb->content_begin(), (long)data);
   assert(inst1_addr != NULL && inst1_addr < inst2_addr, "first instruction must be found");
   const int range = inst2_addr - inst1_addr + BytesPerInstWord;
-  ICache::ppc64_flush_icache_bytes(inst1_addr, range);
+  ICache::riscv64_flush_icache_bytes(inst1_addr, range);
 }
 
 // Do not use an assertion here. Let clients decide whether they only
@@ -315,7 +315,7 @@ void NativeMovConstReg::verify() {
         ! (cb != NULL && MacroAssembler::is_set_narrow_oop(addr, cb->content_begin())) &&
         ! MacroAssembler::is_bl(*((int*) addr))) {
       tty->print_cr("not a NativeMovConstReg at " PTR_FORMAT, p2i(addr));
-      // TODO: PPC port: Disassembler::decode(addr, 20, 20, tty);
+      // TODO: RISCV port: Disassembler::decode(addr, 20, 20, tty);
       fatal("not a NativeMovConstReg at " PTR_FORMAT, p2i(addr));
     }
   }
@@ -343,7 +343,7 @@ void NativeJump::patch_verified_entry(address entry, address verified_entry, add
       a->illtrap();
     }
   }
-  ICache::ppc64_flush_icache_bytes(verified_entry, code_size);
+  ICache::riscv64_flush_icache_bytes(verified_entry, code_size);
 }
 
 #ifdef ASSERT
@@ -353,7 +353,7 @@ void NativeJump::verify() {
   NativeInstruction::verify();
   if (!NativeJump::is_jump_at(addr)) {
     tty->print_cr("not a NativeJump at " PTR_FORMAT, p2i(addr));
-    // TODO: PPC port: Disassembler::decode(addr, 20, 20, tty);
+    // TODO: RISCV port: Disassembler::decode(addr, 20, 20, tty);
     fatal("not a NativeJump at " PTR_FORMAT, p2i(addr));
   }
 }
@@ -364,7 +364,7 @@ void NativeGeneralJump::insert_unconditional(address code_pos, address entry) {
   CodeBuffer cb(code_pos, BytesPerInstWord + 1);
   MacroAssembler a(&cb);
   a.b(entry);
-  ICache::ppc64_flush_icache_bytes(code_pos, NativeGeneralJump::instruction_size);
+  ICache::riscv64_flush_icache_bytes(code_pos, NativeGeneralJump::instruction_size);
 }
 
 // MT-safe patching of a jmp instruction.
@@ -376,7 +376,7 @@ void NativeGeneralJump::replace_mt_safe(address instr_addr, address code_buffer)
   // Release not needed because caller uses invalidate_range after copying the remaining bytes.
   //OrderAccess::release_store(jump_addr, *((juint*)code_buffer));
   *jump_addr = *((juint*)code_buffer); // atomically store code over branch instruction
-  ICache::ppc64_flush_icache_bytes(instr_addr, NativeGeneralJump::instruction_size);
+  ICache::riscv64_flush_icache_bytes(instr_addr, NativeGeneralJump::instruction_size);
 }
 
 

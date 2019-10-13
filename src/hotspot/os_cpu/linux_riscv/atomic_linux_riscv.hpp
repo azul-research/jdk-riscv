@@ -23,11 +23,11 @@
  *
  */
 
-#ifndef OS_CPU_LINUX_PPC_ATOMIC_LINUX_PPC_HPP
-#define OS_CPU_LINUX_PPC_ATOMIC_LINUX_PPC_HPP
+#ifndef OS_CPU_LINUX_RISCV_ATOMIC_LINUX_RISCV_HPP
+#define OS_CPU_LINUX_RISCV_ATOMIC_LINUX_RISCV_HPP
 
-//#ifndef PPC64
-//#error "Atomic currently only implemented for PPC64"
+//#ifndef RISCV64
+//#error "Atomic currently only implemented for RISCV64"
 //#endif
 
 #include "utilities/debug.hpp"
@@ -399,4 +399,4 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T exchange_value,
   return old_value;
 }
 
-#endif // OS_CPU_LINUX_PPC_ATOMIC_LINUX_PPC_HPP
+#endif // OS_CPU_LINUX_RISCV_ATOMIC_LINUX_RISCV_HPP

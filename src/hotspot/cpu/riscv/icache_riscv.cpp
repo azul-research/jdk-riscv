@@ -27,7 +27,7 @@
 #include "runtime/icache.hpp"
 
 // Use inline assembler to implement icache flush.
-int ICache::ppc64_flush_icache(address start, int lines, int magic) {
+int ICache::riscv64_flush_icache(address start, int lines, int magic) {
   address end = start + (unsigned int)lines*ICache::line_size;
   assert(start <= end, "flush_icache parms");
 
@@ -68,7 +68,7 @@ int ICache::ppc64_flush_icache(address start, int lines, int magic) {
 
 void ICacheStubGenerator::generate_icache_flush(ICache::flush_icache_stub_t* flush_icache_stub) {
 
-  *flush_icache_stub = (ICache::flush_icache_stub_t)ICache::ppc64_flush_icache;
+  *flush_icache_stub = (ICache::flush_icache_stub_t)ICache::riscv64_flush_icache;
 
   // First call to flush itself.
   // Pointless since we call C, but it is expected to get

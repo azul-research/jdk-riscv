@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_ASSEMBLER_PPC_INLINE_HPP
-#define CPU_PPC_ASSEMBLER_PPC_INLINE_HPP
+#ifndef CPU_RISCV_ASSEMBLER_RISCV_INLINE_HPP
+#define CPU_RISCV_ASSEMBLER_RISCV_INLINE_HPP
 
 #include "asm/assembler.inline.hpp"
 #include "asm/codeBuffer.hpp"
@@ -80,7 +80,7 @@ inline address Assembler::emit_fd(address entry, address toc, address env) {
 inline void Assembler::illtrap() { Assembler::emit_int32(0); }
 inline bool Assembler::is_illtrap(int x) { return x == 0; }
 
-// PPC 1, section 3.3.8, Fixed-Point Arithmetic Instructions
+// RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
 inline void Assembler::addi(   Register d, Register a, int si16)   { assert(a != R0, "r0 not allowed"); addi_r0ok( d, a, si16); }
 inline void Assembler::addis(  Register d, Register a, int si16)   { assert(a != R0, "r0 not allowed"); addis_r0ok(d, a, si16); }
 inline void Assembler::addi_r0ok(Register d,Register a,int si16)   { emit_int32(ADDI_OPCODE   | rt(d) | ra(a) | simm(si16, 16)); }
@@ -166,7 +166,7 @@ inline void Assembler::lis(  Register d, int si16)             { Assembler::addi
 inline void Assembler::addir(Register d, int si16, Register a) { Assembler::addi(d, a, si16); }
 inline void Assembler::subi( Register d, Register a, int si16) { Assembler::addi(d, a, -si16); }
 
-// PPC 1, section 3.3.9, Fixed-Point Compare Instructions
+// RISCV 1, section 3.3.9, Fixed-Point Compare Instructions
 inline void Assembler::cmpi(  ConditionRegister f, int l, Register a, int si16)   { emit_int32( CMPI_OPCODE  | bf(f) | l10(l) | ra(a) | simm(si16,16)); }
 inline void Assembler::cmp(   ConditionRegister f, int l, Register a, Register b) { emit_int32( CMP_OPCODE   | bf(f) | l10(l) | ra(a) | rb(b)); }
 inline void Assembler::cmpli( ConditionRegister f, int l, Register a, int ui16)   { emit_int32( CMPLI_OPCODE | bf(f) | l10(l) | ra(a) | uimm(ui16,16)); }
@@ -187,7 +187,7 @@ inline void Assembler::cmpld( ConditionRegister crx, Register a, Register b) { A
 inline void Assembler::isel(Register d, Register a, Register b, int c) { guarantee(VM_Version::has_isel(), "opcode not supported on this hardware");
                                                                          emit_int32(ISEL_OPCODE    | rt(d)  | ra(a) | rb(b) | bc(c)); }
 
-// PPC 1, section 3.3.11, Fixed-Point Logical Instructions
+// RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
 inline void Assembler::andi_(   Register a, Register s, int ui16)      { emit_int32(ANDI_OPCODE    | rta(a) | rs(s) | uimm(ui16, 16)); }
 inline void Assembler::andis_(  Register a, Register s, int ui16)      { emit_int32(ANDIS_OPCODE   | rta(a) | rs(s) | uimm(ui16, 16)); }
 inline void Assembler::ori(     Register a, Register s, int ui16)      { emit_int32(ORI_OPCODE     | rta(a) | rs(s) | uimm(ui16, 16)); }
@@ -242,7 +242,7 @@ inline void Assembler::cnttzw_( Register a, Register s)              { emit_int3
 inline void Assembler::cnttzd(  Register a, Register s)              { emit_int32(CNTTZD_OPCODE | rta(a) | rs(s) | rc(0)); }
 inline void Assembler::cnttzd_( Register a, Register s)              { emit_int32(CNTTZD_OPCODE | rta(a) | rs(s) | rc(1)); }
 
-// PPC 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
+// RISCV 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
 inline void Assembler::sld(     Register a, Register s, Register b)  { emit_int32(SLD_OPCODE    | rta(a) | rs(s) | rb(b) | rc(0)); }
 inline void Assembler::sld_(    Register a, Register s, Register b)  { emit_int32(SLD_OPCODE    | rta(a) | rs(s) | rb(b) | rc(1)); }
 inline void Assembler::slw(     Register a, Register s, Register b)  { emit_int32(SLW_OPCODE    | rta(a) | rs(s) | rb(b) | rc(0)); }
@@ -307,7 +307,7 @@ inline void Assembler::rldimi_( Register a, Register s, int sh6, int mb6)       
 inline void Assembler::insrdi(  Register a, Register s, int n,   int b)           { Assembler::rldimi(a, s, 64-(b+n), b); }
 inline void Assembler::insrwi(  Register a, Register s, int n,   int b)           { Assembler::rlwimi(a, s, 32-(b+n), b, b+n-1); }
 
-// PPC 1, section 3.3.2 Fixed-Point Load Instructions
+// RISCV 1, section 3.3.2 Fixed-Point Load Instructions
 inline void Assembler::lwzx( Register d, Register s1, Register s2) { emit_int32(LWZX_OPCODE | rt(d) | ra0mem(s1) | rb(s2));}
 inline void Assembler::lwz(  Register d, int si16,    Register s1) { emit_int32(LWZ_OPCODE  | rt(d) | d1(si16)   | ra0mem(s1));}
 inline void Assembler::lwzu( Register d, int si16,    Register s1) { assert(d != s1, "according to ibm manual"); emit_int32(LWZU_OPCODE | rt(d) | d1(si16) | rta0mem(s1));}
@@ -339,7 +339,7 @@ inline void Assembler::ldbrx( Register d, Register s1, Register s2) { emit_int32
 inline void Assembler::ld_ptr(Register d, int b, Register s1) { ld(d, b, s1); }
 DEBUG_ONLY(inline void Assembler::ld_ptr(Register d, ByteSize b, Register s1) { ld(d, in_bytes(b), s1); })
 
-//  PPC 1, section 3.3.3 Fixed-Point Store Instructions
+//  RISCV 1, section 3.3.3 Fixed-Point Store Instructions
 inline void Assembler::stwx( Register d, Register s1, Register s2) { emit_int32(STWX_OPCODE | rs(d) | ra0mem(s1) | rb(s2));}
 inline void Assembler::stw(  Register d, int si16,    Register s1) { emit_int32(STW_OPCODE  | rs(d) | d1(si16)   | ra0mem(s1));}
 inline void Assembler::stwu( Register d, int si16,    Register s1) { emit_int32(STWU_OPCODE | rs(d) | d1(si16)   | rta0mem(s1));}
@@ -363,7 +363,7 @@ inline void Assembler::stdbrx( Register d, Register s1, Register s2) { emit_int3
 inline void Assembler::st_ptr(Register d, int b, Register s1) { std(d, b, s1); }
 DEBUG_ONLY(inline void Assembler::st_ptr(Register d, ByteSize b, Register s1) { std(d, in_bytes(b), s1); })
 
-// PPC 1, section 3.3.13 Move To/From System Register Instructions
+// RISCV 1, section 3.3.13 Move To/From System Register Instructions
 inline void Assembler::mtlr( Register s1)         { emit_int32(MTLR_OPCODE  | rs(s1)); }
 inline void Assembler::mflr( Register d )         { emit_int32(MFLR_OPCODE  | rt(d)); }
 inline void Assembler::mtctr(Register s1)         { emit_int32(MTCTR_OPCODE | rs(s1)); }
@@ -395,8 +395,8 @@ inline void Assembler::mftfiar(Register d )       { emit_int32(MFTFIAR_OPCODE   
 inline void Assembler::mftexasr(Register d )      { emit_int32(MFTEXASR_OPCODE  | rt(d)); }
 inline void Assembler::mftexasru(Register d )     { emit_int32(MFTEXASRU_OPCODE | rt(d)); }
 
-// SAP JVM 2006-02-13 PPC branch instruction.
-// PPC 1, section 2.4.1 Branch Instructions
+// SAP JVM 2006-02-13 RISCV branch instruction.
+// RISCV 1, section 2.4.1 Branch Instructions
 inline void Assembler::b( address a, relocInfo::relocType rt) { emit_data(BXX_OPCODE| li(disp( intptr_t(a), intptr_t(pc()))) |aa(0)|lk(0), rt); }
 inline void Assembler::b( Label& L)                           { b( target(L)); }
 inline void Assembler::bl(address a, relocInfo::relocType rt) { emit_data(BXX_OPCODE| li(disp( intptr_t(a), intptr_t(pc()))) |aa(0)|lk(1), rt); }
@@ -580,9 +580,9 @@ inline void Assembler::isel_0(Register d, ConditionRegister cr, Condition cc, Re
   isel(d, R0, b, bi0(cr, cc));
 }
 
-// PPC 2, section 3.2.1 Instruction Cache Instructions
+// RISCV 2, section 3.2.1 Instruction Cache Instructions
 inline void Assembler::icbi(    Register s1, Register s2)         { emit_int32( ICBI_OPCODE   | ra0mem(s1) | rb(s2)           ); }
-// PPC 2, section 3.2.2 Data Cache Instructions
+// RISCV 2, section 3.2.2 Data Cache Instructions
 //inline void Assembler::dcba(  Register s1, Register s2)         { emit_int32( DCBA_OPCODE   | ra0mem(s1) | rb(s2)           ); }
 inline void Assembler::dcbz(    Register s1, Register s2)         { emit_int32( DCBZ_OPCODE   | ra0mem(s1) | rb(s2)           ); }
 inline void Assembler::dcbst(   Register s1, Register s2)         { emit_int32( DCBST_OPCODE  | ra0mem(s1) | rb(s2)           ); }
@@ -616,11 +616,11 @@ inline void Assembler::lwarx_unchecked(Register d, Register a, Register b, int e
 inline void Assembler::ldarx_unchecked(Register d, Register a, Register b, int eh1)           { emit_int32( LDARX_OPCODE | rt(d) | ra0mem(a) | rb(b) | eh(eh1)); }
 inline void Assembler::lqarx_unchecked(Register d, Register a, Register b, int eh1)           { emit_int32( LQARX_OPCODE | rt(d) | ra0mem(a) | rb(b) | eh(eh1)); }
 inline bool Assembler::lxarx_hint_exclusive_access()                                          { return VM_Version::has_lxarxeh(); }
-inline void Assembler::lbarx( Register d, Register a, Register b, bool hint_exclusive_access) { lbarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::lharx( Register d, Register a, Register b, bool hint_exclusive_access) { lharx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::lwarx( Register d, Register a, Register b, bool hint_exclusive_access) { lwarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::ldarx( Register d, Register a, Register b, bool hint_exclusive_access) { ldarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::lqarx( Register d, Register a, Register b, bool hint_exclusive_access) { lqarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
+inline void Assembler::lbarx( Register d, Register a, Register b, bool hint_exclusive_access) { lbarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::lharx( Register d, Register a, Register b, bool hint_exclusive_access) { lharx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::lwarx( Register d, Register a, Register b, bool hint_exclusive_access) { lwarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::ldarx( Register d, Register a, Register b, bool hint_exclusive_access) { ldarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::lqarx( Register d, Register a, Register b, bool hint_exclusive_access) { lqarx_unchecked(d, a, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
 inline void Assembler::stbcx_(Register s, Register a, Register b)                             { emit_int32( STBCX_OPCODE | rs(s) | ra0mem(a) | rb(b) | rc(1)); }
 inline void Assembler::sthcx_(Register s, Register a, Register b)                             { emit_int32( STHCX_OPCODE | rs(s) | ra0mem(a) | rb(b) | rc(1)); }
 inline void Assembler::stwcx_(Register s, Register a, Register b)                             { emit_int32( STWCX_OPCODE | rs(s) | ra0mem(a) | rb(b) | rc(1)); }
@@ -652,8 +652,8 @@ inline void Assembler::twi(int tobits, Register a, int si16)          { assert(U
 inline void Assembler::td( int tobits, Register a, Register b)        { assert(UseSIGTRAP, "precondition"); emit_int32( TD_OPCODE  | to(tobits) | ra(a) | rb(b)); }
 inline void Assembler::tw( int tobits, Register a, Register b)        { assert(UseSIGTRAP, "precondition"); emit_int32( TW_OPCODE  | to(tobits) | ra(a) | rb(b)); }
 
-// FLOATING POINT instructions ppc.
-// PPC 1, section 4.6.2 Floating-Point Load Instructions
+// FLOATING POINT instructions riscv.
+// RISCV 1, section 4.6.2 Floating-Point Load Instructions
 // Use ra0mem instead of ra in some instructions below.
 inline void Assembler::lfs( FloatRegister d, int si16, Register a)   { emit_int32( LFS_OPCODE  | frt(d) | ra0mem(a) | simm(si16,16)); }
 inline void Assembler::lfsu(FloatRegister d, int si16, Register a)   { emit_int32( LFSU_OPCODE | frt(d) | ra(a)     | simm(si16,16)); }
@@ -662,7 +662,7 @@ inline void Assembler::lfd( FloatRegister d, int si16, Register a)   { emit_int3
 inline void Assembler::lfdu(FloatRegister d, int si16, Register a)   { emit_int32( LFDU_OPCODE | frt(d) | ra(a)     | simm(si16,16)); }
 inline void Assembler::lfdx(FloatRegister d, Register a, Register b) { emit_int32( LFDX_OPCODE | frt(d) | ra0mem(a) | rb(b)); }
 
-// PPC 1, section 4.6.3 Floating-Point Store Instructions
+// RISCV 1, section 4.6.3 Floating-Point Store Instructions
 // Use ra0mem instead of ra in some instructions below.
 inline void Assembler::stfs( FloatRegister s, int si16, Register a)  { emit_int32( STFS_OPCODE  | frs(s) | ra0mem(a) | simm(si16,16)); }
 inline void Assembler::stfsu(FloatRegister s, int si16, Register a)  { emit_int32( STFSU_OPCODE | frs(s) | ra(a)     | simm(si16,16)); }
@@ -671,7 +671,7 @@ inline void Assembler::stfd( FloatRegister s, int si16, Register a)  { emit_int3
 inline void Assembler::stfdu(FloatRegister s, int si16, Register a)  { emit_int32( STFDU_OPCODE | frs(s) | ra(a)     | simm(si16,16)); }
 inline void Assembler::stfdx(FloatRegister s, Register a, Register b){ emit_int32( STFDX_OPCODE | frs(s) | ra0mem(a) | rb(b)); }
 
-// PPC 1, section 4.6.4 Floating-Point Move Instructions
+// RISCV 1, section 4.6.4 Floating-Point Move Instructions
 inline void Assembler::fmr( FloatRegister d, FloatRegister b) { emit_int32( FMR_OPCODE | frt(d) | frb(b) | rc(0)); }
 inline void Assembler::fmr_(FloatRegister d, FloatRegister b) { emit_int32( FMR_OPCODE | frt(d) | frb(b) | rc(1)); }
 
@@ -679,7 +679,7 @@ inline void Assembler::fmr_(FloatRegister d, FloatRegister b) { emit_int32( FMR_
 // on Power7.  Do not use.
 //inline void Assembler::mffgpr( FloatRegister d, Register b)   { emit_int32( MFFGPR_OPCODE | frt(d) | rb(b) | rc(0)); }
 //inline void Assembler::mftgpr( Register d, FloatRegister b)   { emit_int32( MFTGPR_OPCODE | rt(d) | frb(b) | rc(0)); }
-// add cmpb and popcntb to detect ppc power version.
+// add cmpb and popcntb to detect riscv power version.
 inline void Assembler::cmpb(   Register a, Register s, Register b) { guarantee(VM_Version::has_cmpb(), "opcode not supported on this hardware");
                                                                      emit_int32( CMPB_OPCODE    | rta(a) | rs(s) | rb(b) | rc(0)); }
 inline void Assembler::popcntb(Register a, Register s)             { guarantee(VM_Version::has_popcntb(), "opcode not supported on this hardware");
@@ -695,7 +695,7 @@ inline void Assembler::fabs_( FloatRegister d, FloatRegister b) { emit_int32( FA
 inline void Assembler::fnabs( FloatRegister d, FloatRegister b) { emit_int32( FNABS_OPCODE | frt(d) | frb(b) | rc(0)); }
 inline void Assembler::fnabs_(FloatRegister d, FloatRegister b) { emit_int32( FNABS_OPCODE | frt(d) | frb(b) | rc(1)); }
 
-// PPC 1, section 4.6.5.1 Floating-Point Elementary Arithmetic Instructions
+// RISCV 1, section 4.6.5.1 Floating-Point Elementary Arithmetic Instructions
 inline void Assembler::fadd(  FloatRegister d, FloatRegister a, FloatRegister b) { emit_int32( FADD_OPCODE  | frt(d) | fra(a) | frb(b) | rc(0)); }
 inline void Assembler::fadd_( FloatRegister d, FloatRegister a, FloatRegister b) { emit_int32( FADD_OPCODE  | frt(d) | fra(a) | frb(b) | rc(1)); }
 inline void Assembler::fadds( FloatRegister d, FloatRegister a, FloatRegister b) { emit_int32( FADDS_OPCODE | frt(d) | fra(a) | frb(b) | rc(0)); }
@@ -733,7 +733,7 @@ inline void Assembler::fnmsub_( FloatRegister d, FloatRegister a, FloatRegister 
 inline void Assembler::fnmsubs( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b) { emit_int32( FNMSUBS_OPCODE | frt(d) | fra(a) | frb(b) | frc(c) | rc(0)); }
 inline void Assembler::fnmsubs_(FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b) { emit_int32( FNMSUBS_OPCODE | frt(d) | fra(a) | frb(b) | frc(c) | rc(1)); }
 
-// PPC 1, section 4.6.6 Floating-Point Rounding and Conversion Instructions
+// RISCV 1, section 4.6.6 Floating-Point Rounding and Conversion Instructions
 inline void Assembler::frsp(  FloatRegister d, FloatRegister b) { emit_int32( FRSP_OPCODE   | frt(d) | frb(b) | rc(0)); }
 inline void Assembler::fctid( FloatRegister d, FloatRegister b) { emit_int32( FCTID_OPCODE  | frt(d) | frb(b) | rc(0)); }
 inline void Assembler::fctidz(FloatRegister d, FloatRegister b) { emit_int32( FCTIDZ_OPCODE | frt(d) | frb(b) | rc(0)); }
@@ -743,10 +743,10 @@ inline void Assembler::fcfid( FloatRegister d, FloatRegister b) { emit_int32( FC
 inline void Assembler::fcfids(FloatRegister d, FloatRegister b) { guarantee(VM_Version::has_fcfids(), "opcode not supported on this hardware");
                                                                   emit_int32( FCFIDS_OPCODE | frt(d) | frb(b) | rc(0)); }
 
-// PPC 1, section 4.6.7 Floating-Point Compare Instructions
+// RISCV 1, section 4.6.7 Floating-Point Compare Instructions
 inline void Assembler::fcmpu( ConditionRegister crx, FloatRegister a, FloatRegister b) { emit_int32( FCMPU_OPCODE | bf(crx) | fra(a) | frb(b)); }
 
-// PPC 1, section 5.2.1 Floating-Point Arithmetic Instructions
+// RISCV 1, section 5.2.1 Floating-Point Arithmetic Instructions
 inline void Assembler::fsqrt( FloatRegister d, FloatRegister b) { guarantee(VM_Version::has_fsqrt(), "opcode not supported on this hardware");
                                                                   emit_int32( FSQRT_OPCODE  | frt(d) | frb(b) | rc(0)); }
 inline void Assembler::fsqrts(FloatRegister d, FloatRegister b) { guarantee(VM_Version::has_fsqrts(), "opcode not supported on this hardware");
@@ -1042,11 +1042,11 @@ inline void Assembler::lharx_unchecked(Register d, Register b, int eh1)         
 inline void Assembler::lwarx_unchecked(Register d, Register b, int eh1)          { emit_int32( LWARX_OPCODE | rt(d) | rb(b) | eh(eh1)); }
 inline void Assembler::ldarx_unchecked(Register d, Register b, int eh1)          { emit_int32( LDARX_OPCODE | rt(d) | rb(b) | eh(eh1)); }
 inline void Assembler::lqarx_unchecked(Register d, Register b, int eh1)          { emit_int32( LQARX_OPCODE | rt(d) | rb(b) | eh(eh1)); }
-inline void Assembler::lbarx( Register d, Register b, bool hint_exclusive_access){ lbarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::lharx( Register d, Register b, bool hint_exclusive_access){ lharx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::lwarx( Register d, Register b, bool hint_exclusive_access){ lwarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::ldarx( Register d, Register b, bool hint_exclusive_access){ ldarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
-inline void Assembler::lqarx( Register d, Register b, bool hint_exclusive_access){ lqarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsPPC64) ? 1 : 0); }
+inline void Assembler::lbarx( Register d, Register b, bool hint_exclusive_access){ lbarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::lharx( Register d, Register b, bool hint_exclusive_access){ lharx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::lwarx( Register d, Register b, bool hint_exclusive_access){ lwarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::ldarx( Register d, Register b, bool hint_exclusive_access){ ldarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
+inline void Assembler::lqarx( Register d, Register b, bool hint_exclusive_access){ lqarx_unchecked(d, b, (hint_exclusive_access && lxarx_hint_exclusive_access() && UseExtendedLoadAndReserveInstructionsRISCV64) ? 1 : 0); }
 inline void Assembler::stbcx_(Register s, Register b)                            { emit_int32( STBCX_OPCODE | rs(s) | rb(b) | rc(1)); }
 inline void Assembler::sthcx_(Register s, Register b)                            { emit_int32( STHCX_OPCODE | rs(s) | rb(b) | rc(1)); }
 inline void Assembler::stwcx_(Register s, Register b)                            { emit_int32( STWCX_OPCODE | rs(s) | rb(b) | rc(1)); }
@@ -1127,4 +1127,4 @@ inline void Assembler::load_const32(Register d, int i) {
   ori(d, d, i & 0xFFFF);
 }
 
-#endif // CPU_PPC_ASSEMBLER_PPC_INLINE_HPP
+#endif // CPU_RISCV_ASSEMBLER_RISCV_INLINE_HPP

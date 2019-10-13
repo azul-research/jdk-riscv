@@ -639,7 +639,7 @@ void LIR_Assembler::emit_opConvert(LIR_OpConvert* op) {
 
 
 void LIR_Assembler::align_call(LIR_Code) {
-  // do nothing since all instructions are word aligned on ppc
+  // do nothing since all instructions are word aligned on riscv
 }
 
 
@@ -3056,7 +3056,7 @@ void LIR_Assembler::atomic_op(LIR_Code code, LIR_Opr src, LIR_Opr data, LIR_Opr 
     ShouldNotReachHere();
   }
 
-  if (UseStaticBranchPredictionInCompareAndSwapPPC64) {
+  if (UseStaticBranchPredictionInCompareAndSwapRISCV64) {
     __ bne_predict_not_taken(CCR0, Lretry);
   } else {
     __ bne(                  CCR0, Lretry);

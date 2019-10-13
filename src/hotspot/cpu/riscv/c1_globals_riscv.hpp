@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef CPU_PPC_C1_GLOBALS_PPC_HPP
-#define CPU_PPC_C1_GLOBALS_PPC_HPP
+#ifndef CPU_RISCV_C1_GLOBALS_RISCV_HPP
+#define CPU_RISCV_C1_GLOBALS_RISCV_HPP
 
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/macros.hpp"
@@ -65,4 +65,4 @@ define_pd_global(bool,     OptimizeSinglePrecision,      false);
 define_pd_global(bool,     CSEArrayLength,               true);
 define_pd_global(bool,     TwoOperandLIRForm,            false);
 
-#endif // CPU_PPC_C1_GLOBALS_PPC_HPP
+#endif // CPU_RISCV_C1_GLOBALS_RISCV_HPP
