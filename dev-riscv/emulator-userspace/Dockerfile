@@ -1,5 +1,8 @@
 FROM debian:unstable AS builder
 
+COPY ./scripts/prepare.sh /prepare.sh
+RUN /prepare.sh
+
 COPY ./scripts/bootstrap.sh /bootstrap.sh
 RUN /bootstrap.sh
 
@@ -10,4 +13,5 @@ FROM scratch
 
 COPY --from=builder /riscv /
 
-CMD "/bin/bash"
+ENTRYPOINT ["/usr/bin/qemu-riscv64-static", "-e", "/usr/bin/qemu-riscv64-static"]
+CMD ["/bin/bash"]
