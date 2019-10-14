@@ -9,4 +9,4 @@ run() {
 }
 
 run /usr/bin/apt-get update
-run /usr/bin/apt-get install -y build-essential git vim gdb
+run /usr/bin/apt-get install -y build-essential git gdb
