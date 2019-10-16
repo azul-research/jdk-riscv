@@ -8,6 +8,7 @@ RUN mkdir -p /build && apt-get update && apt-get install -y git autoconf automak
 RUN cd /build && git clone --recursive https://github.com/riscv/riscv-gnu-toolchain && \
     cd riscv-gnu-toolchain && ./configure --prefix=/opt/riscv && make linux
 
+ENV PATH="/opt/riscv/bin:${PATH}"
 
 RUN cd /build && git clone --depth=1 https://github.com/libffi/libffi && cd libffi && ./autogen.sh && \
     ./configure --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr && make && make install
