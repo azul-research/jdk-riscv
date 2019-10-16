@@ -18,7 +18,7 @@ RUN cd /build && git clone --depth=1 https://github.com/apple/cups && cd cups &&
     --disable-gssapi --disable-avahi --disable-libusb --disable-dbus --disable-systemd && \
     make && make install
 
-RUN cd /build && git clone --depth=1 https://github.com/libexpat/libexpat && cd libexpat/expat && ./buildconf.sh \
+RUN cd /build && git clone --depth=1 https://github.com/libexpat/libexpat && cd libexpat/expat && ./buildconf.sh && \
     ./configure --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr && make && make install
 
 RUN cd /build && git clone --depth=1 https://github.com/madler/zlib && cd zlib && \
