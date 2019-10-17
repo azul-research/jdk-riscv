@@ -35,14 +35,16 @@ RUN cd /build && git clone --depth=1 https://git.savannah.nongnu.org/git/freetyp
 RUN cd /build && git clone --depth=1 https://github.com/json-c/json-c && cd json-c && ./autogen.sh && \
     ./configure --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr && make && make install
 
+RUN apt-get install -y gettext autopoint pkg-config
+
 RUN cd /build && git clone --depth=1 https://gitlab.freedesktop.org/fontconfig/fontconfig && \
-    cd fontconfig && ./autogen.sh --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr && make && make install
+    cd fontconfig && PKG_CONFIG_PATH=/opt/riscv/sysroot/usr/lib/pkgconfig ./autogen.sh --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr && make && make install
 
 RUN cd /build && git clone --depth=1 https://github.com/alsa-project/alsa-lib && cd alsa-lib && \
     libtoolize --force --copy --automake && aclocal && autoheader && automake --foreign --copy --add-missing && autoconf && \
     ./configure --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr && make && make install
 
-RUN cd /build && git clone --depth=1 https://github.com/karelzak/util-linux && cd util-linux && \
+RUN cd /build && git clone --depth=1 https://github.com/karelzak/util-linux && cd util-linux && ./autogen.sh && \
     ./configure --host=riscv64-unknown-linux-gnu --prefix=/opt/riscv/sysroot/usr --disable-all-programs --enable-libuuid && \
     make && make install
 
@@ -50,3 +52,5 @@ COPY xorg_modules /build
 
 RUN cd /build && mkdir xorg && cd xorg && git clone --depth=1 git://anongit.freedesktop.org/git/xorg/util/modular util/modular && \
     CONFFLAGS="--host=riscv64-unknown-linux-gnu --disable-malloc0returnsnull" ./util/modular/build.sh --modfile /build/xorg_modules --clone /opt/riscv/sysroot/usr
+
+RUN rm -rf /build
