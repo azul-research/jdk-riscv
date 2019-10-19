@@ -63,4 +63,6 @@ RUN apt-get install -y gettext autopoint pkg-config
 
 RUN rm -rf /build
 COPY --from=builder /opt/riscv /opt/riscv
+
+RUN apt-get install -y zip unzip openjdk-13-jdk-headless
 ENV PATH="/opt/riscv/bin:${PATH}"
