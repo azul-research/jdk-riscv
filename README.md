@@ -12,7 +12,9 @@ All scripts, docs and other supplimentary files should go to `dev-riscv` directo
 
 ### Participiants
 
-Small changes (docs, typos, ...) may go directly into `riscv` branch.
+Small changes (typos, build fixes, ...) may go directly into `riscv` branch.
+Small one is usually so insignificant, such you think no-one interested to get notified about. 
+When in doubt, consider non-small.
 
 Significant contributions should be proposed as Pull Requiest:
  1. changes should be pushed to a feature branch of this repo (there is no need to use Github forks)
