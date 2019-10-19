@@ -53,16 +53,12 @@ COPY xorg_modules /build
 RUN cd /build && mkdir xorg && cd xorg && git clone --depth=1 git://anongit.freedesktop.org/git/xorg/util/modular util/modular && \
     CONFFLAGS="--host=riscv64-unknown-linux-gnu --disable-malloc0returnsnull" ./util/modular/build.sh --modfile /build/xorg_modules --clone /opt/riscv/sysroot/usr
 
-FROM debian:latest
+FROM debian:unstable
 
-RUN mkdir -p /build && apt-get update && apt-get install -y git autoconf automake autotools-dev \
+RUN apt-get update && apt-get install -y git autoconf automake autotools-dev \
     curl libmpc-dev libmpfr-dev libgmp-dev gawk build-essential bison flex texinfo gperf \
-    libtool patchutils bc zlib1g-dev libexpat-dev python2 python3
+    libtool patchutils bc zlib1g-dev libexpat-dev python2 python3 gettext autopoint pkg-config \
+    zip unzip openjdk-13-jdk-headless
 
-RUN apt-get install -y gettext autopoint pkg-config
-
-RUN rm -rf /build
 COPY --from=builder /opt/riscv /opt/riscv
-
-RUN apt-get install -y zip unzip openjdk-13-jdk-headless
 ENV PATH="/opt/riscv/bin:${PATH}"
