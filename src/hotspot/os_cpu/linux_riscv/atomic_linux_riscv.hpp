@@ -75,8 +75,8 @@ inline void pre_membar(atomic_memory_order order) {
     case memory_order_relaxed:
     case memory_order_acquire: break;
     case memory_order_release:
-    case memory_order_acq_rel: __asm__ __volatile__ ("lwsync" : : : "memory"); break;
-    default /*conservative*/ : __asm__ __volatile__ ("sync"   : : : "memory"); break;
+    case memory_order_acq_rel:
+    default /*conservative*/ : __asm__ __volatile__ ("fence"   : : : "memory"); break;
   }
 }
 
@@ -85,8 +85,8 @@ inline void post_membar(atomic_memory_order order) {
     case memory_order_relaxed:
     case memory_order_release: break;
     case memory_order_acquire:
-    case memory_order_acq_rel: __asm__ __volatile__ ("isync"  : : : "memory"); break;
-    default /*conservative*/ : __asm__ __volatile__ ("sync"   : : : "memory"); break;
+    case memory_order_acq_rel:
+    default /*conservative*/ : __asm__ __volatile__ ("fence"  : : : "memory"); break;
   }
 }
 

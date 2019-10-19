@@ -50,6 +50,7 @@ define_pd_global(bool,     ResizeTLAB,                   true);
 define_pd_global(uintx,    ReservedCodeCacheSize,        32*M);
 define_pd_global(uintx,    CodeCacheExpansionSize,       32*K);
 define_pd_global(uintx,    CodeCacheMinBlockLength,      1);
+define_pd_global(uintx,    CodeCacheMinimumUseSpace,     400*K);
 define_pd_global(size_t,   MetaspaceSize,                12*M);
 define_pd_global(bool,     NeverActAsServerClassMachine, true);
 define_pd_global(size_t,   NewSizeThreadIncrease,        16*K);
