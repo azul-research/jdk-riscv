@@ -30,21 +30,27 @@
 
 
 inline void Prefetch::read(void *loc, intx interval) {
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "   dcbt   0, %0       \n"
     :
     : /*%0*/"r" ( ((address)loc) +((long)interval) )
     //:
     );
+#endif
 }
 
 inline void Prefetch::write(void *loc, intx interval) {
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "   dcbtst 0, %0       \n"
     :
     : /*%0*/"r" ( ((address)loc) +((long)interval) )
     //:
     );
+#endif
 }
 
 #endif // OS_CPU_LINUX_RISCV_PREFETCH_LINUX_RISCV_INLINE_HPP

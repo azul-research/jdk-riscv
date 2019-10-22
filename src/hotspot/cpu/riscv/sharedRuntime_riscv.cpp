@@ -3386,6 +3386,8 @@ static unsigned long
 sub(unsigned long a[], unsigned long b[], unsigned long carry, long len) {
   long i = 0;
   unsigned long tmp, tmp2;
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "subfc  %[tmp], %[tmp], %[tmp]   \n" // pre-set CA
     "mtctr  %[len]                   \n"
@@ -3401,6 +3403,7 @@ sub(unsigned long a[], unsigned long b[], unsigned long carry, long len) {
     : [a]"r"(a), [b]"r"(b), [carry]"r"(carry), [len]"r"(len)
     : "ctr", "xer", "memory"
   );
+#endif
   return tmp;
 }
 
@@ -3408,6 +3411,8 @@ sub(unsigned long a[], unsigned long b[], unsigned long carry, long len) {
 // length result into the accumulator formed of T0, T1, and T2.
 inline void MACC(unsigned long A, unsigned long B, unsigned long &T0, unsigned long &T1, unsigned long &T2) {
   unsigned long hi, lo;
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "mulld  %[lo], %[A], %[B]    \n"
     "mulhdu %[hi], %[A], %[B]    \n"
@@ -3418,12 +3423,15 @@ inline void MACC(unsigned long A, unsigned long B, unsigned long &T0, unsigned l
     : [A]"r"(A), [B]"r"(B)
     : "xer"
   );
+#endif
 }
 
 // As above, but add twice the double-length result into the
 // accumulator.
 inline void MACC2(unsigned long A, unsigned long B, unsigned long &T0, unsigned long &T1, unsigned long &T2) {
   unsigned long hi, lo;
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "mulld  %[lo], %[A], %[B]    \n"
     "mulhdu %[hi], %[A], %[B]    \n"
@@ -3437,6 +3445,7 @@ inline void MACC2(unsigned long A, unsigned long B, unsigned long &T0, unsigned 
     : [A]"r"(A), [B]"r"(B)
     : "xer"
   );
+#endif
 }
 
 // Fast Montgomery multiplication. The derivation of the algorithm is

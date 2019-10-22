@@ -81,7 +81,10 @@ address os::current_stack_pointer() {
   intptr_t* csp;
 
   // inline assembly `mr regno(csp), R1_SP':
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ ("mr %0, 1":"=r"(csp):);
+#endif
 
   return (address) csp;
 }
@@ -531,7 +534,10 @@ report_and_die:
 
 void os::Linux::init_thread_fpu_state(void) {
   // Disable FP exceptions.
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ ("mtfsfi 6,0");
+#endif
 }
 
 int os::Linux::get_fpu_control_word(void) {

@@ -64,12 +64,21 @@
 //                          Store|Load
 //
 
+// FIXME_RISCV
+#define inlasm_sync()
+#define inlasm_lwsync()
+#define inlasm_eieio()
+#define inlasm_isync()
+#define inlasm_acquire_reg(X)
+
+#if 0
 #define inlasm_sync()     __asm__ __volatile__ ("sync"   : : : "memory");
 #define inlasm_lwsync()   __asm__ __volatile__ ("lwsync" : : : "memory");
 #define inlasm_eieio()    __asm__ __volatile__ ("eieio"  : : : "memory");
 #define inlasm_isync()    __asm__ __volatile__ ("isync"  : : : "memory");
 // Use twi-isync for load_acquire (faster than lwsync).
 #define inlasm_acquire_reg(X) __asm__ __volatile__ ("twi 0,%0,0\n isync\n" : : "r" (X) : "memory");
+#endif
 
 inline void   OrderAccess::loadload()   { inlasm_lwsync(); }
 inline void   OrderAccess::storestore() { inlasm_lwsync(); }

@@ -33,35 +33,48 @@ int ICache::riscv64_flush_icache(address start, int lines, int magic) {
 
   // Store modified cache lines from data cache.
   for (address a = start; a < end; a += ICache::line_size) {
+// FIXME_RISCV
+#if 0
     __asm__ __volatile__(
      "dcbst 0, %0  \n"
      :
      : "r" (a)
      : "memory");
+#endif
   }
 
   // sync instruction
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__(
      "sync \n"
      :
      :
      : "memory");
+#endif
 
   // Invalidate respective cache lines in instruction cache.
   for (address a = start; a < end; a += ICache::line_size) {
+
+// FIXME_RISCV
+#if 0
     __asm__ __volatile__(
      "icbi 0, %0   \n"
      :
      : "r" (a)
      : "memory");
+#endif
   }
 
   // Discard fetched instructions.
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__(
      "isync \n"
      :
      :
      : "memory");
+#endif
 
   return magic;
 }

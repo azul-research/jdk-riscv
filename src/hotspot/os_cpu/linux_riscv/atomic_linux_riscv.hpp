@@ -109,7 +109,8 @@ inline D Atomic::PlatformAdd<4>::add_and_fetch(I add_value, D volatile* dest,
   D result;
 
   pre_membar(order);
-
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "1: lwarx   %0,  0, %2    \n"
     "   add     %0, %0, %1    \n"
@@ -118,7 +119,7 @@ inline D Atomic::PlatformAdd<4>::add_and_fetch(I add_value, D volatile* dest,
     : /*%0*/"=&r" (result)
     : /*%1*/"r" (add_value), /*%2*/"r" (dest)
     : "cc", "memory" );
-
+#endif
   post_membar(order);
 
   return result;
@@ -136,6 +137,8 @@ inline D Atomic::PlatformAdd<8>::add_and_fetch(I add_value, D volatile* dest,
 
   pre_membar(order);
 
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     "1: ldarx   %0,  0, %2    \n"
     "   add     %0, %0, %1    \n"
@@ -144,7 +147,7 @@ inline D Atomic::PlatformAdd<8>::add_and_fetch(I add_value, D volatile* dest,
     : /*%0*/"=&r" (result)
     : /*%1*/"r" (add_value), /*%2*/"r" (dest)
     : "cc", "memory" );
-
+#endif
   post_membar(order);
 
   return result;
@@ -163,6 +166,8 @@ inline T Atomic::PlatformXchg<4>::operator()(T exchange_value,
 
   pre_membar(order);
 
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     /* atomic loop */
     "1:                                                 \n"
@@ -183,7 +188,7 @@ inline T Atomic::PlatformXchg<4>::operator()(T exchange_value,
     : "cc",
       "memory"
     );
-
+#endif
   post_membar(order);
 
   return old_value;
@@ -203,6 +208,8 @@ inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
 
   pre_membar(order);
 
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     /* atomic loop */
     "1:                                                 \n"
@@ -223,7 +230,7 @@ inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
     : "cc",
       "memory"
     );
-
+#endif
   post_membar(order);
 
   return old_value;
@@ -257,6 +264,8 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
 
   pre_membar(order);
 
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     /* simple guard */
     "   lbz     %[old_value], 0(%[dest])                  \n"
@@ -293,7 +302,7 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
     : "cc",
       "memory"
     );
-
+#endif
   post_membar(order);
 
   return PrimitiveConversions::cast<T>((unsigned char)old_value);
@@ -316,6 +325,8 @@ inline T Atomic::PlatformCmpxchg<4>::operator()(T exchange_value,
 
   pre_membar(order);
 
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     /* simple guard */
     "   lwz     %[old_value], 0(%[dest])                \n"
@@ -343,7 +354,7 @@ inline T Atomic::PlatformCmpxchg<4>::operator()(T exchange_value,
     : "cc",
       "memory"
     );
-
+#endif
   post_membar(order);
 
   return old_value;
@@ -366,6 +377,8 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T exchange_value,
 
   pre_membar(order);
 
+// FIXME_RISCV
+#if 0
   __asm__ __volatile__ (
     /* simple guard */
     "   ld      %[old_value], 0(%[dest])                \n"
@@ -393,7 +406,7 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T exchange_value,
     : "cc",
       "memory"
     );
-
+#endif
   post_membar(order);
 
   return old_value;
