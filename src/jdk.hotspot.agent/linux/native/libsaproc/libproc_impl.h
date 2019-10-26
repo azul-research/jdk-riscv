@@ -46,7 +46,7 @@ typedef struct lib_info {
 // list of threads
 typedef struct thread_info {
    lwpid_t                  lwp_id;
-   struct user_regs_struct  regs;       // not for process, core uses for caching regset
+//   struct user_regs_struct  regs;       // not for process, core uses for caching regset // FIXME_RISCV
    struct thread_info*      next;
 } thread_info;
 

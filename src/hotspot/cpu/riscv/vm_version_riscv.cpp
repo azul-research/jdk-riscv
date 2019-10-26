@@ -53,18 +53,20 @@
 bool VM_Version::_is_determine_features_test_running = false;
 uint64_t VM_Version::_dscr_val = 0;
 
-#define MSG(flag)   \
+// FIXME_RISCV begin
+#define MSG(flag)   ;/* /
   if (flag && !FLAG_IS_DEFAULT(flag))                                  \
       jio_fprintf(defaultStream::error_stream(),                       \
                   "warning: -XX:+" #flag " requires -XX:+UseSIGTRAP\n" \
                   "         -XX:+" #flag " will be disabled!\n");
-
+*/// FIXME_RISCV end
 void VM_Version::initialize() {
 
   // Test which instructions are supported and measure cache line size.
   determine_features();
 
   // If PowerArchitectureRISCV64 hasn't been specified explicitly determine from features.
+  /* // FIXME_RISCV begin
   if (FLAG_IS_DEFAULT(PowerArchitectureRISCV64)) {
     if (VM_Version::has_darn()) {
       FLAG_SET_ERGO(PowerArchitectureRISCV64, 9);
@@ -107,6 +109,7 @@ void VM_Version::initialize() {
     FLAG_SET_ERGO(TrapBasedNullChecks,       false);
     FLAG_SET_ERGO(TrapBasedICMissChecks,     false);
   }
+  */// FIXME_RISCV end
 
 #ifdef COMPILER2
   if (!UseSIGTRAP) {
@@ -153,6 +156,7 @@ void VM_Version::initialize() {
 #endif
 
   // Create and print feature-string.
+/* // FIXME_RISCV begin
   char buf[(num_features+1) * 16]; // Max 16 chars per feature.
   jio_snprintf(buf, sizeof(buf),
                "riscv64%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
@@ -384,6 +388,7 @@ void VM_Version::initialize() {
   }
 
   check_virtualizations();
+*/ // FIXME_RISCV end
 }
 
 void VM_Version::check_virtualizations() {
@@ -889,6 +894,7 @@ void VM_Version::determine_features() {
   }
 #endif
 #if defined(LINUX) && defined(VM_LITTLE_ENDIAN)
+/* // FIXME_RISCV begin
   unsigned long auxv = getauxval(AT_HWCAP2);
 
   if (auxv & RISCV_FEATURE2_HTM_NOSC) {
@@ -902,6 +908,7 @@ void VM_Version::determine_features() {
       _features |= rtm_m;
     }
   }
+*/ // FIXME_RISCV end
 #endif
 }
 

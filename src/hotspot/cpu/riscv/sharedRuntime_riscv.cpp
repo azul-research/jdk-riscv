@@ -3040,6 +3040,11 @@ void SharedRuntime::generate_deopt_blob() {
   int exception_offset = __ pc() - start;
 #endif // COMPILER2
 
+  // FIXME_RISCV begin
+  int reexecute_offset = 0;
+  int exception_in_tls_offset = __ pc() - start;
+  // FIXME_RISCV end
+
   _deopt_blob = DeoptimizationBlob::create(&buffer, oop_maps, 0, exception_offset,
                                            reexecute_offset, first_frame_size_in_bytes / wordSize);
   _deopt_blob->set_unpack_with_exception_in_tls_offset(exception_in_tls_offset);

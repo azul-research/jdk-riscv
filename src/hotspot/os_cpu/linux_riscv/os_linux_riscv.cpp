@@ -111,24 +111,28 @@ address os::Linux::ucontext_get_pc(const ucontext_t * uc) {
   // - if uc was filled by getcontext(), it is undefined - getcontext() does not fill
   //   it because the volatile registers are not needed to make setcontext() work.
   //   Hopefully it was zero'd out beforehand.
-  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_get_pc in sigaction context");
-  return (address)uc->uc_mcontext.regs->nip;
+// FIXME_RISCV begin
+//  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_get_pc in sigaction context");
+  return NULL;//(address)uc->uc_mcontext.regs->nip;
+// FIXME_RISCV end
 }
 
 // modify PC in ucontext.
 // Note: Only use this for an ucontext handed down to a signal handler. See comment
 // in ucontext_get_pc.
 void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
+/* // FIXME_RISCV begin
   guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_set_pc in sigaction context");
   uc->uc_mcontext.regs->nip = (unsigned long)pc;
+*/// FIXME_RISCV end
 }
 
 static address ucontext_get_lr(const ucontext_t * uc) {
-  return (address)uc->uc_mcontext.regs->link;
+  return NULL; // FIXME_RISCV
 }
 
 intptr_t* os::Linux::ucontext_get_sp(const ucontext_t * uc) {
-  return (intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/];
+  return NULL;//(intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/]; // FIXME_RISCV begin
 }
 
 intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
@@ -136,7 +140,7 @@ intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
 }
 
 static unsigned long ucontext_get_trap(const ucontext_t * uc) {
-  return uc->uc_mcontext.regs->trap;
+  return 0;//uc->uc_mcontext.regs->trap; // FIXME_RISCV begin
 }
 
 ExtendedPC os::fetch_frame_from_context(const void* ucVoid,
@@ -262,6 +266,7 @@ JVM_handle_linux_signal(int sig,
     // 3.2.1 "Machine State Register"), however note that ISA notation for bit
     // numbering is MSB 0, so for normal bit numbering (LSB 0) they come to be
     // bits 33 and 34. It's not related to endianness, just a notation matter.
+/* // FIXME_RISCV begin
     if (second_uc->uc_mcontext.regs->msr & 0x600000000) {
       if (TraceTraps) {
         tty->print_cr("caught signal in transaction, "
@@ -270,6 +275,7 @@ JVM_handle_linux_signal(int sig,
       // Return control to the HTM abort handler.
       return true;
     }
+*/// FIXME_RISCV end
   }
 
 #ifdef CAN_SHOW_REGISTERS_ON_ASSERT
@@ -576,12 +582,14 @@ void os::print_context(outputStream *st, const void *context) {
   const ucontext_t* uc = (const ucontext_t*)context;
 
   st->print_cr("Registers:");
+/* // FIXME_RISCV begin
   st->print("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->nip);
   st->print("lr =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->link);
   st->print("ctr=" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->ctr);
-  st->cr();
+*/// FIXME_RISCV end
+    st->cr();
   for (int i = 0; i < 32; i++) {
-    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.regs->gpr[i]);
+//    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.regs->gpr[i]); // FIXME_RISCV
     if (i % 3 == 2) st->cr();
   }
   st->cr();
@@ -608,12 +616,14 @@ void os::print_register_info(outputStream *st, const void *context) {
   st->print_cr("Register to memory mapping:");
   st->cr();
 
+/* // FIXME_RISCV begin
   st->print("pc ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->nip);
   st->print("lr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->link);
   st->print("ctr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->ctr);
-  for (int i = 0; i < 32; i++) {
+*/// FIXME_RISCV end
+    for (int i = 0; i < 32; i++) {
     st->print("r%-2d=", i);
-    print_location(st, uc->uc_mcontext.regs->gpr[i]);
+//    print_location(st, uc->uc_mcontext.regs->gpr[i]); // FIXME_RISCV
   }
   st->cr();
 }

@@ -489,7 +489,7 @@ static bool core_get_lwp_regs(struct ps_prochandle* ph, lwpid_t lwp_id,
    thread_info* thr = ph->threads;
    while (thr) {
      if (thr->lwp_id == lwp_id) {
-       memcpy(regs, &thr->regs, sizeof(struct user_regs_struct));
+//       memcpy(regs, &thr->regs, sizeof(struct user_regs_struct)); // FIXME_RISCV
        return true;
      }
      thr = thr->next;
@@ -515,7 +515,7 @@ static bool core_handle_prstatus(struct ps_prochandle* ph, const char* buf, size
       return false;
 
    // copy regs
-   memcpy(&newthr->regs, prstat->pr_reg, sizeof(struct user_regs_struct));
+//   memcpy(&newthr->regs, prstat->pr_reg, sizeof(struct user_regs_struct)); // FIXME_RISCV
 
    if (is_debug()) {
       print_debug("integer regset\n");

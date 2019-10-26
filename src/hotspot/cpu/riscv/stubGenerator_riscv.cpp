@@ -3059,6 +3059,7 @@ class StubGenerator: public StubCodeGenerator {
                                                              STUB_ENTRY(checkcast_arraycopy));
 
     // fill routines
+/* // FIXME_RISCV begin
     if (OptimizeFill) {
       StubRoutines::_jbyte_fill          = generate_fill(T_BYTE,  false, "jbyte_fill");
       StubRoutines::_jshort_fill         = generate_fill(T_SHORT, false, "jshort_fill");
@@ -3067,6 +3068,7 @@ class StubGenerator: public StubCodeGenerator {
       StubRoutines::_arrayof_jshort_fill = generate_fill(T_SHORT, true, "arrayof_jshort_fill");
       StubRoutines::_arrayof_jint_fill   = generate_fill(T_INT,   true, "arrayof_jint_fill");
     }
+*/// FIXME_RISCV end
   }
 
   // Safefetch stubs.
@@ -3537,6 +3539,7 @@ class StubGenerator: public StubCodeGenerator {
     }
 #endif
 
+/* // FIXME_RISCV begin
     if (UseSquareToLenIntrinsic) {
       StubRoutines::_squareToLen = generate_squareToLen();
     }
@@ -3565,6 +3568,7 @@ class StubGenerator: public StubCodeGenerator {
       StubRoutines::_sha512_implCompress   = generate_sha512_implCompress(false, "sha512_implCompress");
       StubRoutines::_sha512_implCompressMB = generate_sha512_implCompress(true, "sha512_implCompressMB");
     }
+*/// FIXME_RISCV begin
   }
 
  public:

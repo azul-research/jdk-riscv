@@ -1290,11 +1290,14 @@ bool MacroAssembler::is_load_from_polling_page(int instruction, void* ucontext,
   // the safepoing polling page.
   ucontext_t* uc = (ucontext_t*) ucontext;
   // Set polling address.
+/* // FIXME_RISCV begin
   address addr = (address)uc->uc_mcontext.regs->gpr[ra] + (ssize_t)ds;
   if (polling_address_ptr != NULL) {
     *polling_address_ptr = addr;
   }
-  return os::is_poll_address(addr);
+ */
+  return false;//os::is_poll_address(addr);
+// FIXME_RISCV end
 #else
   // Not on Linux, ucontext must be NULL.
   ShouldNotReachHere();
@@ -1345,22 +1348,22 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
 // return the banged address. Otherwise, return 0.
 address MacroAssembler::get_stack_bang_address(int instruction, void *ucontext) {
 #ifdef LINUX
-  ucontext_t* uc = (ucontext_t*) ucontext;
-  int rs = inv_rs_field(instruction);
-  int ra = inv_ra_field(instruction);
-  if (   (is_ld(instruction)   && rs == 0 &&  UseLoadInstructionsForStackBangingRISCV64)
-      || (is_std(instruction)  && rs == 0 && !UseLoadInstructionsForStackBangingRISCV64)
-      || (is_stdu(instruction) && rs == 1)) {
-    int ds = inv_ds_field(instruction);
-    // return banged address
-    return ds+(address)uc->uc_mcontext.regs->gpr[ra];
-  } else if (is_stdux(instruction) && rs == 1) {
-    int rb = inv_rb_field(instruction);
-    address sp = (address)uc->uc_mcontext.regs->gpr[1];
-    long rb_val = (long)uc->uc_mcontext.regs->gpr[rb];
-    return ra != 1 || rb_val >= 0 ? NULL         // not a stack bang
-                                  : sp + rb_val; // banged address
-  }
+//  ucontext_t* uc = (ucontext_t*) ucontext;
+//  int rs = inv_rs_field(instruction);
+//  int ra = inv_ra_field(instruction);
+//  if (   (is_ld(instruction)   && rs == 0 &&  UseLoadInstructionsForStackBangingRISCV64)
+//      || (is_std(instruction)  && rs == 0 && !UseLoadInstructionsForStackBangingRISCV64)
+//      || (is_stdu(instruction) && rs == 1)) {
+//    int ds = inv_ds_field(instruction);
+//    // return banged address
+//    return ds+(address)uc->uc_mcontext.regs->gpr[ra];
+//  } else if (is_stdux(instruction) && rs == 1) {
+//    int rb = inv_rb_field(instruction);
+//    address sp = (address)uc->uc_mcontext.regs->gpr[1];
+//    long rb_val = (long)uc->uc_mcontext.regs->gpr[rb];
+//    return ra != 1 || rb_val >= 0 ? NULL         // not a stack bang
+//                                  : sp + rb_val; // banged address
+//  }
   return NULL; // not a stack bang
 #else
   // workaround not needed on !LINUX :-)
