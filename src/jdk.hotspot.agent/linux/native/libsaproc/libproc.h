@@ -80,7 +80,7 @@ int get_num_threads(struct ps_prochandle* ph);
 lwpid_t get_lwp_id(struct ps_prochandle* ph, int index);
 
 // get regs for a given lwp
-//bool get_lwp_regs(struct ps_prochandle* ph, lwpid_t lid, struct user_regs_struct* regs); // FIXME_RISCV
+bool get_lwp_regs(struct ps_prochandle* ph, lwpid_t lid, struct user_regs_struct* regs);
 
 // get number of shared objects
 int get_num_libs(struct ps_prochandle* ph);
