@@ -6,7 +6,7 @@ Go to repository `jdk-riscv` folder and switch to branch `zero-compiling`
 
 Don't forget to mount this repository folder to docker image by flag `-v`
 
-    $ docker run --rm -v $PWD:/home/rep -it tsarn/riscv-toolchain
+    $ docker run --rm -v "$PWD":/home/rep -it tsarn/riscv-toolchain
 
 In the docker image in you should run this commands to compile open-jdk
 
@@ -28,9 +28,9 @@ Now open another terminal and copy `sysroot` to repository folder ([issue #2](ht
 
 Now open `qemu` emulator of riscv with docker image and check that `open-jdk` works ([issue #7](https://github.com/azul-research/jdk-riscv/issues/7))
 
-    $ docker run -p 2222:22 --rm -it -v $PWD:/home/rep azulresearch/riscv-emu
+    $ docker run --rm -it -v "$PWD":/home/rep azulresearch/riscv-emu-user
     $ cd /home/rep
-    $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/riscv-sysroot/usr/lib/
+    $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"$PWD"/riscv-sysroot/usr/lib/
     $ time ./build/linux-riscv64-zero-release/jdk/bin/java -version
 
 Last command will take approximately 1-2 minutes
