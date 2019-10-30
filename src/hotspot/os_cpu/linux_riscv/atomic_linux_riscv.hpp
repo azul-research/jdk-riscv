@@ -107,15 +107,16 @@ inline D Atomic::PlatformAdd<4>::add_and_fetch(I add_value, D volatile* dest,
   STATIC_ASSERT(4 == sizeof(D));
 
   D result;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     "1: lr.w   %0, (%2)      \n"
     "   add    %0, %0, %1    \n"
-    "   sc.w   t0, %0, (%2)  \n"
-    "   bnez   t0, 1b        \n"
+    "   sc.w   %3, %0, (%2)  \n"
+    "   bnez   %3, 1b        \n"
     : /*%0*/"=&r" (result)
-    : /*%1*/"r" (add_value), /*%2*/"r" (dest)
+    : /*%1*/"r" (add_value), /*%2*/"r" (dest), /*%3*/"r" (is_successful)
     : "cc", "memory" );
   post_membar(order);
 
@@ -131,15 +132,16 @@ inline D Atomic::PlatformAdd<8>::add_and_fetch(I add_value, D volatile* dest,
   STATIC_ASSERT(8 == sizeof(D));
 
   D result;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     "1: lr.d   %0, (%2)      \n"
     "   add    %0, %0, %1    \n"
-    "   sc.d   t0, %0, (%2)  \n"
-    "   bnez   t0, 1b        \n"
+    "   sc.d   %3, %0, (%2)  \n"
+    "   bnez   %3, 1b        \n"
     : /*%0*/"=&r" (result)
-    : /*%1*/"r" (add_value), /*%2*/"r" (dest)
+    : /*%1*/"r" (add_value), /*%2*/"r" (dest), /*%3*/"r" (is_successful)
     : "cc", "memory" );
   post_membar(order);
 
@@ -155,21 +157,23 @@ inline T Atomic::PlatformXchg<4>::operator()(T exchange_value,
   // (see synchronizer.cpp).
 
   T old_value;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     /* atomic loop */
-    "1:                                                 \n"
-    "   lr.w   %[old_value], (%[dest])                  \n"
-    "   sc.w   t0, %[exchange_value], (%[dest])         \n"
-    "   bnez   t0, 1b                                   \n"
+    "1:                                                       \n"
+    "   lr.w   %[old_value], (%[dest])                        \n"
+    "   sc.w   %[is_successful], %[exchange_value], (%[dest]) \n"
+    "   bnez   %[is_successful], 1b                           \n"
     /* exit */
-    "2:                                                 \n"
+    "2:                                                       \n"
     /* out */
     : [old_value]       "=&r"   (old_value)
     /* in */
     : [dest]            "r"     (dest),
-      [exchange_value]  "r"     (exchange_value)
+      [exchange_value]  "r"     (exchange_value),
+      [is_successful]   "r"     (is_successful)
     /* clobber */
     : "cc",
       "memory"
@@ -189,21 +193,23 @@ inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
   // (see synchronizer.cpp).
 
   T old_value;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     /* atomic loop */
-    "1:                                                 \n"
-    "   lr.d   %[old_value], (%[dest])                  \n"
-    "   sc.d   t0, %[exchange_value], (%[dest])         \n"
-    "   bnez   t0, 1b                                   \n"
+    "1:                                                       \n"
+    "   lr.d   %[old_value], (%[dest])                        \n"
+    "   sc.d   %[is_successful], %[exchange_value], (%[dest]) \n"
+    "   bnez   %[is_successful], 1b                           \n"
     /* exit */
-    "2:                                                 \n"
+    "2:                                                       \n"
     /* out */
     : [old_value]       "=&r"   (old_value)
     /* in */
     : [dest]            "r"     (dest),
-      [exchange_value]  "r"     (exchange_value)
+      [exchange_value]  "r"     (exchange_value),
+      [is_successful]   "r"     (is_successful)
     /* clobber */
     : "cc",
       "memory"
@@ -238,26 +244,27 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
                      xor_value           = (masked_compare_val ^ masked_exchange_val) << shift_amount;
 
   unsigned int old_value, value32;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     /* simple guard */
-    "   lb     %[old_value], (%[dest])                    \n"
-    "   bne    %[masked_compare_val], %[old_value], 2f    \n"
+    "   lb     %[old_value], (%[dest])                       \n"
+    "   bne    %[masked_compare_val], %[old_value], 2f       \n"
     /* atomic loop */
-    "1:                                                   \n"
-    "   lr.w    %[value32], (%[dest_base])                \n"
+    "1:                                                      \n"
+    "   lr.w    %[value32], (%[dest_base])                   \n"
     /* extract byte and compare */
-    "   srl     %[old_value], %[value32], %[shift_amount] \n"
-    "   slli    %[old_value], %[old_value], 56            \n"
-    "   srli    %[old_value], %[old_value], 56            \n"
-    "   bne     %[masked_compare_val], %[old_value], 2f   \n"
+    "   srl     %[old_value], %[value32], %[shift_amount]    \n"
+    "   slli    %[old_value], %[old_value], 56               \n"
+    "   srli    %[old_value], %[old_value], 56               \n"
+    "   bne     %[masked_compare_val], %[old_value], 2f      \n"
     /* replace byte and try to store */
-    "   xor     %[value32], %[xor_value], %[value32]      \n"
-    "   sc.w    t0, %[value32], (%[dest_base])            \n"
-    "   bnez    t0, 1b                                    \n"
+    "   xor     %[value32], %[xor_value], %[value32]         \n"
+    "   sc.w    %[is_successful], %[value32], (%[dest_base]) \n"
+    "   bnez    %[is_successful], 1b                         \n"
     /* exit */
-    "2:                                                   \n"
+    "2:                                                      \n"
     /* out */
     : [old_value]           "=&r"   (old_value),
       [value32]             "=&r"   (value32)
@@ -266,7 +273,8 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
       [dest_base]           "r"     (dest_base),
       [shift_amount]        "r"     (shift_amount),
       [masked_compare_val]  "r"     (masked_compare_val),
-      [xor_value]           "r"     (xor_value)
+      [xor_value]           "r"     (xor_value),
+      [is_successful]       "r"     (is_successful)
     /* clobber */
     : "cc",
       "memory"
@@ -289,26 +297,28 @@ inline T Atomic::PlatformCmpxchg<4>::operator()(T exchange_value,
   // specified otherwise (see atomic.hpp).
 
   T old_value;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     /* simple guard */
-    "   lw     %[old_value], (%[dest])                  \n"
-    "   bne    %[compare_value], %[old_value], 2f       \n"
+    "   lw     %[old_value], (%[dest])                          \n"
+    "   bne    %[compare_value], %[old_value], 2f               \n"
     /* atomic loop */
-    "1:                                                 \n"
-    "   lr.w    %[old_value], (%[dest])                 \n"
-    "   bne     %[compare_value], %[old_value], 2f      \n"
-    "   sc.w    t0, %[exchange_value], (%[dest])        \n"
-    "   bnez    t0, 1b                                  \n"
+    "1:                                                         \n"
+    "   lr.w    %[old_value], (%[dest])                         \n"
+    "   bne     %[compare_value], %[old_value], 2f              \n"
+    "   sc.w    %[is_successful], %[exchange_value], (%[dest] ) \n"
+    "   bnez    %[is_successful], 1b                            \n"
     /* exit */
-    "2:                                                 \n"
+    "2:                                                         \n"
     /* out */
     : [old_value]       "=&r"   (old_value)
     /* in */
     : [dest]            "r"     (dest),
       [compare_value]   "r"     (compare_value),
-      [exchange_value]  "r"     (exchange_value)
+      [exchange_value]  "r"     (exchange_value),
+      [is_successful]   "r"     (is_successful)
     /* clobber */
     : "cc",
       "memory"
@@ -330,26 +340,28 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T exchange_value,
   // specified otherwise (see atomic.hpp).
 
   T old_value;
+  int is_successful;
 
   pre_membar(order);
   __asm__ __volatile__ (
     /* simple guard */
-    "   ld     %[old_value], (%[dest])                  \n"
-    "   bne    %[compare_value], %[old_value], 2f       \n"
+    "   ld     %[old_value], (%[dest])                         \n"
+    "   bne    %[compare_value], %[old_value], 2f              \n"
     /* atomic loop */
-    "1:                                                 \n"
-    "   lr.d    %[old_value], (%[dest])                 \n"
-    "   bne     %[compare_value], %[old_value], 2f      \n"
-    "   sc.d    t0, %[exchange_value], (%[dest])        \n"
-    "   bnez    t0, 1b                                  \n"
+    "1:                                                        \n"
+    "   lr.d    %[old_value], (%[dest])                        \n"
+    "   bne     %[compare_value], %[old_value], 2f             \n"
+    "   sc.d    %[is_successful], %[exchange_value], (%[dest]) \n"
+    "   bnez    %[is_successful], 1b                           \n"
     /* exit */
-    "2:                                                 \n"
+    "2:                                                        \n"
     /* out */
     : [old_value]       "=&r"   (old_value)
     /* in */
     : [dest]            "r"     (dest),
       [compare_value]   "r"     (compare_value),
-      [exchange_value]  "r"     (exchange_value)
+      [exchange_value]  "r"     (exchange_value),
+      [is_successful]   "r"     (is_successful)
     /* clobber */
     : "cc",
       "memory"
