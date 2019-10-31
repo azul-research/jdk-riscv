@@ -8,7 +8,7 @@ level=release
 while getopts "hv:l:" opt; do
     case "$opt" in
     h)
-        echo "usage: configure.sh [-h] [-v jvm-variants] [-l debug-level]"
+        echo "usage: $0 [-h] [-v jvm-variants] [-l debug-level]"
         echo "       -h show help"
         echo "       -v set --with-jvm-variants flag (server, client, minimal, core, zero, zeroshark, custom). default is core"
         echo "       -l set --with-debug-level flag (release, fastdebug, slowdebug, optimized). default is release"
@@ -20,6 +20,8 @@ while getopts "hv:l:" opt; do
         ;;
     esac
 done
+
+cd /jdk-riscv
 
 bash configure \
     --with-jvm-variants=$variants \
