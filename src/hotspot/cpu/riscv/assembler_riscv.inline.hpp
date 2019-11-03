@@ -76,6 +76,87 @@ inline address Assembler::emit_fd(address entry, address toc, address env) {
 }
 #endif
 
+
+inline void Assembler::op_imm_RV(Register d, Register s, int f, int imm) { emit_int32(OP_IMM_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
+inline void Assembler::lui_RV(Register d, int imm) { emit_int32(LUI_RV_OPCODE | immu(imm)); }
+inline void Assembler::auipc_RV(Register d, int imm) { emit_int32(AUIPC_RV_OPCODE | immu(imm)); }
+inline void Assembler::op_RV(Register d, Register s1, Register s2, int f1, int f2) { emit_int32(OP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
+inline void Assembler::jal_RV(Register d, int off) { emit_int32(JAL_RV_OPCODE | rd(d) | immj(off)); }
+inline void Assembler::jalr_RV(Register d, Register base, int off) { emit_int32(JALR_RV_OPCODE | rd(d) | rs1(base) | immi(off)); }
+inline void Assembler::branch_RV(Register s1, Register s2, int f, int off) { emit_int32(BRANCH_RV_OPCODE | rs1(s1) | rs2(s2) | immb(off)); }
+inline void Assembler::load_RV(Register d, Register s, int width, int off) { emit_int32(LOAD_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
+inline void Assembler::store_RV(Register base, Register s, int width, int off) { emit_int32(STORE_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
+inline void Assembler::op_imm32_RV(Register d, Register s, int f, int imm) { emit_int32(OP_IMM32_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
+inline void Assembler::op32_RV(Register d, Register s1, Register s2, int f1, int f2) { emit_int32(OP32_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
+
+
+inline void Assembler::addi_RV(Register d, Register s, int imm) { op_imm_RV(d, s, 0, imm); }
+inline void Assembler::slti_RV(Register d, Register s, int imm) { op_imm_RV(d, s, 2, imm); }
+inline void Assembler::sltiu_RV(Register d, Register s, int imm) { op_imm_RV(d, s, 3, imm); }
+inline void Assembler::xori_RV(Register d, Register s, int imm) { op_imm_RV(d, s, 4, imm); }
+inline void Assembler::ori_RV(Register d, Register s, int imm) { op_imm_RV(d, s, 6, imm); }
+inline void Assembler::andi_RV(Register d, Register s, int imm) { op_imm_RV(d, s, 7, imm); }
+inline void Assembler::slli_RV(Register d, Register s, int shamt) { op_imm_RV(d, s, 1, shamt); }
+inline void Assembler::srli_RV(Register d, Register s, int shamt) { op_imm_RV(d, s, 5, shamt); }
+inline void Assembler::srai_RV(Register d, Register s, int shamt) { op_imm_RV(d, s, 5, shamt | 0x400); }
+
+inline void Assembler::add_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 0, 0); }
+inline void Assembler::slt_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 2, 0); }
+inline void Assembler::sltu_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 3, 0); }
+inline void Assembler::andr_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 7, 0); }
+inline void Assembler::orr_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 6, 0); }
+inline void Assembler::xorr_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 4, 0); }
+inline void Assembler::sll_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 1, 0); }
+inline void Assembler::srl_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 5, 0); }
+inline void Assembler::sub_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 0, 0x20); }
+inline void Assembler::sra_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 5, 0x20); }
+
+inline void Assembler::beq_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 0, off); }
+inline void Assembler::bne_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 1, off); }
+inline void Assembler::blt_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 4, off); }
+inline void Assembler::bltu_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 6, off); }
+inline void Assembler::bge_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 5, off); }
+inline void Assembler::bgeu_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 7, off); }
+
+inline void Assembler::ld_RV(Register d, Register s, int off) { load_RV(d, s, 3, off); }
+inline void Assembler::lw_RV(Register d, Register s, int off) { load_RV(d, s, 2, off); }
+inline void Assembler::lwu_RV(Register d, Register s, int off) { load_RV(d, s, 6, off); }
+inline void Assembler::lh_RV(Register d, Register s, int off) { load_RV(d, s, 1, off); }
+inline void Assembler::lhu_RV(Register d, Register s, int off) { load_RV(d, s, 5, off); }
+inline void Assembler::lb_RV(Register d, Register s, int off) { load_RV(d, s, 0, off); }
+inline void Assembler::lbu_RV(Register d, Register s, int off) { load_RV(d, s, 4, off); }
+
+inline void Assembler::sd_RV(Register base, Register s, int off) { store_RV(base, s, 3, off); }
+inline void Assembler::sw_RV(Register base, Register s, int off) { store_RV(base, s, 2, off); }
+inline void Assembler::sh_RV(Register base, Register s, int off) { store_RV(base, s, 1, off); }
+inline void Assembler::sb_RV(Register base, Register s, int off) { store_RV(base, s, 0, off); }
+
+inline void Assembler::ecall_RV() { emit_int32(SYSTEM_RV_OPCODE); }
+inline void Assembler::ebreak_RV() { emit_int32(SYSTEM_RV_OPCODE | immi(1)); }
+
+inline void Assembler::addiw_RV(Register d, Register s, int imm) { op_imm32_RV(d, s, 0, imm); }
+inline void Assembler::slliw_RV(Register d, Register s, int shamt) { op_imm32_RV(d, s, 1, shamt); }
+inline void Assembler::srliw_RV(Register d, Register s, int shamt) { op_imm32_RV(d, s, 5, shamt); }
+inline void Assembler::sraiw_RV(Register d, Register s, int shamt) { op_imm32_RV(d, s, 5, shamt | 0x400); }
+
+inline void Assembler::addw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 0, 0); }
+inline void Assembler::subw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 0, 0x20); }
+inline void Assembler::sllw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 1, 0); }
+inline void Assembler::srlw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 5, 0); }
+inline void Assembler::sraw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 5, 0x20); }
+
+// pseudoinstructions
+inline void Assembler::nop_RV() { addi(R0, R0, 0); }
+inline void Assembler::j_RV(int off) { jal_RV(R0, off); }
+inline void Assembler::jal_RV(int off) { jal_RV(R1, off); }
+inline void Assembler::jr_RV(Register s) { jalr_RV(R0, s, 0); }
+inline void Assembler::jalr_RV(Register s) { jalr_RV(R1, s, 0); }
+inline void Assembler::ret_RV() { jr_RV(R1); }
+inline void Assembler::call_RV(int off) { auipc_RV(R1, off & 0xfffff000); jalr_RV(R1, R1, off & 0xfff); }
+inline void Assembler::tail_RV(int off) { auipc_RV(R6, off & 0xfffff000); jalr_RV(R0, R6, off & 0xfff); }
+
+// --- PPC instructions follow ---
+
 // Issue an illegal instruction. 0 is guaranteed to be an illegal instruction.
 inline void Assembler::illtrap() { Assembler::emit_int32(0); }
 inline bool Assembler::is_illtrap(int x) { return x == 0; }

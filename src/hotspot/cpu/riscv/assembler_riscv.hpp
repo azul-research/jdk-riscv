@@ -209,6 +209,38 @@ class Assembler : public AbstractAssembler {
   friend class NativeGeneralJump;
   friend class Relocation;
 
+ protected:
+  static inline int rd(int x) { return x << 7; }
+  static inline int rd(Register x) { return rd(x->encoding()); }
+  static inline int funct3(int x) { return x << 12; }
+  static inline int funct7(int x) { return (int)((unsigned)x << 25); }
+  static inline int rs1(int x) { return x << 15; }
+  static inline int rs1(Register x) { return rs1(x->encoding()); }
+  static inline int rs2(int x) { return x << 20; }
+  static inline int rs2(Register x) { return rs2(x->encoding()); }
+
+  // TODO_RISCV: more asserts for immX() functions?
+  static inline int immi(int x) { return (int)((unsigned)x << 20); }
+  static inline int imms(int x) { return (int)(((x & 0x1f) << 7) | ((unsigned)x >> 5 << 25)); }
+  static inline int immb(int x) {
+    assert(x & 1 == 0, "B-immediate must be zero in bit 0");
+    return (int)(
+        ((x & 0x1e) << 7) | ((x & 0x7e0) >> 5 << 25) |
+        ((unsigned)(x >> 12) << 31) | (((x >> 11) & 0x1) << 6)
+    );
+  }
+  static inline int immu(int x) {
+    assert(x & 0xfff == 0, "U-immediate must be zero in bits 0:11");
+    return x & 0xfffff000;
+  }
+  static inline int immj(int x) {
+    assert(x & 1 == 0, "J-immediate must be zero in bit 0");
+    return (int)(
+        ((x & 0x7fe) << 20) | ((x & 0x800) << 9) |
+        (x & 0xff000) | ((unsigned)(x & 0x100000) << 11)
+    );
+  }
+
  public:
 
   enum shifts {
@@ -249,6 +281,35 @@ class Assembler : public AbstractAssembler {
   };
 
   enum opcdxos {
+    // RISCV base opcodes, suffixed with RV_OPCODE temporary, as to not
+    // to conflict with PPC's instructions.
+    //
+    // From https://riscv.org/specifications/ beginning of
+    // Chapter 25. RV32/64G Instruction Set Listings (Table 25.1)
+
+    LOAD_RV_OPCODE = 0x03,
+    LOAD_FP_RV_OPCODE = 0x07,
+    MISC_MEM_RV_OPCODE = 0x0f,
+    OP_IMM_RV_OPCODE = 0x13,
+    AUIPC_RV_OPCODE = 0x17,
+    OP_IMM32_RV_OPCODE = 0x1b,
+    STORE_RV_OPCODE = 0x23,
+    STORE_FP_RV_OPCODE = 0x27,
+    AMO_RV_OPCODE = 0x2f,
+    OP_RV_OPCODE = 0x33,
+    LUI_RV_OPCODE = 0x37,
+    OP32_RV_OPCODE = 0x3b,
+    MADD_RV_OPCODE = 0x43,
+    MSUB_RV_OPCODE = 0x47,
+    NMSUB_RV_OPCODE = 0x4b,
+    NMADD_RV_OPCODE = 0x4f,
+    OP_FP_RV_OPCODE = 0x53,
+    BRANCH_RV_OPCODE = 0x63,
+    JALR_RV_OPCODE = 0x67,
+    JAL_RV_OPCODE = 0x6f,
+    SYSTEM_RV_OPCODE = 0x73,
+
+    // PPC opcodes follow:
     ADD_OPCODE    = (31u << OPCODE_SHIFT | 266u << 1),
     ADDC_OPCODE   = (31u << OPCODE_SHIFT |  10u << 1),
     ADDI_OPCODE   = (14u << OPCODE_SHIFT),
@@ -1960,6 +2021,91 @@ class Assembler : public AbstractAssembler {
   }
 
  public:
+  // RISCV instructions are suffixed with _RV temporarily
+
+  // Generic instructions
+  inline void op_imm_RV(Register d, Register s, int f, int imm);
+  inline void lui_RV(Register d, int imm);
+  inline void auipc_RV(Register d, int imm);
+  inline void op_RV(Register d, Register s1, Register s2, int f1, int f2);
+  inline void jal_RV(Register d, int off);
+  inline void jalr_RV(Register d, Register base, int off);
+  inline void branch_RV(Register s1, Register s2, int f, int off);
+  inline void load_RV(Register d, Register s, int width, int off);
+  inline void store_RV(Register base, Register s, int width, int off);
+  inline void op_imm32_RV(Register d, Register s, int f, int imm);
+  inline void op32_RV(Register d, Register s1, Register s2, int f1, int f2);
+
+  // Concrete instructions
+  // op_imm
+  inline void addi_RV(Register d, Register s, int imm);
+  inline void slti_RV(Register d, Register s, int imm);
+  inline void sltiu_RV(Register d, Register s, int imm);
+  inline void xori_RV(Register d, Register s, int imm);
+  inline void ori_RV(Register d, Register s, int imm);
+  inline void andi_RV(Register d, Register s, int imm);
+  inline void slli_RV(Register d, Register s, int shamt);
+  inline void srli_RV(Register d, Register s, int shamt);
+  inline void srai_RV(Register d, Register s, int shamt);
+  // op
+  inline void add_RV(Register d, Register s1, Register s2);
+  inline void slt_RV(Register d, Register s1, Register s2);
+  inline void sltu_RV(Register d, Register s1, Register s2);
+  inline void andr_RV(Register d, Register s1, Register s2); // and is a C++ keyword
+  inline void orr_RV(Register d, Register s1, Register s2); // or is a C++ keyword
+  inline void xorr_RV(Register d, Register s1, Register s2); // xor is a C++ keyword
+  inline void sll_RV(Register d, Register s1, Register s2);
+  inline void srl_RV(Register d, Register s1, Register s2);
+  inline void sub_RV(Register d, Register s1, Register s2);
+  inline void sra_RV(Register d, Register s1, Register s2);
+  // branch
+  inline void beq_RV(Register s1, Register s2, int off);
+  inline void bne_RV(Register s1, Register s2, int off);
+  inline void blt_RV(Register s1, Register s2, int off);
+  inline void bltu_RV(Register s1, Register s2, int off);
+  inline void bge_RV(Register s1, Register s2, int off);
+  inline void bgeu_RV(Register s1, Register s2, int off);
+  // load
+  inline void ld_RV(Register d, Register s, int off);
+  inline void lw_RV(Register d, Register s, int off);
+  inline void lwu_RV(Register d, Register s, int off);
+  inline void lh_RV(Register d, Register s, int off);
+  inline void lhu_RV(Register d, Register s, int off);
+  inline void lb_RV(Register d, Register s, int off);
+  inline void lbu_RV(Register d, Register s, int off);
+  // store
+  inline void sd_RV(Register base, Register s, int off);
+  inline void sw_RV(Register base, Register s, int off);
+  inline void sh_RV(Register base, Register s, int off);
+  inline void sb_RV(Register base, Register s, int off);
+  // system
+  inline void ecall_RV();
+  inline void ebreak_RV();
+  // op_imm32
+  inline void addiw_RV(Register d, Register s, int imm);
+  inline void slliw_RV(Register d, Register s, int shamt);
+  inline void srliw_RV(Register d, Register s, int shamt);
+  inline void sraiw_RV(Register d, Register s, int shamt);
+  // op
+  inline void addw_RV(Register d, Register s1, Register s2);
+  inline void subw_RV(Register d, Register s1, Register s2);
+  inline void sllw_RV(Register d, Register s1, Register s2);
+  inline void srlw_RV(Register d, Register s1, Register s2);
+  inline void sraw_RV(Register d, Register s1, Register s2);
+
+
+  // pseudoinstructions
+  inline void nop_RV();
+  inline void j_RV(int off);
+  inline void jal_RV(int off);
+  inline void jr_RV(Register s);
+  inline void jalr_RV(Register s);
+  inline void ret_RV();
+  inline void call_RV(int off);
+  inline void tail_RV(int off);
+
+  // --- PPC instructions follow ---
+
   // RISCV floating point instructions
   // RISCV 1, section 4.6.2 Floating-Point Load Instructions
   inline void lfs(  FloatRegister d, int si16,   Register a);
