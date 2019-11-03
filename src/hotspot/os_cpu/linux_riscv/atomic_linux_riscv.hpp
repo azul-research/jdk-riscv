@@ -170,8 +170,6 @@ inline T Atomic::PlatformXchg<4>::operator()(T exchange_value,
     "   lr.w   %[old_value], (%[dest])                        \n"
     "   sc.w   %[is_successful], %[exchange_value], (%[dest]) \n"
     "   bnez   %[is_successful], 1b                           \n"
-    /* exit */
-    "2:                                                       \n"
     /* out */
     : [old_value]       "=&r"   (old_value)
     /* in */
@@ -208,8 +206,6 @@ inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
     "   lr.d   %[old_value], (%[dest])                        \n"
     "   sc.d   %[is_successful], %[exchange_value], (%[dest]) \n"
     "   bnez   %[is_successful], 1b                           \n"
-    /* exit */
-    "2:                                                       \n"
     /* out */
     : [old_value]       "=&r"   (old_value)
     /* in */
