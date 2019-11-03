@@ -223,18 +223,18 @@ class Assembler : public AbstractAssembler {
   static inline int immi(int x) { return (int)((unsigned)x << 20); }
   static inline int imms(int x) { return (int)(((x & 0x1f) << 7) | ((unsigned)x >> 5 << 25)); }
   static inline int immb(int x) {
-    assert(x & 1 == 0, "B-immediate must be zero in bit 0");
+    assert((x & 1) == 0, "B-immediate must be zero in bit 0");
     return (int)(
         ((x & 0x1e) << 7) | ((x & 0x7e0) >> 5 << 25) |
         ((unsigned)(x >> 12) << 31) | (((x >> 11) & 0x1) << 6)
     );
   }
   static inline int immu(int x) {
-    assert(x & 0xfff == 0, "U-immediate must be zero in bits 0:11");
+    assert((x & 0xfff) == 0, "U-immediate must be zero in bits 0:11");
     return x & 0xfffff000;
   }
   static inline int immj(int x) {
-    assert(x & 1 == 0, "J-immediate must be zero in bit 0");
+    assert((x & 1) == 0, "J-immediate must be zero in bit 0");
     return (int)(
         ((x & 0x7fe) << 20) | ((x & 0x800) << 9) |
         (x & 0xff000) | ((unsigned)(x & 0x100000) << 11)
