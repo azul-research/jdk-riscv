@@ -113,12 +113,12 @@ inline D Atomic::PlatformAdd<4>::add_and_fetch(I add_value, D volatile* dest,
 
   pre_membar(order);
   __asm__ __volatile__ (
-    "1: lr.w   %0, (%2)      \n"
-    "   add    %0, %0, %1    \n"
-    "   sc.w   %3, %0, (%2)  \n"
-    "   bnez   %3, 1b        \n"
-    : /*%0*/"=&r" (result)
-    : /*%1*/"r" (add_value), /*%2*/"r" (dest), /*%3*/"r" (is_successful)
+    "1: lr.w   %0, (%3)      \n"
+    "   add    %0, %0, %2    \n"
+    "   sc.w   %1, %0, (%3)  \n"
+    "   bnez   %1, 1b        \n"
+    : /*%0*/"=&r" (result), /*%1*/"=&r" (is_successful)
+    : /*%2*/"r" (add_value), /*%3*/"r" (dest)
     : "cc", "memory" );
   post_membar(order);
 
@@ -140,12 +140,12 @@ inline D Atomic::PlatformAdd<8>::add_and_fetch(I add_value, D volatile* dest,
 
   pre_membar(order);
   __asm__ __volatile__ (
-    "1: lr.d   %0, (%2)      \n"
-    "   add    %0, %0, %1    \n"
-    "   sc.d   %3, %0, (%2)  \n"
-    "   bnez   %3, 1b        \n"
-    : /*%0*/"=&r" (result)
-    : /*%1*/"r" (add_value), /*%2*/"r" (dest), /*%3*/"r" (is_successful)
+    "1: lr.d   %0, (%3)      \n"
+    "   add    %0, %0, %2    \n"
+    "   sc.d   %1, %0, (%3)  \n"
+    "   bnez   %1, 1b        \n"
+    : /*%0*/"=&r" (result), /*%1*/"=&r" (is_successful)
+    : /*%2*/"r" (add_value), /*%3*/"r" (dest)
     : "cc", "memory" );
   post_membar(order);
 
@@ -171,11 +171,11 @@ inline T Atomic::PlatformXchg<4>::operator()(T exchange_value,
     "   sc.w   %[is_successful], %[exchange_value], (%[dest]) \n"
     "   bnez   %[is_successful], 1b                           \n"
     /* out */
-    : [old_value]       "=&r"   (old_value)
+    : [old_value]       "=&r"   (old_value),
+      [is_successful]   "=&r"   (is_successful)
     /* in */
     : [dest]            "r"     (dest),
-      [exchange_value]  "r"     (exchange_value),
-      [is_successful]   "r"     (is_successful)
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
@@ -207,11 +207,11 @@ inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
     "   sc.d   %[is_successful], %[exchange_value], (%[dest]) \n"
     "   bnez   %[is_successful], 1b                           \n"
     /* out */
-    : [old_value]       "=&r"   (old_value)
+    : [old_value]       "=&r"   (old_value),
+      [is_successful]   "=&r"   (is_successful)
     /* in */
     : [dest]            "r"     (dest),
-      [exchange_value]  "r"     (exchange_value),
-      [is_successful]   "r"     (is_successful)
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
@@ -271,14 +271,14 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
     "2:                                                      \n"
     /* out */
     : [old_value]           "=&r"   (old_value),
-      [value32]             "=&r"   (value32)
+      [value32]             "=&r"   (value32),
+      [is_successful]       "=&r"   (is_successful)
     /* in */
     : [dest]                "r"     (dest),
       [dest_base]           "r"     (dest_base),
       [shift_amount]        "r"     (shift_amount),
       [masked_compare_val]  "r"     (masked_compare_val),
-      [xor_value]           "r"     (xor_value),
-      [is_successful]       "r"     (is_successful)
+      [xor_value]           "r"     (xor_value)
     /* clobber */
     : "cc",
       "memory"
@@ -317,12 +317,12 @@ inline T Atomic::PlatformCmpxchg<4>::operator()(T exchange_value,
     /* exit */
     "2:                                                         \n"
     /* out */
-    : [old_value]       "=&r"   (old_value)
+    : [old_value]       "=&r"   (old_value),
+      [is_successful]   "=&r"   (is_successful)
     /* in */
     : [dest]            "r"     (dest),
       [compare_value]   "r"     (compare_value),
-      [exchange_value]  "r"     (exchange_value),
-      [is_successful]   "r"     (is_successful)
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
@@ -361,12 +361,12 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T exchange_value,
     /* exit */
     "2:                                                        \n"
     /* out */
-    : [old_value]       "=&r"   (old_value)
+    : [old_value]       "=&r"   (old_value),
+      [is_successful]   "=&r"   (is_successful)
     /* in */
     : [dest]            "r"     (dest),
       [compare_value]   "r"     (compare_value),
-      [exchange_value]  "r"     (exchange_value),
-      [is_successful]   "r"     (is_successful)
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
