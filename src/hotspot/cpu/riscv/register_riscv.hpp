@@ -80,7 +80,7 @@ inline Register as_Register(int encoding) {
   return (Register)(intptr_t)encoding;
 }
 
-// The implementation of integer registers for the Power architecture
+// The implementation of integer registers for the RISC-V architecture
 class RegisterImpl: public AbstractRegisterImpl {
  public:
   enum {
@@ -97,8 +97,8 @@ class RegisterImpl: public AbstractRegisterImpl {
 
   // testers
   bool is_valid()       const { return ( 0 <= (value()&0x7F) && (value()&0x7F) <  number_of_registers); }
-  bool is_volatile()    const { return ( 0 <= (value()&0x7F) && (value()&0x7F) <= 13 ); }
-  bool is_nonvolatile() const { return (14 <= (value()&0x7F) && (value()&0x7F) <= 31 ); }
+  bool is_volatile()    const { int v = value()&0x7F; return (v == 1) || (v >= 5 && v <= 7) || (v >= 10 && v <= 17) || (v >= 28 && v <= 31); }
+  bool is_nonvolatile() const { int v = value()&0x7F; return (v == 2) || (v == 8) || (v == 9) || (v >= 18 && v <= 27); }
 
   const char* name() const;
 };
