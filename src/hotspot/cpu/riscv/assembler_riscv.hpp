@@ -214,6 +214,7 @@ class Assembler : public AbstractAssembler {
   static inline int rd(Register x) { return rd(x->encoding()); }
   static inline int funct3(int x) { return x << 12; }
   static inline int funct7(int x) { return (int)((unsigned)x << 25); }
+  static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 27) | (rl << 25)); }
   static inline int rs1(int x) { return x << 15; }
   static inline int rs1(Register x) { return rs1(x->encoding()); }
   static inline int rs2(int x) { return x << 20; }
@@ -2028,6 +2029,7 @@ class Assembler : public AbstractAssembler {
   inline void lui_RV(Register d, int imm);
   inline void auipc_RV(Register d, int imm);
   inline void op_RV(Register d, Register s1, Register s2, int f1, int f2);
+  inline void amo_RV(Register d, Register s1, Register s2, int f1, int f2, bool aq, bool rl);
   inline void jal_RV(Register d, int off);
   inline void jalr_RV(Register d, Register base, int off);
   inline void branch_RV(Register s1, Register s2, int f, int off);
@@ -2058,6 +2060,14 @@ class Assembler : public AbstractAssembler {
   inline void srl_RV(Register d, Register s1, Register s2);
   inline void sub_RV(Register d, Register s1, Register s2);
   inline void sra_RV(Register d, Register s1, Register s2);
+  inline void mul_RV(Register d, Register s1, Register s2);
+  inline void mulh_RV(Register d, Register s1, Register s2);
+  inline void mulhsu_RV(Register d, Register s1, Register s2);
+  inline void mulhu_RV(Register d, Register s1, Register s2);
+  inline void div_RV(Register d, Register s1, Register s2);
+  inline void divu_RV(Register d, Register s1, Register s2);
+  inline void rem_RV(Register d, Register s1, Register s2);
+  inline void remu_RV(Register d, Register s1, Register s2);
   // branch
   inline void beq_RV(Register s1, Register s2, int off);
   inline void bne_RV(Register s1, Register s2, int off);
@@ -2092,7 +2102,34 @@ class Assembler : public AbstractAssembler {
   inline void sllw_RV(Register d, Register s1, Register s2);
   inline void srlw_RV(Register d, Register s1, Register s2);
   inline void sraw_RV(Register d, Register s1, Register s2);
-
+  inline void mulw_RV(Register d, Register s1, Register s2);
+  inline void divw_RV(Register d, Register s1, Register s2);
+  inline void divuw_RV(Register d, Register s1, Register s2);
+  inline void remw_RV(Register d, Register s1, Register s2);
+  inline void remuw_RV(Register d, Register s1, Register s2);
+  // amo
+  inline void lrw_RV(Register d, Register s1, bool aq, bool rl);
+  inline void scw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoswapw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxorw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoorw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrd_RV(Register d, Register s1, bool aq, bool rl);
+  inline void scd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoswapd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxord_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoord_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomind_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
 
   // pseudoinstructions
   inline void nop_RV();

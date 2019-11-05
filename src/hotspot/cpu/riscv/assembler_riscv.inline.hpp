@@ -81,6 +81,7 @@ inline void Assembler::op_imm_RV(Register d, Register s, int f, int imm) { emit_
 inline void Assembler::lui_RV(Register d, int imm) { emit_int32(LUI_RV_OPCODE | immu(imm)); }
 inline void Assembler::auipc_RV(Register d, int imm) { emit_int32(AUIPC_RV_OPCODE | immu(imm)); }
 inline void Assembler::op_RV(Register d, Register s1, Register s2, int f1, int f2) { emit_int32(OP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
+inline void Assembler::amo_RV(Register d, Register s1, Register s2, int f1, int f2, bool aq, bool rl) { emit_int32(AMO_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2, aq, rl)); }
 inline void Assembler::jal_RV(Register d, int off) { emit_int32(JAL_RV_OPCODE | rd(d) | immj(off)); }
 inline void Assembler::jalr_RV(Register d, Register base, int off) { emit_int32(JALR_RV_OPCODE | rd(d) | rs1(base) | immi(off)); }
 inline void Assembler::branch_RV(Register s1, Register s2, int f, int off) { emit_int32(BRANCH_RV_OPCODE | rs1(s1) | rs2(s2) | immb(off)); }
@@ -110,6 +111,14 @@ inline void Assembler::sll_RV(Register d, Register s1, Register s2) { op_RV(d, s
 inline void Assembler::srl_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 5, 0); }
 inline void Assembler::sub_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 0, 0x20); }
 inline void Assembler::sra_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 5, 0x20); }
+inline void Assembler::mul_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 0, 0x1); }
+inline void Assembler::mulh_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 1, 0x1); }
+inline void Assembler::mulhsu_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 2, 0x1); }
+inline void Assembler::mulhu_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 3, 0x1); }
+inline void Assembler::div_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 4, 0x1); }
+inline void Assembler::divu_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 5, 0x1); }
+inline void Assembler::rem_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 6, 0x1); }
+inline void Assembler::remu_RV(Register d, Register s1, Register s2) { op_RV(d, s1, s2, 7, 0x1); }
 
 inline void Assembler::beq_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 0, off); }
 inline void Assembler::bne_RV(Register s1, Register s2, int off) { branch_RV(s1, s2, 1, off); }
@@ -144,6 +153,35 @@ inline void Assembler::subw_RV(Register d, Register s1, Register s2) { op32_RV(d
 inline void Assembler::sllw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 1, 0); }
 inline void Assembler::srlw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 5, 0); }
 inline void Assembler::sraw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 5, 0x20); }
+inline void Assembler::mulw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 0, 0x1); }
+inline void Assembler::divw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 4, 0x1); }
+inline void Assembler::divuw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 5, 0x1); }
+inline void Assembler::remw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 6, 0x1); }
+inline void Assembler::remuw_RV(Register d, Register s1, Register s2) { op32_RV(d, s1, s2, 7, 0x1); }
+
+inline void Assembler::lrw_RV(Register d, Register s1, bool aq, bool rl) { amo_RV(d, s1, 0, 2, 0x2, aq, rl); }
+inline void Assembler::scw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x3, aq, rl); }
+inline void Assembler::amoswapw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x1, aq, rl); }
+inline void Assembler::amoaddw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x0, aq, rl); }
+inline void Assembler::amoxorw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x4, aq, rl); }
+inline void Assembler::amoandw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0xc, aq, rl); }
+inline void Assembler::amoorw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x8, aq, rl); }
+inline void Assembler::amominw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x10, aq, rl); }
+inline void Assembler::amomaxw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x14, aq, rl); }
+inline void Assembler::amominuw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x18, aq, rl); }
+inline void Assembler::amomaxuw_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 2, 0x1c, aq, rl); }
+
+inline void Assembler::lrd_RV(Register d, Register s1, bool aq, bool rl) { amo_RV(d, s1, 0, 3, 0x2, aq, rl); }
+inline void Assembler::scd_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x3, aq, rl); }
+inline void Assembler::amoswapd_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x1, aq, rl); }
+inline void Assembler::amoaddd_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x0, aq, rl); }
+inline void Assembler::amoxord_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x4, aq, rl); }
+inline void Assembler::amoandd_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0xc, aq, rl); }
+inline void Assembler::amoord_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x8, aq, rl); }
+inline void Assembler::amomind_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x10, aq, rl); }
+inline void Assembler::amomaxd_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x14, aq, rl); }
+inline void Assembler::amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x18, aq, rl); }
+inline void Assembler::amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 3, 0x1c, aq, rl); }
 
 // pseudoinstructions
 inline void Assembler::nop_RV() { addi(R0, R0, 0); }
