@@ -4,6 +4,7 @@
 
 [RISC-V emulator](./dev-riscv/emulator/README.md)  
 [The RISC-V Instruction Set Manual](https://riscv.org/specifications/)
+[RISC-V asm manual](https://github.com/riscv/riscv-asm-manual/blob/master/riscv-asm.md)
 
 ## Process
 
