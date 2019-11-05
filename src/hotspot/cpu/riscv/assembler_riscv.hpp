@@ -214,7 +214,7 @@ class Assembler : public AbstractAssembler {
   static inline int rd(Register x) { return rd(x->encoding()); }
   static inline int funct3(int x) { return x << 12; }
   static inline int funct7(int x) { return (int)((unsigned)x << 25); }
-  static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 27) | (rl << 25)); }
+  static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 26) | (rl << 25)); }
   static inline int rs1(int x) { return x << 15; }
   static inline int rs1(Register x) { return rs1(x->encoding()); }
   static inline int rs2(int x) { return x << 20; }
