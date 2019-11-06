@@ -128,19 +128,19 @@ void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
 }
 
 static address ucontext_get_lr(const ucontext_t * uc) {
-  return NULL; // FIXME_RISCV
+  return NULL; // FIXME_RISCV (address)uc->uc_mcontext.regs->link;
 }
 
 intptr_t* os::Linux::ucontext_get_sp(const ucontext_t * uc) {
-  return NULL;//(intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/]; // FIXME_RISCV begin
+  return NULL;//(intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/]; // FIXME_RISCV
 }
 
 intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
-  return NULL;
+  return NULL;//(intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/]; // FIXME_RISCV
 }
 
 static unsigned long ucontext_get_trap(const ucontext_t * uc) {
-  return 0;//uc->uc_mcontext.regs->trap; // FIXME_RISCV begin
+  return 0;//uc->uc_mcontext.regs->trap; // FIXME_RISCV
 }
 
 ExtendedPC os::fetch_frame_from_context(const void* ucVoid,
