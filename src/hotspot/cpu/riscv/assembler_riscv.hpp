@@ -2040,94 +2040,94 @@ class Assembler : public AbstractAssembler {
 
   // Concrete instructions
   // op_imm
-  inline void addi_RV(Register d, Register s, int imm);
-  inline void slti_RV(Register d, Register s, int imm);
-  inline void sltiu_RV(Register d, Register s, int imm);
-  inline void xori_RV(Register d, Register s, int imm);
-  inline void ori_RV(Register d, Register s, int imm);
-  inline void andi_RV(Register d, Register s, int imm);
-  inline void slli_RV(Register d, Register s, int shamt);
-  inline void srli_RV(Register d, Register s, int shamt);
-  inline void srai_RV(Register d, Register s, int shamt);
+  inline void addi_RV(    Register d, Register s, int imm);
+  inline void slti_RV(    Register d, Register s, int imm);
+  inline void sltiu_RV(   Register d, Register s, int imm);
+  inline void xori_RV(    Register d, Register s, int imm);
+  inline void ori_RV(     Register d, Register s, int imm);
+  inline void andi_RV(    Register d, Register s, int imm);
+  inline void slli_RV(    Register d, Register s, int shamt);
+  inline void srli_RV(    Register d, Register s, int shamt);
+  inline void srai_RV(    Register d, Register s, int shamt);
   // op
-  inline void add_RV(Register d, Register s1, Register s2);
-  inline void slt_RV(Register d, Register s1, Register s2);
-  inline void sltu_RV(Register d, Register s1, Register s2);
-  inline void andr_RV(Register d, Register s1, Register s2); // and is a C++ keyword
-  inline void orr_RV(Register d, Register s1, Register s2); // or is a C++ keyword
-  inline void xorr_RV(Register d, Register s1, Register s2); // xor is a C++ keyword
-  inline void sll_RV(Register d, Register s1, Register s2);
-  inline void srl_RV(Register d, Register s1, Register s2);
-  inline void sub_RV(Register d, Register s1, Register s2);
-  inline void sra_RV(Register d, Register s1, Register s2);
-  inline void mul_RV(Register d, Register s1, Register s2);
-  inline void mulh_RV(Register d, Register s1, Register s2);
-  inline void mulhsu_RV(Register d, Register s1, Register s2);
-  inline void mulhu_RV(Register d, Register s1, Register s2);
-  inline void div_RV(Register d, Register s1, Register s2);
-  inline void divu_RV(Register d, Register s1, Register s2);
-  inline void rem_RV(Register d, Register s1, Register s2);
-  inline void remu_RV(Register d, Register s1, Register s2);
+  inline void add_RV(     Register d, Register s1, Register s2);
+  inline void slt_RV(     Register d, Register s1, Register s2);
+  inline void sltu_RV(    Register d, Register s1, Register s2);
+  inline void andr_RV(    Register d, Register s1, Register s2); // and is a C++ keyword
+  inline void orr_RV(     Register d, Register s1, Register s2); // or is a C++ keyword
+  inline void xorr_RV(    Register d, Register s1, Register s2); // xor is a C++ keyword
+  inline void sll_RV(     Register d, Register s1, Register s2);
+  inline void srl_RV(     Register d, Register s1, Register s2);
+  inline void sub_RV(     Register d, Register s1, Register s2);
+  inline void sra_RV(     Register d, Register s1, Register s2);
+  inline void mul_RV(     Register d, Register s1, Register s2);
+  inline void mulh_RV(    Register d, Register s1, Register s2);
+  inline void mulhsu_RV(  Register d, Register s1, Register s2);
+  inline void mulhu_RV(   Register d, Register s1, Register s2);
+  inline void div_RV(     Register d, Register s1, Register s2);
+  inline void divu_RV(    Register d, Register s1, Register s2);
+  inline void rem_RV(     Register d, Register s1, Register s2);
+  inline void remu_RV(    Register d, Register s1, Register s2);
   // branch
-  inline void beq_RV(Register s1, Register s2, int off);
-  inline void bne_RV(Register s1, Register s2, int off);
-  inline void blt_RV(Register s1, Register s2, int off);
-  inline void bltu_RV(Register s1, Register s2, int off);
-  inline void bge_RV(Register s1, Register s2, int off);
-  inline void bgeu_RV(Register s1, Register s2, int off);
+  inline void beq_RV(     Register s1, Register s2, int off);
+  inline void bne_RV(     Register s1, Register s2, int off);
+  inline void blt_RV(     Register s1, Register s2, int off);
+  inline void bltu_RV(    Register s1, Register s2, int off);
+  inline void bge_RV(     Register s1, Register s2, int off);
+  inline void bgeu_RV(    Register s1, Register s2, int off);
   // load
-  inline void ld_RV(Register d, Register s, int off);
-  inline void lw_RV(Register d, Register s, int off);
-  inline void lwu_RV(Register d, Register s, int off);
-  inline void lh_RV(Register d, Register s, int off);
-  inline void lhu_RV(Register d, Register s, int off);
-  inline void lb_RV(Register d, Register s, int off);
-  inline void lbu_RV(Register d, Register s, int off);
+  inline void ld_RV(      Register d, Register s, int off);
+  inline void lw_RV(      Register d, Register s, int off);
+  inline void lwu_RV(     Register d, Register s, int off);
+  inline void lh_RV(      Register d, Register s, int off);
+  inline void lhu_RV(     Register d, Register s, int off);
+  inline void lb_RV(      Register d, Register s, int off);
+  inline void lbu_RV(     Register d, Register s, int off);
   // store
-  inline void sd_RV(Register base, Register s, int off);
-  inline void sw_RV(Register base, Register s, int off);
-  inline void sh_RV(Register base, Register s, int off);
-  inline void sb_RV(Register base, Register s, int off);
+  inline void sd_RV(      Register base, Register s, int off);
+  inline void sw_RV(      Register base, Register s, int off);
+  inline void sh_RV(      Register base, Register s, int off);
+  inline void sb_RV(      Register base, Register s, int off);
   // system
   inline void ecall_RV();
   inline void ebreak_RV();
   // op_imm32
-  inline void addiw_RV(Register d, Register s, int imm);
-  inline void slliw_RV(Register d, Register s, int shamt);
-  inline void srliw_RV(Register d, Register s, int shamt);
-  inline void sraiw_RV(Register d, Register s, int shamt);
+  inline void addiw_RV(   Register d, Register s, int imm);
+  inline void slliw_RV(   Register d, Register s, int shamt);
+  inline void srliw_RV(   Register d, Register s, int shamt);
+  inline void sraiw_RV(   Register d, Register s, int shamt);
   // op
-  inline void addw_RV(Register d, Register s1, Register s2);
-  inline void subw_RV(Register d, Register s1, Register s2);
-  inline void sllw_RV(Register d, Register s1, Register s2);
-  inline void srlw_RV(Register d, Register s1, Register s2);
-  inline void sraw_RV(Register d, Register s1, Register s2);
-  inline void mulw_RV(Register d, Register s1, Register s2);
-  inline void divw_RV(Register d, Register s1, Register s2);
-  inline void divuw_RV(Register d, Register s1, Register s2);
-  inline void remw_RV(Register d, Register s1, Register s2);
-  inline void remuw_RV(Register d, Register s1, Register s2);
+  inline void addw_RV(    Register d, Register s1, Register s2);
+  inline void subw_RV(    Register d, Register s1, Register s2);
+  inline void sllw_RV(    Register d, Register s1, Register s2);
+  inline void srlw_RV(    Register d, Register s1, Register s2);
+  inline void sraw_RV(    Register d, Register s1, Register s2);
+  inline void mulw_RV(    Register d, Register s1, Register s2);
+  inline void divw_RV(    Register d, Register s1, Register s2);
+  inline void divuw_RV(   Register d, Register s1, Register s2);
+  inline void remw_RV(    Register d, Register s1, Register s2);
+  inline void remuw_RV(   Register d, Register s1, Register s2);
   // amo
-  inline void lrw_RV(Register d, Register s1, bool aq, bool rl);
-  inline void scw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrw_RV(     Register d, Register s1,              bool aq, bool rl);
+  inline void scw_RV(     Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoswapw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoaddw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoxorw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoandw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoorw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amominw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomaxw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxorw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoorw_RV(  Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amominuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amomaxuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void lrd_RV(Register d, Register s1, bool aq, bool rl);
-  inline void scd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrd_RV(     Register d, Register s1,              bool aq, bool rl);
+  inline void scd_RV(     Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoswapd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoaddd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoxord_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoandd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoord_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomind_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomaxd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxord_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoord_RV(  Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomind_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
 
