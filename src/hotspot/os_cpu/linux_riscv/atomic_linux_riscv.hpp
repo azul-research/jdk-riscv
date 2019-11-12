@@ -103,23 +103,23 @@ template<>
 template<typename I, typename D>
 inline D Atomic::PlatformAdd<4>::add_and_fetch(I add_value, D volatile* dest,
                                                atomic_memory_order order) const {
+  fprintf(stderr, "Atomic::PlatformAdd<4>::add_and_fetch has been reached. Go to %s and check if it works\n", __FILE__);
+  exit(1);
   STATIC_ASSERT(4 == sizeof(I));
   STATIC_ASSERT(4 == sizeof(D));
 
   D result;
+  int is_successful;
 
   pre_membar(order);
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
-    "1: lwarx   %0,  0, %2    \n"
-    "   add     %0, %0, %1    \n"
-    "   stwcx.  %0,  0, %2    \n"
-    "   bne-    1b            \n"
-    : /*%0*/"=&r" (result)
-    : /*%1*/"r" (add_value), /*%2*/"r" (dest)
+    "1: lr.w   %0, (%3)      \n"
+    "   add    %0, %0, %2    \n"
+    "   sc.w   %1, %0, (%3)  \n"
+    "   bnez   %1, 1b        \n"
+    : /*%0*/"=&r" (result), /*%1*/"=&r" (is_successful)
+    : /*%2*/"r" (add_value), /*%3*/"r" (dest)
     : "cc", "memory" );
-#endif
   post_membar(order);
 
   return result;
@@ -130,24 +130,23 @@ template<>
 template<typename I, typename D>
 inline D Atomic::PlatformAdd<8>::add_and_fetch(I add_value, D volatile* dest,
                                                atomic_memory_order order) const {
+  fprintf(stderr, "Atomic::PlatformAdd<8>::add_and_fetch has been reached. Go to %s and check if it works\n", __FILE__);
+  exit(1);
   STATIC_ASSERT(8 == sizeof(I));
   STATIC_ASSERT(8 == sizeof(D));
 
   D result;
+  int is_successful;
 
   pre_membar(order);
-
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
-    "1: ldarx   %0,  0, %2    \n"
-    "   add     %0, %0, %1    \n"
-    "   stdcx.  %0,  0, %2    \n"
-    "   bne-    1b            \n"
-    : /*%0*/"=&r" (result)
-    : /*%1*/"r" (add_value), /*%2*/"r" (dest)
+    "1: lr.d   %0, (%3)      \n"
+    "   add    %0, %0, %2    \n"
+    "   sc.d   %1, %0, (%3)  \n"
+    "   bnez   %1, 1b        \n"
+    : /*%0*/"=&r" (result), /*%1*/"=&r" (is_successful)
+    : /*%2*/"r" (add_value), /*%3*/"r" (dest)
     : "cc", "memory" );
-#endif
   post_membar(order);
 
   return result;
@@ -162,33 +161,25 @@ inline T Atomic::PlatformXchg<4>::operator()(T exchange_value,
   // (see synchronizer.cpp).
 
   T old_value;
-  const uint64_t zero = 0;
+  int is_successful;
 
   pre_membar(order);
-
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
     /* atomic loop */
-    "1:                                                 \n"
-    "   lwarx   %[old_value], %[dest], %[zero]          \n"
-    "   stwcx.  %[exchange_value], %[dest], %[zero]     \n"
-    "   bne-    1b                                      \n"
-    /* exit */
-    "2:                                                 \n"
+    "1:                                                       \n"
+    "   lr.w   %[old_value], (%[dest])                        \n"
+    "   sc.w   %[is_successful], %[exchange_value], (%[dest]) \n"
+    "   bnez   %[is_successful], 1b                           \n"
     /* out */
     : [old_value]       "=&r"   (old_value),
-                        "=m"    (*dest)
+      [is_successful]   "=&r"   (is_successful)
     /* in */
-    : [dest]            "b"     (dest),
-      [zero]            "r"     (zero),
-      [exchange_value]  "r"     (exchange_value),
-                        "m"     (*dest)
+    : [dest]            "r"     (dest),
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
     );
-#endif
   post_membar(order);
 
   return old_value;
@@ -199,38 +190,32 @@ template<typename T>
 inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
                                              T volatile* dest,
                                              atomic_memory_order order) const {
+  fprintf(stderr, "Atomic::PlatformXchg<8> has been reached. Go to %s and check if it works\n", __FILE__);
+  exit(1);
   STATIC_ASSERT(8 == sizeof(T));
   // Note that xchg doesn't necessarily do an acquire
   // (see synchronizer.cpp).
 
   T old_value;
-  const uint64_t zero = 0;
+  int is_successful;
 
   pre_membar(order);
-
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
     /* atomic loop */
-    "1:                                                 \n"
-    "   ldarx   %[old_value], %[dest], %[zero]          \n"
-    "   stdcx.  %[exchange_value], %[dest], %[zero]     \n"
-    "   bne-    1b                                      \n"
-    /* exit */
-    "2:                                                 \n"
+    "1:                                                       \n"
+    "   lr.d   %[old_value], (%[dest])                        \n"
+    "   sc.d   %[is_successful], %[exchange_value], (%[dest]) \n"
+    "   bnez   %[is_successful], 1b                           \n"
     /* out */
     : [old_value]       "=&r"   (old_value),
-                        "=m"    (*dest)
+      [is_successful]   "=&r"   (is_successful)
     /* in */
-    : [dest]            "b"     (dest),
-      [zero]            "r"     (zero),
-      [exchange_value]  "r"     (exchange_value),
-                        "m"     (*dest)
+    : [dest]            "r"     (dest),
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
     );
-#endif
   post_membar(order);
 
   return old_value;
@@ -242,6 +227,8 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
                                                 T volatile* dest,
                                                 T compare_value,
                                                 atomic_memory_order order) const {
+  fprintf(stderr, "Atomic::PlatformCmpxchg<1> has been reached. Go to %s and check if it works\n", __FILE__);
+  exit(1);
   STATIC_ASSERT(1 == sizeof(T));
 
   // Note that cmpxchg guarantees a two-way memory barrier across
@@ -261,48 +248,41 @@ inline T Atomic::PlatformCmpxchg<1>::operator()(T exchange_value,
                      xor_value           = (masked_compare_val ^ masked_exchange_val) << shift_amount;
 
   unsigned int old_value, value32;
+  int is_successful;
 
   pre_membar(order);
-
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
     /* simple guard */
-    "   lbz     %[old_value], 0(%[dest])                  \n"
-    "   cmpw    %[masked_compare_val], %[old_value]       \n"
-    "   bne-    2f                                        \n"
+    "   lb     %[old_value], (%[dest])                       \n"
+    "   bne    %[masked_compare_val], %[old_value], 2f       \n"
     /* atomic loop */
-    "1:                                                   \n"
-    "   lwarx   %[value32], 0, %[dest_base]               \n"
+    "1:                                                      \n"
+    "   lr.w    %[value32], (%[dest_base])                   \n"
     /* extract byte and compare */
-    "   srd     %[old_value], %[value32], %[shift_amount] \n"
-    "   clrldi  %[old_value], %[old_value], 56            \n"
-    "   cmpw    %[masked_compare_val], %[old_value]       \n"
-    "   bne-    2f                                        \n"
+    "   srl     %[old_value], %[value32], %[shift_amount]    \n"
+    "   slli    %[old_value], %[old_value], 56               \n"
+    "   srli    %[old_value], %[old_value], 56               \n"
+    "   bne     %[masked_compare_val], %[old_value], 2f      \n"
     /* replace byte and try to store */
-    "   xor     %[value32], %[xor_value], %[value32]      \n"
-    "   stwcx.  %[value32], 0, %[dest_base]               \n"
-    "   bne-    1b                                        \n"
+    "   xor     %[value32], %[xor_value], %[value32]         \n"
+    "   sc.w    %[is_successful], %[value32], (%[dest_base]) \n"
+    "   bnez    %[is_successful], 1b                         \n"
     /* exit */
-    "2:                                                   \n"
+    "2:                                                      \n"
     /* out */
     : [old_value]           "=&r"   (old_value),
       [value32]             "=&r"   (value32),
-                            "=m"    (*dest),
-                            "=m"    (*dest_base)
+      [is_successful]       "=&r"   (is_successful)
     /* in */
-    : [dest]                "b"     (dest),
-      [dest_base]           "b"     (dest_base),
+    : [dest]                "r"     (dest),
+      [dest_base]           "r"     (dest_base),
       [shift_amount]        "r"     (shift_amount),
       [masked_compare_val]  "r"     (masked_compare_val),
-      [xor_value]           "r"     (xor_value),
-                            "m"     (*dest),
-                            "m"     (*dest_base)
+      [xor_value]           "r"     (xor_value)
     /* clobber */
     : "cc",
       "memory"
     );
-#endif
   post_membar(order);
 
   return PrimitiveConversions::cast<T>((unsigned char)old_value);
@@ -321,40 +301,32 @@ inline T Atomic::PlatformCmpxchg<4>::operator()(T exchange_value,
   // specified otherwise (see atomic.hpp).
 
   T old_value;
-  const uint64_t zero = 0;
+  int is_successful;
 
   pre_membar(order);
-
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
     /* simple guard */
-    "   lwz     %[old_value], 0(%[dest])                \n"
-    "   cmpw    %[compare_value], %[old_value]          \n"
-    "   bne-    2f                                      \n"
+    "   lw     %[old_value], (%[dest])                          \n"
+    "   bne    %[compare_value], %[old_value], 2f               \n"
     /* atomic loop */
-    "1:                                                 \n"
-    "   lwarx   %[old_value], %[dest], %[zero]          \n"
-    "   cmpw    %[compare_value], %[old_value]          \n"
-    "   bne-    2f                                      \n"
-    "   stwcx.  %[exchange_value], %[dest], %[zero]     \n"
-    "   bne-    1b                                      \n"
+    "1:                                                         \n"
+    "   lr.w    %[old_value], (%[dest])                         \n"
+    "   bne     %[compare_value], %[old_value], 2f              \n"
+    "   sc.w    %[is_successful], %[exchange_value], (%[dest] ) \n"
+    "   bnez    %[is_successful], 1b                            \n"
     /* exit */
-    "2:                                                 \n"
+    "2:                                                         \n"
     /* out */
     : [old_value]       "=&r"   (old_value),
-                        "=m"    (*dest)
+      [is_successful]   "=&r"   (is_successful)
     /* in */
-    : [dest]            "b"     (dest),
-      [zero]            "r"     (zero),
+    : [dest]            "r"     (dest),
       [compare_value]   "r"     (compare_value),
-      [exchange_value]  "r"     (exchange_value),
-                        "m"     (*dest)
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
     );
-#endif
   post_membar(order);
 
   return old_value;
@@ -373,40 +345,32 @@ inline T Atomic::PlatformCmpxchg<8>::operator()(T exchange_value,
   // specified otherwise (see atomic.hpp).
 
   T old_value;
-  const uint64_t zero = 0;
+  int is_successful;
 
   pre_membar(order);
-
-// FIXME_RISCV
-#if 0
   __asm__ __volatile__ (
     /* simple guard */
-    "   ld      %[old_value], 0(%[dest])                \n"
-    "   cmpd    %[compare_value], %[old_value]          \n"
-    "   bne-    2f                                      \n"
+    "   ld     %[old_value], (%[dest])                         \n"
+    "   bne    %[compare_value], %[old_value], 2f              \n"
     /* atomic loop */
-    "1:                                                 \n"
-    "   ldarx   %[old_value], %[dest], %[zero]          \n"
-    "   cmpd    %[compare_value], %[old_value]          \n"
-    "   bne-    2f                                      \n"
-    "   stdcx.  %[exchange_value], %[dest], %[zero]     \n"
-    "   bne-    1b                                      \n"
+    "1:                                                        \n"
+    "   lr.d    %[old_value], (%[dest])                        \n"
+    "   bne     %[compare_value], %[old_value], 2f             \n"
+    "   sc.d    %[is_successful], %[exchange_value], (%[dest]) \n"
+    "   bnez    %[is_successful], 1b                           \n"
     /* exit */
-    "2:                                                 \n"
+    "2:                                                        \n"
     /* out */
     : [old_value]       "=&r"   (old_value),
-                        "=m"    (*dest)
+      [is_successful]   "=&r"   (is_successful)
     /* in */
-    : [dest]            "b"     (dest),
-      [zero]            "r"     (zero),
+    : [dest]            "r"     (dest),
       [compare_value]   "r"     (compare_value),
-      [exchange_value]  "r"     (exchange_value),
-                        "m"     (*dest)
+      [exchange_value]  "r"     (exchange_value)
     /* clobber */
     : "cc",
       "memory"
     );
-#endif
   post_membar(order);
 
   return old_value;
