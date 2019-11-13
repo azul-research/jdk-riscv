@@ -229,8 +229,8 @@ class Assembler : public AbstractAssembler {
   static inline int immb(int x) {
     assert((x & 1) == 0, "B-immediate must be zero in bit 0");
     return (int)(
-        ((x & 0x1e) << 7) | ((x & 0x7e0) >> 5 << 25) |
-        ((unsigned)(x >> 12) << 31) | (((x >> 11) & 0x1) << 6)
+        ((x & 0x1e) << 7) | (((x >> 5) & 0x3f) << 25) |
+        ((unsigned)(x >> 12) << 31) | (((x >> 11) & 0x1) << 7)
     );
   }
   static inline int immu(int x) {
