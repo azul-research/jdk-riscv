@@ -103,8 +103,6 @@ template<>
 template<typename I, typename D>
 inline D Atomic::PlatformAdd<4>::add_and_fetch(I add_value, D volatile* dest,
                                                atomic_memory_order order) const {
-  fprintf(stderr, "Atomic::PlatformAdd<4>::add_and_fetch has been reached. Go to %s and check if it works\n", __FILE__);
-  exit(1);
   STATIC_ASSERT(4 == sizeof(I));
   STATIC_ASSERT(4 == sizeof(D));
 
@@ -130,8 +128,6 @@ template<>
 template<typename I, typename D>
 inline D Atomic::PlatformAdd<8>::add_and_fetch(I add_value, D volatile* dest,
                                                atomic_memory_order order) const {
-  fprintf(stderr, "Atomic::PlatformAdd<8>::add_and_fetch has been reached. Go to %s and check if it works\n", __FILE__);
-  exit(1);
   STATIC_ASSERT(8 == sizeof(I));
   STATIC_ASSERT(8 == sizeof(D));
 
@@ -190,8 +186,6 @@ template<typename T>
 inline T Atomic::PlatformXchg<8>::operator()(T exchange_value,
                                              T volatile* dest,
                                              atomic_memory_order order) const {
-  fprintf(stderr, "Atomic::PlatformXchg<8> has been reached. Go to %s and check if it works\n", __FILE__);
-  exit(1);
   STATIC_ASSERT(8 == sizeof(T));
   // Note that xchg doesn't necessarily do an acquire
   // (see synchronizer.cpp).

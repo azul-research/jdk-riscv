@@ -80,11 +80,8 @@
 address os::current_stack_pointer() {
   intptr_t* csp;
 
-  // inline assembly `mr regno(csp), R1_SP':
-// FIXME_RISCV
-#if 0
-  __asm__ __volatile__ ("mr %0, 1":"=r"(csp):);
-#endif
+  // copy stack pointer register value to scp:
+  __asm__ __volatile__ ("addi %0, sp, 0":"=r"(csp):);
 
   return (address) csp;
 }

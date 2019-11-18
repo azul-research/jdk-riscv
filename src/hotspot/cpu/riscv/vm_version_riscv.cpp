@@ -96,11 +96,6 @@ void VM_Version::initialize() {
   guarantee(PowerArchitectureRISCV64_ok, "PowerArchitectureRISCV64 cannot be set to "
             UINTX_FORMAT " on this machine", PowerArchitectureRISCV64);
 
-  // Power 8: Configure Data Stream Control Register.
-  if (PowerArchitectureRISCV64 >= 8 && has_mfdscr()) {
-    config_dscr();
-  }
-
   if (!UseSIGTRAP) {
     MSG(TrapBasedICMissChecks);
     MSG(TrapBasedNotEntrantChecks);
@@ -196,7 +191,7 @@ void VM_Version::initialize() {
   _supports_atomic_getadd8 = true;
 
   UseSSE = 0; // Only on x86 and x64
-
+*/ // FIXME_RISCV end
   intx cache_line_size = L1_data_cache_line_size();
 
   if (FLAG_IS_DEFAULT(AllocatePrefetchStyle)) AllocatePrefetchStyle = 1;
@@ -222,6 +217,7 @@ void VM_Version::initialize() {
 
   assert(AllocatePrefetchStyle >= 0, "AllocatePrefetchStyle should be positive");
 
+  /* // FIXME_RISCV begin
   // If running on Power8 or newer hardware, the implementation uses the available vector instructions.
   // In all other cases, the implementation uses only generally available instructions.
   if (!UseCRC32Intrinsics) {
@@ -767,17 +763,10 @@ void VM_Version::determine_section_size() {
 #endif // COMPILER2
 
 void VM_Version::determine_features() {
-#if defined(ABI_ELFv2)
-  // 1 InstWord per call for the blr instruction.
-  const int code_size = (num_features+1+2*1)*BytesPerInstWord;
-#else
-  // 7 InstWords for each call (function descriptor + blr instruction).
-  const int code_size = (num_features+1+2*7)*BytesPerInstWord;
-#endif
-  int features = 0;
-
+  // 1 InstWord for each call (ret_RV instruction).
+  const int code_size = (num_features+1+7)*BytesPerInstWord;
   // create test area
-  enum { BUFFER_SIZE = 2*4*K }; // Needs to be >=2* max cache line size (cache line size can't exceed min page size).
+  enum { BUFFER_SIZE = 2*4*K };
   char test_area[BUFFER_SIZE];
   char *mid_of_test_area = &test_area[BUFFER_SIZE>>1];
 
@@ -792,36 +781,8 @@ void VM_Version::determine_features() {
   // Emit code.
   void (*test)(address addr, uint64_t offset)=(void(*)(address addr, uint64_t offset))(void *)a->function_entry();
   uint32_t *code = (uint32_t *)a->pc();
-  // Don't use R0 in ldarx.
-  // Keep R3_ARG1 unmodified, it contains &field (see below).
-  // Keep R4_ARG2 unmodified, it contains offset = 0 (see below).
-  a->fsqrt(F3, F4);                            // code[0]  -> fsqrt_m
-  a->fsqrts(F3, F4);                           // code[1]  -> fsqrts_m
-  a->isel(R7, R5, R6, 0);                      // code[2]  -> isel_m
-  a->ldarx_unchecked(R7, R3_ARG1, R4_ARG2, 1); // code[3]  -> lxarx_m
-  a->cmpb(R7, R5, R6);                         // code[4]  -> cmpb
-  a->popcntb(R7, R5);                          // code[5]  -> popcntb
-  a->popcntw(R7, R5);                          // code[6]  -> popcntw
-  a->fcfids(F3, F4);                           // code[7]  -> fcfids
-  a->vand(VR0, VR0, VR0);                      // code[8]  -> vand
-  // arg0 of lqarx must be an even register, (arg1 + arg2) must be a multiple of 16
-  a->lqarx_unchecked(R6, R3_ARG1, R4_ARG2, 1); // code[9]  -> lqarx_m
-  a->vcipher(VR0, VR1, VR2);                   // code[10] -> vcipher
-  a->vpmsumb(VR0, VR1, VR2);                   // code[11] -> vpmsumb
-  a->mfdscr(R0);                               // code[12] -> mfdscr
-  a->lxvd2x(VSR0, R3_ARG1);                    // code[13] -> vsx
-  a->ldbrx(R7, R3_ARG1, R4_ARG2);              // code[14] -> ldbrx
-  a->stdbrx(R7, R3_ARG1, R4_ARG2);             // code[15] -> stdbrx
-  a->vshasigmaw(VR0, VR1, 1, 0xF);             // code[16] -> vshasig
-  // rtm is determined by OS
-  a->darn(R7);                                 // code[17] -> darn
-  a->blr();
-
-  // Emit function to set one cache line to zero. Emit function descriptor and get pointer to it.
-  void (*zero_cacheline_func_ptr)(char*) = (void(*)(char*))(void *)a->function_entry();
-  a->dcbz(R3_ARG1); // R3_ARG1 = addr
-  a->blr();
-
+  // FIXME_RISCV TODO Test assembler here.
+  //  a->ret_RV();
   uint32_t *code_end = (uint32_t *)a->pc();
   a->flush();
   _features = VM_Version::unknown_m;
@@ -833,41 +794,13 @@ void VM_Version::determine_features() {
     Disassembler::decode((u_char*)code, (u_char*)code_end, tty);
   }
 
-  // Measure cache line size.
-  memset(test_area, 0xFF, BUFFER_SIZE); // Fill test area with 0xFF.
-  (*zero_cacheline_func_ptr)(mid_of_test_area); // Call function which executes dcbz to the middle.
-  int count = 0; // count zeroed bytes
-  for (int i = 0; i < BUFFER_SIZE; i++) if (test_area[i] == 0) count++;
-  guarantee(is_power_of_2(count), "cache line size needs to be a power of 2");
-  _L1_data_cache_line_size = count;
+  _L1_data_cache_line_size = 64;
 
   // Execute code. Illegal instructions will be replaced by 0 in the signal handler.
   VM_Version::_is_determine_features_test_running = true;
   // We must align the first argument to 16 bytes because of the lqarx check.
-  (*test)(align_up((address)mid_of_test_area, 16), 0);
+  // (*test)(align_up((address)mid_of_test_area, 16), 0); FIXME_RISCV
   VM_Version::_is_determine_features_test_running = false;
-
-  // determine which instructions are legal.
-  int feature_cntr = 0;
-  if (code[feature_cntr++]) features |= fsqrt_m;
-  if (code[feature_cntr++]) features |= fsqrts_m;
-  if (code[feature_cntr++]) features |= isel_m;
-  if (code[feature_cntr++]) features |= lxarxeh_m;
-  if (code[feature_cntr++]) features |= cmpb_m;
-  if (code[feature_cntr++]) features |= popcntb_m;
-  if (code[feature_cntr++]) features |= popcntw_m;
-  if (code[feature_cntr++]) features |= fcfids_m;
-  if (code[feature_cntr++]) features |= vand_m;
-  if (code[feature_cntr++]) features |= lqarx_m;
-  if (code[feature_cntr++]) features |= vcipher_m;
-  if (code[feature_cntr++]) features |= vpmsumb_m;
-  if (code[feature_cntr++]) features |= mfdscr_m;
-  if (code[feature_cntr++]) features |= vsx_m;
-  if (code[feature_cntr++]) features |= ldbrx_m;
-  if (code[feature_cntr++]) features |= stdbrx_m;
-  if (code[feature_cntr++]) features |= vshasig_m;
-  // feature rtm_m is determined by OS
-  if (code[feature_cntr++]) features |= darn_m;
 
   // Print the detection code.
   if (PrintAssembly) {
@@ -876,103 +809,9 @@ void VM_Version::determine_features() {
     Disassembler::decode((u_char*)code, (u_char*)code_end, tty);
   }
 
-  _features = features;
-
-#ifdef AIX
-  // To enable it on AIX it's necessary POWER8 or above and at least AIX 7.2.
-  // Actually, this is supported since AIX 7.1.. Unfortunately, this first
-  // contained bugs, so that it can only be enabled after AIX 7.1.3.30.
-  // The Java property os.version, which is used in RTM tests to decide
-  // whether the feature is available, only knows major and minor versions.
-  // We don't want to change this property, as user code might depend on it.
-  // So the tests can not check on subversion 3.30, and we only enable RTM
-  // with AIX 7.2.
-  if (has_lqarx()) { // POWER8 or above
-    if (os::Aix::os_version() >= 0x07020000) { // At least AIX 7.2.
-      _features |= rtm_m;
-    }
-  }
-#endif
-#if defined(LINUX) && defined(VM_LITTLE_ENDIAN)
-/* // FIXME_RISCV begin
-  unsigned long auxv = getauxval(AT_HWCAP2);
-
-  if (auxv & RISCV_FEATURE2_HTM_NOSC) {
-    if (auxv & RISCV_FEATURE2_HAS_HTM) {
-      // TM on POWER8 and POWER9 in compat mode (VM) is supported by the JVM.
-      // TM on POWER9 DD2.1 NV (baremetal) is not supported by the JVM (TM on
-      // POWER9 DD2.1 NV has a few issues that need a couple of firmware
-      // and kernel workarounds, so there is a new mode only supported
-      // on non-virtualized P9 machines called HTM with no Suspend Mode).
-      // TM on POWER9 D2.2+ NV is not supported at all by Linux.
-      _features |= rtm_m;
-    }
-  }
-*/ // FIXME_RISCV end
-#endif
+  _features = VM_Version::all_features_m;
 }
 
-// Power 8: Configure Data Stream Control Register.
-void VM_Version::config_dscr() {
-  // 7 InstWords for each call (function descriptor + blr instruction).
-  const int code_size = (2+2*7)*BytesPerInstWord;
-
-  // Allocate space for the code.
-  ResourceMark rm;
-  CodeBuffer cb("config_dscr", code_size, 0);
-  MacroAssembler* a = new MacroAssembler(&cb);
-
-  // Emit code.
-  uint64_t (*get_dscr)() = (uint64_t(*)())(void *)a->function_entry();
-  uint32_t *code = (uint32_t *)a->pc();
-  a->mfdscr(R3);
-  a->blr();
-
-  void (*set_dscr)(long) = (void(*)(long))(void *)a->function_entry();
-  a->mtdscr(R3);
-  a->blr();
-
-  uint32_t *code_end = (uint32_t *)a->pc();
-  a->flush();
-
-  // Print the detection code.
-  if (PrintAssembly) {
-    ttyLocker ttyl;
-    tty->print_cr("Decoding dscr configuration stub at " INTPTR_FORMAT " before execution:", p2i(code));
-    Disassembler::decode((u_char*)code, (u_char*)code_end, tty);
-  }
-
-  // Apply the configuration if needed.
-  _dscr_val = (*get_dscr)();
-  if (Verbose) {
-    tty->print_cr("dscr value was 0x%lx" , _dscr_val);
-  }
-  bool change_requested = false;
-  if (DSCR_RISCV64 != (uintx)-1) {
-    _dscr_val = DSCR_RISCV64;
-    change_requested = true;
-  }
-  if (DSCR_DPFD_RISCV64 <= 7) {
-    uint64_t mask = 0x7;
-    if ((_dscr_val & mask) != DSCR_DPFD_RISCV64) {
-      _dscr_val = (_dscr_val & ~mask) | (DSCR_DPFD_RISCV64);
-      change_requested = true;
-    }
-  }
-  if (DSCR_URG_RISCV64 <= 7) {
-    uint64_t mask = 0x7 << 6;
-    if ((_dscr_val & mask) != DSCR_DPFD_RISCV64 << 6) {
-      _dscr_val = (_dscr_val & ~mask) | (DSCR_URG_RISCV64 << 6);
-      change_requested = true;
-    }
-  }
-  if (change_requested) {
-    (*set_dscr)(_dscr_val);
-    if (Verbose) {
-      tty->print_cr("dscr was set to 0x%lx" , (*get_dscr)());
-    }
-  }
-}
 
 static uint64_t saved_features = 0;
 
