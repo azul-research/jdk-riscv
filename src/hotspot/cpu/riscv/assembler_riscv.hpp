@@ -209,7 +209,51 @@ class Assembler : public AbstractAssembler {
   friend class NativeGeneralJump;
   friend class Relocation;
 
+ protected:
+  static inline int rd(int x) { return x << 7; }
+  static inline int rd(Register x) { return rd(x->encoding()); }
+  static inline int funct2(int x) { return x << 25; }
+  static inline int funct3(int x) { return x << 12; }
+  static inline int funct7(int x) { return (int)((unsigned)x << 25); }
+  static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 26) | (rl << 25)); }
+  static inline int rs1(int x) { return x << 15; }
+  static inline int rs1(Register x) { return rs1(x->encoding()); }
+  static inline int rs2(int x) { return x << 20; }
+  static inline int rs2(Register x) { return rs2(x->encoding()); }
+  static inline int rs3(int x) { return x << 27; }
+  static inline int rs3(Register x) { return rs3(x->encoding()); }
+
+  // TODO_RISCV: more asserts for immX() functions?
+  static inline int immi(int x) { return (int)((unsigned)x << 20); }
+  static inline int imms(int x) { return (int)(((x & 0x1f) << 7) | ((unsigned)x >> 5 << 25)); }
+  static inline int immb(int x) {
+    assert((x & 1) == 0, "B-immediate must be zero in bit 0");
+    return (int)(
+        ((x & 0x1e) << 7) | (((x >> 5) & 0x3f) << 25) |
+        ((unsigned)(x >> 12) << 31) | (((x >> 11) & 0x1) << 7)
+    );
+  }
+  static inline int immu(int x) {
+    assert((x & 0xfff) == 0, "U-immediate must be zero in bits 0:11");
+    return x & 0xfffff000;
+  }
+  static inline int immj(int x) {
+    assert((x & 1) == 0, "J-immediate must be zero in bit 0");
+    return (int)(
+        ((x & 0x7fe) << 20) | ((x & 0x800) << 9) |
+        (x & 0xff000) | ((unsigned)(x & 0x100000) << 11)
+    );
+  }
+
  public:
+  enum rounding_mode {
+    RNE = 0x0,
+    RTZ = 0x1,
+    RDN = 0x2,
+    RUP = 0x3,
+    RMM = 0x4,
+    DYN = 0x7
+  };
 
   enum shifts {
     XO_21_29_SHIFT = 2,
@@ -249,6 +293,35 @@ class Assembler : public AbstractAssembler {
   };
 
   enum opcdxos {
+    // RISCV base opcodes, suffixed with RV_OPCODE temporary, as to not
+    // to conflict with PPC's instructions.
+    //
+    // From https://riscv.org/specifications/ beginning of
+    // Chapter 25. RV32/64G Instruction Set Listings (Table 25.1)
+
+    LOAD_RV_OPCODE = 0x03,
+    LOAD_FP_RV_OPCODE = 0x07,
+    MISC_MEM_RV_OPCODE = 0x0f,
+    OP_IMM_RV_OPCODE = 0x13,
+    AUIPC_RV_OPCODE = 0x17,
+    OP_IMM32_RV_OPCODE = 0x1b,
+    STORE_RV_OPCODE = 0x23,
+    STORE_FP_RV_OPCODE = 0x27,
+    AMO_RV_OPCODE = 0x2f,
+    OP_RV_OPCODE = 0x33,
+    LUI_RV_OPCODE = 0x37,
+    OP32_RV_OPCODE = 0x3b,
+    MADD_RV_OPCODE = 0x43,
+    MSUB_RV_OPCODE = 0x47,
+    NMSUB_RV_OPCODE = 0x4b,
+    NMADD_RV_OPCODE = 0x4f,
+    OP_FP_RV_OPCODE = 0x53,
+    BRANCH_RV_OPCODE = 0x63,
+    JALR_RV_OPCODE = 0x67,
+    JAL_RV_OPCODE = 0x6f,
+    SYSTEM_RV_OPCODE = 0x73,
+
+    // PPC opcodes follow:
     ADD_OPCODE    = (31u << OPCODE_SHIFT | 266u << 1),
     ADDC_OPCODE   = (31u << OPCODE_SHIFT |  10u << 1),
     ADDI_OPCODE   = (14u << OPCODE_SHIFT),
@@ -1960,6 +2033,231 @@ class Assembler : public AbstractAssembler {
   }
 
  public:
+  // RISCV instructions are suffixed with _RV temporarily
+
+  // Generic instructions
+  inline void op_imm_RV(Register d, Register s, int f, int imm);
+  inline void lui_RV(Register d, int imm);
+  inline void auipc_RV(Register d, int imm);
+  inline void op_RV(Register d, Register s1, Register s2, int f1, int f2);
+  inline void amo_RV(Register d, Register s1, Register s2, int f1, int f2, bool aq, bool rl);
+  inline void jal_RV(Register d, int off);
+  inline void jalr_RV(Register d, Register base, int off);
+  inline void branch_RV(Register s1, Register s2, int f, int off);
+  inline void load_RV(Register d, Register s, int width, int off);
+  inline void load_fp_RV(Register d, Register s, int width, int off);
+  inline void store_RV(Register base, Register s, int width, int off);
+  inline void store_fp_RV(Register base, Register s, int width, int off);
+  inline void op_imm32_RV(Register d, Register s, int f, int imm);
+  inline void op32_RV(Register d, Register s1, Register s2, int f1, int f2);
+  inline void op_fp_RV(Register d, Register s1, Register s2, int rm, int f);
+  inline void op_fp_RV(Register d, Register s1, int s2, int rm, int f);
+  inline void madd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void msub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void nmadd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void nmsub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
+
+  // Concrete instructions
+  // op_imm
+  inline void addi_RV(    Register d, Register s, int imm);
+  inline void slti_RV(    Register d, Register s, int imm);
+  inline void sltiu_RV(   Register d, Register s, int imm);
+  inline void xori_RV(    Register d, Register s, int imm);
+  inline void ori_RV(     Register d, Register s, int imm);
+  inline void andi_RV(    Register d, Register s, int imm);
+  inline void slli_RV(    Register d, Register s, int shamt);
+  inline void srli_RV(    Register d, Register s, int shamt);
+  inline void srai_RV(    Register d, Register s, int shamt);
+  // op
+  inline void add_RV(     Register d, Register s1, Register s2);
+  inline void slt_RV(     Register d, Register s1, Register s2);
+  inline void sltu_RV(    Register d, Register s1, Register s2);
+  inline void andr_RV(    Register d, Register s1, Register s2); // and is a C++ keyword
+  inline void orr_RV(     Register d, Register s1, Register s2); // or is a C++ keyword
+  inline void xorr_RV(    Register d, Register s1, Register s2); // xor is a C++ keyword
+  inline void sll_RV(     Register d, Register s1, Register s2);
+  inline void srl_RV(     Register d, Register s1, Register s2);
+  inline void sub_RV(     Register d, Register s1, Register s2);
+  inline void sra_RV(     Register d, Register s1, Register s2);
+  inline void mul_RV(     Register d, Register s1, Register s2);
+  inline void mulh_RV(    Register d, Register s1, Register s2);
+  inline void mulhsu_RV(  Register d, Register s1, Register s2);
+  inline void mulhu_RV(   Register d, Register s1, Register s2);
+  inline void div_RV(     Register d, Register s1, Register s2);
+  inline void divu_RV(    Register d, Register s1, Register s2);
+  inline void rem_RV(     Register d, Register s1, Register s2);
+  inline void remu_RV(    Register d, Register s1, Register s2);
+  // branch
+  inline void beq_RV(     Register s1, Register s2, int off);
+  inline void bne_RV(     Register s1, Register s2, int off);
+  inline void blt_RV(     Register s1, Register s2, int off);
+  inline void bltu_RV(    Register s1, Register s2, int off);
+  inline void bge_RV(     Register s1, Register s2, int off);
+  inline void bgeu_RV(    Register s1, Register s2, int off);
+  // load
+  inline void ld_RV(      Register d, Register s, int off);
+  inline void lw_RV(      Register d, Register s, int off);
+  inline void lwu_RV(     Register d, Register s, int off);
+  inline void lh_RV(      Register d, Register s, int off);
+  inline void lhu_RV(     Register d, Register s, int off);
+  inline void lb_RV(      Register d, Register s, int off);
+  inline void lbu_RV(     Register d, Register s, int off);
+  // store
+  inline void sd_RV(      Register base, Register s, int off);
+  inline void sw_RV(      Register base, Register s, int off);
+  inline void sh_RV(      Register base, Register s, int off);
+  inline void sb_RV(      Register base, Register s, int off);
+  // system
+  inline void ecall_RV();
+  inline void ebreak_RV();
+  // op_imm32
+  inline void addiw_RV(   Register d, Register s, int imm);
+  inline void slliw_RV(   Register d, Register s, int shamt);
+  inline void srliw_RV(   Register d, Register s, int shamt);
+  inline void sraiw_RV(   Register d, Register s, int shamt);
+  // op
+  inline void addw_RV(    Register d, Register s1, Register s2);
+  inline void subw_RV(    Register d, Register s1, Register s2);
+  inline void sllw_RV(    Register d, Register s1, Register s2);
+  inline void srlw_RV(    Register d, Register s1, Register s2);
+  inline void sraw_RV(    Register d, Register s1, Register s2);
+  inline void mulw_RV(    Register d, Register s1, Register s2);
+  inline void divw_RV(    Register d, Register s1, Register s2);
+  inline void divuw_RV(   Register d, Register s1, Register s2);
+  inline void remw_RV(    Register d, Register s1, Register s2);
+  inline void remuw_RV(   Register d, Register s1, Register s2);
+  // amo
+  inline void lrw_RV(     Register d, Register s1,              bool aq, bool rl);
+  inline void scw_RV(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoswapw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxorw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoorw_RV(  Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrd_RV(     Register d, Register s1,              bool aq, bool rl);
+  inline void scd_RV(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoswapd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxord_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoord_RV(  Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomind_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  //sp fp
+  inline void flw_RV(     Register d, Register s1, int imm);
+  inline void fsw_RV(     Register base, Register s, int imm);
+  inline void fmadds_RV(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fmsubs_RV(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmadds_RV( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmsubs_RV( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fadds_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fsubs_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fmuls_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fdivs_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fsqrts_RV(  Register d, Register s, int rm);
+  inline void fsgnjs_RV(  Register d, Register s1, Register s2);
+  inline void fsgnjns_RV( Register d, Register s1, Register s2);
+  inline void fsgnjxs_RV( Register d, Register s1, Register s2);
+  inline void fmins_RV(   Register d, Register s1, Register s2);
+  inline void fmaxs_RV(   Register d, Register s1, Register s2);
+  inline void fcvtws_RV(  Register d, Register s, int rm);
+  inline void fcvtwus_RV( Register d, Register s, int rm);
+  inline void fmvxw_RV(   Register d, Register s);
+  inline void feqs_RV(    Register d, Register s1, Register s2);
+  inline void flts_RV(    Register d, Register s1, Register s2);
+  inline void fles_RV(    Register d, Register s1, Register s2);
+  inline void fclasss_RV( Register d, Register s);
+  inline void fcvtsw_RV(  Register d, Register s, int rm);
+  inline void fcvtswu_RV( Register d, Register s, int rm);
+  inline void fmvwx_RV(   Register d, Register s);
+  inline void fcvtls_RV(  Register d, Register s, int rm);
+  inline void fcvtlus_RV( Register d, Register s, int rm);
+  inline void fcvtsl_RV(  Register d, Register s, int rm);
+  inline void fcvtslu_RV( Register d, Register s, int rm);
+  //dp fp
+  inline void fld_RV(     Register d, Register s1, int imm);
+  inline void fsd_RV(     Register base, Register s, int imm);
+  inline void fmaddd_RV(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fmsubd_RV(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmaddd_RV( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmsubd_RV( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void faddd_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fsubd_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fmuld_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fdivd_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fsqrtd_RV(  Register d, Register s, int rm);
+  inline void fsgnjd_RV(  Register d, Register s1, Register s2);
+  inline void fsgnjnd_RV( Register d, Register s1, Register s2);
+  inline void fsgnjxd_RV( Register d, Register s1, Register s2);
+  inline void fmind_RV(   Register d, Register s1, Register s2);
+  inline void fmaxd_RV(   Register d, Register s1, Register s2);
+  inline void fcvtsd_RV(  Register d, Register s, int rm);
+  inline void fcvtds_RV(  Register d, Register s, int rm);
+  inline void feqd_RV(    Register d, Register s1, Register s2);
+  inline void fltd_RV(    Register d, Register s1, Register s2);
+  inline void fled_RV(    Register d, Register s1, Register s2);
+  inline void fclassd_RV( Register d, Register s);
+  inline void fcvtwd_RV(  Register d, Register s, int rm);
+  inline void fcvtwud_RV( Register d, Register s, int rm);
+  inline void fcvtdw_RV(  Register d, Register s, int rm);
+  inline void fcvtdwu_RV( Register d, Register s, int rm);
+  inline void fcvtld_RV(  Register d, Register s, int rm);
+  inline void fcvtlud_RV( Register d, Register s, int rm);
+  inline void fcvtdl_RV(  Register d, Register s, int rm);
+  inline void fcvtdlu_RV( Register d, Register s, int rm);
+  inline void fmvxd_RV(   Register d, Register s);
+  inline void fmvdx_RV(   Register d, Register s);
+  //qp fp
+  inline void flq_RV(     Register d, Register s1, int imm);
+  inline void fsq_RV(     Register base, Register s, int imm);
+  inline void fmaddq_RV(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fmsubq_RV(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmaddq_RV( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmsubq_RV( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void faddq_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fsubq_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fmulq_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fdivq_RV(   Register d, Register s1, Register s2, int rm);
+  inline void fsqrtq_RV(  Register d, Register s, int rm);
+  inline void fsgnjq_RV(  Register d, Register s1, Register s2);
+  inline void fsgnjnq_RV( Register d, Register s1, Register s2);
+  inline void fsgnjxq_RV( Register d, Register s1, Register s2);
+  inline void fminq_RV(   Register d, Register s1, Register s2);
+  inline void fmaxq_RV(   Register d, Register s1, Register s2);
+  inline void fcvtsq_RV(  Register d, Register s, int rm);
+  inline void fcvtqs_RV(  Register d, Register s, int rm);
+  inline void fcvtdq_RV(  Register d, Register s, int rm);
+  inline void fcvtqd_RV(  Register d, Register s, int rm);
+  inline void feqq_RV(    Register d, Register s1, Register s2);
+  inline void fltq_RV(    Register d, Register s1, Register s2);
+  inline void fleq_RV(    Register d, Register s1, Register s2);
+  inline void fclassq_RV( Register d, Register s);
+  inline void fcvtwq_RV(  Register d, Register s, int rm);
+  inline void fcvtwuq_RV( Register d, Register s, int rm);
+  inline void fcvtqw_RV(  Register d, Register s, int rm);
+  inline void fcvtqwu_RV( Register d, Register s, int rm);
+  inline void fcvtlq_RV(  Register d, Register s, int rm);
+  inline void fcvtluq_RV( Register d, Register s, int rm);
+  inline void fcvtql_RV(  Register d, Register s, int rm);
+  inline void fcvtqlu_RV( Register d, Register s, int rm);
+  // pseudoinstructions
+  inline void nop_RV();
+  inline void j_RV(int off);
+  inline void jal_RV(int off);
+  inline void jr_RV(Register s);
+  inline void jalr_RV(Register s);
+  inline void ret_RV();
+  inline void call_RV(int off);
+  inline void tail_RV(int off);
+
+  // --- PPC instructions follow ---
+
   // RISCV floating point instructions
   // RISCV 1, section 4.6.2 Floating-Point Load Instructions
   inline void lfs(  FloatRegister d, int si16,   Register a);
