@@ -222,6 +222,9 @@ class Assembler : public AbstractAssembler {
   static inline int rs2(Register x) { return rs2(x->encoding()); }
   static inline int rs3(int x) { return x << 27; }
   static inline int rs3(Register x) { return rs3(x->encoding()); }
+  static inline int succ(int x) { return x << 20; }
+  static inline int pred(int x) { return x << 24; }
+  static inline int fm(int x) { return x << 28; }
 
   // TODO_RISCV: more asserts for immX() functions?
   static inline int immi(int x) { return (int)((unsigned)x << 20); }
@@ -253,6 +256,17 @@ class Assembler : public AbstractAssembler {
     RUP = 0x3,
     RMM = 0x4,
     DYN = 0x7
+  };
+
+  enum fence_mode {
+    NORMAL_MODE = 0x0,
+    TSO_MODE = 0x8
+  };
+
+  enum fence_order {
+    W_OP = 0x1,
+    R_OP = 0x2,
+    RW_OP = 0x3
   };
 
   enum shifts {
@@ -2056,6 +2070,7 @@ class Assembler : public AbstractAssembler {
   inline void msub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void nmadd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void nmsub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void fence_RV(int pr, int sc, int f);
 
   // Concrete instructions
   // op_imm
@@ -2246,6 +2261,10 @@ class Assembler : public AbstractAssembler {
   inline void fcvtluq_RV( Register d, Register s, int rm);
   inline void fcvtql_RV(  Register d, Register s, int rm);
   inline void fcvtqlu_RV( Register d, Register s, int rm);
+  //fence
+  inline void fence_RV(   int pr, int sc);
+  inline void fence_tso_RV();
+  inline void fencei_RV();
   // pseudoinstructions
   inline void nop_RV();
   inline void j_RV(int off);

@@ -97,6 +97,7 @@ inline void Assembler::madd_RV(Register d, Register s1, Register s2, Register s3
 inline void Assembler::msub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(MSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 inline void Assembler::nmadd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(NMSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 inline void Assembler::nmsub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(NMADD_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
+inline void Assembler::fence_RV(int pr, int sc, int f) { emit_int32(MISC_MEM_RV_OPCODE | pred(pr) | succ(sc) | fm(f)); }
 
 inline void Assembler::addi_RV(   Register d, Register s, int imm)   { op_imm_RV(d, s, 0x0, imm          ); }
 inline void Assembler::slti_RV(   Register d, Register s, int imm)   { op_imm_RV(d, s, 0x2, imm          ); }
@@ -286,6 +287,10 @@ inline void Assembler::fcvtlq_RV(  Register d, Register s, int rm) { op_fp_RV(d,
 inline void Assembler::fcvtluq_RV( Register d, Register s, int rm) { op_fp_RV(d, s, 0x3, rm, 0x63); }
 inline void Assembler::fcvtql_RV(  Register d, Register s, int rm) { op_fp_RV(d, s, 0x2, rm, 0x6b); }
 inline void Assembler::fcvtqlu_RV( Register d, Register s, int rm) { op_fp_RV(d, s, 0x3, rm, 0x6b); }
+
+inline void Assembler::fence_RV(   int pr, int sc) { fence_RV(pr, sc, NORMAL_MODE); }
+inline void Assembler::fence_tso_RV() { fence_RV(RW_OP, RW_OP, TSO_MODE); }
+inline void Assembler::fencei_RV() { emit_int32(MISC_MEM_RV_OPCODE | funct3(0x1)); }
 // pseudoinstructions
 inline void Assembler::nop_RV() { addi(R0, R0, 0); }
 inline void Assembler::j_RV(int off) { jal_RV(R0, off); }
