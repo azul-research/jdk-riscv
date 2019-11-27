@@ -763,8 +763,8 @@ void VM_Version::determine_section_size() {
 #endif // COMPILER2
 
 void VM_Version::determine_features() {
-  // 1 InstWord for each call (ret_RV instruction).
-  const int code_size = (num_features+1+7)*BytesPerInstWord;
+  // 7 instructions
+  const int code_size = 7 * BytesPerInstWord;
   // create test area
   enum { BUFFER_SIZE = 2*4*K };
   char test_area[BUFFER_SIZE];
@@ -781,8 +781,13 @@ void VM_Version::determine_features() {
   // Emit code.
   void (*test)(address addr, uint64_t offset)=(void(*)(address addr, uint64_t offset))(void *)a->pc();
   uint32_t *code = (uint32_t *)a->pc();
-  // FIXME_RISCV TODO Test assembler here.
-  //  a->ret_RV();
+  a->addi_RV(R2, R2, -16);   // addi  sp,sp,-16
+  a->sd_RV(R2, R8, 8);       // sd    s0,8(sp)
+  a->addi_RV(R2, R2, 16);    // addi  s0,sp,16
+  a->nop_RV();               // nop
+  a->sd_RV(R2, R8, 8);       // ld	  s0,8(sp)
+  a->sd_RV(R2, R2, 16);      // addi  sp,sp,16
+  a->ret_RV();               // jr	  ra
   uint32_t *code_end = (uint32_t *)a->pc();
   a->flush();
   _features = VM_Version::unknown_m;
@@ -798,8 +803,7 @@ void VM_Version::determine_features() {
 
   // Execute code. Illegal instructions will be replaced by 0 in the signal handler.
   VM_Version::_is_determine_features_test_running = true;
-  // We must align the first argument to 16 bytes because of the lqarx check.
-  // (*test)(align_up((address)mid_of_test_area, 16), 0); FIXME_RISCV
+  (*test)((address)mid_of_test_area, 0);
   VM_Version::_is_determine_features_test_running = false;
 
   // Print the detection code.
