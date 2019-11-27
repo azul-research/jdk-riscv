@@ -55,28 +55,6 @@ inline address Assembler::emit_addr(const address addr) {
   return start;
 }
 
-#if !defined(ABI_ELFv2)
-// Emit a function descriptor with the specified entry point, TOC, and
-// ENV. If the entry point is NULL, the descriptor will point just
-// past the descriptor.
-inline address Assembler::emit_fd(address entry, address toc, address env) {
-  FunctionDescriptor* fd = (FunctionDescriptor*)pc();
-
-  assert(sizeof(FunctionDescriptor) == 3*sizeof(address), "function descriptor size");
-
-  (void)emit_addr();
-  (void)emit_addr();
-  (void)emit_addr();
-
-  fd->set_entry(entry == NULL ? pc() : entry);
-  fd->set_toc(toc);
-  fd->set_env(env);
-
-  return (address)fd;
-}
-#endif
-
-
 inline void Assembler::op_imm_RV(Register d, Register s, int f, int imm) { emit_int32(OP_IMM_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
 inline void Assembler::lui_RV(Register d, int imm) { emit_int32(LUI_RV_OPCODE | immu(imm)); }
 inline void Assembler::auipc_RV(Register d, int imm) { emit_int32(AUIPC_RV_OPCODE | immu(imm)); }

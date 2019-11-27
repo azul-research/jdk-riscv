@@ -82,7 +82,7 @@ class StubGenerator: public StubCodeGenerator {
 
     StubCodeMark mark(this, "StubRoutines", "call_stub");
 
-    address start = __ function_entry();
+    address start = __ pc();
 
     // some sanity checks
     assert((sizeof(frame::abi_minframe) % 16) == 0,           "unaligned");
@@ -625,7 +625,7 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", "zero_words_aligned8");
 
     // Implemented as in ClearArray.
-    address start = __ function_entry();
+    address start = __ pc();
 
     Register base_ptr_reg   = R3_ARG1; // tohw (needs to be 8b aligned)
     Register cnt_dwords_reg = R4_ARG2; // count (in dwords)
@@ -745,7 +745,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_fill(BasicType t, bool aligned, const char* name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
 
     const Register to    = R3_ARG1;   // source array address
     const Register value = R4_ARG2;   // fill value
@@ -977,7 +977,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_disjoint_byte_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
 
     Register tmp1 = R6_ARG4;
@@ -1152,7 +1152,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_conjoint_byte_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
 
     Register tmp1 = R6_ARG4;
@@ -1248,7 +1248,7 @@ class StubGenerator: public StubCodeGenerator {
     VectorSRegister tmp_vsr1  = VSR1;
     VectorSRegister tmp_vsr2  = VSR2;
 
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
 
     Label l_1, l_2, l_3, l_4, l_5, l_6, l_7, l_8, l_9;
@@ -1418,7 +1418,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_conjoint_short_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
 
     Register tmp1 = R6_ARG4;
@@ -1586,7 +1586,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_disjoint_int_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
     generate_disjoint_int_copy_core(aligned);
     __ li(R3_RET, 0); // return 0
@@ -1729,7 +1729,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_conjoint_int_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_jint_disjoint_arraycopy) :
@@ -1857,7 +1857,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_disjoint_long_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
     generate_disjoint_long_copy_core(aligned);
     __ li(R3_RET, 0); // return 0
@@ -1979,7 +1979,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_conjoint_long_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_jlong_disjoint_arraycopy) :
@@ -2006,7 +2006,7 @@ class StubGenerator: public StubCodeGenerator {
   address generate_conjoint_oop_copy(bool aligned, const char * name, bool dest_uninitialized) {
     StubCodeMark mark(this, "StubRoutines", name);
 
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_oop_disjoint_arraycopy) :
@@ -2048,7 +2048,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_disjoint_oop_copy(bool aligned, const char * name, bool dest_uninitialized) {
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
     assert_positive_int(R5_ARG3);
 
     DecoratorSet decorators = IN_HEAP | IS_ARRAY | ARRAYCOPY_DISJOINT;
@@ -2126,7 +2126,7 @@ class StubGenerator: public StubCodeGenerator {
 
     //__ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
 
     // Assert that int is 64 bit sign extended and arrays are not conjoint.
 #ifdef ASSERT
@@ -2242,7 +2242,7 @@ class StubGenerator: public StubCodeGenerator {
 
     //__ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
 
     // Bump this on entry, not on exit:
     //inc_counter_np(SharedRuntime::_unsafe_array_copy_ctr, R6_bits, R7_tmp);
@@ -2349,7 +2349,7 @@ class StubGenerator: public StubCodeGenerator {
 
     //__ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
 
     // Bump this on entry, not on exit:
     //inc_counter_np(SharedRuntime::_generic_array_copy_ctr, lh, temp);
@@ -2552,7 +2552,7 @@ class StubGenerator: public StubCodeGenerator {
     assert(UseAES, "need AES instructions and misaligned SSE support");
     StubCodeMark mark(this, "StubRoutines", "aescrypt_encryptBlock");
 
-    address start = __ function_entry();
+    address start = __ pc();
 
     Label L_doLast;
 
@@ -2753,7 +2753,7 @@ class StubGenerator: public StubCodeGenerator {
     assert(UseAES, "need AES instructions and misaligned SSE support");
     StubCodeMark mark(this, "StubRoutines", "aescrypt_decryptBlock");
 
-    address start = __ function_entry();
+    address start = __ pc();
 
     Label L_doLast;
     Label L_do44;
@@ -2985,7 +2985,7 @@ class StubGenerator: public StubCodeGenerator {
   address generate_sha256_implCompress(bool multi_block, const char *name) {
     assert(UseSHA, "need SHA instructions");
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
 
     __ sha256 (multi_block);
 
@@ -2996,7 +2996,7 @@ class StubGenerator: public StubCodeGenerator {
   address generate_sha512_implCompress(bool multi_block, const char *name) {
     assert(UseSHA, "need SHA instructions");
     StubCodeMark mark(this, "StubRoutines", name);
-    address start = __ function_entry();
+    address start = __ pc();
 
     __ sha512 (multi_block);
 
@@ -3087,7 +3087,7 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", name);
 
     // Entry point, pc or function descriptor.
-    *entry = __ function_entry();
+    *entry = __ pc();
 
     // Load *adr into R4_ARG2, may fault.
     *fault_pc = __ pc();
@@ -3126,7 +3126,7 @@ class StubGenerator: public StubCodeGenerator {
 
     StubCodeMark mark(this, "StubRoutines", "multiplyToLen");
 
-    address start = __ function_entry();
+    address start = __ pc();
 
     const Register x     = R3;
     const Register xlen  = R4;
@@ -3204,7 +3204,7 @@ class StubGenerator: public StubCodeGenerator {
     __ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", "mulAdd");
 
-    address start = __ function_entry();
+    address start = __ pc();
 
     // C2 does not sign extend signed parameters to full 64 bits registers:
     __ rldic (R5_ARG3, R5_ARG3, 2, 32);  // always positive
@@ -3234,7 +3234,7 @@ class StubGenerator: public StubCodeGenerator {
     __ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", "squareToLen");
 
-    address start = __ function_entry();
+    address start = __ pc();
 
     // args - higher word is cleaned (unsignedly) due to int to long casting
     const Register in        = R3_ARG1;
@@ -3468,7 +3468,7 @@ class StubGenerator: public StubCodeGenerator {
   address generate_CRC32_updateBytes(bool is_crc32c) {
     __ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", is_crc32c ? "CRC32C_updateBytes" : "CRC32_updateBytes");
-    address start = __ function_entry();  // Remember stub start address (is rtn value).
+    address start = __ pc();  // Remember stub start address (is rtn value).
     __ crc32(R3_ARG1, R4_ARG2, R5_ARG3, R2, R6, R7, R8, R9, R10, R11, R12, is_crc32c);
     __ blr();
     return start;

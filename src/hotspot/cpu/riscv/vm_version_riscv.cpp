@@ -545,7 +545,7 @@ void VM_Version::determine_section_size() {
 
   uint32_t *code = (uint32_t *)a->pc();
   // Emit code.
-  void (*test1)() = (void(*)())(void *)a->function_entry();
+  void (*test1)() = (void(*)())(void *)a->pc();
 
   Label l1;
 
@@ -619,7 +619,7 @@ void VM_Version::determine_section_size() {
   a->blr();
 
   // Emit code.
-  void (*test2)() = (void(*)())(void *)a->function_entry();
+  void (*test2)() = (void(*)())(void *)a->pc();
   // uint32_t *code = (uint32_t *)a->pc();
 
   Label l2;
@@ -779,7 +779,7 @@ void VM_Version::determine_features() {
   _features = VM_Version::all_features_m;
 
   // Emit code.
-  void (*test)(address addr, uint64_t offset)=(void(*)(address addr, uint64_t offset))(void *)a->function_entry();
+  void (*test)(address addr, uint64_t offset)=(void(*)(address addr, uint64_t offset))(void *)a->pc();
   uint32_t *code = (uint32_t *)a->pc();
   // FIXME_RISCV TODO Test assembler here.
   //  a->ret_RV();

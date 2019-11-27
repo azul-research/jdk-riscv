@@ -112,7 +112,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   const Register target_sp      = R28_tmp8;
   const FloatRegister floatSlot = F0;
 
-  address entry = __ function_entry();
+  address entry = __ pc();
 
   __ save_LR_CR(R0);
   __ save_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));

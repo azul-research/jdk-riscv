@@ -924,11 +924,6 @@ class MacroAssembler: public Assembler {
   void _verify_method_ptr(Register reg, const char * msg, const char * file, int line) {}
   void _verify_klass_ptr(Register reg, const char * msg, const char * file, int line) {}
 
-  // Convenience method returning function entry. For the ELFv1 case
-  // creates function descriptor at the current address and returs
-  // the pointer to it. For the ELFv2 case returns the current address.
-  inline address function_entry();
-
 #define verify_method_ptr(reg) _verify_method_ptr(reg, "broken method " #reg, __FILE__, __LINE__)
 #define verify_klass_ptr(reg) _verify_klass_ptr(reg, "broken klass " #reg, __FILE__, __LINE__)
 
