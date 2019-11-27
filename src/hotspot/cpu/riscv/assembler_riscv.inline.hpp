@@ -265,7 +265,7 @@ inline void Assembler::fcvtluq_RV( Register d, Register s, int rm) { op_fp_RV(d,
 inline void Assembler::fcvtql_RV(  Register d, Register s, int rm) { op_fp_RV(d, s, 0x2, rm, 0x6b); }
 inline void Assembler::fcvtqlu_RV( Register d, Register s, int rm) { op_fp_RV(d, s, 0x3, rm, 0x6b); }
 // pseudoinstructions
-inline void Assembler::nop_RV() { addi(R0, R0, 0); }
+inline void Assembler::nop_RV() { addi_RV(R0, R0, 0); }
 inline void Assembler::j_RV(int off) { jal_RV(R0, off); }
 inline void Assembler::jal_RV(int off) { jal_RV(R1, off); }
 inline void Assembler::jr_RV(Register s) { jalr_RV(R0, s, 0); }
