@@ -1225,6 +1225,8 @@ void TemplateInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
 address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
+  __ illtrap();
+  return entry;
 
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
