@@ -277,7 +277,7 @@ inline void Assembler::tail_RV(int off) { auipc_RV(R6, off & 0xfffff000); jalr_R
 // --- PPC instructions follow ---
 
 // Issue an illegal instruction. 0 is guaranteed to be an illegal instruction.
-inline void Assembler::illtrap() { Assembler::emit_int32(0); }
+inline void Assembler::illtrap() { Assembler::emit_int32(0); } // FIXME_RISCV set more weird number
 inline bool Assembler::is_illtrap(int x) { return x == 0; }
 
 // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions

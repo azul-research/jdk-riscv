@@ -110,6 +110,7 @@ address os::Linux::ucontext_get_pc(const ucontext_t * uc) {
   //   Hopefully it was zero'd out beforehand.
 // FIXME_RISCV begin
 //  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_get_pc in sigaction context");
+  tty->print_cr("%s returned NULL", __func__);
   return NULL;//(address)uc->uc_mcontext.regs->nip;
 // FIXME_RISCV end
 }
@@ -229,6 +230,7 @@ JVM_handle_linux_signal(int sig,
                         siginfo_t* info,
                         void* ucVoid,
                         int abort_if_unrecognized) {
+  tty->print_cr("%s was called", __func__);
   ucontext_t* uc = (ucontext_t*) ucVoid;
 
   Thread* t = Thread::current_or_null_safe();
