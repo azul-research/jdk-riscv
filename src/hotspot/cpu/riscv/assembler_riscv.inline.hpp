@@ -55,28 +55,6 @@ inline address Assembler::emit_addr(const address addr) {
   return start;
 }
 
-#if !defined(ABI_ELFv2)
-// Emit a function descriptor with the specified entry point, TOC, and
-// ENV. If the entry point is NULL, the descriptor will point just
-// past the descriptor.
-inline address Assembler::emit_fd(address entry, address toc, address env) {
-  FunctionDescriptor* fd = (FunctionDescriptor*)pc();
-
-  assert(sizeof(FunctionDescriptor) == 3*sizeof(address), "function descriptor size");
-
-  (void)emit_addr();
-  (void)emit_addr();
-  (void)emit_addr();
-
-  fd->set_entry(entry == NULL ? pc() : entry);
-  fd->set_toc(toc);
-  fd->set_env(env);
-
-  return (address)fd;
-}
-#endif
-
-
 inline void Assembler::op_imm_RV(Register d, Register s, int f, int imm) { emit_int32(OP_IMM_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
 inline void Assembler::lui_RV(Register d, int imm) { emit_int32(LUI_RV_OPCODE | immu(imm)); }
 inline void Assembler::auipc_RV(Register d, int imm) { emit_int32(AUIPC_RV_OPCODE | immu(imm)); }
@@ -287,7 +265,7 @@ inline void Assembler::fcvtluq_RV( Register d, Register s, int rm) { op_fp_RV(d,
 inline void Assembler::fcvtql_RV(  Register d, Register s, int rm) { op_fp_RV(d, s, 0x2, rm, 0x6b); }
 inline void Assembler::fcvtqlu_RV( Register d, Register s, int rm) { op_fp_RV(d, s, 0x3, rm, 0x6b); }
 // pseudoinstructions
-inline void Assembler::nop_RV() { addi(R0, R0, 0); }
+inline void Assembler::nop_RV() { addi_RV(R0, R0, 0); }
 inline void Assembler::j_RV(int off) { jal_RV(R0, off); }
 inline void Assembler::jal_RV(int off) { jal_RV(R1, off); }
 inline void Assembler::jr_RV(Register s) { jalr_RV(R0, s, 0); }
@@ -299,7 +277,7 @@ inline void Assembler::tail_RV(int off) { auipc_RV(R6, off & 0xfffff000); jalr_R
 // --- PPC instructions follow ---
 
 // Issue an illegal instruction. 0 is guaranteed to be an illegal instruction.
-inline void Assembler::illtrap() { Assembler::emit_int32(0); }
+inline void Assembler::illtrap() { Assembler::emit_int32(0); } // FIXME_RISCV set more weird number
 inline bool Assembler::is_illtrap(int x) { return x == 0; }
 
 // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions

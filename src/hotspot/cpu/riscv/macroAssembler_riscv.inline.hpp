@@ -475,10 +475,4 @@ inline void MacroAssembler::multiply64(Register dest_hi, Register dest_lo,
   mulhdu(dest_hi, x, y);
 }
 
-#if defined(ABI_ELFv2)
-inline address MacroAssembler::function_entry() { return pc(); }
-#else
-inline address MacroAssembler::function_entry() { return emit_fd(); }
-#endif
-
 #endif // CPU_RISCV_MACROASSEMBLER_RISCV_INLINE_HPP

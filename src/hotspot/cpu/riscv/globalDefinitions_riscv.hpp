@@ -30,7 +30,8 @@
 #error "CC_INTERP is no longer supported. Removed in change 8145117."
 #endif
 
-// Size of RISCV Instructions
+// Size of base RISCV Instructions
+// FIXME_RISCV TODO Support variable-length instruction encodings
 const int BytesPerInstWord = 4;
 
 const int StackAlignmentInBytes = 16;
@@ -48,8 +49,8 @@ const bool CCallingConventionRequiresIntsAsLongs = true;
 #define DEFAULT_CACHE_LINE_SIZE 128
 
 #if defined(COMPILER2) && (defined(AIX) || defined(LINUX))
-// Include Transactional Memory lock eliding optimization
-#define INCLUDE_RTM_OPT 1
+// Transactional Memory is not supported yet.
+#define INCLUDE_RTM_OPT 0
 #endif
 
 #define SUPPORT_RESERVED_STACK_AREA

@@ -116,11 +116,6 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_object() {
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprint) {
-#if !defined(ABI_ELFv2)
-  // Emit fd for current codebuffer. Needs patching!
-  __ emit_fd();
-#endif
-
   // Generate code to handle arguments.
   iterate(fingerprint);
 
