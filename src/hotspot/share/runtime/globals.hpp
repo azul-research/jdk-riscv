@@ -2323,6 +2323,9 @@ const size_t minimumSymbolTableSize = 1024;
           "Causes the VM to pause at startup time and wait for the pause "  \
           "file to be removed (default: ./vm.paused.<pid>)")                \
                                                                             \
+  diagnostic(bool, BreakAtStartup,      false,                         \
+          "")                                                               \
+                                                                            \
   diagnostic(ccstr, PauseAtStartupFile, NULL,                               \
           "The file to create and for whose removal to await when pausing " \
           "at startup. (default: ./vm.paused.<pid>)")                       \
