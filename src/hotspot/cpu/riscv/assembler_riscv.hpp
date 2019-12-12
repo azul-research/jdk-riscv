@@ -2245,6 +2245,8 @@ class Assembler : public AbstractAssembler {
   inline void ret_RV();
   inline void call_RV(int off);
   inline void tail_RV(int off);
+  inline void neg_RV(Register d, Register s);
+  inline void mv_RV(Register d, Register s);
 
   // --- PPC instructions follow ---
 

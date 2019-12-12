@@ -119,13 +119,14 @@ class StubGenerator: public StubCodeGenerator {
       Label arguments_copied;
 
       // Zero extend arg_argument_count.
-      __ clrldi(r_arg_argument_count, r_arg_argument_count, 32);
+      __ slli_RV(r_arg_argument_count, r_arg_argument_count, 32);
+      __ srli_RV(r_arg_argument_count, r_arg_argument_count, 32);
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
       __ save_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));
 
       // Keep copy of our frame pointer (caller's SP).
-      __ mr(r_entryframe_fp, R1_SP);
+      __ mv_RV(r_entryframe_fp, R1_SP);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
       // Push ENTRY_FRAME including arguments:
@@ -140,34 +141,34 @@ class StubGenerator: public StubCodeGenerator {
       // calculate frame size
 
       // unaligned size of arguments
-      __ sldi(r_argument_size_in_bytes,
+      __ slli_RV(r_argument_size_in_bytes,
                   r_arg_argument_count, Interpreter::logStackElementSize);
       // arguments alignment (max 1 slot)
       // FIXME: use round_to() here
-      __ andi_(r_frame_alignment_in_bytes, r_arg_argument_count, 1);
-      __ sldi(r_frame_alignment_in_bytes,
+      __ andi_(r_frame_alignment_in_bytes, r_arg_argument_count, 1); //TODO
+      __ slli_RV(r_frame_alignment_in_bytes,
               r_frame_alignment_in_bytes, Interpreter::logStackElementSize);
 
       // size = unaligned size of arguments + top abi's size
-      __ addi(r_frame_size, r_argument_size_in_bytes,
+      __ addi_RV(r_frame_size, r_argument_size_in_bytes,
               frame::top_ijava_frame_abi_size);
       // size += arguments alignment
-      __ add(r_frame_size,
+      __ add_RV(r_frame_size,
              r_frame_size, r_frame_alignment_in_bytes);
       // size += size of call_stub locals
-      __ addi(r_frame_size,
+      __ addi_RV(r_frame_size,
               r_frame_size, frame::entry_frame_locals_size);
 
       // push ENTRY_FRAME
       __ push_frame(r_frame_size, r_temp);
 
       // initialize call_stub locals (step 1)
-      __ std(r_arg_call_wrapper_addr,
-             _entry_frame_locals_neg(call_wrapper_address), r_entryframe_fp);
-      __ std(r_arg_result_addr,
-             _entry_frame_locals_neg(result_address), r_entryframe_fp);
-      __ std(r_arg_result_type,
-             _entry_frame_locals_neg(result_type), r_entryframe_fp);
+      __ sd_RV(r_arg_call_wrapper_addr,
+               r_entryframe_fp, _entry_frame_locals_neg(call_wrapper_address));
+      __ sd_RV(r_arg_result_addr,
+               r_entryframe_fp, _entry_frame_locals_neg(result_address));
+      __ sd_RV(r_arg_result_type,
+               r_entryframe_fp, _entry_frame_locals_neg(result_type));
       // we will save arguments_tos_address later
 
 
@@ -176,41 +177,41 @@ class StubGenerator: public StubCodeGenerator {
 
       // Calculate top_of_arguments_addr which will be R17_tos (not prepushed) later.
       // FIXME: why not simply use SP+frame::top_ijava_frame_size?
-      __ addi(r_top_of_arguments_addr,
+      __ addi_RV(r_top_of_arguments_addr,
               R1_SP, frame::top_ijava_frame_abi_size);
-      __ add(r_top_of_arguments_addr,
+      __ add_RV(r_top_of_arguments_addr,
              r_top_of_arguments_addr, r_frame_alignment_in_bytes);
 
       // any arguments to copy?
-      __ cmpdi(CCR0, r_arg_argument_count, 0);
-      __ beq(CCR0, arguments_copied);
+      __ cmpdi(CCR0, r_arg_argument_count, 0); //TODO
+      __ beq(CCR0, arguments_copied); //TODO
 
       // prepare loop and copy arguments in reverse order
       {
         // init CTR with arg_argument_count
-        __ mtctr(r_arg_argument_count);
+        __ mtctr(r_arg_argument_count); //TODO
 
         // let r_argumentcopy_addr point to last outgoing Java arguments P
-        __ mr(r_argumentcopy_addr, r_top_of_arguments_addr);
+        __ mv_RV(r_argumentcopy_addr, r_top_of_arguments_addr);
 
         // let r_argument_addr point to last incoming java argument
-        __ add(r_argument_addr,
+        __ add_RV(r_argument_addr,
                    r_arg_argument_addr, r_argument_size_in_bytes);
-        __ addi(r_argument_addr, r_argument_addr, -BytesPerWord);
+        __ addi_RV(r_argument_addr, r_argument_addr, -BytesPerWord);
 
         // now loop while CTR > 0 and copy arguments
         {
           Label next_argument;
           __ bind(next_argument);
 
-          __ ld(r_temp, 0, r_argument_addr);
+          __ ld_RV(r_temp, r_argument_addr, 0);
           // argument_addr--;
-          __ addi(r_argument_addr, r_argument_addr, -BytesPerWord);
-          __ std(r_temp, 0, r_argumentcopy_addr);
+          __ addi_RV(r_argument_addr, r_argument_addr, -BytesPerWord);
+          __ sd_RV(r_temp, r_argumentcopy_addr, 0);
           // argumentcopy_addr++;
-          __ addi(r_argumentcopy_addr, r_argumentcopy_addr, BytesPerWord);
+          __ addi_RV(r_argumentcopy_addr, r_argumentcopy_addr, BytesPerWord);
 
-          __ bdnz(next_argument);
+          __ bdnz(next_argument); //TODO
         }
       }
 

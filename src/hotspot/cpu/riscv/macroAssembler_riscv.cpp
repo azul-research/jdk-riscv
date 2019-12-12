@@ -729,43 +729,32 @@ address MacroAssembler::get_dest_of_bxx64_patchable_at(address instruction_addr,
 //    _savegpr0_15:  std  r15,-136(r1)
 //    _savegpr0_16:  std  r16,-128(r1)
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
-  std(R14, offset, dst);   offset += 8;
-  std(R15, offset, dst);   offset += 8;
-  std(R16, offset, dst);   offset += 8;
-  std(R17, offset, dst);   offset += 8;
-  std(R18, offset, dst);   offset += 8;
-  std(R19, offset, dst);   offset += 8;
-  std(R20, offset, dst);   offset += 8;
-  std(R21, offset, dst);   offset += 8;
-  std(R22, offset, dst);   offset += 8;
-  std(R23, offset, dst);   offset += 8;
-  std(R24, offset, dst);   offset += 8;
-  std(R25, offset, dst);   offset += 8;
-  std(R26, offset, dst);   offset += 8;
-  std(R27, offset, dst);   offset += 8;
-  std(R28, offset, dst);   offset += 8;
-  std(R29, offset, dst);   offset += 8;
-  std(R30, offset, dst);   offset += 8;
-  std(R31, offset, dst);   offset += 8;
+  sd_RV(R2,  dst, offset);   offset += 8;
+  sd_RV(R8,  dst, offset);   offset += 8;
+  sd_RV(R9,  dst, offset);   offset += 8;
+  sd_RV(R18, dst, offset);   offset += 8;
+  sd_RV(R19, dst, offset);   offset += 8;
+  sd_RV(R20, dst, offset);   offset += 8;
+  sd_RV(R21, dst, offset);   offset += 8;
+  sd_RV(R22, dst, offset);   offset += 8;
+  sd_RV(R23, dst, offset);   offset += 8;
+  sd_RV(R24, dst, offset);   offset += 8;
+  sd_RV(R25, dst, offset);   offset += 8;
+  sd_RV(R26, dst, offset);   offset += 8;
+  sd_RV(R27, dst, offset);/*   offset += 8;  // FIXME_RISCV change types of fsd args to FloatRegister
 
-  stfd(F14, offset, dst);   offset += 8;
-  stfd(F15, offset, dst);   offset += 8;
-  stfd(F16, offset, dst);   offset += 8;
-  stfd(F17, offset, dst);   offset += 8;
-  stfd(F18, offset, dst);   offset += 8;
-  stfd(F19, offset, dst);   offset += 8;
-  stfd(F20, offset, dst);   offset += 8;
-  stfd(F21, offset, dst);   offset += 8;
-  stfd(F22, offset, dst);   offset += 8;
-  stfd(F23, offset, dst);   offset += 8;
-  stfd(F24, offset, dst);   offset += 8;
-  stfd(F25, offset, dst);   offset += 8;
-  stfd(F26, offset, dst);   offset += 8;
-  stfd(F27, offset, dst);   offset += 8;
-  stfd(F28, offset, dst);   offset += 8;
-  stfd(F29, offset, dst);   offset += 8;
-  stfd(F30, offset, dst);   offset += 8;
-  stfd(F31, offset, dst);
+  fsd_RV(F8,  dst, offset);   offset += 8;
+  fsd_RV(F9,  dst, offset);   offset += 8;
+  fsd_RV(F18, dst, offset);   offset += 8;
+  fsd_RV(F19, dst, offset);   offset += 8;
+  fsd_RV(F20, dst, offset);   offset += 8;
+  fsd_RV(F21, dst, offset);   offset += 8;
+  fsd_RV(F22, dst, offset);   offset += 8;
+  fsd_RV(F23, dst, offset);   offset += 8;
+  fsd_RV(F24, dst, offset);   offset += 8;
+  fsd_RV(F25, dst, offset);   offset += 8;
+  fsd_RV(F26, dst, offset);   offset += 8;
+  fsd_RV(F27, dst, offset);*/
 }
 
 // Uses ordering which corresponds to ABI:
@@ -773,44 +762,32 @@ void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
 //    _restgpr0_15:  ld   r15,-136(r1)
 //    _restgpr0_16:  ld   r16,-128(r1)
 void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
-  ld(R14, offset, src);   offset += 8;
-  ld(R15, offset, src);   offset += 8;
-  ld(R16, offset, src);   offset += 8;
-  ld(R17, offset, src);   offset += 8;
-  ld(R18, offset, src);   offset += 8;
-  ld(R19, offset, src);   offset += 8;
-  ld(R20, offset, src);   offset += 8;
-  ld(R21, offset, src);   offset += 8;
-  ld(R22, offset, src);   offset += 8;
-  ld(R23, offset, src);   offset += 8;
-  ld(R24, offset, src);   offset += 8;
-  ld(R25, offset, src);   offset += 8;
-  ld(R26, offset, src);   offset += 8;
-  ld(R27, offset, src);   offset += 8;
-  ld(R28, offset, src);   offset += 8;
-  ld(R29, offset, src);   offset += 8;
-  ld(R30, offset, src);   offset += 8;
-  ld(R31, offset, src);   offset += 8;
+  ld_RV(R2,  src, offset);   offset += 8;
+  ld_RV(R8,  src, offset);   offset += 8;
+  ld_RV(R9,  src, offset);   offset += 8;
+  ld_RV(R18, src, offset);   offset += 8;
+  ld_RV(R19, src, offset);   offset += 8;
+  ld_RV(R20, src, offset);   offset += 8;
+  ld_RV(R21, src, offset);   offset += 8;
+  ld_RV(R22, src, offset);   offset += 8;
+  ld_RV(R23, src, offset);   offset += 8;
+  ld_RV(R24, src, offset);   offset += 8;
+  ld_RV(R25, src, offset);   offset += 8;
+  ld_RV(R26, src, offset);   offset += 8;
+  ld_RV(R27, src, offset);/*   offset += 8; // FIXME_RISCV change types of fld args to FloatRegister
 
-  // FP registers
-  lfd(F14, offset, src);   offset += 8;
-  lfd(F15, offset, src);   offset += 8;
-  lfd(F16, offset, src);   offset += 8;
-  lfd(F17, offset, src);   offset += 8;
-  lfd(F18, offset, src);   offset += 8;
-  lfd(F19, offset, src);   offset += 8;
-  lfd(F20, offset, src);   offset += 8;
-  lfd(F21, offset, src);   offset += 8;
-  lfd(F22, offset, src);   offset += 8;
-  lfd(F23, offset, src);   offset += 8;
-  lfd(F24, offset, src);   offset += 8;
-  lfd(F25, offset, src);   offset += 8;
-  lfd(F26, offset, src);   offset += 8;
-  lfd(F27, offset, src);   offset += 8;
-  lfd(F28, offset, src);   offset += 8;
-  lfd(F29, offset, src);   offset += 8;
-  lfd(F30, offset, src);   offset += 8;
-  lfd(F31, offset, src);
+  fld_RV(F8,  src, offset);   offset += 8;
+  fld_RV(F9,  src, offset);   offset += 8;
+  fld_RV(F18, src, offset);   offset += 8;
+  fld_RV(F19, src, offset);   offset += 8;
+  fld_RV(F20, src, offset);   offset += 8;
+  fld_RV(F21, src, offset);   offset += 8;
+  fld_RV(F22, src, offset);   offset += 8;
+  fld_RV(F23, src, offset);   offset += 8;
+  fld_RV(F24, src, offset);   offset += 8;
+  fld_RV(F25, src, offset);   offset += 8;
+  fld_RV(F26, src, offset);   offset += 8;
+  fld_RV(F27, src, offset);*/
 }
 
 // For verify_oops.
@@ -940,11 +917,12 @@ void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Registe
 void MacroAssembler::push_frame(Register bytes, Register tmp) {
 #ifdef ASSERT
   assert(bytes != R0, "r0 not allowed here");
-  andi_(R0, bytes, frame::alignment_in_bytes-1);
+  andi_RV(R0, bytes, frame::alignment_in_bytes-1);
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
-  neg(tmp, bytes);
-  stdux(R1_SP, R1_SP, tmp);
+  neg_RV(tmp, bytes);
+  add_RV(R1_SP, R1_SP, tmp); //
+  sd_RV(R1_SP, R1_SP, 0);       // stdux(R1_SP, R1_SP, tmp);
 }
 
 // Push a frame of size `bytes'.

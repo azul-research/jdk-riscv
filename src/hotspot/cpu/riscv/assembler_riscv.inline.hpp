@@ -273,6 +273,8 @@ inline void Assembler::jalr_RV(Register s) { jalr_RV(R1, s, 0); }
 inline void Assembler::ret_RV() { jr_RV(R1); }
 inline void Assembler::call_RV(int off) { auipc_RV(R1, off & 0xfffff000); jalr_RV(R1, R1, off & 0xfff); }
 inline void Assembler::tail_RV(int off) { auipc_RV(R6, off & 0xfffff000); jalr_RV(R0, R6, off & 0xfff); }
+inline void Assembler::neg_RV(Register d, Register s) { sub_RV(d, R0, s); }
+inline void Assembler::mv_RV(Register d, Register s) { addi_RV(d, s, 0); }
 
 // --- PPC instructions follow ---
 
