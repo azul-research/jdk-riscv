@@ -67,14 +67,14 @@ class StubGenerator: public StubCodeGenerator {
   //
   // Arguments:
   //
-  //   R3  - call wrapper address     : address
-  //   R4  - result                   : intptr_t*
-  //   R5  - result type              : BasicType
-  //   R6  - method                   : Method
-  //   R7  - frame mgr entry point    : address
-  //   R8  - parameter block          : intptr_t*
-  //   R9  - parameter count in words : int
-  //   R10 - thread                   : Thread*
+  //   R10 - call wrapper address     : address
+  //   R11 - result                   : intptr_t*
+  //   R12 - result type              : BasicType
+  //   R13 - method                   : Method
+  //   R14 - frame mgr entry point    : address
+  //   R15 - parameter block          : intptr_t*
+  //   R16 - parameter count in words : int
+  //   R17 - thread                   : Thread*
   //
   address generate_call_stub(address& return_address) {
     // Setup a new c frame, copy java arguments, call frame manager or
@@ -91,16 +91,16 @@ class StubGenerator: public StubCodeGenerator {
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
 
-    Register r_arg_call_wrapper_addr        = R3;
-    Register r_arg_result_addr              = R4;
-    Register r_arg_result_type              = R5;
-    Register r_arg_method                   = R6;
-    Register r_arg_entry                    = R7;
-    Register r_arg_thread                   = R10;
+    Register r_arg_call_wrapper_addr        = R10;
+    Register r_arg_result_addr              = R11;
+    Register r_arg_result_type              = R12;
+    Register r_arg_method                   = R13;
+    Register r_arg_entry                    = R14;
+    Register r_arg_thread                   = R17;
 
-    Register r_temp                         = R24;
-    Register r_top_of_arguments_addr        = R25;
-    Register r_entryframe_fp                = R26;
+    Register r_temp                         = R20;
+    Register r_top_of_arguments_addr        = R21;
+    Register r_entryframe_fp                = R22;
 
     {
       // Stack on entry to call_stub:
@@ -108,18 +108,15 @@ class StubGenerator: public StubCodeGenerator {
       //      F1      [C_FRAME]
       //              ...
 
-      Register r_arg_argument_addr          = R8;
-      Register r_arg_argument_count         = R9;
-      Register r_frame_alignment_in_bytes   = R27;
-      Register r_argument_addr              = R28;
-      Register r_argumentcopy_addr          = R29;
-      Register r_argument_size_in_bytes     = R30;
-      Register r_frame_size                 = R23;
+      Register r_arg_argument_addr          = R15;
+      Register r_arg_argument_count         = R16;
+      Register r_frame_alignment_in_bytes   = R23;
+      Register r_argument_addr              = R24;
+      Register r_argumentcopy_addr          = R25;
+      Register r_argument_size_in_bytes     = R26;
+      Register r_frame_size                 = R19;
 
       Label arguments_copied;
-
-      // Save LR/CR to caller's C_FRAME.
-      __ save_LR_CR(R0);
 
       // Zero extend arg_argument_count.
       __ clrldi(r_arg_argument_count, r_arg_argument_count, 32);
@@ -220,6 +217,8 @@ class StubGenerator: public StubCodeGenerator {
       // Arguments copied, continue.
       __ bind(arguments_copied);
     }
+
+#if 0
 
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
@@ -373,6 +372,8 @@ class StubGenerator: public StubCodeGenerator {
       __ blr(); // return to caller
     }
 
+#endif
+
     return start;
   }
 
@@ -385,6 +386,7 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", "catch_exception");
 
     address start = __ pc();
+    return start;
 
     // Registers alive
     //
@@ -439,6 +441,8 @@ class StubGenerator: public StubCodeGenerator {
   address generate_forward_exception() {
     StubCodeMark mark(this, "StubRoutines", "forward_exception");
     address start = __ pc();
+
+    return start;
 
 #if !defined(PRODUCT)
     if (VerifyOops) {
