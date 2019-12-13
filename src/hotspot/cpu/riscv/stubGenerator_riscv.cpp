@@ -98,7 +98,7 @@ class StubGenerator: public StubCodeGenerator {
     Register r_arg_entry                    = R14;
     Register r_arg_thread                   = R17;
 
-    Register r_temp                         = R20;
+    Register r_temp                         = R20; // TODO_RISCV change to temp registers
     Register r_top_of_arguments_addr        = R21;
     Register r_entryframe_fp                = R22;
 
@@ -119,8 +119,10 @@ class StubGenerator: public StubCodeGenerator {
       Label arguments_copied;
 
       // Zero extend arg_argument_count.
+      // TODO_RISCV assert that (r_arg_argument >> 32) == 0
       __ slli_RV(r_arg_argument_count, r_arg_argument_count, 32);
       __ srli_RV(r_arg_argument_count, r_arg_argument_count, 32);
+
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
       __ save_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));
@@ -143,6 +145,8 @@ class StubGenerator: public StubCodeGenerator {
       // unaligned size of arguments
       __ slli_RV(r_argument_size_in_bytes,
                   r_arg_argument_count, Interpreter::logStackElementSize);
+      // TODO_RISCV assert logStackElementSize == 3 and check
+
       // arguments alignment (max 1 slot)
       // FIXME: use round_to() here
       __ andi_(r_frame_alignment_in_bytes, r_arg_argument_count, 1); //TODO
@@ -152,6 +156,7 @@ class StubGenerator: public StubCodeGenerator {
       // size = unaligned size of arguments + top abi's size
       __ addi_RV(r_frame_size, r_argument_size_in_bytes,
               frame::top_ijava_frame_abi_size);
+
       // size += arguments alignment
       __ add_RV(r_frame_size,
              r_frame_size, r_frame_alignment_in_bytes);

@@ -920,6 +920,7 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
   andi_RV(R0, bytes, frame::alignment_in_bytes-1);
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
+  // TODO_RISCV push frame in correct way for riscv
   neg_RV(tmp, bytes);
   add_RV(R1_SP, R1_SP, tmp); //
   sd_RV(R1_SP, R1_SP, 0);       // stdux(R1_SP, R1_SP, tmp);

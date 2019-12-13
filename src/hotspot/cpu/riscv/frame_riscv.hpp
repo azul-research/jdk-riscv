@@ -137,6 +137,7 @@
 
   // non-volatile GPRs:
 
+  // TODO_RISCV change to riscv specification / think about using of this structure?
   struct spill_nonvolatiles {
     uint64_t r14;
     uint64_t r15;                                 //_16
@@ -182,6 +183,7 @@
   enum {
     spill_nonvolatiles_size = sizeof(spill_nonvolatiles)
   };
+
 
   #define _spill_nonvolatiles_neg(_component) \
      (int)(-frame::spill_nonvolatiles_size + offset_of(frame::spill_nonvolatiles, _component))
@@ -239,7 +241,9 @@
 #define _parent_ijava_frame_abi(_component) \
         (offset_of(frame::parent_ijava_frame_abi, _component))
 
-  struct top_ijava_frame_abi : abi_reg_args {
+  struct top_ijava_frame_abi /*: abi_reg_args*/ {
+    uint64_t ra; // TODO_RISCV
+    uint64_t fp;
   };
 
   enum {
