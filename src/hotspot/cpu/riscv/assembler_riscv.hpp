@@ -212,12 +212,14 @@ class Assembler : public AbstractAssembler {
  protected:
   static inline int rd(int x) { return x << 7; }
   static inline int rd(Register x) { return rd(x->encoding()); }
+  static inline int rd(FloatRegister x) { return rd(x->encoding()); }
   static inline int funct2(int x) { return x << 25; }
   static inline int funct3(int x) { return x << 12; }
   static inline int funct7(int x) { return (int)((unsigned)x << 25); }
   static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 26) | (rl << 25)); }
   static inline int rs1(int x) { return x << 15; }
   static inline int rs1(Register x) { return rs1(x->encoding()); }
+  static inline int rs1(FloatRegister x) { return rs1(x->encoding()); }
   static inline int rs2(int x) { return x << 20; }
   static inline int rs2(Register x) { return rs2(x->encoding()); }
   static inline int rs3(int x) { return x << 27; }
@@ -2035,9 +2037,9 @@ class Assembler : public AbstractAssembler {
   inline void jalr_RV(Register d, Register base, int off);
   inline void branch_RV(Register s1, Register s2, int f, int off);
   inline void load_RV(Register d, Register s, int width, int off);
-  inline void load_fp_RV(Register d, Register s, int width, int off);
+  inline void load_fp_RV(FloatRegister d, Register s, int width, int off);
   inline void store_RV(Register base, Register s, int width, int off);
-  inline void store_fp_RV(Register base, Register s, int width, int off);
+  inline void store_fp_RV(FloatRegister base, Register s, int width, int off);
   inline void op_imm32_RV(Register d, Register s, int f, int imm);
   inline void op32_RV(Register d, Register s1, Register s2, int f1, int f2);
   inline void op_fp_RV(Register d, Register s1, Register s2, int rm, int f);
@@ -2140,8 +2142,8 @@ class Assembler : public AbstractAssembler {
   inline void amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
   //sp fp
-  inline void flw_RV(     Register d, Register s1, int imm);
-  inline void fsw_RV(     Register base, Register s, int imm);
+  inline void flw_RV(     FloatRegister d, Register s1, int imm);
+  inline void fsw_RV(     FloatRegister base, Register s, int imm);
   inline void fmadds_RV(  Register d, Register s1, Register s2, Register s3, int rm);
   inline void fmsubs_RV(  Register d, Register s1, Register s2, Register s3, int rm);
   inline void fnmadds_RV( Register d, Register s1, Register s2, Register s3, int rm);
@@ -2171,8 +2173,8 @@ class Assembler : public AbstractAssembler {
   inline void fcvtsl_RV(  Register d, Register s, int rm);
   inline void fcvtslu_RV( Register d, Register s, int rm);
   //dp fp
-  inline void fld_RV(     Register d, Register s1, int imm);
-  inline void fsd_RV(     Register base, Register s, int imm);
+  inline void fld_RV(     FloatRegister d, Register s1, int imm);
+  inline void fsd_RV(     FloatRegister base, Register s, int imm);
   inline void fmaddd_RV(  Register d, Register s1, Register s2, Register s3, int rm);
   inline void fmsubd_RV(  Register d, Register s1, Register s2, Register s3, int rm);
   inline void fnmaddd_RV( Register d, Register s1, Register s2, Register s3, int rm);
@@ -2204,8 +2206,8 @@ class Assembler : public AbstractAssembler {
   inline void fmvxd_RV(   Register d, Register s);
   inline void fmvdx_RV(   Register d, Register s);
   //qp fp
-  inline void flq_RV(     Register d, Register s1, int imm);
-  inline void fsq_RV(     Register base, Register s, int imm);
+  inline void flq_RV(     FloatRegister d, Register s1, int imm);
+  inline void fsq_RV(     FloatRegister base, Register s, int imm);
   inline void fmaddq_RV(  Register d, Register s1, Register s2, Register s3, int rm);
   inline void fmsubq_RV(  Register d, Register s1, Register s2, Register s3, int rm);
   inline void fnmaddq_RV( Register d, Register s1, Register s2, Register s3, int rm);

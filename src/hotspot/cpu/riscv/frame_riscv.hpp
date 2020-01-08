@@ -137,47 +137,40 @@
 
   // non-volatile GPRs:
 
-  // TODO_RISCV change to riscv specification / think about using of this structure?
+  // TODO_RISCV think about using of this structure?
   struct spill_nonvolatiles {
-    uint64_t r14;
-    uint64_t r15;                                 //_16
-    uint64_t r16;
-    uint64_t r17;                                 //_16
-    uint64_t r18;
-    uint64_t r19;                                 //_16
-    uint64_t r20;
-    uint64_t r21;                                 //_16
-    uint64_t r22;
-    uint64_t r23;                                 //_16
-    uint64_t r24;
-    uint64_t r25;                                 //_16
-    uint64_t r26;
-    uint64_t r27;                                 //_16
-    uint64_t r28;
-    uint64_t r29;                                 //_16
-    uint64_t r30;
-    uint64_t r31;                                 //_16
+    uint64_t r2;
+    uint64_t r8;                                  //_16
+    uint64_t r9;
+    uint64_t r18;                                 //_16
+    uint64_t r19;
+    uint64_t r20;                                 //_16
+    uint64_t r21;
+    uint64_t r22;                                 //_16
+    uint64_t r23;
+    uint64_t r24;                                 //_16
+    uint64_t r25;
+    uint64_t r26;                                 //_16
+    uint64_t r27;
 
-    double f14;
-    double f15;
-    double f16;
-    double f17;
-    double f18;
+    double f8;                                    //_16
+    double f9;
+    double f18;                                   //_16
     double f19;
-    double f20;
+    double f20;                                   //_16
     double f21;
-    double f22;
+    double f22;                                   //_16
     double f23;
-    double f24;
+    double f24;                                   //_16
     double f25;
-    double f26;
+    double f26;                                   //_16
     double f27;
-    double f28;
+    double f28;                                   //_16
     double f29;
-    double f30;
+    double f30;                                   //_16
     double f31;
 
-    // aligned to frame::alignment_in_bytes (16)
+    double allign; // aligned to frame::alignment_in_bytes (16)
   };
 
   enum {

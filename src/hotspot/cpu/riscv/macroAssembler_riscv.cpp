@@ -724,10 +724,6 @@ address MacroAssembler::get_dest_of_bxx64_patchable_at(address instruction_addr,
   }
 }
 
-// Uses ordering which corresponds to ABI:
-//    _savegpr0_14:  std  r14,-144(r1)
-//    _savegpr0_15:  std  r15,-136(r1)
-//    _savegpr0_16:  std  r16,-128(r1)
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
   sd_RV(R2,  dst, offset);   offset += 8;
   sd_RV(R8,  dst, offset);   offset += 8;
@@ -741,7 +737,7 @@ void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
   sd_RV(R24, dst, offset);   offset += 8;
   sd_RV(R25, dst, offset);   offset += 8;
   sd_RV(R26, dst, offset);   offset += 8;
-  sd_RV(R27, dst, offset);/*   offset += 8;  // FIXME_RISCV change types of fsd args to FloatRegister
+  sd_RV(R27, dst, offset);   offset += 8;
 
   fsd_RV(F8,  dst, offset);   offset += 8;
   fsd_RV(F9,  dst, offset);   offset += 8;
@@ -754,13 +750,9 @@ void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
   fsd_RV(F24, dst, offset);   offset += 8;
   fsd_RV(F25, dst, offset);   offset += 8;
   fsd_RV(F26, dst, offset);   offset += 8;
-  fsd_RV(F27, dst, offset);*/
+  fsd_RV(F27, dst, offset);
 }
 
-// Uses ordering which corresponds to ABI:
-//    _restgpr0_14:  ld   r14,-144(r1)
-//    _restgpr0_15:  ld   r15,-136(r1)
-//    _restgpr0_16:  ld   r16,-128(r1)
 void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
   ld_RV(R2,  src, offset);   offset += 8;
   ld_RV(R8,  src, offset);   offset += 8;
@@ -774,7 +766,7 @@ void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
   ld_RV(R24, src, offset);   offset += 8;
   ld_RV(R25, src, offset);   offset += 8;
   ld_RV(R26, src, offset);   offset += 8;
-  ld_RV(R27, src, offset);/*   offset += 8; // FIXME_RISCV change types of fld args to FloatRegister
+  ld_RV(R27, src, offset);   offset += 8;
 
   fld_RV(F8,  src, offset);   offset += 8;
   fld_RV(F9,  src, offset);   offset += 8;
@@ -787,7 +779,7 @@ void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
   fld_RV(F24, src, offset);   offset += 8;
   fld_RV(F25, src, offset);   offset += 8;
   fld_RV(F26, src, offset);   offset += 8;
-  fld_RV(F27, src, offset);*/
+  fld_RV(F27, src, offset);
 }
 
 // For verify_oops.

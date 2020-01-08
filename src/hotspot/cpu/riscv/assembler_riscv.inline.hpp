@@ -64,9 +64,9 @@ inline void Assembler::jal_RV(Register d, int off) { emit_int32(JAL_RV_OPCODE | 
 inline void Assembler::jalr_RV(Register d, Register base, int off) { emit_int32(JALR_RV_OPCODE | rd(d) | rs1(base) | immi(off)); }
 inline void Assembler::branch_RV(Register s1, Register s2, int f, int off) { emit_int32(BRANCH_RV_OPCODE | rs1(s1) | rs2(s2) | immb(off)); }
 inline void Assembler::load_RV(Register d, Register s, int width, int off) { emit_int32(LOAD_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
-inline void Assembler::load_fp_RV(Register d, Register s, int width, int off) { emit_int32(LOAD_FP_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
+inline void Assembler::load_fp_RV(FloatRegister d, Register s, int width, int off) { emit_int32(LOAD_FP_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
 inline void Assembler::store_RV(Register base, Register s, int width, int off) { emit_int32(STORE_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
-inline void Assembler::store_fp_RV(Register base, Register s, int width, int off) { emit_int32(STORE_FP_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
+inline void Assembler::store_fp_RV(FloatRegister base, Register s, int width, int off) { emit_int32(STORE_FP_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
 inline void Assembler::op_imm32_RV(Register d, Register s, int f, int imm) { emit_int32(OP_IMM32_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
 inline void Assembler::op32_RV(Register d, Register s1, Register s2, int f1, int f2) { emit_int32(OP32_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
 inline void Assembler::op_fp_RV(Register d, Register s1, Register s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
@@ -168,8 +168,9 @@ inline void Assembler::amomaxd_RV( Register d, Register s1, Register s2, bool aq
 inline void Assembler::amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 0x3, 0x18, aq, rl); }
 inline void Assembler::amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl) { amo_RV(d, s1, s2, 0x3, 0x1c, aq, rl); }
 
-inline void Assembler::flw_RV(     Register d, Register s, int imm) { load_fp_RV(d, s, 0x2, imm); }
-inline void Assembler::fsw_RV(     Register base, Register s, int imm) { store_fp_RV(base, s, 0x2, imm); }
+inline void Assembler::flw_RV(     FloatRegister d,    Register s, int imm) { load_fp_RV( d,    s, 0x2, imm); }
+inline void Assembler::fsw_RV(     FloatRegister base, Register s, int imm) { store_fp_RV(base, s, 0x2, imm); }
+
 inline void Assembler::fmadds_RV(  Register d, Register s1, Register s2, Register s3, int rm) { madd_RV(d, s1, s2, s3, rm, 0x0); }
 inline void Assembler::fmsubs_RV(  Register d, Register s1, Register s2, Register s3, int rm) { msub_RV(d, s1, s2, s3, rm, 0x0); }
 inline void Assembler::fnmadds_RV( Register d, Register s1, Register s2, Register s3, int rm) { nmadd_RV(d, s1, s2, s3, rm, 0x0); }
@@ -199,8 +200,9 @@ inline void Assembler::fcvtlus_RV( Register d, Register s, int rm) { op_fp_RV(d,
 inline void Assembler::fcvtsl_RV(  Register d, Register s, int rm) { op_fp_RV(d, s, 0x2, rm, 0x68); }
 inline void Assembler::fcvtslu_RV( Register d, Register s, int rm) { op_fp_RV(d, s, 0x3, rm, 0x68); }
 
-inline void Assembler::fld_RV(     Register d, Register s, int imm) { load_fp_RV(d, s, 0x3, imm); }
-inline void Assembler::fsd_RV(     Register base, Register s, int imm) { store_fp_RV(base, s, 0x3, imm); }
+inline void Assembler::fld_RV(     FloatRegister d,    Register s, int imm) { load_fp_RV( d,    s, 0x3, imm); }
+inline void Assembler::fsd_RV(     FloatRegister base, Register s, int imm) { store_fp_RV(base, s, 0x3, imm); }
+
 inline void Assembler::fmaddd_RV(  Register d, Register s1, Register s2, Register s3, int rm) { madd_RV(d, s1, s2, s3, rm, 0x1); }
 inline void Assembler::fmsubd_RV(  Register d, Register s1, Register s2, Register s3, int rm) { msub_RV(d, s1, s2, s3, rm, 0x1); }
 inline void Assembler::fnmaddd_RV( Register d, Register s1, Register s2, Register s3, int rm) { nmadd_RV(d, s1, s2, s3, rm, 0x1); }
@@ -232,8 +234,9 @@ inline void Assembler::fcvtdlu_RV( Register d, Register s, int rm) { op_fp_RV(d,
 inline void Assembler::fmvxd_RV(   Register d, Register s) { op_fp_RV(d, s, 0x0, 0x0, 0x71); }
 inline void Assembler::fmvdx_RV(   Register d, Register s) { op_fp_RV(d, s, 0x0, 0x0, 0x79); }
 
-inline void Assembler::flq_RV(     Register d, Register s, int imm) { load_fp_RV(d, s, 0x4, imm); }
-inline void Assembler::fsq_RV(     Register base, Register s, int imm) { store_fp_RV(base, s, 0x4, imm); }
+inline void Assembler::flq_RV(     FloatRegister d,    Register s, int imm) { load_fp_RV( d,    s, 0x4, imm); }
+inline void Assembler::fsq_RV(     FloatRegister base, Register s, int imm) { store_fp_RV(base, s, 0x4, imm); }
+
 inline void Assembler::fmaddq_RV(  Register d, Register s1, Register s2, Register s3, int rm) { madd_RV(d, s1, s2, s3, rm, 0x3); }
 inline void Assembler::fmsubq_RV(  Register d, Register s1, Register s2, Register s3, int rm) { msub_RV(d, s1, s2, s3, rm, 0x3); }
 inline void Assembler::fnmaddq_RV( Register d, Register s1, Register s2, Register s3, int rm) { nmadd_RV(d, s1, s2, s3, rm, 0x3); }

@@ -115,7 +115,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   address entry = __ pc();
 
   __ save_LR_CR(R0);
-  __ save_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));
+  __ save_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r2));
   // We use target_sp for storing arguments in the C frame.
   __ mr(target_sp, R1_SP);
   __ push_frame_reg_args_nonvolatiles(0, R11_scratch1);
@@ -317,7 +317,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ bind(loop_end);
 
   __ pop_frame();
-  __ restore_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));
+  __ restore_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r2));
   __ restore_LR_CR(R0);
 
   __ blr();

@@ -98,9 +98,9 @@ class StubGenerator: public StubCodeGenerator {
     Register r_arg_entry                    = R14;
     Register r_arg_thread                   = R17;
 
-    Register r_temp                         = R20; // TODO_RISCV change to temp registers
-    Register r_top_of_arguments_addr        = R21;
-    Register r_entryframe_fp                = R22;
+    Register r_temp                         = R5_TMP0_RV;
+    Register r_top_of_arguments_addr        = R6_TMP1_RV;
+    Register r_entryframe_fp                = R7_TMP2_RV;
 
     {
       // Stack on entry to call_stub:
@@ -108,7 +108,7 @@ class StubGenerator: public StubCodeGenerator {
       //      F1      [C_FRAME]
       //              ...
 
-      Register r_arg_argument_addr          = R15;
+      Register r_arg_argument_addr          = R15; // TODO_RISCV replace with tmp registers
       Register r_arg_argument_count         = R16;
       Register r_frame_alignment_in_bytes   = R23;
       Register r_argument_addr              = R24;
@@ -125,10 +125,10 @@ class StubGenerator: public StubCodeGenerator {
 
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));
+      __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_neg(r2));
 
       // Keep copy of our frame pointer (caller's SP).
-      __ mv_RV(r_entryframe_fp, R1_SP);
+      __ mv_RV(r_entryframe_fp, R2_SP_RV);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
       // Push ENTRY_FRAME including arguments:
@@ -335,7 +335,7 @@ class StubGenerator: public StubCodeGenerator {
       __ cmpwi(CCR6, r_arg_result_type, T_DOUBLE);
 
       // restore non-volatile registers
-      __ restore_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r14));
+      __ restore_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r2));
 
 
       // Stack on exit from call_stub:
