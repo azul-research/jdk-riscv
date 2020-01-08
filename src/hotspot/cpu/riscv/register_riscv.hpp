@@ -818,4 +818,145 @@ REGISTER_DECLARATION(Register, R12_scratch2, R12);
 #define R12_scratch2   AS_REGISTER(Register, R12)
 #endif
 
+// Common register declarations used in assembler code.
+REGISTER_DECLARATION(Register, R0_ZERO_RV,  R0);  // saver: n/a
+REGISTER_DECLARATION(Register, R1_RET_RV,   R1);  // saver: caller
+REGISTER_DECLARATION(Register, R2_SP_RV,    R2);  // saver: callee
+REGISTER_DECLARATION(Register, R5_TMP0_RV,  R5);  // saver: caller
+REGISTER_DECLARATION(Register, R6_TMP1_RV,  R6);  // saver: caller
+REGISTER_DECLARATION(Register, R7_TMP2_RV,  R7);  // saver: caller
+REGISTER_DECLARATION(Register, R8_FP_RV,    R8);  // saver: callee
+REGISTER_DECLARATION(Register, R8_S0_RV,    R8);  // saver: callee
+REGISTER_DECLARATION(Register, R9_S1_RV,    R9);  // saver: callee
+REGISTER_DECLARATION(Register, R10_RET1_RV, R10); // saver: caller
+REGISTER_DECLARATION(Register, R10_ARG0_RV, R10); // saver: caller
+REGISTER_DECLARATION(Register, R11_RET2_RV, R11); // saver: caller
+REGISTER_DECLARATION(Register, R11_ARG1_RV, R11); // saver: caller
+REGISTER_DECLARATION(Register, R12_ARG2_RV, R12); // saver: caller
+REGISTER_DECLARATION(Register, R13_ARG3_RV, R13); // saver: caller
+REGISTER_DECLARATION(Register, R14_ARG4_RV, R14); // saver: caller
+REGISTER_DECLARATION(Register, R15_ARG5_RV, R15); // saver: caller
+REGISTER_DECLARATION(Register, R16_ARG6_RV, R16); // saver: caller
+REGISTER_DECLARATION(Register, R17_ARG7_RV, R17); // saver: caller
+REGISTER_DECLARATION(Register, R18_S2_RV,   R18); // saver: callee
+REGISTER_DECLARATION(Register, R19_S3_RV,   R19); // saver: callee
+REGISTER_DECLARATION(Register, R20_S4_RV,   R20); // saver: callee
+REGISTER_DECLARATION(Register, R21_S5_RV,   R21); // saver: callee
+REGISTER_DECLARATION(Register, R22_S6_RV,   R22); // saver: callee
+REGISTER_DECLARATION(Register, R23_S7_RV,   R23); // saver: callee
+REGISTER_DECLARATION(Register, R24_S8_RV,   R24); // saver: callee
+REGISTER_DECLARATION(Register, R25_S9_RV,   R25); // saver: callee
+REGISTER_DECLARATION(Register, R26_S10_RV,  R26); // saver: callee
+REGISTER_DECLARATION(Register, R27_S11_RV,  R27); // saver: callee
+REGISTER_DECLARATION(Register, R28_TMP3_RV, R28); // saver: caller
+REGISTER_DECLARATION(Register, R29_TMP4_RV, R29); // saver: caller
+REGISTER_DECLARATION(Register, R30_TMP5_RV, R30); // saver: caller
+REGISTER_DECLARATION(Register, R31_TMP6_RV, R31); // saver: caller
+
+REGISTER_DECLARATION(FloatRegister, F0_TMP0_RV,   F0);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F1_TMP1_RV,   F1);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F2_TMP2_RV,   F2);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F3_TMP3_RV,   F3);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F4_TMP4_RV,   F4);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F5_TMP5_RV,   F5);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F6_TMP6_RV,   F6);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F7_TMP7_RV,   F7);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F8_S0_RV,     F8);  // saver: callee
+REGISTER_DECLARATION(FloatRegister, F9_S1_RV,     F9);  // saver: callee
+REGISTER_DECLARATION(FloatRegister, F10_RET_RV,   F10); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F10_ARG0_RV,  F10); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F11_RET1_RV,  F11); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F11_ARG1_RV,  F11); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F12_ARG2_RV,  F12); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F13_ARG3_RV,  F13); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F14_ARG4_RV,  F14); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F15_ARG5_RV,  F15); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F16_ARG6_RV,  F16); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F17_ARG7_RV,  F17); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F18_S2_RV,    F18); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F19_S3_RV,    F19); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F20_S4_RV,    F20); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F21_S5_RV,    F21); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F22_S6_RV,    F22); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F23_S7_RV,    F23); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F24_S8_RV,    F24); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F25_S9_RV,    F25); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F26_S10_RV,   F26); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F27_S11_RV,   F27); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F28_TMP8_RV,  F28); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F29_TMP9_RV,  F29); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F30_TMP10_RV, F30); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F31_TMP11_RV, F31); // saver: caller
+
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R0_ZERO_RV   AS_REGISTER(Register, R0)
+#define R1_RET_RV    AS_REGISTER(Register, R1)
+#define R2_SP_RV     AS_REGISTER(Register, R2)
+#define R5_TMP0_RV   AS_REGISTER(Register, R5)
+#define R6_TMP1_RV   AS_REGISTER(Register, R6)
+#define R7_TMP2_RV   AS_REGISTER(Register, R7)
+#define R8_FP_RV     AS_REGISTER(Register, R8)
+#define R8_S0_RV     AS_REGISTER(Register, R8)
+#define R9_S1_RV     AS_REGISTER(Register, R9)
+#define R10_RET1_RV  AS_REGISTER(Register, R10)
+#define R10_ARG0_RV  AS_REGISTER(Register, R10)
+#define R11_RET2_RV  AS_REGISTER(Register, R11)
+#define R11_ARG1_RV  AS_REGISTER(Register, R11)
+#define R12_ARG2_RV  AS_REGISTER(Register, R12)
+#define R13_ARG3_RV  AS_REGISTER(Register, R13)
+#define R14_ARG4_RV  AS_REGISTER(Register, R14)
+#define R15_ARG5_RV  AS_REGISTER(Register, R15)
+#define R16_ARG6_RV  AS_REGISTER(Register, R16)
+#define R17_ARG7_RV  AS_REGISTER(Register, R17)
+#define R18_S2_RV    AS_REGISTER(Register, R18)
+#define R19_S3_RV    AS_REGISTER(Register, R19)
+#define R20_S4_RV    AS_REGISTER(Register, R20)
+#define R21_S5_RV    AS_REGISTER(Register, R21)
+#define R22_S6_RV    AS_REGISTER(Register, R22)
+#define R23_S7_RV    AS_REGISTER(Register, R23)
+#define R24_S8_RV    AS_REGISTER(Register, R24)
+#define R25_S9_RV    AS_REGISTER(Register, R25)
+#define R26_S10_RV   AS_REGISTER(Register, R26)
+#define R27_S11_RV   AS_REGISTER(Register, R27)
+#define R28_TMP3_RV  AS_REGISTER(Register, R28)
+#define R29_TMP4_RV  AS_REGISTER(Register, R29)
+#define R30_TMP5_RV  AS_REGISTER(Register, R30)
+#define R31_TMP6_RV  AS_REGISTER(Register, R31)
+
+#define F0_TMP0_RV   AS_REGISTER(FloatRegister, F0)
+#define F1_TMP1_RV   AS_REGISTER(FloatRegister, F1)
+#define F2_TMP2_RV   AS_REGISTER(FloatRegister, F2)
+#define F3_TMP3_RV   AS_REGISTER(FloatRegister, F3)
+#define F4_TMP4_RV   AS_REGISTER(FloatRegister, F4)
+#define F5_TMP5_RV   AS_REGISTER(FloatRegister, F5)
+#define F6_TMP6_RV   AS_REGISTER(FloatRegister, F6)
+#define F7_TMP7_RV   AS_REGISTER(FloatRegister, F7)
+#define F8_S0_RV     AS_REGISTER(FloatRegister, F8)
+#define F9_S1_RV     AS_REGISTER(FloatRegister, F9)
+#define F10_RET_RV   AS_REGISTER(FloatRegister, F10)
+#define F10_ARG0_RV  AS_REGISTER(FloatRegister, F10)
+#define F11_RET1_RV  AS_REGISTER(FloatRegister, F11)
+#define F11_ARG1_RV  AS_REGISTER(FloatRegister, F11)
+#define F12_ARG2_RV  AS_REGISTER(FloatRegister, F12)
+#define F13_ARG3_RV  AS_REGISTER(FloatRegister, F13)
+#define F14_ARG4_RV  AS_REGISTER(FloatRegister, F14)
+#define F15_ARG5_RV  AS_REGISTER(FloatRegister, F15)
+#define F16_ARG6_RV  AS_REGISTER(FloatRegister, F16)
+#define F17_ARG7_RV  AS_REGISTER(FloatRegister, F17)
+#define F18_S2_RV    AS_REGISTER(FloatRegister, F18)
+#define F19_S3_RV    AS_REGISTER(FloatRegister, F19)
+#define F20_S4_RV    AS_REGISTER(FloatRegister, F20)
+#define F21_S5_RV    AS_REGISTER(FloatRegister, F21)
+#define F22_S6_RV    AS_REGISTER(FloatRegister, F22)
+#define F23_S7_RV    AS_REGISTER(FloatRegister, F23)
+#define F24_S8_RV    AS_REGISTER(FloatRegister, F24)
+#define F25_S9_RV    AS_REGISTER(FloatRegister, F25)
+#define F26_S10_RV   AS_REGISTER(FloatRegister, F26)
+#define F27_S11_RV   AS_REGISTER(FloatRegister, F27)
+#define F28_TMP8_RV  AS_REGISTER(FloatRegister, F28)
+#define F29_TMP9_RV  AS_REGISTER(FloatRegister, F29)
+#define F30_TMP10_RV AS_REGISTER(FloatRegister, F30)
+#define F31_TMP11_RV AS_REGISTER(FloatRegister, F31)
+#endif
+
 #endif // CPU_RISCV_REGISTER_RISCV_HPP
