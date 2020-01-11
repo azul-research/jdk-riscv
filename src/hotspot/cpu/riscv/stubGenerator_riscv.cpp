@@ -84,6 +84,7 @@ class StubGenerator: public StubCodeGenerator {
 
     address start = __ pc();
 
+#if 0
     // some sanity checks
     assert((sizeof(frame::abi_minframe) % 16) == 0,           "unaligned");
     assert((sizeof(frame::abi_reg_args) % 16) == 0,           "unaligned");
@@ -223,8 +224,6 @@ class StubGenerator: public StubCodeGenerator {
       // Arguments copied, continue.
       __ bind(arguments_copied);
     }
-
-#if 0
 
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
@@ -380,6 +379,7 @@ class StubGenerator: public StubCodeGenerator {
 
 #endif
 
+    __ ret_RV();
     return start;
   }
 

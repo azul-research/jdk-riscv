@@ -436,17 +436,17 @@ void JavaCalls::call_helper(JavaValue* result, const methodHandle& method, JavaC
   { JavaCallWrapper link(method, receiver, result, CHECK);
     { HandleMark hm(thread);  // HandleMark used by HandleMarkCleaner
 
-//      StubRoutines::call_stub()(
-//        (address)&link,
-//        // (intptr_t*)&(result->_value), // see NOTE above (compiler problem)
-//        result_val_address,          // see NOTE above (compiler problem)
-//        result_type,
-//        method(),
-//        entry_point,
-//        args->parameters(),
-//        args->size_of_parameters(),
-//        CHECK
-//      );
+      StubRoutines::call_stub()(
+        (address)&link,
+        // (intptr_t*)&(result->_value), // see NOTE above (compiler problem)
+        result_val_address,          // see NOTE above (compiler problem)
+        result_type,
+        method(),
+        entry_point,
+        args->parameters(),
+        args->size_of_parameters(),
+        CHECK
+      );
 
       result = link.result();  // circumvent MS C++ 5.0 compiler bug (result is clobbered across call)
       // Preserve oop return value across possible gc points
