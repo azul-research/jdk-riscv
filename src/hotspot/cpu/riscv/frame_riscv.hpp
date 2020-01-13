@@ -234,8 +234,8 @@
 #define _parent_ijava_frame_abi(_component) \
         (offset_of(frame::parent_ijava_frame_abi, _component))
 
-  struct top_ijava_frame_abi /*: abi_reg_args*/ {
-    uint64_t ra; // TODO_RISCV
+  struct top_ijava_frame_abi : abi_reg_args {
+    uint64_t ra; // FIXME_RISCV think about frame structure (i.e. fields, structs hierarchy, etc)
     uint64_t fp;
   };
 

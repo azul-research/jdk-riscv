@@ -91,9 +91,15 @@ class StubGenerator: public StubCodeGenerator {
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
 
+    // sign-extend four-byte value (result type : BasicType)
+    __ mv_RV (R9_S1_RV, R12);
+
+    // sign-extend four-byte value (parameter count in words : int)
+    __ mv_RV (R18_S2_RV, R16);
+
     Register r_arg_call_wrapper_addr        = R10;
     Register r_arg_result_addr              = R11;
-    Register r_arg_result_type              = R12;
+    Register r_arg_result_type              = R9_S1_RV;
     Register r_arg_method                   = R13;
     Register r_arg_entry                    = R14;
     Register r_arg_thread                   = R17;
@@ -108,21 +114,15 @@ class StubGenerator: public StubCodeGenerator {
       //      F1      [C_FRAME]
       //              ...
 
-      Register r_arg_argument_addr          = R15; // TODO_RISCV replace with tmp registers
-      Register r_arg_argument_count         = R16;
-      Register r_frame_alignment_in_bytes   = R23;
-      Register r_argument_addr              = R24;
-      Register r_argumentcopy_addr          = R25;
-      Register r_argument_size_in_bytes     = R26;
+      Register r_arg_argument_addr          = R15;
+      Register r_arg_argument_count         = R18_S2_RV;
+      Register r_frame_alignment_in_bytes   = R28_TMP3_RV;
+      Register r_argument_addr              = R29_TMP4_RV;
+      Register r_argumentcopy_addr          = R30_TMP5_RV;
+      Register r_argument_size_in_bytes     = R31_TMP6_RV;
       Register r_frame_size                 = R19;
 
       Label arguments_copied;
-
-      // Zero extend arg_argument_count.
-      // TODO_RISCV assert that (r_arg_argument >> 32) == 0
-      __ slli_RV(r_arg_argument_count, r_arg_argument_count, 32);
-      __ srli_RV(r_arg_argument_count, r_arg_argument_count, 32);
-
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
       __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_neg(r2));
@@ -145,11 +145,10 @@ class StubGenerator: public StubCodeGenerator {
       // unaligned size of arguments
       __ slli_RV(r_argument_size_in_bytes,
                   r_arg_argument_count, Interpreter::logStackElementSize);
-      // TODO_RISCV assert logStackElementSize == 3 and check
+      // TODO_RISCV assert logStackElementSize == 3 and check (probably not needed)
 
       // arguments alignment (max 1 slot)
-      // FIXME: use round_to() here
-      __ andi_(r_frame_alignment_in_bytes, r_arg_argument_count, 1); //TODO
+      __ andi_RV(r_frame_alignment_in_bytes, r_arg_argument_count, 1);
       __ slli_RV(r_frame_alignment_in_bytes,
               r_frame_alignment_in_bytes, Interpreter::logStackElementSize);
 
@@ -183,19 +182,15 @@ class StubGenerator: public StubCodeGenerator {
       // Calculate top_of_arguments_addr which will be R17_tos (not prepushed) later.
       // FIXME: why not simply use SP+frame::top_ijava_frame_size?
       __ addi_RV(r_top_of_arguments_addr,
-              R1_SP, frame::top_ijava_frame_abi_size);
+              R2_SP_RV, frame::top_ijava_frame_abi_size);
       __ add_RV(r_top_of_arguments_addr,
              r_top_of_arguments_addr, r_frame_alignment_in_bytes);
 
       // any arguments to copy?
-      __ cmpdi(CCR0, r_arg_argument_count, 0); //TODO
-      __ beq(CCR0, arguments_copied); //TODO
+      __ beq_RV (r_arg_argument_count, R0_ZERO_RV, arguments_copied); // FIXME_RV how does it work with unbound labels?
 
       // prepare loop and copy arguments in reverse order
       {
-        // init CTR with arg_argument_count
-        __ mtctr(r_arg_argument_count); //TODO
-
         // let r_argumentcopy_addr point to last outgoing Java arguments P
         __ mv_RV(r_argumentcopy_addr, r_top_of_arguments_addr);
 
@@ -216,15 +211,13 @@ class StubGenerator: public StubCodeGenerator {
           // argumentcopy_addr++;
           __ addi_RV(r_argumentcopy_addr, r_argumentcopy_addr, BytesPerWord);
 
-          __ bdnz(next_argument); //TODO
+          __ bne_RV (r_arg_argument_count, R0_ZERO_RV, next_argument);
         }
       }
 
       // Arguments copied, continue.
       __ bind(arguments_copied);
     }
-
-#if 0
 
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
@@ -377,8 +370,6 @@ class StubGenerator: public StubCodeGenerator {
       __ stfd(F1_RET, 0, r_arg_result_addr);
       __ blr(); // return to caller
     }
-
-#endif
 
     return start;
   }

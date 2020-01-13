@@ -55,6 +55,14 @@ inline address Assembler::emit_addr(const address addr) {
   return start;
 }
 
+inline int Assembler::calc_offset(const address addr1, const address addr2) {
+  if (addr1 >= addr2) { // FIXME_RV how to do it more gracefully?
+    return int(addr1 - addr2);
+  }
+  return -int(addr2 - addr1);
+}
+
+
 inline void Assembler::op_imm_RV(Register d, Register s, int f, int imm) { emit_int32(OP_IMM_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
 inline void Assembler::lui_RV(Register d, int imm) { emit_int32(LUI_RV_OPCODE | immu(imm)); }
 inline void Assembler::auipc_RV(Register d, int imm) { emit_int32(AUIPC_RV_OPCODE | immu(imm)); }
@@ -105,12 +113,14 @@ inline void Assembler::divu_RV(   Register d, Register s1, Register s2) { op_RV(
 inline void Assembler::rem_RV(    Register d, Register s1, Register s2) { op_RV(d, s1, s2, 0x6, 0x1 ); }
 inline void Assembler::remu_RV(   Register d, Register s1, Register s2) { op_RV(d, s1, s2, 0x7, 0x1 ); }
 
-inline void Assembler::beq_RV(    Register s1, Register s2, int off) { branch_RV(s1, s2, 0x0, off); }
-inline void Assembler::bne_RV(    Register s1, Register s2, int off) { branch_RV(s1, s2, 0x1, off); }
-inline void Assembler::blt_RV(    Register s1, Register s2, int off) { branch_RV(s1, s2, 0x4, off); }
-inline void Assembler::bltu_RV(   Register s1, Register s2, int off) { branch_RV(s1, s2, 0x6, off); }
-inline void Assembler::bge_RV(    Register s1, Register s2, int off) { branch_RV(s1, s2, 0x5, off); }
-inline void Assembler::bgeu_RV(   Register s1, Register s2, int off) { branch_RV(s1, s2, 0x7, off); }
+inline void Assembler::beq_RV(    Register s1, Register s2, int off)  { branch_RV(s1, s2, 0x0, off); }
+inline void Assembler::beq_RV(    Register s1, Register s2, Label& L) { beq_RV(s1, s2, calc_offset(pc(), target(L))); }
+inline void Assembler::bne_RV(    Register s1, Register s2, int off)  { branch_RV(s1, s2, 0x1, off); }
+inline void Assembler::bne_RV(    Register s1, Register s2, Label& L) { bne_RV(s1, s2, calc_offset(pc(), target(L))); }
+inline void Assembler::blt_RV(    Register s1, Register s2, int off)  { branch_RV(s1, s2, 0x4, off); }
+inline void Assembler::bltu_RV(   Register s1, Register s2, int off)  { branch_RV(s1, s2, 0x6, off); }
+inline void Assembler::bge_RV(    Register s1, Register s2, int off)  { branch_RV(s1, s2, 0x5, off); }
+inline void Assembler::bgeu_RV(   Register s1, Register s2, int off)  { branch_RV(s1, s2, 0x7, off); }
 
 inline void Assembler::ld_RV(     Register d, Register s, int off) { load_RV(d, s, 0x3, off); }
 inline void Assembler::lw_RV(     Register d, Register s, int off) { load_RV(d, s, 0x2, off); }

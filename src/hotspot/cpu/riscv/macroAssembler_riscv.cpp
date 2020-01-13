@@ -907,15 +907,14 @@ void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Registe
 }
 
 void MacroAssembler::push_frame(Register bytes, Register tmp) {
-#ifdef ASSERT
+#if 0 // FIXME_RV how to check alignment?
   assert(bytes != R0, "r0 not allowed here");
   andi_RV(R0, bytes, frame::alignment_in_bytes-1);
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
   // TODO_RISCV push frame in correct way for riscv
   neg_RV(tmp, bytes);
-  add_RV(R1_SP, R1_SP, tmp); //
-  sd_RV(R1_SP, R1_SP, 0);       // stdux(R1_SP, R1_SP, tmp);
+  add_RV(R2_SP_RV, R2_SP_RV, tmp);
 }
 
 // Push a frame of size `bytes'.

@@ -1316,6 +1316,8 @@ class Assembler : public AbstractAssembler {
   // Emit an address.
   inline address emit_addr(const address addr = NULL);
 
+  inline int calc_offset(const address addr1, const address addr2);
+
   /////////////////////////////////////////////////////////////////////////////////////
   // RISCV instructions
   /////////////////////////////////////////////////////////////////////////////////////
@@ -2081,7 +2083,9 @@ class Assembler : public AbstractAssembler {
   inline void remu_RV(    Register d, Register s1, Register s2);
   // branch
   inline void beq_RV(     Register s1, Register s2, int off);
+  inline void beq_RV(     Register s1, Register s2, Label& L);
   inline void bne_RV(     Register s1, Register s2, int off);
+  inline void bne_RV(     Register s1, Register s2, Label& L);
   inline void blt_RV(     Register s1, Register s2, int off);
   inline void bltu_RV(    Register s1, Register s2, int off);
   inline void bge_RV(     Register s1, Register s2, int off);
