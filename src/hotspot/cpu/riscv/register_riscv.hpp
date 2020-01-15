@@ -818,6 +818,25 @@ REGISTER_DECLARATION(Register, R12_scratch2, R12);
 #define R12_scratch2   AS_REGISTER(Register, R12)
 #endif
 
+// Register declarations to be used in frame manager assembly code.
+// Use only callee save registers in order to keep values across C-calls.
+REGISTER_DECLARATION(Register, R22_bcp_RV,        R22);
+REGISTER_DECLARATION(Register, R23_esp_RV,        R23);
+REGISTER_DECLARATION(FloatRegister, F23_ftos_RV,  F23);
+REGISTER_DECLARATION(Register, R24_thread_RV,     R24);      // address of current thread
+REGISTER_DECLARATION(Register, R25_tos_RV,        R25);      // address of Java tos (prepushed).
+REGISTER_DECLARATION(Register, R26_locals_RV,     R26);      // address of first param slot (receiver).
+REGISTER_DECLARATION(Register, R27_method_RV,     R27);      // address of current method
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R22_bcp_RV           AS_REGISTER(Register, R22)
+#define R23_esp_RV           AS_REGISTER(Register, R23)
+#define F23_ftos_RV          AS_REGISTER(FloatRegister, F23)
+#define R24_thread_RV        AS_REGISTER(Register, R24)
+#define R25_tos_RV           AS_REGISTER(Register, R25)
+#define R26_locals_RV        AS_REGISTER(Register, R26)
+#define R27_method_RV        AS_REGISTER(Register, R27)
+#endif
+
 // Common register declarations used in assembler code.
 REGISTER_DECLARATION(Register, R0_ZERO_RV,  R0);  // saver: n/a
 REGISTER_DECLARATION(Register, R1_RET_RV,   R1);  // saver: caller
@@ -842,12 +861,6 @@ REGISTER_DECLARATION(Register, R18_S2_RV,   R18); // saver: callee
 REGISTER_DECLARATION(Register, R19_S3_RV,   R19); // saver: callee
 REGISTER_DECLARATION(Register, R20_S4_RV,   R20); // saver: callee
 REGISTER_DECLARATION(Register, R21_S5_RV,   R21); // saver: callee
-REGISTER_DECLARATION(Register, R22_S6_RV,   R22); // saver: callee
-REGISTER_DECLARATION(Register, R23_S7_RV,   R23); // saver: callee
-REGISTER_DECLARATION(Register, R24_S8_RV,   R24); // saver: callee
-REGISTER_DECLARATION(Register, R25_S9_RV,   R25); // saver: callee
-REGISTER_DECLARATION(Register, R26_S10_RV,  R26); // saver: callee
-REGISTER_DECLARATION(Register, R27_S11_RV,  R27); // saver: callee
 REGISTER_DECLARATION(Register, R28_TMP3_RV, R28); // saver: caller
 REGISTER_DECLARATION(Register, R29_TMP4_RV, R29); // saver: caller
 REGISTER_DECLARATION(Register, R30_TMP5_RV, R30); // saver: caller
@@ -878,7 +891,6 @@ REGISTER_DECLARATION(FloatRegister, F19_S3_RV,    F19); // saver: callee
 REGISTER_DECLARATION(FloatRegister, F20_S4_RV,    F20); // saver: callee
 REGISTER_DECLARATION(FloatRegister, F21_S5_RV,    F21); // saver: callee
 REGISTER_DECLARATION(FloatRegister, F22_S6_RV,    F22); // saver: callee
-REGISTER_DECLARATION(FloatRegister, F23_S7_RV,    F23); // saver: callee
 REGISTER_DECLARATION(FloatRegister, F24_S8_RV,    F24); // saver: callee
 REGISTER_DECLARATION(FloatRegister, F25_S9_RV,    F25); // saver: callee
 REGISTER_DECLARATION(FloatRegister, F26_S10_RV,   F26); // saver: callee
@@ -912,12 +924,6 @@ REGISTER_DECLARATION(FloatRegister, F31_TMP11_RV, F31); // saver: caller
 #define R19_S3_RV    AS_REGISTER(Register, R19)
 #define R20_S4_RV    AS_REGISTER(Register, R20)
 #define R21_S5_RV    AS_REGISTER(Register, R21)
-#define R22_S6_RV    AS_REGISTER(Register, R22)
-#define R23_S7_RV    AS_REGISTER(Register, R23)
-#define R24_S8_RV    AS_REGISTER(Register, R24)
-#define R25_S9_RV    AS_REGISTER(Register, R25)
-#define R26_S10_RV   AS_REGISTER(Register, R26)
-#define R27_S11_RV   AS_REGISTER(Register, R27)
 #define R28_TMP3_RV  AS_REGISTER(Register, R28)
 #define R29_TMP4_RV  AS_REGISTER(Register, R29)
 #define R30_TMP5_RV  AS_REGISTER(Register, R30)
@@ -948,7 +954,6 @@ REGISTER_DECLARATION(FloatRegister, F31_TMP11_RV, F31); // saver: caller
 #define F20_S4_RV    AS_REGISTER(FloatRegister, F20)
 #define F21_S5_RV    AS_REGISTER(FloatRegister, F21)
 #define F22_S6_RV    AS_REGISTER(FloatRegister, F22)
-#define F23_S7_RV    AS_REGISTER(FloatRegister, F23)
 #define F24_S8_RV    AS_REGISTER(FloatRegister, F24)
 #define F25_S9_RV    AS_REGISTER(FloatRegister, F25)
 #define F26_S10_RV   AS_REGISTER(FloatRegister, F26)

@@ -92,17 +92,17 @@ class StubGenerator: public StubCodeGenerator {
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
 
     // sign-extend four-byte value (result type : BasicType)
-    __ mv_RV (R9_S1_RV, R12);
+    __ mv_RV (R9_S1_RV, R12_ARG2_RV);
 
     // sign-extend four-byte value (parameter count in words : int)
-    __ mv_RV (R18_S2_RV, R16);
+    __ mv_RV (R18_S2_RV, R16_ARG6_RV);
 
-    Register r_arg_call_wrapper_addr        = R10;
-    Register r_arg_result_addr              = R11;
+    Register r_arg_call_wrapper_addr        = R10_ARG0_RV;
+    Register r_arg_result_addr              = R11_ARG1_RV;
     Register r_arg_result_type              = R9_S1_RV;
-    Register r_arg_method                   = R13;
-    Register r_arg_entry                    = R14;
-    Register r_arg_thread                   = R17;
+    Register r_arg_method                   = R13_ARG3_RV;
+    Register r_arg_entry                    = R14_ARG4_RV;
+    Register r_arg_thread                   = R17_ARG7_RV;
 
     Register r_temp                         = R5_TMP0_RV;
     Register r_top_of_arguments_addr        = R6_TMP1_RV;
@@ -114,13 +114,13 @@ class StubGenerator: public StubCodeGenerator {
       //      F1      [C_FRAME]
       //              ...
 
-      Register r_arg_argument_addr          = R15;
+      Register r_arg_argument_addr          = R15_ARG5_RV;
       Register r_arg_argument_count         = R18_S2_RV;
       Register r_frame_alignment_in_bytes   = R28_TMP3_RV;
       Register r_argument_addr              = R29_TMP4_RV;
       Register r_argumentcopy_addr          = R30_TMP5_RV;
       Register r_argument_size_in_bytes     = R31_TMP6_RV;
-      Register r_frame_size                 = R19;
+      Register r_frame_size                 = R19_S3_RV;
 
       Label arguments_copied;
 
@@ -222,11 +222,11 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R14;
+      Register r_new_arg_entry = R20_S4_RV;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
-      __ mr(r_new_arg_entry, r_arg_entry);
+      __ mv_RV(r_new_arg_entry, r_arg_entry);
 
       // Register state on entry to frame manager / native entry:
       //
@@ -235,22 +235,22 @@ class StubGenerator: public StubCodeGenerator {
       //   R16_thread  -  JavaThread*
 
       // Tos must point to last argument - element_size.
-      const Register tos = R15_esp;
+      const Register tos = R23_esp_RV;
 
-      __ addi(tos, r_top_of_arguments_addr, -Interpreter::stackElementSize);
+      __ addi_RV(tos, r_top_of_arguments_addr, -Interpreter::stackElementSize);
 
       // initialize call_stub locals (step 2)
       // now save tos as arguments_tos_address
-      __ std(tos, _entry_frame_locals_neg(arguments_tos_address), r_entryframe_fp);
+      __ sd_RV(tos, r_entryframe_fp, _entry_frame_locals_neg(arguments_tos_address));
 
       // load argument registers for call
-      __ mr(R19_method, r_arg_method);
-      __ mr(R16_thread, r_arg_thread);
+      __ mv_RV(R27_method_RV, r_arg_method);
+      __ mv_RV(R24_thread_RV, r_arg_thread);
       assert(tos != r_arg_method, "trashed r_arg_method");
-      assert(tos != r_arg_thread && R19_method != r_arg_thread, "trashed r_arg_thread");
+      assert(tos != r_arg_thread && R24_method_RV != r_arg_thread, "trashed r_arg_thread");
 
       // Set R15_prev_state to 0 for simplifying checks in callee.
-      __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1);
+      __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1); // TODO load_const_optimized and R25 R11 registers
       // Stack on entry to frame manager / native entry:
       //
       //      F0      [TOP_IJAVA_FRAME_ABI]
@@ -262,19 +262,19 @@ class StubGenerator: public StubCodeGenerator {
       //
 
       // global toc register
-      __ load_const_optimized(R29_TOC, MacroAssembler::global_toc(), R11_scratch1);
+      __ load_const_optimized(R29_TOC, MacroAssembler::global_toc(), R11_scratch1); // TODO load_const_optimized and R29 R11 registers
       // Remember the senderSP so we interpreter can pop c2i arguments off of the stack
       // when called via a c2i.
 
       // Pass initial_caller_sp to framemanager.
-      __ mr(R21_sender_SP, R1_SP);
+      __ mv_RV(R21_sender_SP, R12_SP_RV); // TODO change R21_sender_SP register
 
       // Do a light-weight C-call here, r_new_arg_entry holds the address
       // of the interpreter entry point (frame manager or native entry)
       // and save runtime-value of LR in return_address.
-      assert(r_new_arg_entry != tos && r_new_arg_entry != R19_method && r_new_arg_entry != R16_thread,
+      assert(r_new_arg_entry != tos && r_new_arg_entry != R27_method_RV && r_new_arg_entry != R24_thread_RV,
              "trashed r_new_arg_entry");
-      return_address = __ call_stub(r_new_arg_entry);
+      return_address = __ call_stub(r_new_arg_entry); //TODO call_stub
     }
 
     {
