@@ -247,7 +247,7 @@ class StubGenerator: public StubCodeGenerator {
       __ mv_RV(R27_method_RV, r_arg_method);
       __ mv_RV(R24_thread_RV, r_arg_thread);
       assert(tos != r_arg_method, "trashed r_arg_method");
-      assert(tos != r_arg_thread && R24_method_RV != r_arg_thread, "trashed r_arg_thread");
+      assert(tos != r_arg_thread && R27_method_RV != r_arg_thread, "trashed r_arg_thread");
 
       // Set R15_prev_state to 0 for simplifying checks in callee.
       __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1); // TODO load_const_optimized and R25 R11 registers
@@ -267,7 +267,7 @@ class StubGenerator: public StubCodeGenerator {
       // when called via a c2i.
 
       // Pass initial_caller_sp to framemanager.
-      __ mv_RV(R21_sender_SP, R12_SP_RV); // TODO change R21_sender_SP register
+      __ mv_RV(R21_sender_SP, R2_SP_RV); // TODO change R21_sender_SP register
 
       // Do a light-weight C-call here, r_new_arg_entry holds the address
       // of the interpreter entry point (frame manager or native entry)
