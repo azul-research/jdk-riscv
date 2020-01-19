@@ -1095,8 +1095,7 @@ class Assembler : public AbstractAssembler {
     return r;
   }
 
-  // inv_op for riscv instructions
-  static int inv_op_riscv(int x) { return inv_u_field(x, 31, 26); }
+  static int get_opcode(int x) { return x & 0x7f; }
 
   // Determine target address from li, bd field of branch instruction.
   static intptr_t inv_li_field(int x) {
@@ -1255,7 +1254,6 @@ class Assembler : public AbstractAssembler {
   // Compute relative address for branch.
   static intptr_t disp(intptr_t x, intptr_t off) {
     int xx = x - off;
-    xx = xx >> 2;
     return xx;
   }
 
@@ -1315,8 +1313,6 @@ class Assembler : public AbstractAssembler {
 
   // Emit an address.
   inline address emit_addr(const address addr = NULL);
-
-  inline int calc_offset(const address addr1, const address addr2);
 
   /////////////////////////////////////////////////////////////////////////////////////
   // RISCV instructions
@@ -2083,13 +2079,17 @@ class Assembler : public AbstractAssembler {
   inline void remu_RV(    Register d, Register s1, Register s2);
   // branch
   inline void beq_RV(     Register s1, Register s2, int off);
-  inline void beq_RV(     Register s1, Register s2, Label& L);
   inline void bne_RV(     Register s1, Register s2, int off);
-  inline void bne_RV(     Register s1, Register s2, Label& L);
   inline void blt_RV(     Register s1, Register s2, int off);
   inline void bltu_RV(    Register s1, Register s2, int off);
   inline void bge_RV(     Register s1, Register s2, int off);
   inline void bgeu_RV(    Register s1, Register s2, int off);
+  inline void beqz_RV(    Register s,               int off);
+  inline void bnez_RV(    Register s,               int off);
+  inline void beq_RV(     Register s1, Register s2, Label& L);
+  inline void bne_RV(     Register s1, Register s2, Label& L);
+  inline void beqz_RV(    Register s,               Label& L);
+  inline void bnez_RV(    Register s,               Label& L);
   // load
   inline void ld_RV(      Register d, Register s, int off);
   inline void lw_RV(      Register d, Register s, int off);

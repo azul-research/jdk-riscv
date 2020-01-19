@@ -56,10 +56,10 @@ int Assembler::patched_branch(int dest_pos, int inst, int inst_pos) {
   int m = 0; // mask for displacement field
   int v = 0; // new value for displacement field
 
-  switch (inv_op_riscv(inst)) {
-  case b_op:  m = li(-1); v = li(disp(dest_pos, inst_pos)); break;
-  case bc_op: m = bd(-1); v = bd(disp(dest_pos, inst_pos)); break;
-    default: ShouldNotReachHere();
+  int inv_op = get_opcode(inst);
+  switch (inv_op) {
+    case BRANCH_RV_OPCODE:  m = immb(-2); v = immb(disp(dest_pos, inst_pos)); break;
+    default: ShouldNotReachHere(); // FIXME_RISCV add cases for other types of commands
   }
   return inst & ~m | v;
 }
@@ -68,7 +68,7 @@ int Assembler::patched_branch(int dest_pos, int inst, int inst_pos) {
 // the branch inst at offset pos.
 int Assembler::branch_destination(int inst, int pos) {
   int r = 0;
-  switch (inv_op_riscv(inst)) {
+  switch (get_opcode(inst)) {
     case b_op:  r = bxx_destination_offset(inst, pos); break;
     case bc_op: r = inv_bd_field(inst, pos); break;
     default: ShouldNotReachHere();

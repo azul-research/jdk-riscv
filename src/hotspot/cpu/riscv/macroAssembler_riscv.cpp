@@ -907,7 +907,7 @@ void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Registe
 }
 
 void MacroAssembler::push_frame(Register bytes, Register tmp) {
-#if 0 // FIXME_RV how to check alignment?
+#if 0 // FIXME_RISCV how to check alignment?
   assert(bytes != R0, "r0 not allowed here");
   andi_RV(R0, bytes, frame::alignment_in_bytes-1);
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);

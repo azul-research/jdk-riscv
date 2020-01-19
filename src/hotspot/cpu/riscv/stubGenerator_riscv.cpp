@@ -91,15 +91,9 @@ class StubGenerator: public StubCodeGenerator {
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
 
-    // sign-extend four-byte value (result type : BasicType)
-    __ mv_RV (R9_S1_RV, R12_ARG2_RV);
-
-    // sign-extend four-byte value (parameter count in words : int)
-    __ mv_RV (R18_S2_RV, R16_ARG6_RV);
-
     Register r_arg_call_wrapper_addr        = R10_ARG0_RV;
     Register r_arg_result_addr              = R11_ARG1_RV;
-    Register r_arg_result_type              = R9_S1_RV;
+    Register r_arg_result_type              = R12_ARG2_RV;
     Register r_arg_method                   = R13_ARG3_RV;
     Register r_arg_entry                    = R14_ARG4_RV;
     Register r_arg_thread                   = R17_ARG7_RV;
@@ -115,19 +109,19 @@ class StubGenerator: public StubCodeGenerator {
       //              ...
 
       Register r_arg_argument_addr          = R15_ARG5_RV;
-      Register r_arg_argument_count         = R18_S2_RV;
+      Register r_arg_argument_count         = R16_ARG6_RV;
       Register r_frame_alignment_in_bytes   = R28_TMP3_RV;
       Register r_argument_addr              = R29_TMP4_RV;
       Register r_argumentcopy_addr          = R30_TMP5_RV;
       Register r_argument_size_in_bytes     = R31_TMP6_RV;
-      Register r_frame_size                 = R19_S3_RV;
+      Register r_frame_size                 = R9_S1_RV;
 
       Label arguments_copied;
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
       __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_neg(r2));
 
-      // Keep copy of our frame pointer (caller's SP).
+      // Keep copy of our frame pointer (caller's SP19_S3_RV).
       __ mv_RV(r_entryframe_fp, R2_SP_RV);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
@@ -145,7 +139,6 @@ class StubGenerator: public StubCodeGenerator {
       // unaligned size of arguments
       __ slli_RV(r_argument_size_in_bytes,
                   r_arg_argument_count, Interpreter::logStackElementSize);
-      // TODO_RISCV assert logStackElementSize == 3 and check (probably not needed)
 
       // arguments alignment (max 1 slot)
       __ andi_RV(r_frame_alignment_in_bytes, r_arg_argument_count, 1);
@@ -187,7 +180,7 @@ class StubGenerator: public StubCodeGenerator {
              r_top_of_arguments_addr, r_frame_alignment_in_bytes);
 
       // any arguments to copy?
-      __ beq_RV (r_arg_argument_count, R0_ZERO_RV, arguments_copied); // FIXME_RV how does it work with unbound labels?
+      __ beqz_RV (r_arg_argument_count, arguments_copied);
 
       // prepare loop and copy arguments in reverse order
       {
@@ -199,7 +192,7 @@ class StubGenerator: public StubCodeGenerator {
                    r_arg_argument_addr, r_argument_size_in_bytes);
         __ addi_RV(r_argument_addr, r_argument_addr, -BytesPerWord);
 
-        // now loop while CTR > 0 and copy arguments
+        // now loop while argument_count > 0 and copy arguments
         {
           Label next_argument;
           __ bind(next_argument);
@@ -211,7 +204,10 @@ class StubGenerator: public StubCodeGenerator {
           // argumentcopy_addr++;
           __ addi_RV(r_argumentcopy_addr, r_argumentcopy_addr, BytesPerWord);
 
-          __ bne_RV (r_arg_argument_count, R0_ZERO_RV, next_argument);
+          // argument_count--;
+          __ addi_RV(r_arg_argument_count, r_arg_argument_count, -1);
+
+          __ bnez_RV (r_arg_argument_count, next_argument);
         }
       }
 
@@ -219,6 +215,7 @@ class StubGenerator: public StubCodeGenerator {
       __ bind(arguments_copied);
     }
 
+#if 0
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
@@ -370,7 +367,7 @@ class StubGenerator: public StubCodeGenerator {
       __ stfd(F1_RET, 0, r_arg_result_addr);
       __ blr(); // return to caller
     }
-
+#endif
     return start;
   }
 
