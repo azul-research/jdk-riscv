@@ -28,57 +28,32 @@
 
 #include "runtime/synchronizer.hpp"
 
-  //  C frame layout on RISCV-64.
-  //
-  //  In this figure the stack grows upwards, while memory grows
-  //  downwards. See "64-bit PowerPC ELF ABI Supplement Version 1.7",
-  //  IBM Corp. (2003-10-29)
-  //  (http://math-atlas.sourceforge.net/devel/assembly/RISCV-elf64abi-1.7.pdf).
-  //
-  //  Square brackets denote stack regions possibly larger
-  //  than a single 64 bit slot.
-  //
-  //  STACK:
-  //    0       [C_FRAME]               <-- SP after prolog (mod 16 = 0)
-  //            [C_FRAME]               <-- SP before prolog
-  //            ...
-  //            [C_FRAME]
-  //
-  //  C_FRAME:
-  //    0       [ABI_REG_ARGS]
-  //    112     CARG_9: outgoing arg 9 (arg_1 ... arg_8 via gpr_3 ... gpr_{10})
-  //            ...
-  //    40+M*8  CARG_M: outgoing arg M (M is the maximum of outgoing args taken over all call sites in the procedure)
-  //            local 1
-  //            ...
-  //            local N
-  //            spill slot for vector reg (16 bytes aligned)
-  //            ...
-  //            spill slot for vector reg
-  //            alignment       (4 or 12 bytes)
-  //    V       SR_VRSAVE
-  //    V+4     spill slot for GR
-  //    ...     ...
-  //            spill slot for GR
-  //            spill slot for FR
-  //            ...
-  //            spill slot for FR
-  //
-  //  ABI_48:
-  //    0       caller's SP
-  //    8       space for condition register (CR) for next call
-  //    16      space for link register (LR) for next call
-  //    24      reserved
-  //    32      reserved
-  //    40      space for TOC (=R2) register for next call
-  //
-  //  ABI_REG_ARGS:
-  //    0       [ABI_48]
-  //    48      CARG_1: spill slot for outgoing arg 1. used by next callee.
-  //    ...     ...
-  //    104     CARG_8: spill slot for outgoing arg 8. used by next callee.
-  //
-
+// RISC-V Stack layout
+//                   .
+//                   .
+//      +->          .
+//      |   +-----------------+   |
+//      |   | return address  |   |
+//      |   |   previous fp ------+
+//      |   | saved registers |
+//      |   | local variables |
+//      |   |       ...       | <-+
+//      |   +-----------------+   |
+//      |   | return address  |   |
+//      +------ previous fp   |   |
+//          | saved registers |   |
+//          | local variables |   |
+//  $fp --> |       ...       |   |
+//          +-----------------+   |
+//          | return address  |   |
+//          |   previous fp ------+
+//          | saved registers |
+//  $sp --> | local variables |
+//          +-----------------+
+//              stack grows
+//                  down
+//                   |
+//                   V
  public:
 
   // C frame layout
@@ -138,51 +113,46 @@
 
   // non-volatile GPRs:
 
-  // TODO_RISCV think about using of this structure?
   struct spill_nonvolatiles {
     uint64_t r2;
-    uint64_t r8;                                  //_16
-    uint64_t r9;
-    uint64_t r18;                                 //_16
-    uint64_t r19;
-    uint64_t r20;                                 //_16
-    uint64_t r21;
-    uint64_t r22;                                 //_16
-    uint64_t r23;
-    uint64_t r24;                                 //_16
-    uint64_t r25;
-    uint64_t r26;                                 //_16
-    uint64_t r27;
+    uint64_t r9;                                  //_16
+    uint64_t r18;
+    uint64_t r19;                                 //_16
+    uint64_t r20;
+    uint64_t r21;                                 //_16
+    uint64_t r22;
+    uint64_t r23;                                 //_16
+    uint64_t r24;
+    uint64_t r25;                                 //_16
+    uint64_t r26;
+    uint64_t r27;                                 //_16
 
-    double f8;                                    //_16
-    double f9;
-    double f18;                                   //_16
-    double f19;
-    double f20;                                   //_16
-    double f21;
-    double f22;                                   //_16
-    double f23;
-    double f24;                                   //_16
-    double f25;
-    double f26;                                   //_16
-    double f27;
-    double f28;                                   //_16
-    double f29;
-    double f30;                                   //_16
-    double f31;
+    double f8;
+    double f9;                                    //_16
+    double f18;
+    double f19;                                   //_16
+    double f20;
+    double f21;                                   //_16
+    double f22;
+    double f23;                                   //_16
+    double f24;
+    double f25;                                   //_16
+    double f26;
+    double f27;                                   //_16
+  };
 
-    double allign; // aligned to frame::alignment_in_bytes (16)
+  struct top_c_frame : spill_nonvolatiles {
+      uint64_t fp;
+      uint64_t ra; //_16
   };
 
   enum {
-    spill_nonvolatiles_size = sizeof(spill_nonvolatiles)
+    spill_nonvolatiles_size = (int) sizeof(spill_nonvolatiles),
+    top_c_frame_size = (int) sizeof(top_c_frame),
+    fp_ra_offset_neg = (int) (spill_nonvolatiles_size - top_c_frame_size)
   };
 
-
-  #define _spill_nonvolatiles_neg(_component) \
-     (int)(-frame::spill_nonvolatiles_size + offset_of(frame::spill_nonvolatiles, _component))
-
-  // Frame layout for the Java template interpreter on RISCV64.
+  // Frame layout for the Java template interpreter on PPC64.
   //
   // In these figures the stack grows upwards, while memory grows
   // downwards. Square brackets denote regions possibly larger than
@@ -235,9 +205,7 @@
 #define _parent_ijava_frame_abi(_component) \
         (offset_of(frame::parent_ijava_frame_abi, _component))
 
-  struct top_ijava_frame_abi : abi_reg_args_ppc {
-    uint64_t ra; // FIXME_RISCV think about frame structure (i.e. fields, structs hierarchy, etc)
-    uint64_t fp;
+  struct top_ijava_frame_abi : top_c_frame {
   };
 
   enum {

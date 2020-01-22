@@ -85,6 +85,7 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // some sanity checks
+    assert((sizeof(frame::top_c_frame) % 16) == 0,            "unaligned");
     assert((sizeof(frame::spill_nonvolatiles) % 16) == 0,     "unaligned");
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
@@ -116,10 +117,13 @@ class StubGenerator: public StubCodeGenerator {
 
       Label arguments_copied;
 
-      // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_neg(r2));
+      // Save fp and ra to ENTRY_FRAME (not yet pushed, but it's safe).
+      __ save_fp_ra(R2_SP_RV, frame::fp_ra_offset_neg);
 
-      // Keep copy of our frame pointer (caller's SP19_S3_RV).
+      // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
+      __ save_nonvolatile_gprs(R2_SP_RV, -frame::top_c_frame_size);
+
+      // Keep copy of our frame pointer (caller's SP).
       __ mv_RV(r_entryframe_fp, R2_SP_RV);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
@@ -143,13 +147,14 @@ class StubGenerator: public StubCodeGenerator {
       __ slli_RV(r_frame_alignment_in_bytes,
               r_frame_alignment_in_bytes, Interpreter::logStackElementSize);
 
-      // size = unaligned size of arguments + top abi's size
-      __ addi_RV(r_frame_size, r_argument_size_in_bytes,
-              frame::top_ijava_frame_abi_size);
+      // size = unaligned size of arguments + arguments alignment
+      __ add_RV(r_frame_size, r_argument_size_in_bytes,
+                 r_frame_alignment_in_bytes);
 
-      // size += arguments alignment
-      __ add_RV(r_frame_size,
-             r_frame_size, r_frame_alignment_in_bytes);
+      // size += top abi's size
+      __ addi_RV(r_frame_size,
+             r_frame_size, frame::top_ijava_frame_abi_size);
+
       // size += size of call_stub locals
       __ addi_RV(r_frame_size,
               r_frame_size, frame::entry_frame_locals_size);
@@ -323,7 +328,7 @@ class StubGenerator: public StubCodeGenerator {
       __ cmpwi(CCR6, r_arg_result_type, T_DOUBLE);
 
       // restore non-volatile registers
-      __ restore_nonvolatile_gprs(R1_SP, _spill_nonvolatiles_neg(r2));
+      __ restore_nonvolatile_gprs(R1_SP, spill_nonvolatiles_offset);
 
 
       // Stack on exit from call_stub:
@@ -531,7 +536,7 @@ class StubGenerator: public StubCodeGenerator {
     MacroAssembler* masm = new MacroAssembler(&code);
 
     OopMapSet* oop_maps  = new OopMapSet();
-    int frame_size_in_bytes = frame::abi_reg_args_size;
+    int frame_size_in_bytes = frame::abi_reg_args_ppc_size;
     OopMap* map = new OopMap(frame_size_in_bytes / sizeof(jint), 0);
 
     address start = __ pc();

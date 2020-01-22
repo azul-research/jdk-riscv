@@ -724,9 +724,18 @@ address MacroAssembler::get_dest_of_bxx64_patchable_at(address instruction_addr,
   }
 }
 
+void MacroAssembler::save_fp_ra(Register dst, int offset) {
+  sd_RV(R8_FP_RV,  dst, offset);   offset += 8;
+  sd_RV(R1_RA_RV,  dst, offset);
+}
+
+void MacroAssembler::restore_fp_ra(Register dst, int offset) {
+  ld_RV(R8_FP_RV,  dst, offset);   offset += 8;
+  ld_RV(R1_RA_RV,  dst, offset);
+}
+
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
   sd_RV(R2,  dst, offset);   offset += 8;
-  sd_RV(R8,  dst, offset);   offset += 8;
   sd_RV(R9,  dst, offset);   offset += 8;
   sd_RV(R18, dst, offset);   offset += 8;
   sd_RV(R19, dst, offset);   offset += 8;
@@ -755,7 +764,6 @@ void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
 
 void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
   ld_RV(R2,  src, offset);   offset += 8;
-  ld_RV(R8,  src, offset);   offset += 8;
   ld_RV(R9,  src, offset);   offset += 8;
   ld_RV(R18, src, offset);   offset += 8;
   ld_RV(R19, src, offset);   offset += 8;

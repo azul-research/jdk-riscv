@@ -839,7 +839,7 @@ REGISTER_DECLARATION(Register, R27_method_RV,     R27);      // address of curre
 
 // Common register declarations used in assembler code.
 REGISTER_DECLARATION(Register, R0_ZERO_RV,  R0);  // saver: n/a
-REGISTER_DECLARATION(Register, R1_RET_RV,   R1);  // saver: caller
+REGISTER_DECLARATION(Register, R1_RA_RV,   R1);  // saver: caller
 REGISTER_DECLARATION(Register, R2_SP_RV,    R2);  // saver: callee
 REGISTER_DECLARATION(Register, R5_TMP0_RV,  R5);  // saver: caller
 REGISTER_DECLARATION(Register, R6_TMP1_RV,  R6);  // saver: caller
@@ -902,7 +902,7 @@ REGISTER_DECLARATION(FloatRegister, F31_TMP11_RV, F31); // saver: caller
 
 #ifndef DONT_USE_REGISTER_DEFINES
 #define R0_ZERO_RV   AS_REGISTER(Register, R0)
-#define R1_RET_RV    AS_REGISTER(Register, R1)
+#define R1_RA_RV    AS_REGISTER(Register, R1)
 #define R2_SP_RV     AS_REGISTER(Register, R2)
 #define R5_TMP0_RV   AS_REGISTER(Register, R5)
 #define R6_TMP1_RV   AS_REGISTER(Register, R6)
