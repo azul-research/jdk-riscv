@@ -85,8 +85,6 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // some sanity checks
-    assert((sizeof(frame::abi_minframe) % 16) == 0,           "unaligned");
-    assert((sizeof(frame::abi_reg_args) % 16) == 0,           "unaligned");
     assert((sizeof(frame::spill_nonvolatiles) % 16) == 0,     "unaligned");
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");

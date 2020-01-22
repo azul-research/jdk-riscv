@@ -56,7 +56,7 @@ int AbstractInterpreter::BasicType_as_index(BasicType type) {
 // Note: This returns the conservative size assuming maximum alignment.
 int AbstractInterpreter::size_top_interpreter_activation(Method* method) {
   const int max_alignment_size = 2;
-  const int abi_scratch = frame::abi_reg_args_size;
+  const int abi_scratch = frame::abi_reg_args_ppc_size;
   return method->max_locals() + method->max_stack() +
          frame::interpreter_frame_monitor_size() + max_alignment_size + abi_scratch;
 }
@@ -75,8 +75,8 @@ int AbstractInterpreter::size_activation(int max_stack,
   // in TemplateInterpreterGenerator::generate_fixed_frame.
   assert(Interpreter::stackElementWords == 1, "sanity");
   const int max_alignment_space = StackAlignmentInBytes / Interpreter::stackElementSize;
-  const int abi_scratch = is_top_frame ? (frame::abi_reg_args_size / Interpreter::stackElementSize) :
-                                         (frame::abi_minframe_size / Interpreter::stackElementSize);
+  const int abi_scratch = is_top_frame ? (frame::abi_reg_args_ppc_size / Interpreter::stackElementSize) :
+                                         (frame::abi_minframe_ppc_size / Interpreter::stackElementSize);
   const int size =
     max_stack                                                +
     (callee_locals - callee_params)                          +
@@ -121,20 +121,20 @@ void AbstractInterpreter::layout_activation(Method* method,
                                             bool is_top_frame,
                                             bool is_bottom_frame) {
 
-  const int abi_scratch = is_top_frame ? (frame::abi_reg_args_size / Interpreter::stackElementSize) :
-                                         (frame::abi_minframe_size / Interpreter::stackElementSize);
+  const int abi_scratch = is_top_frame ? (frame::abi_reg_args_ppc_size / Interpreter::stackElementSize) :
+                                         (frame::abi_minframe_ppc_size / Interpreter::stackElementSize);
 
   intptr_t* locals_base  = (caller->is_interpreted_frame()) ?
     caller->interpreter_frame_esp() + caller_actual_parameters :
-    caller->sp() + method->max_locals() - 1 + (frame::abi_minframe_size / Interpreter::stackElementSize);
+    caller->sp() + method->max_locals() - 1 + (frame::abi_minframe_ppc_size / Interpreter::stackElementSize);
 
   intptr_t* monitor_base = caller->sp() - frame::ijava_state_size / Interpreter::stackElementSize;
   intptr_t* monitor      = monitor_base - (moncount * frame::interpreter_frame_monitor_size());
   intptr_t* esp_base     = monitor - 1;
   intptr_t* esp          = esp_base - tempcount - popframe_extra_args;
   intptr_t* sp           = (intptr_t *) (((intptr_t) (esp_base - callee_locals_count + callee_param_count - method->max_stack()- abi_scratch)) & -StackAlignmentInBytes);
-  intptr_t* sender_sp    = caller->sp() + (frame::abi_minframe_size - frame::abi_reg_args_size) / Interpreter::stackElementSize;
-  intptr_t* top_frame_sp = is_top_frame ? sp : sp + (frame::abi_minframe_size - frame::abi_reg_args_size) / Interpreter::stackElementSize;
+  intptr_t* sender_sp    = caller->sp() + (frame::abi_minframe_ppc_size - frame::abi_reg_args_ppc_size) / Interpreter::stackElementSize;
+  intptr_t* top_frame_sp = is_top_frame ? sp : sp + (frame::abi_minframe_ppc_size - frame::abi_reg_args_ppc_size) / Interpreter::stackElementSize;
 
   interpreter_frame->interpreter_frame_set_method(method);
   interpreter_frame->interpreter_frame_set_mirror(method->method_holder()->java_mirror());

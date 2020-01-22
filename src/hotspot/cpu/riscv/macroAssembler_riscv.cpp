@@ -928,16 +928,16 @@ void MacroAssembler::push_frame(unsigned int bytes, Register tmp) {
   }
 }
 
-// Push a frame of size `bytes' plus abi_reg_args on top.
+// Push a frame of size `bytes' plus abi_reg_args_ppc on top.
 void MacroAssembler::push_frame_reg_args(unsigned int bytes, Register tmp) {
-  push_frame(bytes + frame::abi_reg_args_size, tmp);
+  push_frame(bytes + frame::abi_reg_args_ppc_size, tmp);
 }
 
 // Setup up a new C frame with a spill area for non-volatile GPRs and
 // additional space for local variables.
 void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
                                                       Register tmp) {
-  push_frame(bytes + frame::abi_reg_args_size + frame::spill_nonvolatiles_size, tmp);
+  push_frame(bytes + frame::abi_reg_args_ppc_size + frame::spill_nonvolatiles_size, tmp);
 }
 
 // Pop current C frame.

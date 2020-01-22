@@ -1000,10 +1000,10 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   }
 
   // Compute top frame size.
-  __ addi(top_frame_size, top_frame_size, frame::abi_reg_args_size + frame::ijava_state_size);
+  __ addi(top_frame_size, top_frame_size, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
 
   // Cut back area between esp and max_stack.
-  __ addi(parent_frame_resize, parent_frame_resize, frame::abi_minframe_size - Interpreter::stackElementSize);
+  __ addi(parent_frame_resize, parent_frame_resize, frame::abi_minframe_ppc_size - Interpreter::stackElementSize);
 
   __ round_to(top_frame_size, frame::alignment_in_bytes);
   __ round_to(parent_frame_resize, frame::alignment_in_bytes);

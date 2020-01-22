@@ -85,7 +85,7 @@
   static const int alignment_in_bytes = 16;
 
   // ABI_MINFRAME:
-  struct abi_minframe {
+  struct abi_minframe_ppc { // FIXME_RISCV this structure must be removed
     uint64_t callers_sp;
     uint64_t cr;                                  //_16
     uint64_t lr;
@@ -98,11 +98,11 @@
     // aligned to frame::alignment_in_bytes (16)
   };
 
-  enum {
-    abi_minframe_size = sizeof(abi_minframe)
+  enum { // FIXME_RISCV this enum must be removed
+    abi_minframe_ppc_size = sizeof(abi_minframe_ppc)
   };
 
-  struct abi_reg_args : abi_minframe {
+  struct abi_reg_args_ppc : abi_minframe_ppc { // FIXME_RISCV this structure must be removed
     uint64_t carg_1;
     uint64_t carg_2;                              //_16
     uint64_t carg_3;
@@ -114,26 +114,27 @@
     // aligned to frame::alignment_in_bytes (16)
   };
 
-  enum {
-    abi_reg_args_size = sizeof(abi_reg_args)
+  enum { // FIXME_RISCV this enum must be removed
+    abi_reg_args_ppc_size = sizeof(abi_reg_args_ppc)
   };
 
+  // FIXME_RISCV this define must be removed
   #define _abi(_component) \
-          (offset_of(frame::abi_reg_args, _component))
+          (offset_of(frame::abi_reg_args_ppc, _component))
 
-  struct abi_reg_args_spill : abi_reg_args {
+  struct abi_reg_args_spill_ppc : abi_reg_args_ppc { // FIXME_RISCV this structure must be removed
     // additional spill slots
     uint64_t spill_ret;
     uint64_t spill_fret;                          //_16
     // aligned to frame::alignment_in_bytes (16)
   };
 
-  enum {
-    abi_reg_args_spill_size = sizeof(abi_reg_args_spill)
+  enum { // FIXME_RISCV this enum must be removed
+    abi_reg_args_spill_ppc_size = sizeof(abi_reg_args_spill_ppc)
   };
 
   #define _abi_reg_args_spill(_component) \
-          (offset_of(frame::abi_reg_args_spill, _component))
+          (offset_of(frame::abi_reg_args_spill_ppc, _component))
 
   // non-volatile GPRs:
 
@@ -224,7 +225,7 @@
   //            [outgoing arguments]
   //            [ENTRY_FRAME_LOCALS]
 
-  struct parent_ijava_frame_abi : abi_minframe {
+  struct parent_ijava_frame_abi : abi_minframe_ppc {
   };
 
   enum {
@@ -234,7 +235,7 @@
 #define _parent_ijava_frame_abi(_component) \
         (offset_of(frame::parent_ijava_frame_abi, _component))
 
-  struct top_ijava_frame_abi : abi_reg_args {
+  struct top_ijava_frame_abi : abi_reg_args_ppc {
     uint64_t ra; // FIXME_RISCV think about frame structure (i.e. fields, structs hierarchy, etc)
     uint64_t fp;
   };
@@ -369,8 +370,8 @@
   intptr_t* fp() const { return _fp; }
 
   // Accessors for ABIs
-  inline abi_minframe* own_abi()     const { return (abi_minframe*) _sp; }
-  inline abi_minframe* callers_abi() const { return (abi_minframe*) _fp; }
+  inline abi_minframe_ppc* own_abi()     const { return (abi_minframe_ppc*) _sp; }
+  inline abi_minframe_ppc* callers_abi() const { return (abi_minframe_ppc*) _fp; }
 
  private:
 

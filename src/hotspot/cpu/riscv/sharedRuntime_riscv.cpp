@@ -244,7 +244,7 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
                          int return_pc_adjustment,
                          ReturnPCLocation return_pc_location,
                          bool save_vectors) {
-  // Push an abi_reg_args-frame and store all registers which may be live.
+  // Push an abi_reg_args_ppc-frame and store all registers which may be live.
   // If requested, create an OopMap: Record volatile registers as
   // callee-save values in an OopMap so their save locations will be
   // propagated to the RegisterMap of the caller frame during
@@ -261,7 +261,7 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
                                                 : 0;
   const int register_save_size   = regstosave_num * reg_size + vsregstosave_num * vs_reg_size;
   const int frame_size_in_bytes  = align_up(register_save_size, frame::alignment_in_bytes)
-                                   + frame::abi_reg_args_size;
+                                   + frame::abi_reg_args_ppc_size;
 
   *out_frame_size_in_bytes       = frame_size_in_bytes;
   const int frame_size_in_slots  = frame_size_in_bytes / sizeof(jint);
@@ -790,7 +790,7 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
   int i;
   VMReg reg;
   // Leave room for C-compatible ABI_REG_ARGS.
-  int stk = (frame::abi_reg_args_size - frame::jit_out_preserve_size) / VMRegImpl::stack_slot_size;
+  int stk = (frame::abi_reg_args_ppc_size - frame::jit_out_preserve_size) / VMRegImpl::stack_slot_size;
   int arg = 0;
   int freg = 0;
 
@@ -2355,7 +2355,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     // disallows any pending_exception.
 
     // Save argument registers and leave room for C-compatible ABI_REG_ARGS.
-    int frame_size = frame::abi_reg_args_size + align_up(total_c_args * wordSize, frame::alignment_in_bytes);
+    int frame_size = frame::abi_reg_args_ppc_size + align_up(total_c_args * wordSize, frame::alignment_in_bytes);
     __ mr(R11_scratch1, R1_SP);
     RegisterSaver::push_frame_and_save_argument_registers(masm, R12_scratch2, frame_size, total_c_args, out_regs, out_regs2);
 
@@ -2847,7 +2847,7 @@ void SharedRuntime::generate_deopt_blob() {
   OopMapSet *oop_maps = new OopMapSet();
 
   // size of ABI112 plus spill slots for R3_RET and F1_RET.
-  const int frame_size_in_bytes = frame::abi_reg_args_spill_size;
+  const int frame_size_in_bytes = frame::abi_reg_args_spill_ppc_size;
   const int frame_size_in_slots = frame_size_in_bytes / sizeof(jint);
   int first_frame_size_in_bytes = 0; // frame size of "unpack frame" for call to fetch_unroll_info.
 
@@ -3075,7 +3075,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   Register unc_trap_reg     = R23_tmp3;
 
   OopMapSet* oop_maps = new OopMapSet();
-  int frame_size_in_bytes = frame::abi_reg_args_size;
+  int frame_size_in_bytes = frame::abi_reg_args_ppc_size;
   OopMap* map = new OopMap(frame_size_in_bytes / sizeof(jint), 0);
 
   // stack: (deoptee, optional i2c, caller_of_deoptee, ...).

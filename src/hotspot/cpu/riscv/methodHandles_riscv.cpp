@@ -483,11 +483,11 @@ void trace_method_handle_stub(const char* adaptername,
 
   if (Verbose) {
     tty->print_cr("Registers:");
-    const int abi_offset = frame::abi_reg_args_size / 8;
+    const int abi_offset = frame::abi_reg_args_ppc_size / 8;
     for (int i = R3->encoding(); i <= R12->encoding(); i++) {
       Register r = as_Register(i);
       int count = i - R3->encoding();
-      // The registers are stored in reverse order on the stack (by save_volatile_gprs(R1_SP, abi_reg_args_size)).
+      // The registers are stored in reverse order on the stack (by save_volatile_gprs(R1_SP, abi_reg_args_ppc_size)).
       tty->print("%3s=" PTR_FORMAT, r->name(), saved_regs[abi_offset + count]);
       if ((count + 1) % 4 == 0) {
         tty->cr();
