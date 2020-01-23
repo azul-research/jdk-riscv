@@ -222,7 +222,7 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R20_S4_RV;
+      Register r_new_arg_entry = R8_S0_RV;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
@@ -250,7 +250,7 @@ class StubGenerator: public StubCodeGenerator {
       assert(tos != r_arg_thread && R27_method_RV != r_arg_thread, "trashed r_arg_thread");
 
       // Set R15_prev_state to 0 for simplifying checks in callee.
-      __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1); // TODO load_const_optimized and R25 R11 registers
+      __ li_RV(R19_templateTableBase_RV, (address)Interpreter::dispatch_table((TosState)0));
       // Stack on entry to frame manager / native entry:
       //
       //      F0      [TOP_IJAVA_FRAME_ABI]
@@ -262,12 +262,12 @@ class StubGenerator: public StubCodeGenerator {
       //
 
       // global toc register
-      __ load_const_optimized(R29_TOC, MacroAssembler::global_toc(), R11_scratch1); // TODO load_const_optimized and R29 R11 registers
+      __ li_RV(R20_TOC_RV, MacroAssembler::global_toc());
       // Remember the senderSP so we interpreter can pop c2i arguments off of the stack
       // when called via a c2i.
 
       // Pass initial_caller_sp to framemanager.
-      __ mv_RV(R21_sender_SP, R2_SP_RV); // TODO change R21_sender_SP register
+      __ mv_RV(R21_sender_SP_RV, R2_SP_RV);
 
       // Do a light-weight C-call here, r_new_arg_entry holds the address
       // of the interpreter entry point (frame manager or native entry)

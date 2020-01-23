@@ -343,6 +343,47 @@ void Assembler::load_const(Register d, long x, Register tmp) {
   }
 }
 
+bool Assembler::li_32_RV(Register d, long long imm) {
+  short l12 = imm & 0x0FFF; // lowest 12 bit of immediate.
+  int sign12 = (unsigned short)(l12 << 4) >> 15;
+  long long rem12 = (imm >> 12) + sign12; // Compensation for sign extend.
+  if (rem12 == 0) {
+  addi_RV(d, R0_ZERO_RV, imm);
+  return true;
+  }
+
+  int l32 = imm & 0xFFFFFFFF; // lowest 32 bit of immediate.
+  int signBit = (unsigned) l32 >> 31;
+  long long rem32 = (imm >> 32) + signBit; // Compensation for sign extend.
+  if (rem32 == 0) {
+  lui_RV(d, (l32 >> 12) + sign12); // Put upper 20 bits and places zero in the lowest 12 bits.
+  if (l12 != 0) addi_RV(d, d, l12);
+  return true;
+  }
+  return false;
+}
+
+void Assembler::li_RV(Register d, long long imm) { // TODO optimize
+  if (li_32_RV(d, imm)) {
+    return;
+  }
+
+  li_32_RV(d, imm >> 32); // Copy upper 32 bits
+
+  // Accurate copying by 11 bits.
+  slli_RV(d, d, 11);
+  short part = (imm >> 21) & 0x7FF;
+  andi_RV(d, d, part);
+
+  slli_RV(d, d, 11);
+  part = (imm >> 10) & 0x7FF;
+  andi_RV(d, d, part);
+
+  slli_RV(d, d, 10);
+  part = imm & 0x3FF;
+  andi_RV(d, d, part);
+}
+
 // Load a 64 bit constant, optimized, not identifyable.
 // Tmp can be used to increase ILP. Set return_simm16_rest=true to get a
 // 16 bit immediate offset.

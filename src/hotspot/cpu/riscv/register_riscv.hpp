@@ -818,6 +818,20 @@ REGISTER_DECLARATION(Register, R12_scratch2, R12);
 #define R12_scratch2   AS_REGISTER(Register, R12)
 #endif
 
+
+// Temporary registers to be used within frame manager. We can use
+// the non-volatiles because the call stub has saved them.
+// Use only non-volatile registers in order to keep values across C-calls.
+REGISTER_DECLARATION(Register, R19_templateTableBase_RV,   R19);
+REGISTER_DECLARATION(Register, R20_TOC_RV,                 R20);
+REGISTER_DECLARATION(Register, R21_sender_SP_RV,           R21);
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R19_templateTableBase_RV   AS_REGISTER(Register, R19)
+#define R20_TOC_RV                 AS_REGISTER(Register, R20)
+#define R21_sender_SP_RV           AS_REGISTER(Register, R21)
+#endif
+
+
 // Register declarations to be used in frame manager assembly code.
 // Use only callee save registers in order to keep values across C-calls.
 REGISTER_DECLARATION(Register, R22_bcp_RV,        R22);
@@ -858,9 +872,7 @@ REGISTER_DECLARATION(Register, R15_ARG5_RV, R15); // saver: caller
 REGISTER_DECLARATION(Register, R16_ARG6_RV, R16); // saver: caller
 REGISTER_DECLARATION(Register, R17_ARG7_RV, R17); // saver: caller
 REGISTER_DECLARATION(Register, R18_S2_RV,   R18); // saver: callee
-REGISTER_DECLARATION(Register, R19_S3_RV,   R19); // saver: callee
-REGISTER_DECLARATION(Register, R20_S4_RV,   R20); // saver: callee
-REGISTER_DECLARATION(Register, R21_S5_RV,   R21); // saver: callee
+// R19_S3 - R27_S11
 REGISTER_DECLARATION(Register, R28_TMP3_RV, R28); // saver: caller
 REGISTER_DECLARATION(Register, R29_TMP4_RV, R29); // saver: caller
 REGISTER_DECLARATION(Register, R30_TMP5_RV, R30); // saver: caller

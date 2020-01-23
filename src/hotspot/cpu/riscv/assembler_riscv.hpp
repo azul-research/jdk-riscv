@@ -2254,6 +2254,11 @@ class Assembler : public AbstractAssembler {
   inline void neg_RV(Register d, Register s);
   inline void mv_RV(Register d, Register s);
 
+private:
+  bool li_32_RV(Register d, long long imm);
+public:
+  void li_RV(Register d, long long imm);
+
   // --- PPC instructions follow ---
 
   // RISCV floating point instructions
