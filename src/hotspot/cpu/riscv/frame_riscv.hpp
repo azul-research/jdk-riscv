@@ -108,12 +108,22 @@
     abi_reg_args_spill_ppc_size = sizeof(abi_reg_args_spill_ppc)
   };
 
-  #define _abi_reg_args_spill(_component) \
+  // FIXME_RISCV this macro must be removed
+  #define _abi_reg_args_spill_ppc(_component) \
           (offset_of(frame::abi_reg_args_spill_ppc, _component))
+
+  // ENTRY_FRAME
+
+  struct entry_frame_locals {
+    uint64_t call_wrapper_address;
+    uint64_t result_address;                      //_16
+    uint64_t result_type;
+    uint64_t arguments_tos_address;               //_16
+  };
 
   // non-volatile GPRs:
 
-  struct spill_nonvolatiles {
+  struct spill_nonvolatiles : entry_frame_locals {
     uint64_t r2;
     uint64_t r9;                                  //_16
     uint64_t r18;
@@ -141,16 +151,30 @@
     double f27;                                   //_16
   };
 
-  struct top_c_frame : spill_nonvolatiles {
+  struct fp_ra : spill_nonvolatiles {
       uint64_t fp;
       uint64_t ra; //_16
   };
 
-  enum {
-    spill_nonvolatiles_size = (int) sizeof(spill_nonvolatiles),
-    top_c_frame_size = (int) sizeof(top_c_frame),
-    fp_ra_offset_neg = (int) (spill_nonvolatiles_size - top_c_frame_size)
+  struct top_ijava_frame_abi : fp_ra {
   };
+
+  enum {
+    entry_frame_locals_size = sizeof(entry_frame_locals),
+    spill_nonvolatiles_size = sizeof(spill_nonvolatiles) - entry_frame_locals_size,
+    fp_ra_size = sizeof(fp_ra) - spill_nonvolatiles_size - entry_frame_locals_size,
+    top_ijava_frame_abi_size = sizeof(top_ijava_frame_abi)
+  };
+
+  #define _top_ijava_frame_abi(_component) \
+        (offset_of(frame::top_ijava_frame_abi, _component))
+
+  #define _top_ijava_frame_abi_neg(_component) \
+        (int) (-frame::top_ijava_frame_abi_size + offset_of(frame::top_ijava_frame_abi, _component))
+
+  #define _fp_ra_offset_neg _top_ijava_frame_abi_neg(fp)
+  #define _spill_nonvolatiles_offset_neg _top_ijava_frame_abi_neg(r2)
+  #define _entry_frame_locals_offset_neg _top_ijava_frame_abi_neg(call_wrapper_address)
 
   // Frame layout for the Java template interpreter on PPC64.
   //
@@ -205,16 +229,6 @@
 #define _parent_ijava_frame_abi(_component) \
         (offset_of(frame::parent_ijava_frame_abi, _component))
 
-  struct top_ijava_frame_abi : top_c_frame {
-  };
-
-  enum {
-    top_ijava_frame_abi_size = sizeof(top_ijava_frame_abi)
-  };
-
-#define _top_ijava_frame_abi(_component) \
-        (offset_of(frame::top_ijava_frame_abi, _component))
-
   struct ijava_state {
 #ifdef ASSERT
     uint64_t ijava_reserved; // Used for assertion.
@@ -241,24 +255,6 @@
 
 #define _ijava_state_neg(_component) \
         (int) (-frame::ijava_state_size + offset_of(frame::ijava_state, _component))
-
-  // ENTRY_FRAME
-
-  struct entry_frame_locals {
-    uint64_t call_wrapper_address;
-    uint64_t result_address;                      //_16
-    uint64_t result_type;
-    uint64_t arguments_tos_address;               //_16
-    // aligned to frame::alignment_in_bytes (16)
-    uint64_t r[spill_nonvolatiles_size/sizeof(uint64_t)];
-  };
-
-  enum {
-    entry_frame_locals_size = sizeof(entry_frame_locals)
-  };
-
-  #define _entry_frame_locals_neg(_component) \
-    (int)(-frame::entry_frame_locals_size + offset_of(frame::entry_frame_locals, _component))
 
 
   //  Frame layout for JIT generated methods

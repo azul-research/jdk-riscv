@@ -85,7 +85,7 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // some sanity checks
-    assert((sizeof(frame::top_c_frame) % 16) == 0,            "unaligned");
+    assert((sizeof(frame::fp_ra) % 16) == 0,            "unaligned");
     assert((sizeof(frame::spill_nonvolatiles) % 16) == 0,     "unaligned");
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
@@ -118,10 +118,10 @@ class StubGenerator: public StubCodeGenerator {
       Label arguments_copied;
 
       // Save fp and ra to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_fp_ra(R2_SP_RV, frame::fp_ra_offset_neg);
+      __ save_fp_ra(R2_SP_RV, _fp_ra_offset_neg);
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_nonvolatile_gprs(R2_SP_RV, -frame::top_c_frame_size);
+      __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_offset_neg);
 
       // Keep copy of our frame pointer (caller's SP).
       __ mv_RV(r_entryframe_fp, R2_SP_RV);
@@ -164,11 +164,11 @@ class StubGenerator: public StubCodeGenerator {
 
       // initialize call_stub locals (step 1)
       __ sd_RV(r_arg_call_wrapper_addr,
-               r_entryframe_fp, _entry_frame_locals_neg(call_wrapper_address));
+               r_entryframe_fp, _top_ijava_frame_abi_neg(call_wrapper_address));
       __ sd_RV(r_arg_result_addr,
-               r_entryframe_fp, _entry_frame_locals_neg(result_address));
+               r_entryframe_fp, _top_ijava_frame_abi_neg(result_address));
       __ sd_RV(r_arg_result_type,
-               r_entryframe_fp, _entry_frame_locals_neg(result_type));
+               r_entryframe_fp, _top_ijava_frame_abi_neg(result_type));
       // we will save arguments_tos_address later
 
 
@@ -176,11 +176,8 @@ class StubGenerator: public StubCodeGenerator {
       // copy Java arguments
 
       // Calculate top_of_arguments_addr which will be R17_tos (not prepushed) later.
-      // FIXME: why not simply use SP+frame::top_ijava_frame_size?
-      __ addi_RV(r_top_of_arguments_addr,
-              R2_SP_RV, frame::top_ijava_frame_abi_size);
       __ add_RV(r_top_of_arguments_addr,
-             r_top_of_arguments_addr, r_frame_alignment_in_bytes);
+             R2_SP_RV, r_frame_alignment_in_bytes);
 
       // any arguments to copy?
       __ beqz_RV (r_arg_argument_count, arguments_copied);
@@ -297,10 +294,6 @@ class StubGenerator: public StubCodeGenerator {
       Label ret_is_long;
       Label ret_is_float;
       Label ret_is_double;
-
-      Register r_entryframe_fp = R30;
-      Register r_lr            = R7_ARG5;
-      Register r_cr            = R8_ARG6;
 
       // Reload some volatile registers which we've spilled before the call
       // to frame manager / native entry.

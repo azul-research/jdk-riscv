@@ -3011,8 +3011,8 @@ void SharedRuntime::generate_deopt_blob() {
   // ...).
 
   // Spill live volatile registers since we'll do a call.
-  __ std( R3_RET, _abi_reg_args_spill(spill_ret),  R1_SP);
-  __ stfd(F1_RET, _abi_reg_args_spill(spill_fret), R1_SP);
+  __ std( R3_RET, _abi_reg_args_spill_ppc(spill_ret),  R1_SP);
+  __ stfd(F1_RET, _abi_reg_args_spill_ppc(spill_fret), R1_SP);
 
   // Let the unpacker layout information in the skeletal frames just
   // allocated.
@@ -3024,8 +3024,8 @@ void SharedRuntime::generate_deopt_blob() {
   __ reset_last_Java_frame();
 
   // Restore the volatiles saved above.
-  __ ld( R3_RET, _abi_reg_args_spill(spill_ret),  R1_SP);
-  __ lfd(F1_RET, _abi_reg_args_spill(spill_fret), R1_SP);
+  __ ld( R3_RET, _abi_reg_args_spill_ppc(spill_ret),  R1_SP);
+  __ lfd(F1_RET, _abi_reg_args_spill_ppc(spill_fret), R1_SP);
 
   // Pop the unpack frame.
   __ pop_frame();
