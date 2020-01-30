@@ -247,8 +247,7 @@ inline void MacroAssembler::bne_far(ConditionRegister crx, Label& L, int optimiz
 inline void MacroAssembler::bns_far(ConditionRegister crx, Label& L, int optimize) { MacroAssembler::bc_far(bcondCRbiIs0, bi0(crx, summary_overflow), L, optimize); }
 
 inline address MacroAssembler::call_stub(Register function_entry) {
-  mtctr(function_entry);
-  bctrl();
+  jr_RV(function_entry);
   return pc();
 }
 
