@@ -85,7 +85,7 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // some sanity checks
-    assert((sizeof(frame::fp_ra) % 16) == 0,            "unaligned");
+    assert((sizeof(frame::fp_ra) % 16) == 0,                  "unaligned");
     assert((sizeof(frame::spill_nonvolatiles) % 16) == 0,     "unaligned");
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
@@ -99,7 +99,7 @@ class StubGenerator: public StubCodeGenerator {
 
     Register r_temp                         = R5_TMP0_RV;
     Register r_top_of_arguments_addr        = R6_TMP1_RV;
-    Register r_entryframe_fp                = R7_TMP2_RV;
+    Register r_entryframe_fp                = R8_FP_RV;
 
     {
       // Stack on entry to call_stub:
@@ -219,7 +219,7 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R8_S0_RV;
+      Register r_new_arg_entry = R9_S1_RV;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
@@ -238,7 +238,7 @@ class StubGenerator: public StubCodeGenerator {
 
       // initialize call_stub locals (step 2)
       // now save tos as arguments_tos_address
-      __ sd_RV(tos, r_entryframe_fp, _entry_frame_locals_neg(arguments_tos_address));
+      __ sd_RV(tos, r_entryframe_fp, _top_ijava_frame_abi(arguments_tos_address));
 
       // load argument registers for call
       __ mv_RV(R27_method_RV, r_arg_method);

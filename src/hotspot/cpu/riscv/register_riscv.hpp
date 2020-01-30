@@ -859,7 +859,6 @@ REGISTER_DECLARATION(Register, R5_TMP0_RV,  R5);  // saver: caller
 REGISTER_DECLARATION(Register, R6_TMP1_RV,  R6);  // saver: caller
 REGISTER_DECLARATION(Register, R7_TMP2_RV,  R7);  // saver: caller
 REGISTER_DECLARATION(Register, R8_FP_RV,    R8);  // saver: callee
-REGISTER_DECLARATION(Register, R8_S0_RV,    R8);  // saver: callee
 REGISTER_DECLARATION(Register, R9_S1_RV,    R9);  // saver: callee
 REGISTER_DECLARATION(Register, R10_RET1_RV, R10); // saver: caller
 REGISTER_DECLARATION(Register, R10_ARG0_RV, R10); // saver: caller
@@ -920,7 +919,6 @@ REGISTER_DECLARATION(FloatRegister, F31_TMP11_RV, F31); // saver: caller
 #define R6_TMP1_RV   AS_REGISTER(Register, R6)
 #define R7_TMP2_RV   AS_REGISTER(Register, R7)
 #define R8_FP_RV     AS_REGISTER(Register, R8)
-#define R8_S0_RV     AS_REGISTER(Register, R8)
 #define R9_S1_RV     AS_REGISTER(Register, R9)
 #define R10_RET1_RV  AS_REGISTER(Register, R10)
 #define R10_ARG0_RV  AS_REGISTER(Register, R10)
