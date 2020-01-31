@@ -124,7 +124,7 @@ void NativeCall::set_destination_mt_safe(address dest, bool assert_lock) {
   }
 
   OrderAccess::release();
-  a->bl(dest);
+  a->bl_PPC(dest);
 
   ICache::riscv64_flush_icache_bytes(addr_call, code_size);
 }
@@ -248,7 +248,7 @@ address NativeMovConstReg::set_data_plain(intptr_t data, CodeBlob *cb) {
     const int code_size = 1 * BytesPerInstWord;
     CodeBuffer cb(addr, code_size + 1);
     MacroAssembler* a = new MacroAssembler(&cb);
-    a->bl((address) data);
+    a->bl_PPC((address) data);
     ICache::riscv64_flush_icache_bytes(addr, code_size);
     next_address = addr + code_size;
   } else {
@@ -332,7 +332,7 @@ void NativeJump::patch_verified_entry(address entry, address verified_entry, add
 #endif
   // Patch this nmethod atomically. Always use illtrap/trap in debug build.
   if (DEBUG_ONLY(false &&) a->is_within_range_of_b(dest, a->pc())) {
-    a->b(dest);
+    a->b_PPC(dest);
   } else {
     // The signal handler will continue at dest=OptoRuntime::handle_wrong_method_stub().
     if (TrapBasedNotEntrantChecks) {
@@ -340,7 +340,7 @@ void NativeJump::patch_verified_entry(address entry, address verified_entry, add
       a->trap_zombie_not_entrant();
     } else {
       // We use an illtrap for marking a method as not_entrant or zombie.
-      a->illtrap();
+      a->illtrap_PPC();
     }
   }
   ICache::riscv64_flush_icache_bytes(verified_entry, code_size);
@@ -363,7 +363,7 @@ void NativeJump::verify() {
 void NativeGeneralJump::insert_unconditional(address code_pos, address entry) {
   CodeBuffer cb(code_pos, BytesPerInstWord + 1);
   MacroAssembler a(&cb);
-  a.b(entry);
+  a.b_PPC(entry);
   ICache::riscv64_flush_icache_bytes(code_pos, NativeGeneralJump::instruction_size);
 }
 

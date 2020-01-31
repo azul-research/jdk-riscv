@@ -504,8 +504,8 @@ void MacroAssembler::set_dest_of_bc_far_at(address instruction_addr, address des
   MacroAssembler masm(&buf);
   if (is_bc_far_variant2_at(instruction_addr) && dest == instruction_addr + 8) {
     // Far branch to next instruction: Optimize it by patching nops (produce variant 3).
-    masm.nop();
-    masm.endgroup();
+    masm.nop_PPC();
+    masm.endgroup_PPC();
   } else {
     if (is_bc_far_variant1_at(instruction_addr)) {
       // variant 1, the 1st instruction contains the destination address:
@@ -540,8 +540,8 @@ void MacroAssembler::set_dest_of_bc_far_at(address instruction_addr, address des
       //    bcxx  DEST
       //    nop
       //
-      masm.bc(boint, biint, dest);
-      masm.nop();
+      masm.bc_PPC(boint, biint, dest);
+      masm.nop_PPC();
     } else {
       // variant 2:
       //
@@ -552,8 +552,8 @@ void MacroAssembler::set_dest_of_bc_far_at(address instruction_addr, address des
       const int opposite_boint = add_bhint_to_boint(opposite_bhint(inv_boint_bhint(boint)),
                                                     opposite_bcond(inv_boint_bcond(boint)));
       const address not_taken_pc = masm.pc() + 2 * BytesPerInstWord;
-      masm.bc(opposite_boint, biint, not_taken_pc);
-      masm.b(dest);
+      masm.bc_PPC(opposite_boint, biint, not_taken_pc);
+      masm.b_PPC(dest);
     }
   }
   ICache::riscv64_flush_icache_bytes(instruction_addr, code_size);
@@ -730,8 +730,8 @@ void MacroAssembler::save_fp_ra(Register dst, int offset) {
 }
 
 void MacroAssembler::restore_fp_ra(Register dst, int offset) {
-  ld(R8_FP_RV,  dst, offset);   offset += 8;
-  ld(R1_RA_RV,  dst, offset);
+  ld_PPC(R8_FP_RV,  dst, offset);   offset += 8;
+  ld_PPC(R1_RA_RV,  dst, offset);
 }
 
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
@@ -921,8 +921,8 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
   // TODO_RISCV push frame in correct way for riscv
-  neg(tmp, bytes);
-  add(R2_SP_RV, R2_SP_RV, tmp);
+  neg_PPC(tmp, bytes);
+  add_PPC(R2_SP_RV, R2_SP_RV, tmp);
 }
 
 // Push a frame of size `bytes'.
@@ -5029,9 +5029,9 @@ void SkipIfEqualZero::skip_to_label_if_equal_zero(MacroAssembler* masm, Register
                                                   const bool* flag_addr, Label& label) {
   int simm16_offset = masm->load_const_optimized(temp, (address)flag_addr, R0, true);
   assert(sizeof(bool) == 1, "PowerPC ABI");
-  masm->lbz(temp, simm16_offset, temp);
-  masm->cmpwi(CCR0, temp, 0);
-  masm->beq(CCR0, label);
+  masm->lbz_PPC(temp, simm16_offset, temp);
+  masm->cmpwi_PPC(CCR0, temp, 0);
+  masm->beq_PPC(CCR0, label);
 }
 
 SkipIfEqualZero::SkipIfEqualZero(MacroAssembler* masm, Register temp, const bool* flag_addr) : _masm(masm), _label() {
