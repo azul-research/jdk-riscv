@@ -59,7 +59,7 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result,
   set_last_Java_frame(R1_SP, noreg);
 
   // ARG1 must hold thread address.
-  mr(R3_ARG1, R16_thread);
+  mr_PPC(R3_ARG1, R16_thread);
 
   address return_pc = call_c_with_frame_resize(entry_point, /*No resize, we have a C compatible frame.*/0);
 
@@ -67,24 +67,24 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result,
 
   // Check for pending exceptions.
   {
-    ld(R0, in_bytes(Thread::pending_exception_offset()), R16_thread);
-    cmpdi(CCR0, R0, 0);
+    ld_PPC(R0, in_bytes(Thread::pending_exception_offset()), R16_thread);
+    cmpdi_PPC(CCR0, R0, 0);
 
     // This used to conditionally jump to forward_exception however it is
     // possible if we relocate that the branch will not reach. So we must jump
     // around so we can always reach.
 
     Label ok;
-    beq(CCR0, ok);
+    beq_PPC(CCR0, ok);
 
     // Make sure that the vm_results are cleared.
     if (oop_result1->is_valid() || metadata_result->is_valid()) {
-      li(R0, 0);
+      li_PPC(R0, 0);
       if (oop_result1->is_valid()) {
-        std(R0, in_bytes(JavaThread::vm_result_offset()), R16_thread);
+        std_PPC(R0, in_bytes(JavaThread::vm_result_offset()), R16_thread);
       }
       if (metadata_result->is_valid()) {
-        std(R0, in_bytes(JavaThread::vm_result_2_offset()), R16_thread);
+        std_PPC(R0, in_bytes(JavaThread::vm_result_2_offset()), R16_thread);
       }
     }
 
@@ -102,8 +102,8 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result,
       // keep stub frame for next call_RT
       //load_const_optimized(R0, Runtime1::entry_for(Runtime1::forward_exception_id));
       add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(Runtime1::entry_for(Runtime1::forward_exception_id)));
-      mtctr(R0);
-      bctr();
+      mtctr_PPC(R0);
+      bctr_PPC();
     }
 
     bind(ok);
@@ -182,9 +182,9 @@ static OopMap* save_live_registers(StubAssembler* sasm, bool save_fpu_registers 
                                    Register ret_pc = noreg, int stack_preserve = 0) {
   if (ret_pc == noreg) {
     ret_pc = R0;
-    __ mflr(ret_pc);
+    __ mflr_PPC(ret_pc);
   }
-  __ std(ret_pc, _abi(lr), R1_SP); // C code needs pc in C1 method.
+  __ std_PPC(ret_pc, _abi(lr), R1_SP); // C code needs pc in C1 method.
   __ push_frame(frame_size_in_bytes + stack_preserve, R0);
 
   // Record volatile registers as callee-save values in an OopMap so
@@ -198,7 +198,7 @@ static OopMap* save_live_registers(StubAssembler* sasm, bool save_fpu_registers 
     Register r = as_Register(i);
     if (FrameMap::reg_needs_save(r)) {
       int sp_offset = cpu_reg_save_offsets[i];
-      __ std(r, sp_offset + STACK_BIAS, R1_SP);
+      __ std_PPC(r, sp_offset + STACK_BIAS, R1_SP);
     }
   }
 
@@ -206,7 +206,7 @@ static OopMap* save_live_registers(StubAssembler* sasm, bool save_fpu_registers 
     for (i = 0; i < FrameMap::nof_fpu_regs; i++) {
       FloatRegister r = as_FloatRegister(i);
       int sp_offset = fpu_reg_save_offsets[i];
-      __ stfd(r, sp_offset + STACK_BIAS, R1_SP);
+      __ stfd_PPC(r, sp_offset + STACK_BIAS, R1_SP);
     }
   }
 
@@ -219,7 +219,7 @@ static void restore_live_registers(StubAssembler* sasm, Register result1, Regist
     Register r = as_Register(i);
     if (FrameMap::reg_needs_save(r) && r != result1 && r != result2) {
       int sp_offset = cpu_reg_save_offsets[i];
-      __ ld(r, sp_offset + STACK_BIAS, R1_SP);
+      __ ld_PPC(r, sp_offset + STACK_BIAS, R1_SP);
     }
   }
 
@@ -227,13 +227,13 @@ static void restore_live_registers(StubAssembler* sasm, Register result1, Regist
     for (int i = 0; i < FrameMap::nof_fpu_regs; i++) {
       FloatRegister r = as_FloatRegister(i);
       int sp_offset = fpu_reg_save_offsets[i];
-      __ lfd(r, sp_offset + STACK_BIAS, R1_SP);
+      __ lfd_PPC(r, sp_offset + STACK_BIAS, R1_SP);
     }
   }
 
   __ pop_frame();
-  __ ld(R0, _abi(lr), R1_SP);
-  __ mtlr(R0);
+  __ ld_PPC(R0, _abi(lr), R1_SP);
+  __ mtlr_PPC(R0);
 }
 
 
@@ -284,11 +284,11 @@ static OopMapSet* generate_exception_throw_with_stack_parms(StubAssembler* sasm,
   int call_offset = 0;
   switch (stack_parms) {
     case 3:
-    __ ld(R6_ARG4, frame_size_in_bytes + padding + 16, R1_SP);
+    __ ld_PPC(R6_ARG4, frame_size_in_bytes + padding + 16, R1_SP);
     case 2:
-    __ ld(R5_ARG3, frame_size_in_bytes + padding + 8, R1_SP);
+    __ ld_PPC(R5_ARG3, frame_size_in_bytes + padding + 8, R1_SP);
     case 1:
-    __ ld(R4_ARG2, frame_size_in_bytes + padding + 0, R1_SP);
+    __ ld_PPC(R4_ARG2, frame_size_in_bytes + padding + 0, R1_SP);
     case 0:
     call_offset = __ call_RT(noreg, noreg, target);
     break;
@@ -321,7 +321,7 @@ OopMapSet* Runtime1::generate_stub_call(StubAssembler* sasm, Register result, ad
   oop_maps->add_gc_map(call_offset, oop_map);
 
   restore_live_registers(sasm, result, noreg);
-  __ blr();
+  __ blr_PPC();
   return oop_maps;
 }
 
@@ -335,11 +335,11 @@ static OopMapSet* stub_call_with_stack_parms(StubAssembler* sasm, Register resul
   int call_offset = 0;
   switch (stack_parms) {
     case 3:
-    __ ld(R6_ARG4, frame_size_in_bytes + padding + 16, R1_SP);
+    __ ld_PPC(R6_ARG4, frame_size_in_bytes + padding + 16, R1_SP);
     case 2:
-    __ ld(R5_ARG3, frame_size_in_bytes + padding + 8, R1_SP);
+    __ ld_PPC(R5_ARG3, frame_size_in_bytes + padding + 8, R1_SP);
     case 1:
-    __ ld(R4_ARG2, frame_size_in_bytes + padding + 0, R1_SP);
+    __ ld_PPC(R4_ARG2, frame_size_in_bytes + padding + 0, R1_SP);
     case 0:
     call_offset = __ call_RT(result, noreg, target);
     break;
@@ -349,7 +349,7 @@ static OopMapSet* stub_call_with_stack_parms(StubAssembler* sasm, Register resul
   oop_maps->add_gc_map(call_offset, oop_map);
 
   restore_live_registers(sasm, result, noreg);
-  if (do_return) __ blr();
+  if (do_return) __ blr_PPC();
   return oop_maps;
 }
 
@@ -362,7 +362,7 @@ OopMapSet* Runtime1::generate_patching(StubAssembler* sasm, address target) {
   int call_offset = __ call_RT(noreg, noreg, target);
   OopMapSet* oop_maps = new OopMapSet();
   oop_maps->add_gc_map(call_offset, oop_map);
-  __ cmpdi(CCR0, R3_RET, 0);
+  __ cmpdi_PPC(CCR0, R3_RET, 0);
 
   // Re-execute the patched instruction or, if the nmethod was deoptmized,
   // return to the deoptimization handler entry that will cause re-execution
@@ -376,13 +376,13 @@ OopMapSet* Runtime1::generate_patching(StubAssembler* sasm, address target) {
 
   restore_live_registers(sasm, noreg, noreg);
   // Return if patching routine returned 0.
-  __ bclr(Assembler::bcondCRbiIs1, Assembler::bi0(CCR0, Assembler::equal), Assembler::bhintbhBCLRisReturn);
+  __ bclr_PPC(Assembler::bcondCRbiIs1, Assembler::bi0(CCR0, Assembler::equal), Assembler::bhintbhBCLRisReturn);
 
   address stub = deopt_blob->unpack_with_reexecution();
   //__ load_const_optimized(R0, stub);
   __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  __ mtctr(R0);
-  __ bctr();
+  __ mtctr_PPC(R0);
+  __ bctr_PPC();
 
   return oop_maps;
 }
@@ -440,10 +440,10 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         {
           int tag = (id == new_type_array_id) ? Klass::_lh_array_tag_type_value : Klass::_lh_array_tag_obj_value;
           Label ok;
-          __ lwz(R0, in_bytes(Klass::layout_helper_offset()), R4_ARG2);
-          __ srawi(R0, R0, Klass::_lh_array_tag_shift);
-          __ cmpwi(CCR0, R0, tag);
-          __ beq(CCR0, ok);
+          __ lwz_PPC(R0, in_bytes(Klass::layout_helper_offset()), R4_ARG2);
+          __ srawi_PPC(R0, R0, Klass::_lh_array_tag_shift);
+          __ cmpwi_PPC(CCR0, R0, tag);
+          __ beq_PPC(CCR0, ok);
           __ stop("assert(is an array klass)");
           __ should_not_reach_here();
           __ bind(ok);
@@ -478,13 +478,13 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
 
         // Load the klass and check the has finalizer flag.
         __ load_klass(t, R3_ARG1);
-        __ lwz(t, in_bytes(Klass::access_flags_offset()), t);
-        __ testbitdi(CCR0, R0, t, exact_log2(JVM_ACC_HAS_FINALIZER));
+        __ lwz_PPC(t, in_bytes(Klass::access_flags_offset()), t);
+        __ testbitdi_PPC(CCR0, R0, t, exact_log2(JVM_ACC_HAS_FINALIZER));
         // Return if has_finalizer bit == 0 (CR0.eq).
-        __ bclr(Assembler::bcondCRbiIs1, Assembler::bi0(CCR0, Assembler::equal), Assembler::bhintbhBCLRisReturn);
+        __ bclr_PPC(Assembler::bcondCRbiIs1, Assembler::bi0(CCR0, Assembler::equal), Assembler::bhintbhBCLRisReturn);
 
-        __ mflr(R0);
-        __ std(R0, _abi(lr), R1_SP);
+        __ mflr_PPC(R0);
+        __ std_PPC(R0, _abi(lr), R1_SP);
         __ push_frame(frame::abi_reg_args_ppc_size, R0); // Empty dummy frame (no callee-save regs).
         sasm->set_frame_size(frame::abi_reg_args_ppc_size / BytesPerWord);
         OopMap* oop_map = new OopMap(frame::abi_reg_args_ppc_size / sizeof(jint), 0);
@@ -494,9 +494,9 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         oop_maps->add_gc_map(call_offset, oop_map);
 
         __ pop_frame();
-        __ ld(R0, _abi(lr), R1_SP);
-        __ mtlr(R0);
-        __ blr();
+        __ ld_PPC(R0, _abi(lr), R1_SP);
+        __ mtlr_PPC(R0);
+        __ blr_PPC();
       }
       break;
 
@@ -550,18 +550,18 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
                        Rexception_save = R31, Rcaller_sp = R30;
         __ set_info("unwind_exception", dont_gc_arguments);
 
-        __ ld(Rcaller_sp, 0, R1_SP);
+        __ ld_PPC(Rcaller_sp, 0, R1_SP);
         __ push_frame_reg_args(0, R0); // dummy frame for C call
-        __ mr(Rexception_save, Rexception); // save over C call
-        __ ld(Rexception_pc, _abi(lr), Rcaller_sp); // return pc
+        __ mr_PPC(Rexception_save, Rexception); // save over C call
+        __ ld_PPC(Rexception_pc, _abi(lr), Rcaller_sp); // return pc
         __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address), R16_thread, Rexception_pc);
         __ verify_not_null_oop(Rexception_save);
-        __ mtctr(R3_RET);
-        __ ld(Rexception_pc, _abi(lr), Rcaller_sp); // return pc
-        __ mr(R1_SP, Rcaller_sp); // Pop both frames at once.
-        __ mr(Rexception, Rexception_save); // restore
-        __ mtlr(Rexception_pc);
-        __ bctr();
+        __ mtctr_PPC(R3_RET);
+        __ ld_PPC(Rexception_pc, _abi(lr), Rcaller_sp); // return pc
+        __ mr_PPC(R1_SP, Rcaller_sp); // Pop both frames at once.
+        __ mr_PPC(Rexception, Rexception_save); // restore
+        __ mtlr_PPC(Rexception_pc);
+        __ bctr_PPC();
       }
       break;
 
@@ -593,8 +593,8 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
                        temp1_reg = R6,
                        temp2_reg = R0;
         __ check_klass_subtype_slow_path(sub_klass, super_klass, temp1_reg, temp2_reg); // returns with CR0.eq if successful
-        __ crandc(CCR0, Assembler::equal, CCR0, Assembler::equal); // failed: CR0.ne
-        __ blr();
+        __ crandc_PPC(CCR0, Assembler::equal, CCR0, Assembler::equal); // failed: CR0.ne
+        __ blr_PPC();
       }
       break;
 
@@ -613,7 +613,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         oop_maps->add_gc_map(call_offset, oop_map);
 
         restore_live_registers(sasm, noreg, noreg, save_fpu_registers);
-        __ blr();
+        __ blr_PPC();
       }
       break;
 
@@ -635,14 +635,14 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         oop_maps->add_gc_map(call_offset, oop_map);
 
         restore_live_registers(sasm, noreg, noreg, save_fpu_registers);
-        __ blr();
+        __ blr_PPC();
       }
       break;
 
     case deoptimize_id:
       {
         __ set_info("deoptimize", dont_gc_arguments);
-        __ std(R0, -8, R1_SP); // Pass trap_request on stack.
+        __ std_PPC(R0, -8, R1_SP); // Pass trap_request on stack.
         oop_maps = stub_call_with_stack_parms(sasm, noreg, CAST_FROM_FN_PTR(address, deoptimize), 1, /*do_return*/ false);
 
         DeoptimizationBlob* deopt_blob = SharedRuntime::deopt_blob();
@@ -650,8 +650,8 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         address stub = deopt_blob->unpack_with_reexecution();
         //__ load_const_optimized(R0, stub);
         __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-        __ mtctr(R0);
-        __ bctr();
+        __ mtctr_PPC(R0);
+        __ bctr_PPC();
       }
       break;
 
@@ -720,16 +720,16 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         address stub = deopt_blob->unpack_with_reexecution();
         //__ load_const_optimized(R0, stub);
         __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-        __ mtctr(R0);
-        __ bctr();
+        __ mtctr_PPC(R0);
+        __ bctr_PPC();
       }
       break;
 
   default:
       {
         __ set_info("unimplemented entry", dont_gc_arguments);
-        __ mflr(R0);
-        __ std(R0, _abi(lr), R1_SP);
+        __ mflr_PPC(R0);
+        __ std_PPC(R0, _abi(lr), R1_SP);
         __ push_frame(frame::abi_reg_args_ppc_size, R0); // empty dummy frame
         sasm->set_frame_size(frame::abi_reg_args_ppc_size / BytesPerWord);
         OopMap* oop_map = new OopMap(frame::abi_reg_args_ppc_size / sizeof(jint), 0);
@@ -767,11 +767,11 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     // Transfer the pending exception to the exception_oop.
     // Also load the PC which is typically at SP + frame_size_in_bytes + _abi(lr),
     // but we support additional slots in the frame for parameter passing.
-    __ ld(Rexception_pc, 0, R1_SP);
-    __ ld(Rexception, in_bytes(JavaThread::pending_exception_offset()), R16_thread);
-    __ li(R0, 0);
-    __ ld(Rexception_pc, _abi(lr), Rexception_pc);
-    __ std(R0, in_bytes(JavaThread::pending_exception_offset()), R16_thread);
+    __ ld_PPC(Rexception_pc, 0, R1_SP);
+    __ ld_PPC(Rexception, in_bytes(JavaThread::pending_exception_offset()), R16_thread);
+    __ li_PPC(R0, 0);
+    __ ld_PPC(Rexception_pc, _abi(lr), Rexception_pc);
+    __ std_PPC(R0, in_bytes(JavaThread::pending_exception_offset()), R16_thread);
     break;
   case handle_exception_nofpu_id:
   case handle_exception_id:
@@ -782,7 +782,7 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     // At this point all registers except exception oop and exception pc are dead.
     oop_map = new OopMap(frame_size_in_bytes / sizeof(jint), 0);
     sasm->set_frame_size(frame_size_in_bytes / BytesPerWord);
-    __ std(Rexception_pc, _abi(lr), R1_SP);
+    __ std_PPC(Rexception_pc, _abi(lr), R1_SP);
     __ push_frame(frame_size_in_bytes, R0);
     break;
   default:  ShouldNotReachHere();
@@ -793,22 +793,22 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
 #ifdef ASSERT
   // Check that fields in JavaThread for exception oop and issuing pc are
   // empty before writing to them.
-  __ ld(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ cmpdi(CCR0, R0, 0);
+  __ ld_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ cmpdi_PPC(CCR0, R0, 0);
   __ asm_assert_eq("exception oop already set", 0x963);
-  __ ld(R0, in_bytes(JavaThread::exception_pc_offset() ), R16_thread);
-  __ cmpdi(CCR0, R0, 0);
+  __ ld_PPC(R0, in_bytes(JavaThread::exception_pc_offset() ), R16_thread);
+  __ cmpdi_PPC(CCR0, R0, 0);
   __ asm_assert_eq("exception pc already set", 0x962);
 #endif
 
   // Save the exception and issuing pc in the thread.
-  __ std(Rexception,    in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ std(Rexception_pc, in_bytes(JavaThread::exception_pc_offset() ), R16_thread);
+  __ std_PPC(Rexception,    in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ std_PPC(Rexception_pc, in_bytes(JavaThread::exception_pc_offset() ), R16_thread);
 
   int call_offset = __ call_RT(noreg, noreg, CAST_FROM_FN_PTR(address, exception_handler_for_pc));
   oop_maps->add_gc_map(call_offset, oop_map);
 
-  __ mtctr(R3_RET);
+  __ mtctr_PPC(R3_RET);
 
   // Note: if nmethod has been deoptimized then regardless of
   // whether it had a handler or not we will deoptimize
@@ -821,13 +821,13 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
   case handle_exception_nofpu_id:
   case handle_exception_id:
     restore_live_registers(sasm, noreg, noreg, id != handle_exception_nofpu_id);
-    __ bctr();
+    __ bctr_PPC();
     break;
   case handle_exception_from_callee_id: {
     __ pop_frame();
-    __ ld(Rexception_pc, _abi(lr), R1_SP);
-    __ mtlr(Rexception_pc);
-    __ bctr();
+    __ ld_PPC(Rexception_pc, _abi(lr), R1_SP);
+    __ mtlr_PPC(Rexception_pc);
+    __ bctr_PPC();
     break;
   }
   default:  ShouldNotReachHere();

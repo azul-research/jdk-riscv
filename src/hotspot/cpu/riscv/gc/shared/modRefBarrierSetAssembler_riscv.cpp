@@ -38,8 +38,8 @@ void ModRefBarrierSetAssembler::arraycopy_prologue(MacroAssembler* masm, Decorat
     if (!checkcast) {
       assert_different_registers(dst, count, R9_ARG7, R10_ARG8);
       // Save some arguments for epilogue, e.g. disjoint_long_copy_core destroys them.
-      __ mr(R9_ARG7, dst);
-      __ mr(R10_ARG8, count);
+      __ mr_PPC(R9_ARG7, dst);
+      __ mr_PPC(R10_ARG8, count);
     }
   }
 }

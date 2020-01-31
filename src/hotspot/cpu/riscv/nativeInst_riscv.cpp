@@ -65,7 +65,7 @@ void NativeInstruction::verify() {
 // Extract call destination from a NativeCall. The call might use a trampoline stub.
 address NativeCall::destination() const {
   address addr = (address)this;
-  address destination = Assembler::bxx_destination(addr);
+  address destination = Assembler::bxx_destination_PPC(addr);
 
   // Do we use a trampoline stub for this call?
   // Trampoline stubs are located behind the main code.
@@ -140,7 +140,7 @@ address NativeCall::get_trampoline() {
   if (code->relocation_size() == 0)
     return NULL;
 
-  address bl_destination = Assembler::bxx_destination(call_addr);
+  address bl_destination = Assembler::bxx_destination_PPC(call_addr);
   if (code->contains(bl_destination) &&
       is_NativeCallTrampolineStub_at(bl_destination))
     return bl_destination;
