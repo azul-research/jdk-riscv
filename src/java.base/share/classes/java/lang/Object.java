@@ -43,6 +43,14 @@ public class Object {
         registerNatives();
     }
 
+	/**
+	 * A test method to call in VM.
+	 * @return 42
+	 */
+    public static int testMethod() {
+        return 42;
+    }
+
     /**
      * Constructs a new object.
      */

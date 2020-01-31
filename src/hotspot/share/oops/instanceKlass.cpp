@@ -1030,7 +1030,9 @@ void InstanceKlass::initialize_impl(TRAPS) {
                              jt->get_thread_stat()->perf_recursion_counts_addr(),
                              jt->get_thread_stat()->perf_timers_addr(),
                              PerfClassTraceTime::CLASS_CLINIT);
-    call_class_initializer(THREAD);
+    if (!DisableClinit) {
+        call_class_initializer(THREAD);
+    }
   }
 
   // Step 9
