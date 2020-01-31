@@ -49,7 +49,7 @@ void InlineCacheBuffer::assemble_ic_buffer_code(address code_begin, void* cached
   // (2) these ICStubs are removed *before* a GC happens, so the roots disappear.
 
   // Load the oop ...
-  __ load_const(R19_method, (address) cached_value, R0);
+  __ load_const_PPC(R19_method, (address) cached_value, R0);
   // ... and jump to entry point.
   __ b64_patchable((address) entry_point, relocInfo::none);
 
