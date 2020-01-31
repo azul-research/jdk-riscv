@@ -286,7 +286,7 @@ inline void Assembler::ret() { jr(R1); }
 inline void Assembler::call(int off) { auipc(R1, off & 0xfffff000); jalr(R1, R1, off & 0xfff); }
 inline void Assembler::tail(int off) { auipc(R6, off & 0xfffff000); jalr(R0, R6, off & 0xfff); }
 inline void Assembler::neg(Register d, Register s) { sub(d, R0, s); }
-inline void Assembler::mv_RV(Register d, Register s) { addi(d, s, 0); }
+inline void Assembler::mv(Register d, Register s) { addi(d, s, 0); }
 
 // --- PPC instructions follow ---
 
