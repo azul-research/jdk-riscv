@@ -124,7 +124,7 @@ class StubGenerator: public StubCodeGenerator {
       __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_offset_neg);
 
       // Keep copy of our frame pointer (caller's SP).
-      __ mv_RV(r_entryframe_fp, R2_SP_RV);
+      __ mv(r_entryframe_fp, R2_SP_RV);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
       // Push ENTRY_FRAME including arguments:
@@ -185,7 +185,7 @@ class StubGenerator: public StubCodeGenerator {
       // prepare loop and copy arguments in reverse order
       {
         // let r_argumentcopy_addr point to last outgoing Java arguments P
-        __ mv_RV(r_argumentcopy_addr, r_top_of_arguments_addr);
+        __ mv(r_argumentcopy_addr, r_top_of_arguments_addr);
 
         // let r_argument_addr point to last incoming java argument
         __ add(r_argument_addr,
@@ -222,7 +222,7 @@ class StubGenerator: public StubCodeGenerator {
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
-      __ mv_RV(r_new_arg_entry, r_arg_entry);
+      __ mv(r_new_arg_entry, r_arg_entry);
 
       // Register state on entry to frame manager / native entry:
       //
@@ -240,8 +240,8 @@ class StubGenerator: public StubCodeGenerator {
       __ sd(tos, r_entryframe_fp, _top_ijava_frame_abi(arguments_tos_address));
 
       // load argument registers for call
-      __ mv_RV(R27_method_RV, r_arg_method);
-      __ mv_RV(R24_thread_RV, r_arg_thread);
+      __ mv(R27_method_RV, r_arg_method);
+      __ mv(R24_thread_RV, r_arg_thread);
       assert(tos != r_arg_method, "trashed r_arg_method");
       assert(tos != r_arg_thread && R27_method_RV != r_arg_thread, "trashed r_arg_thread");
 
@@ -263,7 +263,7 @@ class StubGenerator: public StubCodeGenerator {
       // when called via a c2i.
 
       // Pass initial_caller_sp to framemanager.
-      __ mv_RV(R21_sender_SP_RV, R2_SP_RV);
+      __ mv(R21_sender_SP_RV, R2_SP_RV);
 
       // Do a light-weight C-call here, r_new_arg_entry holds the address
       // of the interpreter entry point (frame manager or native entry)

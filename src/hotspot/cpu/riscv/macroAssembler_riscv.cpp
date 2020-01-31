@@ -730,8 +730,8 @@ void MacroAssembler::save_fp_ra(Register dst, int offset) {
 }
 
 void MacroAssembler::restore_fp_ra(Register dst, int offset) {
-  ld(R8_FP_RV,  dst, offset);   offset += 8;
-  ld(R1_RA_RV,  dst, offset);
+  ld_PPC(R8_FP_RV,  dst, offset);   offset += 8;
+  ld_PPC(R1_RA_RV,  dst, offset);
 }
 
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
@@ -921,8 +921,8 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
   // TODO_RISCV push frame in correct way for riscv
-  neg(tmp, bytes);
-  add(R2_SP_RV, R2_SP_RV, tmp);
+  neg_PPC(tmp, bytes);
+  add_PPC(R2_SP_RV, R2_SP_RV, tmp);
 }
 
 // Push a frame of size `bytes'.
