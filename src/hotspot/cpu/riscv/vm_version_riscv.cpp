@@ -781,13 +781,13 @@ void VM_Version::determine_features() {
   // Emit code.
   void (*test)(address addr, uint64_t offset)=(void(*)(address addr, uint64_t offset))(void *)a->pc();
   uint32_t *code = (uint32_t *)a->pc();
-  a->addi_RV(R2, R2, -16);   // addi  sp,sp,-16
-  a->sd_RV(R2, R8, 8);       // sd    s0,8(sp)
-  a->addi_RV(R2, R2, 16);    // addi  s0,sp,16
-  a->nop_RV();               // nop
-  a->sd_RV(R2, R8, 8);       // ld	  s0,8(sp)
-  a->sd_RV(R2, R2, 16);      // addi  sp,sp,16
-  a->ret_RV();               // jr	  ra
+  a->addi(R2, R2, -16);   // addi  sp,sp,-16
+  a->sd(R2, R8, 8);       // sd    s0,8(sp)
+  a->addi(R2, R2, 16);    // addi  s0,sp,16
+  a->nop();               // nop
+  a->sd(R2, R8, 8);       // ld	  s0,8(sp)
+  a->sd(R2, R2, 16);      // addi  sp,sp,16
+  a->ret();               // jr	  ra
   uint32_t *code_end = (uint32_t *)a->pc();
   a->flush();
   _features = VM_Version::unknown_m;
