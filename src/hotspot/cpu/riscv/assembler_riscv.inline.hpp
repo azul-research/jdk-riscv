@@ -31,7 +31,7 @@
 #include "code/codeCache.hpp"
 
 inline void Assembler::emit_int32_PPC(int x) {
-  AbstractAssembler::emit_int32_PPC(x);
+  AbstractAssembler::emit_int32(x);
 }
 
 inline void Assembler::emit_data_PPC(int x) {
