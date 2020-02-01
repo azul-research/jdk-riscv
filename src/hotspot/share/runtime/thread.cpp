@@ -3658,6 +3658,19 @@ static void call_initPhase3(TRAPS) {
                                          vmSymbols::void_method_signature(), CHECK);
 }
 
+Method* findTestMethod(InstanceKlass *klass) {
+    int n_methods = klass->methods()->length();
+    for (int i = 0; i < n_methods; ++i) {
+        Symbol *name = klass->methods()->at(i)->name();
+        char cname[100];
+        name->as_C_string(cname, 100);
+	if (strcmp(cname, "testMethod") == 0) {
+	    return klass->methods()->at(i);
+	} 
+    }
+    return 0;
+}
+
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   TraceTime timer("Initialize java.lang classes", TRACETIME_LOG(Info, startuptime));
 
@@ -3668,12 +3681,17 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   if (CallTestMethod) {
       initialize_class(vmSymbols::java_lang_Object(), CHECK);
       Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
-      Method *method = InstanceKlass::cast(klass)->methods()->at(14);
 
-      JavaCallArguments args;
-      JavaValue result(T_INT);
-      JavaCalls::call(&result, method, &args, CHECK);
-      fprintf(stderr, "Test method call result: %d\n", result.get_jint());
+      Method *method = findTestMethod(InstanceKlass::cast(klass));
+
+      if (method) {
+          JavaCallArguments args;
+          JavaValue result(T_INT);
+          JavaCalls::call(&result, method, &args, CHECK);
+          fprintf(stderr, "Test method call result: %d\n", result.get_jint());
+      } else {
+          fprintf(stderr, "Test method not found\n");
+      }
   }
 
   initialize_class(vmSymbols::java_lang_String(), CHECK);
