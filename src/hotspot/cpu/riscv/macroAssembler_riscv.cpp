@@ -730,8 +730,8 @@ void MacroAssembler::save_fp_ra(Register dst, int offset) {
 }
 
 void MacroAssembler::restore_fp_ra(Register dst, int offset) {
-  ld_PPC(R8_FP_RV,  dst, offset);   offset += 8;
-  ld_PPC(R1_RA_RV,  dst, offset);
+  ld(R8_FP_RV,  dst, offset);   offset += 8;
+  ld(R1_RA_RV,  dst, offset);
 }
 
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
