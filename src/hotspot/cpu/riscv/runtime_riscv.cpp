@@ -77,15 +77,15 @@ void OptoRuntime::generate_exception_blob() {
 
   address start = __ pc();
 
-  int frame_size_in_bytes = frame::abi_reg_args_size;
+  int frame_size_in_bytes = frame::abi_reg_args_ppc_size;
   OopMap* map = new OopMap(frame_size_in_bytes / sizeof(jint), 0);
 
   // Exception pc is 'return address' for stack walker.
-  __ std(R4_ARG2/*exception pc*/, _abi(lr), R1_SP);
+  __ std_PPC(R4_ARG2/*exception pc*/, _abi(lr), R1_SP);
 
   // Store the exception in the Thread object.
-  __ std(R3_ARG1/*exception oop*/, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ std(R4_ARG2/*exception pc*/,  in_bytes(JavaThread::exception_pc_offset()),  R16_thread);
+  __ std_PPC(R3_ARG1/*exception oop*/, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ std_PPC(R4_ARG2/*exception pc*/,  in_bytes(JavaThread::exception_pc_offset()),  R16_thread);
 
   // Save callee-saved registers.
   // Push a C frame for the exception blob. It is needed for the C call later on.
@@ -98,7 +98,7 @@ void OptoRuntime::generate_exception_blob() {
   // registers of the frame being removed.
   __ set_last_Java_frame(/*sp=*/R1_SP, noreg);
 
-  __ mr(R3_ARG1, R16_thread);
+  __ mr_PPC(R3_ARG1, R16_thread);
 #if defined(ABI_ELFv2)
   __ call_c((address) OptoRuntime::handle_exception_C, relocInfo::none);
 #else
@@ -107,7 +107,7 @@ void OptoRuntime::generate_exception_blob() {
 #endif
   address calls_return_pc = __ last_calls_return_pc();
 # ifdef ASSERT
-  __ cmpdi(CCR0, R3_RET, 0);
+  __ cmpdi_PPC(CCR0, R3_RET, 0);
   __ asm_assert_ne("handle_exception_C must not return NULL", 0x601);
 # endif
 
@@ -119,30 +119,30 @@ void OptoRuntime::generate_exception_blob() {
   OopMapSet* oop_maps = new OopMapSet();
   oop_maps->add_gc_map(calls_return_pc - start, map);
 
-  __ mtctr(R3_RET); // Move address of exception handler to SR_CTR.
+  __ mtctr_PPC(R3_RET); // Move address of exception handler to SR_CTR.
   __ reset_last_Java_frame();
   __ pop_frame();
 
   // We have a handler in register SR_CTR (could be deopt blob).
 
   // Get the exception oop.
-  __ ld(R3_ARG1, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ ld_PPC(R3_ARG1, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
 
   // Get the exception pc in case we are deoptimized.
-  __ ld(R4_ARG2, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
+  __ ld_PPC(R4_ARG2, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
 
   // Reset thread values.
-  __ li(R0, 0);
+  __ li_PPC(R0, 0);
 #ifdef ASSERT
-  __ std(R0, in_bytes(JavaThread::exception_handler_pc_offset()), R16_thread);
-  __ std(R0, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_handler_pc_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
 #endif
   // Clear the exception oop so GC no longer processes it as a root.
-  __ std(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
 
   // Move exception pc into SR_LR.
-  __ mtlr(R4_ARG2);
-  __ bctr();
+  __ mtlr_PPC(R4_ARG2);
+  __ bctr_PPC();
 
   // Make sure all code is generated.
   masm->flush();

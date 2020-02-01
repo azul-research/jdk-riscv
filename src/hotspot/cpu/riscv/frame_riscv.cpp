@@ -116,7 +116,7 @@ bool frame::safe_for_sender(JavaThread *thread) {
       return false;
     }
 
-    abi_minframe* sender_abi = (abi_minframe*) fp;
+    abi_minframe_ppc* sender_abi = (abi_minframe_ppc*) fp;
     intptr_t* sender_sp = (intptr_t*) fp;
     address   sender_pc = (address) sender_abi->lr;;
 

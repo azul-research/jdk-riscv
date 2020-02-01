@@ -128,8 +128,8 @@ address CompiledStaticCall::emit_to_interp_stub(CodeBuffer &cbuf, address mark/*
     if (!success) {
       return NULL; // CodeCache is full
     }
-    __ mtctr(reg_scratch);
-    __ bctr();
+    __ mtctr_PPC(reg_scratch);
+    __ bctr_PPC();
   }
 
   // FIXME: Assert that the stub can be identified and patched.

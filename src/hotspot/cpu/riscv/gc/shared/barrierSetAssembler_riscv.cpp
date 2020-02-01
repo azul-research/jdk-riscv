@@ -47,17 +47,17 @@ void BarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators
     if (UseCompressedOops && in_heap) {
       Register co = tmp1;
       if (val == noreg) {
-        __ li(co, 0);
+        __ li_PPC(co, 0);
       } else {
         co = not_null ? __ encode_heap_oop_not_null(tmp1, val) : __ encode_heap_oop(tmp1, val);
       }
-      __ stw(co, ind_or_offs, base, tmp2);
+      __ stw_PPC(co, ind_or_offs, base, tmp2);
     } else {
       if (val == noreg) {
         val = tmp1;
-        __ li(val, 0);
+        __ li_PPC(val, 0);
       }
-      __ std(val, ind_or_offs, base, tmp2);
+      __ std_PPC(val, ind_or_offs, base, tmp2);
     }
     break;
   }
@@ -79,23 +79,23 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
   case T_OBJECT: {
     if (UseCompressedOops && in_heap) {
       if (L_handle_null != NULL) { // Label provided.
-        __ lwz(dst, ind_or_offs, base);
-        __ cmpwi(CCR0, dst, 0);
-        __ beq(CCR0, *L_handle_null);
+        __ lwz_PPC(dst, ind_or_offs, base);
+        __ cmpwi_PPC(CCR0, dst, 0);
+        __ beq_PPC(CCR0, *L_handle_null);
         __ decode_heap_oop_not_null(dst);
       } else if (not_null) { // Guaranteed to be not null.
         Register narrowOop = (tmp1 != noreg && CompressedOops::base_disjoint()) ? tmp1 : dst;
-        __ lwz(narrowOop, ind_or_offs, base);
+        __ lwz_PPC(narrowOop, ind_or_offs, base);
         __ decode_heap_oop_not_null(dst, narrowOop);
       } else { // Any oop.
-        __ lwz(dst, ind_or_offs, base);
+        __ lwz_PPC(dst, ind_or_offs, base);
         __ decode_heap_oop(dst);
       }
     } else {
-      __ ld(dst, ind_or_offs, base);
+      __ ld_PPC(dst, ind_or_offs, base);
       if (L_handle_null != NULL) {
-        __ cmpdi(CCR0, dst, 0);
-        __ beq(CCR0, *L_handle_null);
+        __ cmpdi_PPC(CCR0, dst, 0);
+        __ beq_PPC(CCR0, *L_handle_null);
       }
     }
     break;
@@ -107,11 +107,11 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
 void BarrierSetAssembler::resolve_jobject(MacroAssembler* masm, Register value,
                                           Register tmp1, Register tmp2, bool needs_frame) {
   Label done;
-  __ cmpdi(CCR0, value, 0);
-  __ beq(CCR0, done);         // Use NULL as-is.
+  __ cmpdi_PPC(CCR0, value, 0);
+  __ beq_PPC(CCR0, done);         // Use NULL as-is.
 
-  __ clrrdi(tmp1, value, JNIHandles::weak_tag_size);
-  __ ld(value, 0, tmp1);      // Resolve (untagged) jobject.
+  __ clrrdi_PPC(tmp1, value, JNIHandles::weak_tag_size);
+  __ ld_PPC(value, 0, tmp1);      // Resolve (untagged) jobject.
 
   __ verify_oop(value);
   __ bind(done);
