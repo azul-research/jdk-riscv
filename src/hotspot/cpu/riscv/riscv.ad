@@ -1637,9 +1637,9 @@ int MachEpilogNode::safepoint_offset() const {
 void MachLoadPollAddrLateNode::emit(CodeBuffer& cbuf, PhaseRegAlloc* ra_) const {
   MacroAssembler _masm(&cbuf);
   if (LoadPollAddressFromThread) {
-    _masm.ld(R11, in_bytes(JavaThread::poll_address_offset()), R16_thread);
+    _masm.ld_PPC(R11, in_bytes(JavaThread::poll_address_offset()), R16_thread);
   } else {
-    _masm.nop();
+    _masm.nop_PPC();
   }
 }
 

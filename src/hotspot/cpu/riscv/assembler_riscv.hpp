@@ -2252,7 +2252,7 @@ class Assembler : public AbstractAssembler {
   inline void call(int off);
   inline void tail(int off);
   inline void neg(Register d, Register s);
-  inline void mv_RV(Register d, Register s);
+  inline void mv(Register d, Register s);
 
 private:
   bool li_32_RV(Register d, long long imm);

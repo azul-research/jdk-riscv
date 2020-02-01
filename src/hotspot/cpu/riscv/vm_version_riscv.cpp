@@ -549,9 +549,9 @@ void VM_Version::determine_section_size() {
 
   Label l1;
 
-  a->li(R4, 1);
-  a->sldi(R4, R4, 28);
-  a->b(l1);
+  a->li_PPC(R4, 1);
+  a->sldi_PPC(R4, R4, 28);
+  a->b_PPC(l1);
   a->align(CodeEntryAlignment);
 
   a->bind(l1);
@@ -560,63 +560,63 @@ void VM_Version::determine_section_size() {
     // Schleife 1
     // ------- sector 0 ------------
     // ;; 0
-    a->nop();                   // 1
-    a->fpnop0();                // 2
-    a->fpnop1();                // 3
-    a->addi(R4,R4, -1); // 4
+    a->nop_PPC();                   // 1
+    a->fpnop0_PPC();                // 2
+    a->fpnop1_PPC();                // 3
+    a->addi_PPC(R4,R4, -1); // 4
 
     // ;;  1
-    a->nop();                   // 5
-    a->fmr(F6, F6);             // 6
-    a->fmr(F7, F7);             // 7
-    a->endgroup();              // 8
+    a->nop_PPC();                   // 5
+    a->fmr_PPC(F6, F6);             // 6
+    a->fmr_PPC(F7, F7);             // 7
+    a->endgroup_PPC();              // 8
     // ------- sector 8 ------------
 
     // ;;  2
-    a->nop();                   // 9
-    a->nop();                   // 10
-    a->fmr(F8, F8);             // 11
-    a->fmr(F9, F9);             // 12
+    a->nop_PPC();                   // 9
+    a->nop_PPC();                   // 10
+    a->fmr_PPC(F8, F8);             // 11
+    a->fmr_PPC(F9, F9);             // 12
 
     // ;;  3
-    a->nop();                   // 13
-    a->fmr(F10, F10);           // 14
-    a->fmr(F11, F11);           // 15
-    a->endgroup();              // 16
+    a->nop_PPC();                   // 13
+    a->fmr_PPC(F10, F10);           // 14
+    a->fmr_PPC(F11, F11);           // 15
+    a->endgroup_PPC();              // 16
     // -------- sector 16 -------------
 
     // ;;  4
-    a->nop();                   // 17
-    a->nop();                   // 18
-    a->fmr(F15, F15);           // 19
-    a->fmr(F16, F16);           // 20
+    a->nop_PPC();                   // 17
+    a->nop_PPC();                   // 18
+    a->fmr_PPC(F15, F15);           // 19
+    a->fmr_PPC(F16, F16);           // 20
 
     // ;;  5
-    a->nop();                   // 21
-    a->fmr(F17, F17);           // 22
-    a->fmr(F18, F18);           // 23
-    a->endgroup();              // 24
+    a->nop_PPC();                   // 21
+    a->fmr_PPC(F17, F17);           // 22
+    a->fmr_PPC(F18, F18);           // 23
+    a->endgroup_PPC();              // 24
     // ------- sector 24  ------------
 
     // ;;  6
-    a->nop();                   // 25
-    a->nop();                   // 26
-    a->fmr(F19, F19);           // 27
-    a->fmr(F20, F20);           // 28
+    a->nop_PPC();                   // 25
+    a->nop_PPC();                   // 26
+    a->fmr_PPC(F19, F19);           // 27
+    a->fmr_PPC(F20, F20);           // 28
 
     // ;;  7
-    a->nop();                   // 29
-    a->fmr(F21, F21);           // 30
-    a->fmr(F22, F22);           // 31
-    a->brnop0();                // 32
+    a->nop_PPC();                   // 29
+    a->fmr_PPC(F21, F21);           // 30
+    a->fmr_PPC(F22, F22);           // 31
+    a->brnop0_PPC();                // 32
 
     // ------- sector 32 ------------
   }
 
   // ;; 8
-  a->cmpdi(CCR0, R4, unroll);   // 33
-  a->bge(CCR0, l1);             // 34
-  a->blr();
+  a->cmpdi_PPC(CCR0, R4, unroll);   // 33
+  a->bge_PPC(CCR0, l1);             // 34
+  a->blr_PPC();
 
   // Emit code.
   void (*test2)() = (void(*)())(void *)a->pc();
@@ -624,9 +624,9 @@ void VM_Version::determine_section_size() {
 
   Label l2;
 
-  a->li(R4, 1);
-  a->sldi(R4, R4, 28);
-  a->b(l2);
+  a->li_PPC(R4, 1);
+  a->sldi_PPC(R4, R4, 28);
+  a->b_PPC(l2);
   a->align(CodeEntryAlignment);
 
   a->bind(l2);
@@ -635,77 +635,77 @@ void VM_Version::determine_section_size() {
     // Schleife 2
     // ------- sector 0 ------------
     // ;; 0
-    a->brnop0();                  // 1
-    a->nop();                     // 2
-    //a->cmpdi(CCR0, R4, unroll);
-    a->fpnop0();                  // 3
-    a->fpnop1();                  // 4
-    a->addi(R4,R4, -1);           // 5
+    a->brnop0_PPC();                  // 1
+    a->nop_PPC();                     // 2
+    //a->cmpdi_PPC(CCR0, R4, unroll);
+    a->fpnop0_PPC();                  // 3
+    a->fpnop1_PPC();                  // 4
+    a->addi_PPC(R4,R4, -1);           // 5
 
     // ;; 1
 
-    a->nop();                     // 6
-    a->fmr(F6, F6);               // 7
-    a->fmr(F7, F7);               // 8
+    a->nop_PPC();                     // 6
+    a->fmr_PPC(F6, F6);               // 7
+    a->fmr_PPC(F7, F7);               // 8
     // ------- sector 8 ---------------
 
     // ;; 2
-    a->endgroup();                // 9
+    a->endgroup_PPC();                // 9
 
     // ;; 3
-    a->nop();                     // 10
-    a->nop();                     // 11
-    a->fmr(F8, F8);               // 12
+    a->nop_PPC();                     // 10
+    a->nop_PPC();                     // 11
+    a->fmr_PPC(F8, F8);               // 12
 
     // ;; 4
-    a->fmr(F9, F9);               // 13
-    a->nop();                     // 14
-    a->fmr(F10, F10);             // 15
+    a->fmr_PPC(F9, F9);               // 13
+    a->nop_PPC();                     // 14
+    a->fmr_PPC(F10, F10);             // 15
 
     // ;; 5
-    a->fmr(F11, F11);             // 16
+    a->fmr_PPC(F11, F11);             // 16
     // -------- sector 16 -------------
 
     // ;; 6
-    a->endgroup();                // 17
+    a->endgroup_PPC();                // 17
 
     // ;; 7
-    a->nop();                     // 18
-    a->nop();                     // 19
-    a->fmr(F15, F15);             // 20
+    a->nop_PPC();                     // 18
+    a->nop_PPC();                     // 19
+    a->fmr_PPC(F15, F15);             // 20
 
     // ;; 8
-    a->fmr(F16, F16);             // 21
-    a->nop();                     // 22
-    a->fmr(F17, F17);             // 23
+    a->fmr_PPC(F16, F16);             // 21
+    a->nop_PPC();                     // 22
+    a->fmr_PPC(F17, F17);             // 23
 
     // ;; 9
-    a->fmr(F18, F18);             // 24
+    a->fmr_PPC(F18, F18);             // 24
     // -------- sector 24 -------------
 
     // ;; 10
-    a->endgroup();                // 25
+    a->endgroup_PPC();                // 25
 
     // ;; 11
-    a->nop();                     // 26
-    a->nop();                     // 27
-    a->fmr(F19, F19);             // 28
+    a->nop_PPC();                     // 26
+    a->nop_PPC();                     // 27
+    a->fmr_PPC(F19, F19);             // 28
 
     // ;; 12
-    a->fmr(F20, F20);             // 29
-    a->nop();                     // 30
-    a->fmr(F21, F21);             // 31
+    a->fmr_PPC(F20, F20);             // 29
+    a->nop_PPC();                     // 30
+    a->fmr_PPC(F21, F21);             // 31
 
     // ;; 13
-    a->fmr(F22, F22);             // 32
+    a->fmr_PPC(F22, F22);             // 32
   }
 
   // -------- sector 32 -------------
   // ;; 14
-  a->cmpdi(CCR0, R4, unroll); // 33
-  a->bge(CCR0, l2);           // 34
+  a->cmpdi_PPC(CCR0, R4, unroll); // 33
+  a->bge_PPC(CCR0, l2);           // 34
 
-  a->blr();
+  a->blr_PPC();
   uint32_t *code_end = (uint32_t *)a->pc();
   a->flush();
 
