@@ -45,7 +45,6 @@
 #include "services/memTracker.hpp"
 #include "utilities/macros.hpp"
 
-
 // Initialization done by VM thread in vm_init_globals()
 void check_ThreadShadow();
 void eventlog_init();

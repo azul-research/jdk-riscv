@@ -51,23 +51,23 @@ void CardTableBarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembl
 
   if (ct->scanned_concurrently()) { __ membar(Assembler::StoreStore); }
 
-  __ sldi_(count, count, LogBytesPerHeapOop);
-  __ beq(CCR0, Lskip_loop); // zero length
-  __ addi(count, count, -BytesPerHeapOop);
-  __ add(count, addr, count);
+  __ sldi__PPC(count, count, LogBytesPerHeapOop);
+  __ beq_PPC(CCR0, Lskip_loop); // zero length
+  __ addi_PPC(count, count, -BytesPerHeapOop);
+  __ add_PPC(count, addr, count);
   // Use two shifts to clear out those low order two bits! (Cannot opt. into 1.)
-  __ srdi(addr, addr, CardTable::card_shift);
-  __ srdi(count, count, CardTable::card_shift);
-  __ subf(count, addr, count);
+  __ srdi_PPC(addr, addr, CardTable::card_shift);
+  __ srdi_PPC(count, count, CardTable::card_shift);
+  __ subf_PPC(count, addr, count);
   __ add_const_optimized(addr, addr, (address)ct->byte_map_base(), R0);
-  __ addi(count, count, 1);
-  __ li(R0, 0);
-  __ mtctr(count);
+  __ addi_PPC(count, count, 1);
+  __ li_PPC(R0, 0);
+  __ mtctr_PPC(count);
   // Byte store loop
   __ bind(Lstore_loop);
-  __ stb(R0, 0, addr);
-  __ addi(addr, addr, 1);
-  __ bdnz(Lstore_loop);
+  __ stb_PPC(R0, 0, addr);
+  __ addi_PPC(addr, addr, 1);
+  __ bdnz_PPC(Lstore_loop);
   __ bind(Lskip_loop);
 }
 
@@ -78,10 +78,10 @@ void CardTableBarrierSetAssembler::card_table_write(MacroAssembler* masm,
   CardTable* ct = ctbs->card_table();
   assert_different_registers(obj, tmp, R0);
   __ load_const_optimized(tmp, (address)byte_map_base, R0);
-  __ srdi(obj, obj, CardTable::card_shift);
-  __ li(R0, CardTable::dirty_card_val());
+  __ srdi_PPC(obj, obj, CardTable::card_shift);
+  __ li_PPC(R0, CardTable::dirty_card_val());
   if (ct->scanned_concurrently()) { __ membar(Assembler::StoreStore); }
-  __ stbx(R0, tmp, obj);
+  __ stbx_PPC(R0, tmp, obj);
 }
 
 void CardTableBarrierSetAssembler::card_write_barrier_post(MacroAssembler* masm, Register store_addr, Register tmp) {
@@ -104,7 +104,7 @@ void CardTableBarrierSetAssembler::oop_store_at(MacroAssembler* masm, DecoratorS
       if (ind_or_offs.is_constant()) {
         __ add_const_optimized(base, base, ind_or_offs.as_constant(), tmp1);
       } else {
-        __ add(base, ind_or_offs.as_register(), base);
+        __ add_PPC(base, ind_or_offs.as_register(), base);
       }
     }
     card_write_barrier_post(masm, base, tmp1);

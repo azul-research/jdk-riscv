@@ -261,6 +261,8 @@ class MacroAssembler: public Assembler {
   //
 
   // some ABI-related functions
+  void save_fp_ra(   Register dst_base, int offset);
+  void restore_fp_ra(Register dst_base, int offset);
   void save_nonvolatile_gprs(   Register dst_base, int offset);
   void restore_nonvolatile_gprs(Register src_base, int offset);
   enum { num_volatile_regs = 11 + 14 }; // GPR + FPR
@@ -283,7 +285,7 @@ class MacroAssembler: public Assembler {
   // Push a frame of size `bytes'. No abi space provided.
   void push_frame(unsigned int bytes, Register tmp);
 
-  // Push a frame of size `bytes' plus abi_reg_args on top.
+  // Push a frame of size `bytes' plus abi_reg_args_ppc on top.
   void push_frame_reg_args(unsigned int bytes, Register tmp);
 
   // Setup up a new C frame with a spill area for non-volatile GPRs and additional
@@ -923,11 +925,6 @@ class MacroAssembler: public Assembler {
   // TODO: verify method and klass metadata (compare against vptr?)
   void _verify_method_ptr(Register reg, const char * msg, const char * file, int line) {}
   void _verify_klass_ptr(Register reg, const char * msg, const char * file, int line) {}
-
-  // Convenience method returning function entry. For the ELFv1 case
-  // creates function descriptor at the current address and returs
-  // the pointer to it. For the ELFv2 case returns the current address.
-  inline address function_entry();
 
 #define verify_method_ptr(reg) _verify_method_ptr(reg, "broken method " #reg, __FILE__, __LINE__)
 #define verify_klass_ptr(reg) _verify_klass_ptr(reg, "broken klass " #reg, __FILE__, __LINE__)

@@ -212,6 +212,7 @@ class Assembler : public AbstractAssembler {
  protected:
   static inline int rd(int x) { return x << 7; }
   static inline int rd(Register x) { return rd(x->encoding()); }
+  static inline int rd(FloatRegister x) { return rd(x->encoding()); }
   static inline int funct2(int x) { return x << 25; }
   static inline int funct3(int x) { return x << 12; }
   static inline int funct7(int x) { return (int)((unsigned)x << 25); }
@@ -220,6 +221,7 @@ class Assembler : public AbstractAssembler {
   static inline int rs1(Register x) { return rs1(x->encoding()); }
   static inline int rs2(int x) { return x << 20; }
   static inline int rs2(Register x) { return rs2(x->encoding()); }
+  static inline int rs2(FloatRegister x) { return rs2(x->encoding()); }
   static inline int rs3(int x) { return x << 27; }
   static inline int rs3(Register x) { return rs3(x->encoding()); }
   static inline int succ(int x) { return x << 20; }
@@ -1107,8 +1109,7 @@ class Assembler : public AbstractAssembler {
     return r;
   }
 
-  // inv_op for riscv instructions
-  static int inv_op_riscv(int x) { return inv_u_field(x, 31, 26); }
+  static int get_opcode(int x) { return x & 0x7f; }
 
   // Determine target address from li, bd field of branch instruction.
   static intptr_t inv_li_field(int x) {
@@ -1148,7 +1149,7 @@ class Assembler : public AbstractAssembler {
   static int aa(       int         x)  { return  opp_u_field(x,             30, 30); }
   static int ba(       int         x)  { return  opp_u_field(x,             15, 11); }
   static int bb(       int         x)  { return  opp_u_field(x,             20, 16); }
-  static int bc(       int         x)  { return  opp_u_field(x,             25, 21); }
+  static int bc_PPC(       int         x)  { return  opp_u_field(x,             25, 21); }
   static int bd(       int         x)  { return  opp_s_field(x,             29, 16); }
   static int bf( ConditionRegister cr) { return  bf(cr->encoding()); }
   static int bf(       int         x)  { return  opp_u_field(x,              8,  6); }
@@ -1180,7 +1181,7 @@ class Assembler : public AbstractAssembler {
   static int l910(     int         x)  { return  opp_u_field(x,             10,  9); }
   static int e1215(    int         x)  { return  opp_u_field(x,             15, 12); }
   static int lev(      int         x)  { return  opp_u_field(x,             26, 20); }
-  static int li(       int         x)  { return  opp_s_field(x,             29,  6); }
+  static int li_PPC(       int         x)  { return  opp_s_field(x,             29,  6); }
   static int lk(       int         x)  { return  opp_u_field(x,             31, 31); }
   static int mb2125(   int         x)  { return  opp_u_field(x,             25, 21); }
   static int me2630(   int         x)  { return  opp_u_field(x,             30, 26); }
@@ -1239,13 +1240,13 @@ class Assembler : public AbstractAssembler {
 
   // Support Vector-Scalar (VSX) instructions.
   static int vsra(      int         x)  { return  opp_u_field(x & 0x1F,     15, 11) | opp_u_field((x & 0x20) >> 5, 29, 29); }
-  static int vsrb(      int         x)  { return  opp_u_field(x & 0x1F,     20, 16) | opp_u_field((x & 0x20) >> 5, 30, 30); }
+  static int vsrb_PPC(      int         x)  { return  opp_u_field(x & 0x1F,     20, 16) | opp_u_field((x & 0x20) >> 5, 30, 30); }
   static int vsrs(      int         x)  { return  opp_u_field(x & 0x1F,     10,  6) | opp_u_field((x & 0x20) >> 5, 31, 31); }
   static int vsrt(      int         x)  { return  vsrs(x); }
   static int vsdm(      int         x)  { return  opp_u_field(x,            23, 22); }
 
   static int vsra(   VectorSRegister r)  { return  vsra(r->encoding());}
-  static int vsrb(   VectorSRegister r)  { return  vsrb(r->encoding());}
+  static int vsrb_PPC(   VectorSRegister r)  { return  vsrb_PPC(r->encoding());}
   static int vsrs(   VectorSRegister r)  { return  vsrs(r->encoding());}
   static int vsrt(   VectorSRegister r)  { return  vsrt(r->encoding());}
 
@@ -1267,7 +1268,6 @@ class Assembler : public AbstractAssembler {
   // Compute relative address for branch.
   static intptr_t disp(intptr_t x, intptr_t off) {
     int xx = x - off;
-    xx = xx >> 2;
     return xx;
   }
 
@@ -1320,23 +1320,13 @@ class Assembler : public AbstractAssembler {
     AbstractAssembler::flush();
   }
 
-  inline void emit_int32(int);  // shadows AbstractAssembler::emit_int32
-  inline void emit_data(int);
-  inline void emit_data(int, RelocationHolder const&);
-  inline void emit_data(int, relocInfo::relocType rtype);
+  inline void emit_int32_PPC(int);  // shadows AbstractAssembler::emit_int32
+  inline void emit_data_PPC(int);
+  inline void emit_data_PPC(int, RelocationHolder const&);
+  inline void emit_data_PPC(int, relocInfo::relocType rtype);
 
   // Emit an address.
   inline address emit_addr(const address addr = NULL);
-
-#if !defined(ABI_ELFv2)
-  // Emit a function descriptor with the specified entry point, TOC,
-  // and ENV. If the entry point is NULL, the descriptor will point
-  // just past the descriptor.
-  // Use values from friend functions as defaults.
-  inline address emit_fd(address entry = NULL,
-                         address toc = (address) FunctionDescriptor::friend_toc,
-                         address env = (address) FunctionDescriptor::friend_env);
-#endif
 
   /////////////////////////////////////////////////////////////////////////////////////
   // RISCV instructions
@@ -1348,96 +1338,96 @@ class Assembler : public AbstractAssembler {
   // versions.
 
   // Issue an illegal instruction.
-  inline void illtrap();
-  static inline bool is_illtrap(int x);
+  inline void illtrap_PPC();
+  static inline bool is_illtrap_PPC(int x);
 
   // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
-  inline void addi( Register d, Register a, int si16);
-  inline void addis(Register d, Register a, int si16);
+  inline void addi_PPC( Register d, Register a, int si16);
+  inline void addis_PPC(Register d, Register a, int si16);
  private:
-  inline void addi_r0ok( Register d, Register a, int si16);
-  inline void addis_r0ok(Register d, Register a, int si16);
+  inline void addi_r0ok_PPC( Register d, Register a, int si16);
+  inline void addis_r0ok_PPC(Register d, Register a, int si16);
  public:
-  inline void addic_( Register d, Register a, int si16);
-  inline void subfic( Register d, Register a, int si16);
-  inline void add(    Register d, Register a, Register b);
-  inline void add_(   Register d, Register a, Register b);
-  inline void subf(   Register d, Register a, Register b);  // d = b - a    "Sub_from", as in riscv spec.
-  inline void sub(    Register d, Register a, Register b);  // d = a - b    Swap operands of subf for readability.
-  inline void subf_(  Register d, Register a, Register b);
-  inline void addc(   Register d, Register a, Register b);
-  inline void addc_(  Register d, Register a, Register b);
-  inline void subfc(  Register d, Register a, Register b);
-  inline void subfc_( Register d, Register a, Register b);
-  inline void adde(   Register d, Register a, Register b);
-  inline void adde_(  Register d, Register a, Register b);
-  inline void subfe(  Register d, Register a, Register b);
-  inline void subfe_( Register d, Register a, Register b);
-  inline void addme(  Register d, Register a);
-  inline void addme_( Register d, Register a);
-  inline void subfme( Register d, Register a);
-  inline void subfme_(Register d, Register a);
-  inline void addze(  Register d, Register a);
-  inline void addze_( Register d, Register a);
-  inline void subfze( Register d, Register a);
-  inline void subfze_(Register d, Register a);
-  inline void neg(    Register d, Register a);
-  inline void neg_(   Register d, Register a);
-  inline void mulli(  Register d, Register a, int si16);
-  inline void mulld(  Register d, Register a, Register b);
-  inline void mulld_( Register d, Register a, Register b);
-  inline void mullw(  Register d, Register a, Register b);
-  inline void mullw_( Register d, Register a, Register b);
-  inline void mulhw(  Register d, Register a, Register b);
-  inline void mulhw_( Register d, Register a, Register b);
-  inline void mulhwu( Register d, Register a, Register b);
-  inline void mulhwu_(Register d, Register a, Register b);
-  inline void mulhd(  Register d, Register a, Register b);
-  inline void mulhd_( Register d, Register a, Register b);
-  inline void mulhdu( Register d, Register a, Register b);
-  inline void mulhdu_(Register d, Register a, Register b);
-  inline void divd(   Register d, Register a, Register b);
-  inline void divd_(  Register d, Register a, Register b);
-  inline void divw(   Register d, Register a, Register b);
-  inline void divw_(  Register d, Register a, Register b);
+  inline void addic__PPC( Register d, Register a, int si16);
+  inline void subfic_PPC( Register d, Register a, int si16);
+  inline void add_PPC(    Register d, Register a, Register b);
+  inline void add__PPC(   Register d, Register a, Register b);
+  inline void subf_PPC(   Register d, Register a, Register b);  // d = b - a    "Sub_from", as in riscv spec.
+  inline void sub_PPC(    Register d, Register a, Register b);  // d = a - b    Swap operands of subf for readability.
+  inline void subf__PPC(  Register d, Register a, Register b);
+  inline void addc_PPC(   Register d, Register a, Register b);
+  inline void addc__PPC(  Register d, Register a, Register b);
+  inline void subfc_PPC(  Register d, Register a, Register b);
+  inline void subfc__PPC( Register d, Register a, Register b);
+  inline void adde_PPC(   Register d, Register a, Register b);
+  inline void adde__PPC(  Register d, Register a, Register b);
+  inline void subfe_PPC(  Register d, Register a, Register b);
+  inline void subfe__PPC( Register d, Register a, Register b);
+  inline void addme_PPC(  Register d, Register a);
+  inline void addme__PPC( Register d, Register a);
+  inline void subfme_PPC( Register d, Register a);
+  inline void subfme__PPC(Register d, Register a);
+  inline void addze_PPC(  Register d, Register a);
+  inline void addze__PPC( Register d, Register a);
+  inline void subfze_PPC( Register d, Register a);
+  inline void subfze__PPC(Register d, Register a);
+  inline void neg_PPC(    Register d, Register a);
+  inline void neg__PPC(   Register d, Register a);
+  inline void mulli_PPC(  Register d, Register a, int si16);
+  inline void mulld_PPC(  Register d, Register a, Register b);
+  inline void mulld__PPC( Register d, Register a, Register b);
+  inline void mullw_PPC(  Register d, Register a, Register b);
+  inline void mullw__PPC( Register d, Register a, Register b);
+  inline void mulhw_PPC(  Register d, Register a, Register b);
+  inline void mulhw__PPC( Register d, Register a, Register b);
+  inline void mulhwu_PPC( Register d, Register a, Register b);
+  inline void mulhwu__PPC(Register d, Register a, Register b);
+  inline void mulhd_PPC(  Register d, Register a, Register b);
+  inline void mulhd__PPC( Register d, Register a, Register b);
+  inline void mulhdu_PPC( Register d, Register a, Register b);
+  inline void mulhdu__PPC(Register d, Register a, Register b);
+  inline void divd_PPC(   Register d, Register a, Register b);
+  inline void divd__PPC(  Register d, Register a, Register b);
+  inline void divw_PPC(   Register d, Register a, Register b);
+  inline void divw__PPC(  Register d, Register a, Register b);
 
   // Fixed-Point Arithmetic Instructions with Overflow detection
-  inline void addo(    Register d, Register a, Register b);
-  inline void addo_(   Register d, Register a, Register b);
-  inline void subfo(   Register d, Register a, Register b);
-  inline void subfo_(  Register d, Register a, Register b);
-  inline void addco(   Register d, Register a, Register b);
-  inline void addco_(  Register d, Register a, Register b);
-  inline void subfco(  Register d, Register a, Register b);
-  inline void subfco_( Register d, Register a, Register b);
-  inline void addeo(   Register d, Register a, Register b);
-  inline void addeo_(  Register d, Register a, Register b);
-  inline void subfeo(  Register d, Register a, Register b);
-  inline void subfeo_( Register d, Register a, Register b);
-  inline void addmeo(  Register d, Register a);
-  inline void addmeo_( Register d, Register a);
-  inline void subfmeo( Register d, Register a);
-  inline void subfmeo_(Register d, Register a);
-  inline void addzeo(  Register d, Register a);
-  inline void addzeo_( Register d, Register a);
-  inline void subfzeo( Register d, Register a);
-  inline void subfzeo_(Register d, Register a);
-  inline void nego(    Register d, Register a);
-  inline void nego_(   Register d, Register a);
-  inline void mulldo(  Register d, Register a, Register b);
-  inline void mulldo_( Register d, Register a, Register b);
-  inline void mullwo(  Register d, Register a, Register b);
-  inline void mullwo_( Register d, Register a, Register b);
-  inline void divdo(   Register d, Register a, Register b);
-  inline void divdo_(  Register d, Register a, Register b);
-  inline void divwo(   Register d, Register a, Register b);
-  inline void divwo_(  Register d, Register a, Register b);
+  inline void addo_PPC(    Register d, Register a, Register b);
+  inline void addo__PPC(   Register d, Register a, Register b);
+  inline void subfo_PPC(   Register d, Register a, Register b);
+  inline void subfo__PPC(  Register d, Register a, Register b);
+  inline void addco_PPC(   Register d, Register a, Register b);
+  inline void addco__PPC(  Register d, Register a, Register b);
+  inline void subfco_PPC(  Register d, Register a, Register b);
+  inline void subfco__PPC( Register d, Register a, Register b);
+  inline void addeo_PPC(   Register d, Register a, Register b);
+  inline void addeo__PPC(  Register d, Register a, Register b);
+  inline void subfeo_PPC(  Register d, Register a, Register b);
+  inline void subfeo__PPC( Register d, Register a, Register b);
+  inline void addmeo_PPC(  Register d, Register a);
+  inline void addmeo__PPC( Register d, Register a);
+  inline void subfmeo_PPC( Register d, Register a);
+  inline void subfmeo__PPC(Register d, Register a);
+  inline void addzeo_PPC(  Register d, Register a);
+  inline void addzeo__PPC( Register d, Register a);
+  inline void subfzeo_PPC( Register d, Register a);
+  inline void subfzeo__PPC(Register d, Register a);
+  inline void nego_PPC(    Register d, Register a);
+  inline void nego__PPC(   Register d, Register a);
+  inline void mulldo_PPC(  Register d, Register a, Register b);
+  inline void mulldo__PPC( Register d, Register a, Register b);
+  inline void mullwo_PPC(  Register d, Register a, Register b);
+  inline void mullwo__PPC( Register d, Register a, Register b);
+  inline void divdo_PPC(   Register d, Register a, Register b);
+  inline void divdo__PPC(  Register d, Register a, Register b);
+  inline void divwo_PPC(   Register d, Register a, Register b);
+  inline void divwo__PPC(  Register d, Register a, Register b);
 
   // extended mnemonics
-  inline void li(   Register d, int si16);
-  inline void lis(  Register d, int si16);
-  inline void addir(Register d, int si16, Register a);
-  inline void subi( Register d, Register a, int si16);
+  inline void li_PPC(   Register d, int si16);
+  inline void lis_PPC(  Register d, int si16);
+  inline void addir_PPC(Register d, int si16, Register a);
+  inline void subi_PPC( Register d, Register a, int si16);
 
   static bool is_addi(int x) {
      return ADDI_OPCODE == (x & ADDI_OPCODE_MASK);
@@ -1525,246 +1515,246 @@ class Assembler : public AbstractAssembler {
 
  private:
   // RISCV 1, section 3.3.9, Fixed-Point Compare Instructions
-  inline void cmpi( ConditionRegister bf, int l, Register a, int si16);
-  inline void cmp(  ConditionRegister bf, int l, Register a, Register b);
-  inline void cmpli(ConditionRegister bf, int l, Register a, int ui16);
-  inline void cmpl( ConditionRegister bf, int l, Register a, Register b);
+  inline void cmpi_PPC( ConditionRegister bf, int l, Register a, int si16);
+  inline void cmp_PPC(  ConditionRegister bf, int l, Register a, Register b);
+  inline void cmpli_PPC(ConditionRegister bf, int l, Register a, int ui16);
+  inline void cmpl_PPC( ConditionRegister bf, int l, Register a, Register b);
 
  public:
   // extended mnemonics of Compare Instructions
-  inline void cmpwi( ConditionRegister crx, Register a, int si16);
-  inline void cmpdi( ConditionRegister crx, Register a, int si16);
-  inline void cmpw(  ConditionRegister crx, Register a, Register b);
-  inline void cmpd(  ConditionRegister crx, Register a, Register b);
-  inline void cmplwi(ConditionRegister crx, Register a, int ui16);
-  inline void cmpldi(ConditionRegister crx, Register a, int ui16);
-  inline void cmplw( ConditionRegister crx, Register a, Register b);
-  inline void cmpld( ConditionRegister crx, Register a, Register b);
+  inline void cmpwi_PPC( ConditionRegister crx, Register a, int si16);
+  inline void cmpdi_PPC( ConditionRegister crx, Register a, int si16);
+  inline void cmpw_PPC(  ConditionRegister crx, Register a, Register b);
+  inline void cmpd_PPC(  ConditionRegister crx, Register a, Register b);
+  inline void cmplwi_PPC(ConditionRegister crx, Register a, int ui16);
+  inline void cmpldi_PPC(ConditionRegister crx, Register a, int ui16);
+  inline void cmplw_PPC( ConditionRegister crx, Register a, Register b);
+  inline void cmpld_PPC( ConditionRegister crx, Register a, Register b);
 
   // >= Power9
-  inline void cmprb( ConditionRegister bf, int l, Register a, Register b);
-  inline void cmpeqb(ConditionRegister bf, Register a, Register b);
+  inline void cmprb_PPC( ConditionRegister bf, int l, Register a, Register b);
+  inline void cmpeqb_PPC(ConditionRegister bf, Register a, Register b);
 
-  inline void isel(   Register d, Register a, Register b, int bc);
+  inline void isel_PPC(   Register d, Register a, Register b, int bc);
   // Convenient version which takes: Condition register, Condition code and invert flag. Omit b to keep old value.
-  inline void isel(   Register d, ConditionRegister cr, Condition cc, bool inv, Register a, Register b = noreg);
+  inline void isel_PPC(   Register d, ConditionRegister cr, Condition cc, bool inv, Register a, Register b = noreg);
   // Set d = 0 if (cr.cc) equals 1, otherwise b.
-  inline void isel_0( Register d, ConditionRegister cr, Condition cc, Register b = noreg);
+  inline void isel_0_PPC( Register d, ConditionRegister cr, Condition cc, Register b = noreg);
 
   // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
          void andi(   Register a, Register s, long ui16);   // optimized version
-  inline void andi_(  Register a, Register s, int ui16);
-  inline void andis_( Register a, Register s, int ui16);
-  inline void ori(    Register a, Register s, int ui16);
-  inline void oris(   Register a, Register s, int ui16);
-  inline void xori(   Register a, Register s, int ui16);
-  inline void xoris(  Register a, Register s, int ui16);
-  inline void andr(   Register a, Register s, Register b);  // suffixed by 'r' as 'and' is C++ keyword
-  inline void and_(   Register a, Register s, Register b);
+  inline void andi__PPC(  Register a, Register s, int ui16);
+  inline void andis__PPC( Register a, Register s, int ui16);
+  inline void ori_PPC(    Register a, Register s, int ui16);
+  inline void oris_PPC(   Register a, Register s, int ui16);
+  inline void xori_PPC(   Register a, Register s, int ui16);
+  inline void xoris_PPC(  Register a, Register s, int ui16);
+  inline void andr_PPC(   Register a, Register s, Register b);  // suffixed by 'r' as 'and' is C++ keyword
+  inline void and__PPC(   Register a, Register s, Register b);
   // Turn or0(rx,rx,rx) into a nop and avoid that we accidently emit a
   // SMT-priority change instruction (see SMT instructions below).
-  inline void or_unchecked(Register a, Register s, Register b);
-  inline void orr(    Register a, Register s, Register b);  // suffixed by 'r' as 'or' is C++ keyword
-  inline void or_(    Register a, Register s, Register b);
-  inline void xorr(   Register a, Register s, Register b);  // suffixed by 'r' as 'xor' is C++ keyword
-  inline void xor_(   Register a, Register s, Register b);
-  inline void nand(   Register a, Register s, Register b);
-  inline void nand_(  Register a, Register s, Register b);
-  inline void nor(    Register a, Register s, Register b);
-  inline void nor_(   Register a, Register s, Register b);
-  inline void andc(   Register a, Register s, Register b);
-  inline void andc_(  Register a, Register s, Register b);
-  inline void orc(    Register a, Register s, Register b);
-  inline void orc_(   Register a, Register s, Register b);
-  inline void extsb(  Register a, Register s);
-  inline void extsb_( Register a, Register s);
-  inline void extsh(  Register a, Register s);
-  inline void extsh_( Register a, Register s);
-  inline void extsw(  Register a, Register s);
-  inline void extsw_( Register a, Register s);
+  inline void or_unchecked_PPC(Register a, Register s, Register b);
+  inline void orr_PPC(    Register a, Register s, Register b);  // suffixed by 'r' as 'or' is C++ keyword
+  inline void or__PPC(    Register a, Register s, Register b);
+  inline void xorr_PPC(   Register a, Register s, Register b);  // suffixed by 'r' as 'xor' is C++ keyword
+  inline void xor__PPC(   Register a, Register s, Register b);
+  inline void nand_PPC(   Register a, Register s, Register b);
+  inline void nand__PPC(  Register a, Register s, Register b);
+  inline void nor_PPC(    Register a, Register s, Register b);
+  inline void nor__PPC(   Register a, Register s, Register b);
+  inline void andc_PPC(   Register a, Register s, Register b);
+  inline void andc__PPC(  Register a, Register s, Register b);
+  inline void orc_PPC(    Register a, Register s, Register b);
+  inline void orc__PPC(   Register a, Register s, Register b);
+  inline void extsb_PPC(  Register a, Register s);
+  inline void extsb__PPC( Register a, Register s);
+  inline void extsh_PPC(  Register a, Register s);
+  inline void extsh__PPC( Register a, Register s);
+  inline void extsw_PPC(  Register a, Register s);
+  inline void extsw__PPC( Register a, Register s);
 
   // extended mnemonics
-  inline void nop();
+  inline void nop_PPC();
   // NOP for FP and BR units (different versions to allow them to be in one group)
-  inline void fpnop0();
-  inline void fpnop1();
-  inline void brnop0();
-  inline void brnop1();
-  inline void brnop2();
+  inline void fpnop0_PPC();
+  inline void fpnop1_PPC();
+  inline void brnop0_PPC();
+  inline void brnop1_PPC();
+  inline void brnop2_PPC();
 
-  inline void mr(      Register d, Register s);
-  inline void ori_opt( Register d, int ui16);
-  inline void oris_opt(Register d, int ui16);
+  inline void mr_PPC(      Register d, Register s);
+  inline void ori_opt_PPC( Register d, int ui16);
+  inline void oris_opt_PPC(Register d, int ui16);
 
   // endgroup opcode for Power6
-  inline void endgroup();
+  inline void endgroup_PPC();
 
   // count instructions
-  inline void cntlzw(  Register a, Register s);
-  inline void cntlzw_( Register a, Register s);
-  inline void cntlzd(  Register a, Register s);
-  inline void cntlzd_( Register a, Register s);
-  inline void cnttzw(  Register a, Register s);
-  inline void cnttzw_( Register a, Register s);
-  inline void cnttzd(  Register a, Register s);
-  inline void cnttzd_( Register a, Register s);
+  inline void cntlzw_PPC(  Register a, Register s);
+  inline void cntlzw__PPC( Register a, Register s);
+  inline void cntlzd_PPC(  Register a, Register s);
+  inline void cntlzd__PPC( Register a, Register s);
+  inline void cnttzw_PPC(  Register a, Register s);
+  inline void cnttzw__PPC( Register a, Register s);
+  inline void cnttzd_PPC(  Register a, Register s);
+  inline void cnttzd__PPC( Register a, Register s);
 
   // RISCV 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
-  inline void sld(     Register a, Register s, Register b);
-  inline void sld_(    Register a, Register s, Register b);
-  inline void slw(     Register a, Register s, Register b);
-  inline void slw_(    Register a, Register s, Register b);
-  inline void srd(     Register a, Register s, Register b);
-  inline void srd_(    Register a, Register s, Register b);
-  inline void srw(     Register a, Register s, Register b);
-  inline void srw_(    Register a, Register s, Register b);
-  inline void srad(    Register a, Register s, Register b);
-  inline void srad_(   Register a, Register s, Register b);
-  inline void sraw(    Register a, Register s, Register b);
-  inline void sraw_(   Register a, Register s, Register b);
-  inline void sradi(   Register a, Register s, int sh6);
-  inline void sradi_(  Register a, Register s, int sh6);
-  inline void srawi(   Register a, Register s, int sh5);
-  inline void srawi_(  Register a, Register s, int sh5);
+  inline void sld_PPC(     Register a, Register s, Register b);
+  inline void sld__PPC(    Register a, Register s, Register b);
+  inline void slw_PPC(     Register a, Register s, Register b);
+  inline void slw__PPC(    Register a, Register s, Register b);
+  inline void srd_PPC(     Register a, Register s, Register b);
+  inline void srd__PPC(    Register a, Register s, Register b);
+  inline void srw_PPC(     Register a, Register s, Register b);
+  inline void srw__PPC(    Register a, Register s, Register b);
+  inline void srad_PPC(    Register a, Register s, Register b);
+  inline void srad__PPC(   Register a, Register s, Register b);
+  inline void sraw_PPC(    Register a, Register s, Register b);
+  inline void sraw__PPC(   Register a, Register s, Register b);
+  inline void sradi_PPC(   Register a, Register s, int sh6);
+  inline void sradi__PPC(  Register a, Register s, int sh6);
+  inline void srawi_PPC(   Register a, Register s, int sh5);
+  inline void srawi__PPC(  Register a, Register s, int sh5);
 
   // extended mnemonics for Shift Instructions
-  inline void sldi(    Register a, Register s, int sh6);
-  inline void sldi_(   Register a, Register s, int sh6);
-  inline void slwi(    Register a, Register s, int sh5);
-  inline void slwi_(   Register a, Register s, int sh5);
-  inline void srdi(    Register a, Register s, int sh6);
-  inline void srdi_(   Register a, Register s, int sh6);
-  inline void srwi(    Register a, Register s, int sh5);
-  inline void srwi_(   Register a, Register s, int sh5);
+  inline void sldi_PPC(    Register a, Register s, int sh6);
+  inline void sldi__PPC(   Register a, Register s, int sh6);
+  inline void slwi_PPC(    Register a, Register s, int sh5);
+  inline void slwi__PPC(   Register a, Register s, int sh5);
+  inline void srdi_PPC(    Register a, Register s, int sh6);
+  inline void srdi__PPC(   Register a, Register s, int sh6);
+  inline void srwi_PPC(    Register a, Register s, int sh5);
+  inline void srwi__PPC(   Register a, Register s, int sh5);
 
-  inline void clrrdi(  Register a, Register s, int ui6);
-  inline void clrrdi_( Register a, Register s, int ui6);
-  inline void clrldi(  Register a, Register s, int ui6);
-  inline void clrldi_( Register a, Register s, int ui6);
-  inline void clrlsldi(Register a, Register s, int clrl6, int shl6);
-  inline void clrlsldi_(Register a, Register s, int clrl6, int shl6);
-  inline void extrdi(  Register a, Register s, int n, int b);
+  inline void clrrdi_PPC(  Register a, Register s, int ui6);
+  inline void clrrdi__PPC( Register a, Register s, int ui6);
+  inline void clrldi_PPC(  Register a, Register s, int ui6);
+  inline void clrldi__PPC( Register a, Register s, int ui6);
+  inline void clrlsldi_PPC(Register a, Register s, int clrl6, int shl6);
+  inline void clrlsldi__PPC(Register a, Register s, int clrl6, int shl6);
+  inline void extrdi_PPC(  Register a, Register s, int n, int b);
   // testbit with condition register
-  inline void testbitdi(ConditionRegister cr, Register a, Register s, int ui6);
+  inline void testbitdi_PPC(ConditionRegister cr, Register a, Register s, int ui6);
 
   // rotate instructions
-  inline void rotldi(  Register a, Register s, int n);
-  inline void rotrdi(  Register a, Register s, int n);
-  inline void rotlwi(  Register a, Register s, int n);
-  inline void rotrwi(  Register a, Register s, int n);
+  inline void rotldi_PPC(  Register a, Register s, int n);
+  inline void rotrdi_PPC(  Register a, Register s, int n);
+  inline void rotlwi_PPC(  Register a, Register s, int n);
+  inline void rotrwi_PPC(  Register a, Register s, int n);
 
   // Rotate Instructions
-  inline void rldic(   Register a, Register s, int sh6, int mb6);
-  inline void rldic_(  Register a, Register s, int sh6, int mb6);
-  inline void rldicr(  Register a, Register s, int sh6, int mb6);
-  inline void rldicr_( Register a, Register s, int sh6, int mb6);
-  inline void rldicl(  Register a, Register s, int sh6, int mb6);
-  inline void rldicl_( Register a, Register s, int sh6, int mb6);
-  inline void rlwinm(  Register a, Register s, int sh5, int mb5, int me5);
-  inline void rlwinm_( Register a, Register s, int sh5, int mb5, int me5);
-  inline void rldimi(  Register a, Register s, int sh6, int mb6);
-  inline void rldimi_( Register a, Register s, int sh6, int mb6);
-  inline void rlwimi(  Register a, Register s, int sh5, int mb5, int me5);
-  inline void insrdi(  Register a, Register s, int n,   int b);
-  inline void insrwi(  Register a, Register s, int n,   int b);
+  inline void rldic_PPC(   Register a, Register s, int sh6, int mb6);
+  inline void rldic__PPC(  Register a, Register s, int sh6, int mb6);
+  inline void rldicr_PPC(  Register a, Register s, int sh6, int mb6);
+  inline void rldicr__PPC( Register a, Register s, int sh6, int mb6);
+  inline void rldicl_PPC(  Register a, Register s, int sh6, int mb6);
+  inline void rldicl__PPC( Register a, Register s, int sh6, int mb6);
+  inline void rlwinm_PPC(  Register a, Register s, int sh5, int mb5, int me5);
+  inline void rlwinm__PPC( Register a, Register s, int sh5, int mb5, int me5);
+  inline void rldimi_PPC(  Register a, Register s, int sh6, int mb6);
+  inline void rldimi__PPC( Register a, Register s, int sh6, int mb6);
+  inline void rlwimi_PPC(  Register a, Register s, int sh5, int mb5, int me5);
+  inline void insrdi_PPC(  Register a, Register s, int n,   int b);
+  inline void insrwi_PPC(  Register a, Register s, int n,   int b);
 
   // RISCV 1, section 3.3.2 Fixed-Point Load Instructions
   // 4 bytes
-  inline void lwzx( Register d, Register s1, Register s2);
-  inline void lwz(  Register d, int si16,    Register s1);
-  inline void lwzu( Register d, int si16,    Register s1);
+  inline void lwzx_PPC( Register d, Register s1, Register s2);
+  inline void lwz_PPC(  Register d, int si16,    Register s1);
+  inline void lwzu_PPC( Register d, int si16,    Register s1);
 
   // 4 bytes
-  inline void lwax( Register d, Register s1, Register s2);
-  inline void lwa(  Register d, int si16,    Register s1);
+  inline void lwax_PPC( Register d, Register s1, Register s2);
+  inline void lwa_PPC(  Register d, int si16,    Register s1);
 
   // 4 bytes reversed
-  inline void lwbrx( Register d, Register s1, Register s2);
+  inline void lwbrx_PPC( Register d, Register s1, Register s2);
 
   // 2 bytes
-  inline void lhzx( Register d, Register s1, Register s2);
-  inline void lhz(  Register d, int si16,    Register s1);
-  inline void lhzu( Register d, int si16,    Register s1);
+  inline void lhzx_PPC( Register d, Register s1, Register s2);
+  inline void lhz_PPC(  Register d, int si16,    Register s1);
+  inline void lhzu_PPC( Register d, int si16,    Register s1);
 
   // 2 bytes reversed
-  inline void lhbrx( Register d, Register s1, Register s2);
+  inline void lhbrx_PPC( Register d, Register s1, Register s2);
 
   // 2 bytes
-  inline void lhax( Register d, Register s1, Register s2);
-  inline void lha(  Register d, int si16,    Register s1);
-  inline void lhau( Register d, int si16,    Register s1);
+  inline void lhax_PPC( Register d, Register s1, Register s2);
+  inline void lha_PPC(  Register d, int si16,    Register s1);
+  inline void lhau_PPC( Register d, int si16,    Register s1);
 
   // 1 byte
-  inline void lbzx( Register d, Register s1, Register s2);
-  inline void lbz(  Register d, int si16,    Register s1);
-  inline void lbzu( Register d, int si16,    Register s1);
+  inline void lbzx_PPC( Register d, Register s1, Register s2);
+  inline void lbz_PPC(  Register d, int si16,    Register s1);
+  inline void lbzu_PPC( Register d, int si16,    Register s1);
 
   // 8 bytes
-  inline void ldx(  Register d, Register s1, Register s2);
-  inline void ld(   Register d, int si16,    Register s1);
-  inline void ldu(  Register d, int si16,    Register s1);
+  inline void ldx_PPC(  Register d, Register s1, Register s2);
+  inline void ld_PPC(   Register d, int si16,    Register s1);
+  inline void ldu_PPC(  Register d, int si16,    Register s1);
 
   // 8 bytes reversed
-  inline void ldbrx( Register d, Register s1, Register s2);
+  inline void ldbrx_PPC( Register d, Register s1, Register s2);
 
   // For convenience. Load pointer into d from b+s1.
-  inline void ld_ptr(Register d, int b, Register s1);
-  DEBUG_ONLY(inline void ld_ptr(Register d, ByteSize b, Register s1);)
+  inline void ld_ptr_PPC(Register d, int b, Register s1);
+  DEBUG_ONLY(inline void ld_ptr_PPC(Register d, ByteSize b, Register s1);)
 
   //  RISCV 1, section 3.3.3 Fixed-Point Store Instructions
-  inline void stwx( Register d, Register s1, Register s2);
-  inline void stw(  Register d, int si16,    Register s1);
-  inline void stwu( Register d, int si16,    Register s1);
-  inline void stwbrx( Register d, Register s1, Register s2);
+  inline void stwx_PPC( Register d, Register s1, Register s2);
+  inline void stw_PPC(  Register d, int si16,    Register s1);
+  inline void stwu_PPC( Register d, int si16,    Register s1);
+  inline void stwbrx_PPC( Register d, Register s1, Register s2);
 
-  inline void sthx( Register d, Register s1, Register s2);
-  inline void sth(  Register d, int si16,    Register s1);
-  inline void sthu( Register d, int si16,    Register s1);
-  inline void sthbrx( Register d, Register s1, Register s2);
+  inline void sthx_PPC( Register d, Register s1, Register s2);
+  inline void sth_PPC(  Register d, int si16,    Register s1);
+  inline void sthu_PPC( Register d, int si16,    Register s1);
+  inline void sthbrx_PPC( Register d, Register s1, Register s2);
 
-  inline void stbx( Register d, Register s1, Register s2);
-  inline void stb(  Register d, int si16,    Register s1);
-  inline void stbu( Register d, int si16,    Register s1);
+  inline void stbx_PPC( Register d, Register s1, Register s2);
+  inline void stb_PPC(  Register d, int si16,    Register s1);
+  inline void stbu_PPC( Register d, int si16,    Register s1);
 
-  inline void stdx( Register d, Register s1, Register s2);
-  inline void std(  Register d, int si16,    Register s1);
-  inline void stdu( Register d, int si16,    Register s1);
-  inline void stdux(Register s, Register a,  Register b);
-  inline void stdbrx( Register d, Register s1, Register s2);
+  inline void stdx_PPC( Register d, Register s1, Register s2);
+  inline void std_PPC(  Register d, int si16,    Register s1);
+  inline void stdu_PPC( Register d, int si16,    Register s1);
+  inline void stdux_PPC(Register s, Register a,  Register b);
+  inline void stdbrx_PPC( Register d, Register s1, Register s2);
 
-  inline void st_ptr(Register d, int si16,    Register s1);
-  DEBUG_ONLY(inline void st_ptr(Register d, ByteSize b, Register s1);)
+  inline void st_ptr_PPC(Register d, int si16,    Register s1);
+  DEBUG_ONLY(inline void st_ptr_PPC(Register d, ByteSize b, Register s1);)
 
   // RISCV 1, section 3.3.13 Move To/From System Register Instructions
-  inline void mtlr( Register s1);
-  inline void mflr( Register d);
-  inline void mtctr(Register s1);
-  inline void mfctr(Register d);
-  inline void mtcrf(int fxm, Register s);
-  inline void mfcr( Register d);
-  inline void mcrf( ConditionRegister crd, ConditionRegister cra);
-  inline void mtcr( Register s);
+  inline void mtlr_PPC( Register s1);
+  inline void mflr_PPC( Register d);
+  inline void mtctr_PPC(Register s1);
+  inline void mfctr_PPC(Register d);
+  inline void mtcrf_PPC(int fxm, Register s);
+  inline void mfcr_PPC( Register d);
+  inline void mcrf_PPC( ConditionRegister crd, ConditionRegister cra);
+  inline void mtcr_PPC( Register s);
   // >= Power9
-  inline void setb( Register d, ConditionRegister cra);
+  inline void setb_PPC( Register d, ConditionRegister cra);
 
   // Special purpose registers
   // Exception Register
-  inline void mtxer(Register s1);
-  inline void mfxer(Register d);
+  inline void mtxer_PPC(Register s1);
+  inline void mfxer_PPC(Register d);
   // Vector Register Save Register
-  inline void mtvrsave(Register s1);
-  inline void mfvrsave(Register d);
+  inline void mtvrsave_PPC(Register s1);
+  inline void mfvrsave_PPC(Register d);
   // Timebase
-  inline void mftb(Register d);
+  inline void mftb_PPC(Register d);
   // Introduced with Power 8:
   // Data Stream Control Register
-  inline void mtdscr(Register s1);
-  inline void mfdscr(Register d );
+  inline void mtdscr_PPC(Register s1);
+  inline void mfdscr_PPC(Register d );
   // Transactional Memory Registers
-  inline void mftfhar(Register d);
-  inline void mftfiar(Register d);
-  inline void mftexasr(Register d);
-  inline void mftexasru(Register d);
+  inline void mftfhar_PPC(Register d);
+  inline void mftfiar_PPC(Register d);
+  inline void mftexasr_PPC(Register d);
+  inline void mftexasru_PPC(Register d);
 
   // TEXASR bit description
   enum transaction_failure_reason {
@@ -1789,20 +1779,20 @@ class Assembler : public AbstractAssembler {
   };
 
   // RISCV 1, section 2.4.1 Branch Instructions
-  inline void b(  address a, relocInfo::relocType rt = relocInfo::none);
-  inline void b(  Label& L);
-  inline void bl( address a, relocInfo::relocType rt = relocInfo::none);
-  inline void bl( Label& L);
-  inline void bc( int boint, int biint, address a, relocInfo::relocType rt = relocInfo::none);
-  inline void bc( int boint, int biint, Label& L);
-  inline void bcl(int boint, int biint, address a, relocInfo::relocType rt = relocInfo::none);
-  inline void bcl(int boint, int biint, Label& L);
+  inline void b_PPC(  address a, relocInfo::relocType rt = relocInfo::none);
+  inline void b_PPC(  Label& L);
+  inline void bl_PPC( address a, relocInfo::relocType rt = relocInfo::none);
+  inline void bl_PPC( Label& L);
+  inline void bc_PPC( int boint, int biint, address a, relocInfo::relocType rt = relocInfo::none);
+  inline void bc_PPC( int boint, int biint, Label& L);
+  inline void bcl_PPC(int boint, int biint, address a, relocInfo::relocType rt = relocInfo::none);
+  inline void bcl_PPC(int boint, int biint, Label& L);
 
-  inline void bclr(  int boint, int biint, int bhint, relocInfo::relocType rt = relocInfo::none);
-  inline void bclrl( int boint, int biint, int bhint, relocInfo::relocType rt = relocInfo::none);
-  inline void bcctr( int boint, int biint, int bhint = bhintbhBCCTRisNotReturnButSame,
+  inline void bclr_PPC(  int boint, int biint, int bhint, relocInfo::relocType rt = relocInfo::none);
+  inline void bclrl_PPC( int boint, int biint, int bhint, relocInfo::relocType rt = relocInfo::none);
+  inline void bcctr_PPC( int boint, int biint, int bhint = bhintbhBCCTRisNotReturnButSame,
                          relocInfo::relocType rt = relocInfo::none);
-  inline void bcctrl(int boint, int biint, int bhint = bhintbhBCLRisReturn,
+  inline void bcctrl_PPC(int boint, int biint, int bhint = bhintbhBCLRisReturn,
                          relocInfo::relocType rt = relocInfo::none);
 
   // helper function for b, bcxx
@@ -1810,112 +1800,112 @@ class Assembler : public AbstractAssembler {
   inline bool is_within_range_of_bcxx(address a, address pc);
 
   // get the destination of a bxx branch (b, bl, ba, bla)
-  static inline address  bxx_destination(address baddr);
-  static inline address  bxx_destination(int instr, address pc);
+  static inline address  bxx_destination_PPC(address baddr);
+  static inline address  bxx_destination_PPC(int instr, address pc);
   static inline intptr_t bxx_destination_offset(int instr, intptr_t bxx_pos);
 
   // extended mnemonics for branch instructions
-  inline void blt(ConditionRegister crx, Label& L);
-  inline void bgt(ConditionRegister crx, Label& L);
-  inline void beq(ConditionRegister crx, Label& L);
-  inline void bso(ConditionRegister crx, Label& L);
-  inline void bge(ConditionRegister crx, Label& L);
-  inline void ble(ConditionRegister crx, Label& L);
-  inline void bne(ConditionRegister crx, Label& L);
-  inline void bns(ConditionRegister crx, Label& L);
+  inline void blt_PPC(ConditionRegister crx, Label& L);
+  inline void bgt_PPC(ConditionRegister crx, Label& L);
+  inline void beq_PPC(ConditionRegister crx, Label& L);
+  inline void bso_PPC(ConditionRegister crx, Label& L);
+  inline void bge_PPC(ConditionRegister crx, Label& L);
+  inline void ble_PPC(ConditionRegister crx, Label& L);
+  inline void bne_PPC(ConditionRegister crx, Label& L);
+  inline void bns_PPC(ConditionRegister crx, Label& L);
 
   // Branch instructions with static prediction hints.
-  inline void blt_predict_taken(    ConditionRegister crx, Label& L);
-  inline void bgt_predict_taken(    ConditionRegister crx, Label& L);
-  inline void beq_predict_taken(    ConditionRegister crx, Label& L);
-  inline void bso_predict_taken(    ConditionRegister crx, Label& L);
-  inline void bge_predict_taken(    ConditionRegister crx, Label& L);
-  inline void ble_predict_taken(    ConditionRegister crx, Label& L);
-  inline void bne_predict_taken(    ConditionRegister crx, Label& L);
-  inline void bns_predict_taken(    ConditionRegister crx, Label& L);
-  inline void blt_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void bgt_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void beq_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void bso_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void bge_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void ble_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void bne_predict_not_taken(ConditionRegister crx, Label& L);
-  inline void bns_predict_not_taken(ConditionRegister crx, Label& L);
+  inline void blt_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void bgt_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void beq_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void bso_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void bge_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void ble_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void bne_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void bns_predict_taken_PPC(    ConditionRegister crx, Label& L);
+  inline void blt_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void bgt_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void beq_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void bso_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void bge_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void ble_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void bne_predict_not_taken_PPC(ConditionRegister crx, Label& L);
+  inline void bns_predict_not_taken_PPC(ConditionRegister crx, Label& L);
 
   // for use in conjunction with testbitdi:
-  inline void btrue( ConditionRegister crx, Label& L);
-  inline void bfalse(ConditionRegister crx, Label& L);
+  inline void btrue_PPC( ConditionRegister crx, Label& L);
+  inline void bfalse_PPC(ConditionRegister crx, Label& L);
 
-  inline void bltl(ConditionRegister crx, Label& L);
-  inline void bgtl(ConditionRegister crx, Label& L);
-  inline void beql(ConditionRegister crx, Label& L);
-  inline void bsol(ConditionRegister crx, Label& L);
-  inline void bgel(ConditionRegister crx, Label& L);
-  inline void blel(ConditionRegister crx, Label& L);
-  inline void bnel(ConditionRegister crx, Label& L);
-  inline void bnsl(ConditionRegister crx, Label& L);
+  inline void bltl_PPC(ConditionRegister crx, Label& L);
+  inline void bgtl_PPC(ConditionRegister crx, Label& L);
+  inline void beql_PPC(ConditionRegister crx, Label& L);
+  inline void bsol_PPC(ConditionRegister crx, Label& L);
+  inline void bgel_PPC(ConditionRegister crx, Label& L);
+  inline void blel_PPC(ConditionRegister crx, Label& L);
+  inline void bnel_PPC(ConditionRegister crx, Label& L);
+  inline void bnsl_PPC(ConditionRegister crx, Label& L);
 
   // extended mnemonics for Branch Instructions via LR
   // We use `blr' for returns.
-  inline void blr(relocInfo::relocType rt = relocInfo::none);
+  inline void blr_PPC(relocInfo::relocType rt = relocInfo::none);
 
   // extended mnemonics for Branch Instructions with CTR
   // bdnz means `decrement CTR and jump to L if CTR is not zero'
-  inline void bdnz(Label& L);
+  inline void bdnz_PPC(Label& L);
   // Decrement and branch if result is zero.
-  inline void bdz(Label& L);
+  inline void bdz_PPC(Label& L);
   // we use `bctr[l]' for jumps/calls in function descriptor glue
   // code, e.g. calls to runtime functions
-  inline void bctr( relocInfo::relocType rt = relocInfo::none);
-  inline void bctrl(relocInfo::relocType rt = relocInfo::none);
+  inline void bctr_PPC( relocInfo::relocType rt = relocInfo::none);
+  inline void bctrl_PPC(relocInfo::relocType rt = relocInfo::none);
   // conditional jumps/branches via CTR
-  inline void beqctr( ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
-  inline void beqctrl(ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
-  inline void bnectr( ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
-  inline void bnectrl(ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
+  inline void beqctr_PPC( ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
+  inline void beqctrl_PPC(ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
+  inline void bnectr_PPC( ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
+  inline void bnectrl_PPC(ConditionRegister crx, relocInfo::relocType rt = relocInfo::none);
 
   // condition register logic instructions
   // NOTE: There's a preferred form: d and s2 should point into the same condition register.
-  inline void crand( int d, int s1, int s2);
-  inline void crnand(int d, int s1, int s2);
-  inline void cror(  int d, int s1, int s2);
-  inline void crxor( int d, int s1, int s2);
-  inline void crnor( int d, int s1, int s2);
-  inline void creqv( int d, int s1, int s2);
-  inline void crandc(int d, int s1, int s2);
-  inline void crorc( int d, int s1, int s2);
+  inline void crand_PPC( int d, int s1, int s2);
+  inline void crnand_PPC(int d, int s1, int s2);
+  inline void cror_PPC(  int d, int s1, int s2);
+  inline void crxor_PPC( int d, int s1, int s2);
+  inline void crnor_PPC( int d, int s1, int s2);
+  inline void creqv_PPC( int d, int s1, int s2);
+  inline void crandc_PPC(int d, int s1, int s2);
+  inline void crorc_PPC( int d, int s1, int s2);
 
   // More convenient version.
   int condition_register_bit(ConditionRegister cr, Condition c) {
     return 4 * (int)(intptr_t)cr + c;
   }
-  void crand( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void crnand(ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void cror(  ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void crxor( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void crnor( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void creqv( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void crandc(ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
-  void crorc( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void crand_PPC( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void crnand_PPC(ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void cror_PPC(  ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void crxor_PPC( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void crnor_PPC( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void creqv_PPC( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void crandc_PPC(ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
+  void crorc_PPC( ConditionRegister crdst, Condition cdst, ConditionRegister crsrc, Condition csrc);
 
   // icache and dcache related instructions
-  inline void icbi(  Register s1, Register s2);
+  inline void icbi_PPC(  Register s1, Register s2);
   //inline void dcba(Register s1, Register s2); // Instruction for embedded processor only.
-  inline void dcbz(  Register s1, Register s2);
-  inline void dcbst( Register s1, Register s2);
-  inline void dcbf(  Register s1, Register s2);
+  inline void dcbz_PPC(  Register s1, Register s2);
+  inline void dcbst_PPC( Register s1, Register s2);
+  inline void dcbf_PPC(  Register s1, Register s2);
 
   enum ct_cache_specification {
     ct_primary_cache   = 0,
     ct_secondary_cache = 2
   };
   // dcache read hint
-  inline void dcbt(    Register s1, Register s2);
-  inline void dcbtct(  Register s1, Register s2, int ct);
-  inline void dcbtds(  Register s1, Register s2, int ds);
+  inline void dcbt_PPC(    Register s1, Register s2);
+  inline void dcbtct_PPC(  Register s1, Register s2, int ct);
+  inline void dcbtds_PPC(  Register s1, Register s2, int ds);
   // dcache write hint
-  inline void dcbtst(  Register s1, Register s2);
-  inline void dcbtstct(Register s1, Register s2, int ct);
+  inline void dcbtst_PPC(  Register s1, Register s2);
+  inline void dcbtstct_PPC(Register s1, Register s2, int ct);
 
   //  machine barrier instructions:
   //
@@ -1952,65 +1942,65 @@ class Assembler : public AbstractAssembler {
   //                    Store|Load
   //
  private:
-  inline void sync(int l);
+  inline void sync_PPC(int l);
  public:
-  inline void sync();
-  inline void lwsync();
-  inline void ptesync();
-  inline void eieio();
-  inline void isync();
-  inline void elemental_membar(int e); // Elemental Memory Barriers (>=Power 8)
+  inline void sync_PPC();
+  inline void lwsync_PPC();
+  inline void ptesync_PPC();
+  inline void eieio_PPC();
+  inline void isync_PPC();
+  inline void elemental_membar_PPC(int e); // Elemental Memory Barriers (>=Power 8)
 
   // Wait instructions for polling. Attention: May result in SIGILL.
-  inline void wait();
-  inline void waitrsv(); // >=Power7
+  inline void wait_PPC();
+  inline void waitrsv_PPC(); // >=Power7
 
   // atomics
-  inline void lbarx_unchecked(Register d, Register a, Register b, int eh1 = 0); // >=Power 8
-  inline void lharx_unchecked(Register d, Register a, Register b, int eh1 = 0); // >=Power 8
-  inline void lwarx_unchecked(Register d, Register a, Register b, int eh1 = 0);
-  inline void ldarx_unchecked(Register d, Register a, Register b, int eh1 = 0);
-  inline void lqarx_unchecked(Register d, Register a, Register b, int eh1 = 0); // >=Power 8
-  inline bool lxarx_hint_exclusive_access();
-  inline void lbarx(  Register d, Register a, Register b, bool hint_exclusive_access = false);
-  inline void lharx(  Register d, Register a, Register b, bool hint_exclusive_access = false);
-  inline void lwarx(  Register d, Register a, Register b, bool hint_exclusive_access = false);
-  inline void ldarx(  Register d, Register a, Register b, bool hint_exclusive_access = false);
-  inline void lqarx(  Register d, Register a, Register b, bool hint_exclusive_access = false);
-  inline void stbcx_( Register s, Register a, Register b);
-  inline void sthcx_( Register s, Register a, Register b);
-  inline void stwcx_( Register s, Register a, Register b);
-  inline void stdcx_( Register s, Register a, Register b);
-  inline void stqcx_( Register s, Register a, Register b);
+  inline void lbarx_unchecked_PPC(Register d, Register a, Register b, int eh1 = 0); // >=Power 8
+  inline void lharx_unchecked_PPC(Register d, Register a, Register b, int eh1 = 0); // >=Power 8
+  inline void lwarx_unchecked_PPC(Register d, Register a, Register b, int eh1 = 0);
+  inline void ldarx_unchecked_PPC(Register d, Register a, Register b, int eh1 = 0);
+  inline void lqarx_unchecked_PPC(Register d, Register a, Register b, int eh1 = 0); // >=Power 8
+  inline bool lxarx_hint_exclusive_access_PPC();
+  inline void lbarx_PPC(  Register d, Register a, Register b, bool hint_exclusive_access = false);
+  inline void lharx_PPC(  Register d, Register a, Register b, bool hint_exclusive_access = false);
+  inline void lwarx_PPC(  Register d, Register a, Register b, bool hint_exclusive_access = false);
+  inline void ldarx_PPC(  Register d, Register a, Register b, bool hint_exclusive_access = false);
+  inline void lqarx_PPC(  Register d, Register a, Register b, bool hint_exclusive_access = false);
+  inline void stbcx__PPC( Register s, Register a, Register b);
+  inline void sthcx__PPC( Register s, Register a, Register b);
+  inline void stwcx__PPC( Register s, Register a, Register b);
+  inline void stdcx__PPC( Register s, Register a, Register b);
+  inline void stqcx__PPC( Register s, Register a, Register b);
 
   // Instructions for adjusting thread priority for simultaneous
   // multithreading (SMT) on Power5.
  private:
-  inline void smt_prio_very_low();
-  inline void smt_prio_medium_high();
-  inline void smt_prio_high();
+  inline void smt_prio_very_low_PPC();
+  inline void smt_prio_medium_high_PPC();
+  inline void smt_prio_high_PPC();
 
  public:
-  inline void smt_prio_low();
-  inline void smt_prio_medium_low();
-  inline void smt_prio_medium();
+  inline void smt_prio_low_PPC();
+  inline void smt_prio_medium_low_PPC();
+  inline void smt_prio_medium_PPC();
   // >= Power7
-  inline void smt_yield();
-  inline void smt_mdoio();
-  inline void smt_mdoom();
+  inline void smt_yield_PPC();
+  inline void smt_mdoio_PPC();
+  inline void smt_mdoom_PPC();
   // >= Power8
-  inline void smt_miso();
+  inline void smt_miso_PPC();
 
   // trap instructions
-  inline void twi_0(Register a); // for load with acquire semantics use load+twi_0+isync (trap can't occur)
+  inline void twi_0_PPC(Register a); // for load with acquire semantics use load+twi_0+isync (trap can't occur)
   // NOT FOR DIRECT USE!!
  protected:
-  inline void tdi_unchecked(int tobits, Register a, int si16);
-  inline void twi_unchecked(int tobits, Register a, int si16);
-  inline void tdi(          int tobits, Register a, int si16);   // asserts UseSIGTRAP
-  inline void twi(          int tobits, Register a, int si16);   // asserts UseSIGTRAP
-  inline void td(           int tobits, Register a, Register b); // asserts UseSIGTRAP
-  inline void tw(           int tobits, Register a, Register b); // asserts UseSIGTRAP
+  inline void tdi_unchecked_PPC(int tobits, Register a, int si16);
+  inline void twi_unchecked_PPC(int tobits, Register a, int si16);
+  inline void tdi_PPC(          int tobits, Register a, int si16);   // asserts UseSIGTRAP
+  inline void twi_PPC(          int tobits, Register a, int si16);   // asserts UseSIGTRAP
+  inline void td_PPC(           int tobits, Register a, Register b); // asserts UseSIGTRAP
+  inline void tw_PPC(           int tobits, Register a, Register b); // asserts UseSIGTRAP
 
   static bool is_tdi(int x, int tobits, int ra, int si16) {
      return (TDI_OPCODE == (x & TDI_OPCODE_MASK))
@@ -2050,563 +2040,576 @@ class Assembler : public AbstractAssembler {
   // RISCV instructions are suffixed with _RV temporarily
 
   // Generic instructions
-  inline void op_imm_RV(Register d, Register s, int f, int imm);
-  inline void lui_RV(Register d, int imm);
-  inline void auipc_RV(Register d, int imm);
-  inline void op_RV(Register d, Register s1, Register s2, int f1, int f2);
-  inline void amo_RV(Register d, Register s1, Register s2, int f1, int f2, bool aq, bool rl);
-  inline void jal_RV(Register d, int off);
-  inline void jalr_RV(Register d, Register base, int off);
-  inline void branch_RV(Register s1, Register s2, int f, int off);
-  inline void load_RV(Register d, Register s, int width, int off);
-  inline void load_fp_RV(Register d, Register s, int width, int off);
-  inline void store_RV(Register base, Register s, int width, int off);
-  inline void store_fp_RV(Register base, Register s, int width, int off);
-  inline void op_imm32_RV(Register d, Register s, int f, int imm);
-  inline void op32_RV(Register d, Register s1, Register s2, int f1, int f2);
-  inline void op_fp_RV(Register d, Register s1, Register s2, int rm, int f);
-  inline void op_fp_RV(Register d, Register s1, int s2, int rm, int f);
-  inline void madd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void msub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void nmadd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void nmsub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void op_imm(Register d, Register s, int f, int imm);
+  inline void lui(Register d, int imm);
+  inline void auipc(Register d, int imm);
+  inline void op(Register d, Register s1, Register s2, int f1, int f2);
+  inline void amo(Register d, Register s1, Register s2, int f1, int f2, bool aq, bool rl);
+  inline void jal(Register d, int off);
+  inline void jalr(Register d, Register base, int off);
+  inline void branch(Register s1, Register s2, int f, int off);
+  inline void load(Register d, Register s, int width, int off);
+  inline void load_fp(FloatRegister d, Register s, int width, int off);
+  inline void store(Register s, Register base, int width, int off);
+  inline void store_fp(FloatRegister s, Register base, int width, int off);
+  inline void op_imm32(Register d, Register s, int f, int imm);
+  inline void op32(Register d, Register s1, Register s2, int f1, int f2);
+  inline void op_fp(Register d, Register s1, Register s2, int rm, int f);
+  inline void op_fp(Register d, Register s1, int s2, int rm, int f);
+  inline void madd(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void msub(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void nmadd(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void nmsub(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void fence(int pr, int sc, int f);
 
   // Concrete instructions
   // op_imm
-  inline void addi_RV(    Register d, Register s, int imm);
-  inline void slti_RV(    Register d, Register s, int imm);
-  inline void sltiu_RV(   Register d, Register s, int imm);
-  inline void xori_RV(    Register d, Register s, int imm);
-  inline void ori_RV(     Register d, Register s, int imm);
-  inline void andi_RV(    Register d, Register s, int imm);
-  inline void slli_RV(    Register d, Register s, int shamt);
-  inline void srli_RV(    Register d, Register s, int shamt);
-  inline void srai_RV(    Register d, Register s, int shamt);
+  inline void addi(    Register d, Register s, int imm);
+  inline void slti(    Register d, Register s, int imm);
+  inline void sltiu(   Register d, Register s, int imm);
+  inline void xori(    Register d, Register s, int imm);
+  inline void ori(     Register d, Register s, int imm);
+  inline void andi(    Register d, Register s, int imm);
+  inline void slli(    Register d, Register s, int shamt);
+  inline void srli(    Register d, Register s, int shamt);
+  inline void srai(    Register d, Register s, int shamt);
   // op
-  inline void add_RV(     Register d, Register s1, Register s2);
-  inline void slt_RV(     Register d, Register s1, Register s2);
-  inline void sltu_RV(    Register d, Register s1, Register s2);
-  inline void andr_RV(    Register d, Register s1, Register s2); // and is a C++ keyword
-  inline void orr_RV(     Register d, Register s1, Register s2); // or is a C++ keyword
-  inline void xorr_RV(    Register d, Register s1, Register s2); // xor is a C++ keyword
-  inline void sll_RV(     Register d, Register s1, Register s2);
-  inline void srl_RV(     Register d, Register s1, Register s2);
-  inline void sub_RV(     Register d, Register s1, Register s2);
-  inline void sra_RV(     Register d, Register s1, Register s2);
-  inline void mul_RV(     Register d, Register s1, Register s2);
-  inline void mulh_RV(    Register d, Register s1, Register s2);
-  inline void mulhsu_RV(  Register d, Register s1, Register s2);
-  inline void mulhu_RV(   Register d, Register s1, Register s2);
-  inline void div_RV(     Register d, Register s1, Register s2);
-  inline void divu_RV(    Register d, Register s1, Register s2);
-  inline void rem_RV(     Register d, Register s1, Register s2);
-  inline void remu_RV(    Register d, Register s1, Register s2);
+  inline void add(     Register d, Register s1, Register s2);
+  inline void slt(     Register d, Register s1, Register s2);
+  inline void sltu(    Register d, Register s1, Register s2);
+  inline void andr(    Register d, Register s1, Register s2); // and is a C++ keyword
+  inline void orr(     Register d, Register s1, Register s2); // or is a C++ keyword
+  inline void xorr(    Register d, Register s1, Register s2); // xor is a C++ keyword
+  inline void sll(     Register d, Register s1, Register s2);
+  inline void srl(     Register d, Register s1, Register s2);
+  inline void sub(     Register d, Register s1, Register s2);
+  inline void sra(     Register d, Register s1, Register s2);
+  inline void mul(     Register d, Register s1, Register s2);
+  inline void mulh(    Register d, Register s1, Register s2);
+  inline void mulhsu(  Register d, Register s1, Register s2);
+  inline void mulhu(   Register d, Register s1, Register s2);
+  inline void div(     Register d, Register s1, Register s2);
+  inline void divu(    Register d, Register s1, Register s2);
+  inline void rem(     Register d, Register s1, Register s2);
+  inline void remu(    Register d, Register s1, Register s2);
   // branch
-  inline void beq_RV(     Register s1, Register s2, int off);
-  inline void bne_RV(     Register s1, Register s2, int off);
-  inline void blt_RV(     Register s1, Register s2, int off);
-  inline void bltu_RV(    Register s1, Register s2, int off);
-  inline void bge_RV(     Register s1, Register s2, int off);
-  inline void bgeu_RV(    Register s1, Register s2, int off);
+  inline void beq(     Register s1, Register s2, int off);
+  inline void bne(     Register s1, Register s2, int off);
+  inline void blt(     Register s1, Register s2, int off);
+  inline void bltu(    Register s1, Register s2, int off);
+  inline void bge(     Register s1, Register s2, int off);
+  inline void bgeu(    Register s1, Register s2, int off);
+  inline void beqz(    Register s,               int off);
+  inline void bnez(    Register s,               int off);
+  inline void beq(     Register s1, Register s2, Label& L);
+  inline void bne(     Register s1, Register s2, Label& L);
+  inline void beqz(    Register s,               Label& L);
+  inline void bnez(    Register s,               Label& L);
   // load
-  inline void ld_RV(      Register d, Register s, int off);
-  inline void lw_RV(      Register d, Register s, int off);
-  inline void lwu_RV(     Register d, Register s, int off);
-  inline void lh_RV(      Register d, Register s, int off);
-  inline void lhu_RV(     Register d, Register s, int off);
-  inline void lb_RV(      Register d, Register s, int off);
-  inline void lbu_RV(     Register d, Register s, int off);
+  inline void ld(      Register d, Register s, int off);
+  inline void lw(      Register d, Register s, int off);
+  inline void lwu(     Register d, Register s, int off);
+  inline void lh(      Register d, Register s, int off);
+  inline void lhu(     Register d, Register s, int off);
+  inline void lb(      Register d, Register s, int off);
+  inline void lbu(     Register d, Register s, int off);
   // store
-  inline void sd_RV(      Register base, Register s, int off);
-  inline void sw_RV(      Register base, Register s, int off);
-  inline void sh_RV(      Register base, Register s, int off);
-  inline void sb_RV(      Register base, Register s, int off);
+  inline void sd(      Register s, Register base, int off);
+  inline void sw(      Register s, Register base, int off);
+  inline void sh(      Register s, Register base, int off);
+  inline void sb(      Register s, Register base, int off);
   // system
-  inline void ecall_RV();
-  inline void ebreak_RV();
+  inline void ecall();
+  inline void ebreak();
   // op_imm32
-  inline void addiw_RV(   Register d, Register s, int imm);
-  inline void slliw_RV(   Register d, Register s, int shamt);
-  inline void srliw_RV(   Register d, Register s, int shamt);
-  inline void sraiw_RV(   Register d, Register s, int shamt);
+  inline void addiw(   Register d, Register s, int imm);
+  inline void slliw(   Register d, Register s, int shamt);
+  inline void srliw(   Register d, Register s, int shamt);
+  inline void sraiw(   Register d, Register s, int shamt);
   // op
-  inline void addw_RV(    Register d, Register s1, Register s2);
-  inline void subw_RV(    Register d, Register s1, Register s2);
-  inline void sllw_RV(    Register d, Register s1, Register s2);
-  inline void srlw_RV(    Register d, Register s1, Register s2);
-  inline void sraw_RV(    Register d, Register s1, Register s2);
-  inline void mulw_RV(    Register d, Register s1, Register s2);
-  inline void divw_RV(    Register d, Register s1, Register s2);
-  inline void divuw_RV(   Register d, Register s1, Register s2);
-  inline void remw_RV(    Register d, Register s1, Register s2);
-  inline void remuw_RV(   Register d, Register s1, Register s2);
+  inline void addw(    Register d, Register s1, Register s2);
+  inline void subw(    Register d, Register s1, Register s2);
+  inline void sllw(    Register d, Register s1, Register s2);
+  inline void srlw(    Register d, Register s1, Register s2);
+  inline void sraw(    Register d, Register s1, Register s2);
+  inline void mulw(    Register d, Register s1, Register s2);
+  inline void divw(    Register d, Register s1, Register s2);
+  inline void divuw(   Register d, Register s1, Register s2);
+  inline void remw(    Register d, Register s1, Register s2);
+  inline void remuw(   Register d, Register s1, Register s2);
   // amo
-  inline void lrw_RV(     Register d, Register s1,              bool aq, bool rl);
-  inline void scw_RV(     Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoswapw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoaddw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoxorw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoandw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoorw_RV(  Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amominw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomaxw_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amominuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomaxuw_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void lrd_RV(     Register d, Register s1,              bool aq, bool rl);
-  inline void scd_RV(     Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoswapd_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoaddd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoxord_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoandd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amoord_RV(  Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomind_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomaxd_RV( Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amominud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void amomaxud_RV(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrw(     Register d, Register s1,              bool aq, bool rl);
+  inline void scw(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoswapw(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddw( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxorw( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandw( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoorw(  Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominw( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxw( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominuw(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxuw(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrd(     Register d, Register s1,              bool aq, bool rl);
+  inline void scd(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoswapd(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoaddd( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoxord( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoandd( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amoord(  Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomind( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxd( Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amominud(Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void amomaxud(Register d, Register s1, Register s2, bool aq, bool rl);
   //sp fp
-  inline void flw_RV(     Register d, Register s1, int imm);
-  inline void fsw_RV(     Register base, Register s, int imm);
-  inline void fmadds_RV(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fmsubs_RV(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmadds_RV( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmsubs_RV( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fadds_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fsubs_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fmuls_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fdivs_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fsqrts_RV(  Register d, Register s, int rm);
-  inline void fsgnjs_RV(  Register d, Register s1, Register s2);
-  inline void fsgnjns_RV( Register d, Register s1, Register s2);
-  inline void fsgnjxs_RV( Register d, Register s1, Register s2);
-  inline void fmins_RV(   Register d, Register s1, Register s2);
-  inline void fmaxs_RV(   Register d, Register s1, Register s2);
-  inline void fcvtws_RV(  Register d, Register s, int rm);
-  inline void fcvtwus_RV( Register d, Register s, int rm);
-  inline void fmvxw_RV(   Register d, Register s);
-  inline void feqs_RV(    Register d, Register s1, Register s2);
-  inline void flts_RV(    Register d, Register s1, Register s2);
-  inline void fles_RV(    Register d, Register s1, Register s2);
-  inline void fclasss_RV( Register d, Register s);
-  inline void fcvtsw_RV(  Register d, Register s, int rm);
-  inline void fcvtswu_RV( Register d, Register s, int rm);
-  inline void fmvwx_RV(   Register d, Register s);
-  inline void fcvtls_RV(  Register d, Register s, int rm);
-  inline void fcvtlus_RV( Register d, Register s, int rm);
-  inline void fcvtsl_RV(  Register d, Register s, int rm);
-  inline void fcvtslu_RV( Register d, Register s, int rm);
+  inline void flw(     FloatRegister d, Register s1, int imm);
+  inline void fsw(     FloatRegister s, Register base, int imm);
+  inline void fmadds(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fmsubs(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmadds( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmsubs( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fadds(   Register d, Register s1, Register s2, int rm);
+  inline void fsubs(   Register d, Register s1, Register s2, int rm);
+  inline void fmuls(   Register d, Register s1, Register s2, int rm);
+  inline void fdivs(   Register d, Register s1, Register s2, int rm);
+  inline void fsqrts(  Register d, Register s, int rm);
+  inline void fsgnjs(  Register d, Register s1, Register s2);
+  inline void fsgnjns( Register d, Register s1, Register s2);
+  inline void fsgnjxs( Register d, Register s1, Register s2);
+  inline void fmins(   Register d, Register s1, Register s2);
+  inline void fmaxs(   Register d, Register s1, Register s2);
+  inline void fcvtws(  Register d, Register s, int rm);
+  inline void fcvtwus( Register d, Register s, int rm);
+  inline void fmvxw(   Register d, Register s);
+  inline void feqs(    Register d, Register s1, Register s2);
+  inline void flts(    Register d, Register s1, Register s2);
+  inline void fles(    Register d, Register s1, Register s2);
+  inline void fclasss( Register d, Register s);
+  inline void fcvtsw(  Register d, Register s, int rm);
+  inline void fcvtswu( Register d, Register s, int rm);
+  inline void fmvwx(   Register d, Register s);
+  inline void fcvtls(  Register d, Register s, int rm);
+  inline void fcvtlus( Register d, Register s, int rm);
+  inline void fcvtsl(  Register d, Register s, int rm);
+  inline void fcvtslu( Register d, Register s, int rm);
   //dp fp
-  inline void fld_RV(     Register d, Register s1, int imm);
-  inline void fsd_RV(     Register base, Register s, int imm);
-  inline void fmaddd_RV(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fmsubd_RV(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmaddd_RV( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmsubd_RV( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void faddd_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fsubd_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fmuld_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fdivd_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fsqrtd_RV(  Register d, Register s, int rm);
-  inline void fsgnjd_RV(  Register d, Register s1, Register s2);
-  inline void fsgnjnd_RV( Register d, Register s1, Register s2);
-  inline void fsgnjxd_RV( Register d, Register s1, Register s2);
-  inline void fmind_RV(   Register d, Register s1, Register s2);
-  inline void fmaxd_RV(   Register d, Register s1, Register s2);
-  inline void fcvtsd_RV(  Register d, Register s, int rm);
-  inline void fcvtds_RV(  Register d, Register s, int rm);
-  inline void feqd_RV(    Register d, Register s1, Register s2);
-  inline void fltd_RV(    Register d, Register s1, Register s2);
-  inline void fled_RV(    Register d, Register s1, Register s2);
-  inline void fclassd_RV( Register d, Register s);
-  inline void fcvtwd_RV(  Register d, Register s, int rm);
-  inline void fcvtwud_RV( Register d, Register s, int rm);
-  inline void fcvtdw_RV(  Register d, Register s, int rm);
-  inline void fcvtdwu_RV( Register d, Register s, int rm);
-  inline void fcvtld_RV(  Register d, Register s, int rm);
-  inline void fcvtlud_RV( Register d, Register s, int rm);
-  inline void fcvtdl_RV(  Register d, Register s, int rm);
-  inline void fcvtdlu_RV( Register d, Register s, int rm);
-  inline void fmvxd_RV(   Register d, Register s);
-  inline void fmvdx_RV(   Register d, Register s);
+  inline void fld(     FloatRegister d, Register s1, int imm);
+  inline void fsd(     FloatRegister s, Register base, int imm);
+  inline void fmaddd(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fmsubd(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmaddd( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmsubd( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void faddd(   Register d, Register s1, Register s2, int rm);
+  inline void fsubd(   Register d, Register s1, Register s2, int rm);
+  inline void fmuld(   Register d, Register s1, Register s2, int rm);
+  inline void fdivd(   Register d, Register s1, Register s2, int rm);
+  inline void fsqrtd(  Register d, Register s, int rm);
+  inline void fsgnjd(  Register d, Register s1, Register s2);
+  inline void fsgnjnd( Register d, Register s1, Register s2);
+  inline void fsgnjxd( Register d, Register s1, Register s2);
+  inline void fmind(   Register d, Register s1, Register s2);
+  inline void fmaxd(   Register d, Register s1, Register s2);
+  inline void fcvtsd(  Register d, Register s, int rm);
+  inline void fcvtds(  Register d, Register s, int rm);
+  inline void feqd(    Register d, Register s1, Register s2);
+  inline void fltd(    Register d, Register s1, Register s2);
+  inline void fled(    Register d, Register s1, Register s2);
+  inline void fclassd( Register d, Register s);
+  inline void fcvtwd(  Register d, Register s, int rm);
+  inline void fcvtwud( Register d, Register s, int rm);
+  inline void fcvtdw(  Register d, Register s, int rm);
+  inline void fcvtdwu( Register d, Register s, int rm);
+  inline void fcvtld(  Register d, Register s, int rm);
+  inline void fcvtlud( Register d, Register s, int rm);
+  inline void fcvtdl(  Register d, Register s, int rm);
+  inline void fcvtdlu( Register d, Register s, int rm);
+  inline void fmvxd(   Register d, Register s);
+  inline void fmvdx(   Register d, Register s);
   //qp fp
-  inline void flq_RV(     Register d, Register s1, int imm);
-  inline void fsq_RV(     Register base, Register s, int imm);
-  inline void fmaddq_RV(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fmsubq_RV(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmaddq_RV( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmsubq_RV( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void faddq_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fsubq_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fmulq_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fdivq_RV(   Register d, Register s1, Register s2, int rm);
-  inline void fsqrtq_RV(  Register d, Register s, int rm);
-  inline void fsgnjq_RV(  Register d, Register s1, Register s2);
-  inline void fsgnjnq_RV( Register d, Register s1, Register s2);
-  inline void fsgnjxq_RV( Register d, Register s1, Register s2);
-  inline void fminq_RV(   Register d, Register s1, Register s2);
-  inline void fmaxq_RV(   Register d, Register s1, Register s2);
-  inline void fcvtsq_RV(  Register d, Register s, int rm);
-  inline void fcvtqs_RV(  Register d, Register s, int rm);
-  inline void fcvtdq_RV(  Register d, Register s, int rm);
-  inline void fcvtqd_RV(  Register d, Register s, int rm);
-  inline void feqq_RV(    Register d, Register s1, Register s2);
-  inline void fltq_RV(    Register d, Register s1, Register s2);
-  inline void fleq_RV(    Register d, Register s1, Register s2);
-  inline void fclassq_RV( Register d, Register s);
-  inline void fcvtwq_RV(  Register d, Register s, int rm);
-  inline void fcvtwuq_RV( Register d, Register s, int rm);
-  inline void fcvtqw_RV(  Register d, Register s, int rm);
-  inline void fcvtqwu_RV( Register d, Register s, int rm);
-  inline void fcvtlq_RV(  Register d, Register s, int rm);
-  inline void fcvtluq_RV( Register d, Register s, int rm);
-  inline void fcvtql_RV(  Register d, Register s, int rm);
-  inline void fcvtqlu_RV( Register d, Register s, int rm);
+  inline void flq(     FloatRegister d, Register s1, int imm);
+  inline void fsq(     FloatRegister s, Register base, int imm);
+  inline void fmaddq(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fmsubq(  Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmaddq( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void fnmsubq( Register d, Register s1, Register s2, Register s3, int rm);
+  inline void faddq(   Register d, Register s1, Register s2, int rm);
+  inline void fsubq(   Register d, Register s1, Register s2, int rm);
+  inline void fmulq(   Register d, Register s1, Register s2, int rm);
+  inline void fdivq(   Register d, Register s1, Register s2, int rm);
+  inline void fsqrtq(  Register d, Register s, int rm);
+  inline void fsgnjq(  Register d, Register s1, Register s2);
+  inline void fsgnjnq( Register d, Register s1, Register s2);
+  inline void fsgnjxq( Register d, Register s1, Register s2);
+  inline void fminq(   Register d, Register s1, Register s2);
+  inline void fmaxq(   Register d, Register s1, Register s2);
+  inline void fcvtsq(  Register d, Register s, int rm);
+  inline void fcvtqs(  Register d, Register s, int rm);
+  inline void fcvtdq(  Register d, Register s, int rm);
+  inline void fcvtqd(  Register d, Register s, int rm);
+  inline void feqq(    Register d, Register s1, Register s2);
+  inline void fltq(    Register d, Register s1, Register s2);
+  inline void fleq(    Register d, Register s1, Register s2);
+  inline void fclassq( Register d, Register s);
+  inline void fcvtwq(  Register d, Register s, int rm);
+  inline void fcvtwuq( Register d, Register s, int rm);
+  inline void fcvtqw(  Register d, Register s, int rm);
+  inline void fcvtqwu( Register d, Register s, int rm);
+  inline void fcvtlq(  Register d, Register s, int rm);
+  inline void fcvtluq( Register d, Register s, int rm);
+  inline void fcvtql(  Register d, Register s, int rm);
+  inline void fcvtqlu( Register d, Register s, int rm);
   //fence
   inline void fence(   int pr, int sc);
   inline void fence_tso();
   inline void fencei();
   // pseudoinstructions
-  inline void nop_RV();
-  inline void j_RV(int off);
-  inline void jal_RV(int off);
-  inline void jr_RV(Register s);
-  inline void jalr_RV(Register s);
-  inline void ret_RV();
-  inline void call_RV(int off);
-  inline void tail_RV(int off);
+  inline void nop();
+  inline void j(int off);
+  inline void jal(int off);
+  inline void jr(Register s);
+  inline void jalr(Register s);
+  inline void ret();
+  inline void call(int off);
+  inline void tail(int off);
+  inline void neg(Register d, Register s);
+  inline void mv(Register d, Register s);
+
+private:
+  bool li_32_RV(Register d, long long imm);
+public:
+  void li_RV(Register d, long long imm);
 
   // --- PPC instructions follow ---
 
   // RISCV floating point instructions
   // RISCV 1, section 4.6.2 Floating-Point Load Instructions
-  inline void lfs(  FloatRegister d, int si16,   Register a);
-  inline void lfsu( FloatRegister d, int si16,   Register a);
-  inline void lfsx( FloatRegister d, Register a, Register b);
-  inline void lfd(  FloatRegister d, int si16,   Register a);
-  inline void lfdu( FloatRegister d, int si16,   Register a);
-  inline void lfdx( FloatRegister d, Register a, Register b);
+  inline void lfs_PPC(  FloatRegister d, int si16,   Register a);
+  inline void lfsu_PPC( FloatRegister d, int si16,   Register a);
+  inline void lfsx_PPC( FloatRegister d, Register a, Register b);
+  inline void lfd_PPC(  FloatRegister d, int si16,   Register a);
+  inline void lfdu_PPC( FloatRegister d, int si16,   Register a);
+  inline void lfdx_PPC( FloatRegister d, Register a, Register b);
 
   // RISCV 1, section 4.6.3 Floating-Point Store Instructions
-  inline void stfs(  FloatRegister s, int si16,   Register a);
-  inline void stfsu( FloatRegister s, int si16,   Register a);
-  inline void stfsx( FloatRegister s, Register a, Register b);
-  inline void stfd(  FloatRegister s, int si16,   Register a);
-  inline void stfdu( FloatRegister s, int si16,   Register a);
-  inline void stfdx( FloatRegister s, Register a, Register b);
+  inline void stfs_PPC(  FloatRegister s, int si16,   Register a);
+  inline void stfsu_PPC( FloatRegister s, int si16,   Register a);
+  inline void stfsx_PPC( FloatRegister s, Register a, Register b);
+  inline void stfd_PPC(  FloatRegister s, int si16,   Register a);
+  inline void stfdu_PPC( FloatRegister s, int si16,   Register a);
+  inline void stfdx_PPC( FloatRegister s, Register a, Register b);
 
   // RISCV 1, section 4.6.4 Floating-Point Move Instructions
-  inline void fmr(  FloatRegister d, FloatRegister b);
-  inline void fmr_( FloatRegister d, FloatRegister b);
+  inline void fmr_PPC(  FloatRegister d, FloatRegister b);
+  inline void fmr__PPC( FloatRegister d, FloatRegister b);
 
   //  inline void mffgpr( FloatRegister d, Register b);
   //  inline void mftgpr( Register d, FloatRegister b);
-  inline void cmpb(   Register a, Register s, Register b);
-  inline void popcntb(Register a, Register s);
-  inline void popcntw(Register a, Register s);
-  inline void popcntd(Register a, Register s);
+  inline void cmpb_PPC(   Register a, Register s, Register b);
+  inline void popcntb_PPC(Register a, Register s);
+  inline void popcntw_PPC(Register a, Register s);
+  inline void popcntd_PPC(Register a, Register s);
 
-  inline void fneg(  FloatRegister d, FloatRegister b);
-  inline void fneg_( FloatRegister d, FloatRegister b);
-  inline void fabs(  FloatRegister d, FloatRegister b);
-  inline void fabs_( FloatRegister d, FloatRegister b);
-  inline void fnabs( FloatRegister d, FloatRegister b);
-  inline void fnabs_(FloatRegister d, FloatRegister b);
+  inline void fneg_PPC(  FloatRegister d, FloatRegister b);
+  inline void fneg__PPC( FloatRegister d, FloatRegister b);
+  inline void fabs_PPC(  FloatRegister d, FloatRegister b);
+  inline void fabs__PPC( FloatRegister d, FloatRegister b);
+  inline void fnabs_PPC( FloatRegister d, FloatRegister b);
+  inline void fnabs__PPC(FloatRegister d, FloatRegister b);
 
   // RISCV 1, section 4.6.5.1 Floating-Point Elementary Arithmetic Instructions
-  inline void fadd(  FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fadd_( FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fadds( FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fadds_(FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fsub(  FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fsub_( FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fsubs( FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fsubs_(FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fmul(  FloatRegister d, FloatRegister a, FloatRegister c);
-  inline void fmul_( FloatRegister d, FloatRegister a, FloatRegister c);
-  inline void fmuls( FloatRegister d, FloatRegister a, FloatRegister c);
-  inline void fmuls_(FloatRegister d, FloatRegister a, FloatRegister c);
-  inline void fdiv(  FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fdiv_( FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fdivs( FloatRegister d, FloatRegister a, FloatRegister b);
-  inline void fdivs_(FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fadd_PPC(  FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fadd__PPC( FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fadds_PPC( FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fadds__PPC(FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fsub_PPC(  FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fsub__PPC( FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fsubs_PPC( FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fsubs__PPC(FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fmul_PPC(  FloatRegister d, FloatRegister a, FloatRegister c);
+  inline void fmul__PPC( FloatRegister d, FloatRegister a, FloatRegister c);
+  inline void fmuls_PPC( FloatRegister d, FloatRegister a, FloatRegister c);
+  inline void fmuls__PPC(FloatRegister d, FloatRegister a, FloatRegister c);
+  inline void fdiv_PPC(  FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fdiv__PPC( FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fdivs_PPC( FloatRegister d, FloatRegister a, FloatRegister b);
+  inline void fdivs__PPC(FloatRegister d, FloatRegister a, FloatRegister b);
 
   // Fused multiply-accumulate instructions.
   // WARNING: Use only when rounding between the 2 parts is not desired.
   // Some floating point tck tests will fail if used incorrectly.
-  inline void fmadd(   FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmadd_(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmadds(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmadds_( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmsub(   FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmsub_(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmsubs(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fmsubs_( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmadd(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmadd_( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmadds( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmadds_(FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmsub(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmsub_( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmsubs( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
-  inline void fnmsubs_(FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmadd_PPC(   FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmadd__PPC(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmadds_PPC(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmadds__PPC( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmsub_PPC(   FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmsub__PPC(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmsubs_PPC(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fmsubs__PPC( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmadd_PPC(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmadd__PPC( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmadds_PPC( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmadds__PPC(FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmsub_PPC(  FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmsub__PPC( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmsubs_PPC( FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
+  inline void fnmsubs__PPC(FloatRegister d, FloatRegister a, FloatRegister c, FloatRegister b);
 
   // RISCV 1, section 4.6.6 Floating-Point Rounding and Conversion Instructions
-  inline void frsp(  FloatRegister d, FloatRegister b);
-  inline void fctid( FloatRegister d, FloatRegister b);
-  inline void fctidz(FloatRegister d, FloatRegister b);
-  inline void fctiw( FloatRegister d, FloatRegister b);
-  inline void fctiwz(FloatRegister d, FloatRegister b);
-  inline void fcfid( FloatRegister d, FloatRegister b);
-  inline void fcfids(FloatRegister d, FloatRegister b);
+  inline void frsp_PPC(  FloatRegister d, FloatRegister b);
+  inline void fctid_PPC( FloatRegister d, FloatRegister b);
+  inline void fctidz_PPC(FloatRegister d, FloatRegister b);
+  inline void fctiw_PPC( FloatRegister d, FloatRegister b);
+  inline void fctiwz_PPC(FloatRegister d, FloatRegister b);
+  inline void fcfid_PPC( FloatRegister d, FloatRegister b);
+  inline void fcfids_PPC(FloatRegister d, FloatRegister b);
 
   // RISCV 1, section 4.6.7 Floating-Point Compare Instructions
-  inline void fcmpu( ConditionRegister crx, FloatRegister a, FloatRegister b);
+  inline void fcmpu_PPC( ConditionRegister crx, FloatRegister a, FloatRegister b);
 
-  inline void fsqrt( FloatRegister d, FloatRegister b);
-  inline void fsqrts(FloatRegister d, FloatRegister b);
+  inline void fsqrt_PPC( FloatRegister d, FloatRegister b);
+  inline void fsqrts_PPC(FloatRegister d, FloatRegister b);
 
   // Vector instructions for >= Power6.
-  inline void lvebx(    VectorRegister d, Register s1, Register s2);
-  inline void lvehx(    VectorRegister d, Register s1, Register s2);
-  inline void lvewx(    VectorRegister d, Register s1, Register s2);
-  inline void lvx(      VectorRegister d, Register s1, Register s2);
-  inline void lvxl(     VectorRegister d, Register s1, Register s2);
-  inline void stvebx(   VectorRegister d, Register s1, Register s2);
-  inline void stvehx(   VectorRegister d, Register s1, Register s2);
-  inline void stvewx(   VectorRegister d, Register s1, Register s2);
-  inline void stvx(     VectorRegister d, Register s1, Register s2);
-  inline void stvxl(    VectorRegister d, Register s1, Register s2);
-  inline void lvsl(     VectorRegister d, Register s1, Register s2);
-  inline void lvsr(     VectorRegister d, Register s1, Register s2);
-  inline void vpkpx(    VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkshss(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkswss(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkshus(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkswus(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkuhum(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkuwum(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkuhus(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpkuwus(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vupkhpx(  VectorRegister d, VectorRegister b);
-  inline void vupkhsb(  VectorRegister d, VectorRegister b);
-  inline void vupkhsh(  VectorRegister d, VectorRegister b);
-  inline void vupklpx(  VectorRegister d, VectorRegister b);
-  inline void vupklsb(  VectorRegister d, VectorRegister b);
-  inline void vupklsh(  VectorRegister d, VectorRegister b);
-  inline void vmrghb(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmrghw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmrghh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmrglb(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmrglw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmrglh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsplt(    VectorRegister d, int ui4,          VectorRegister b);
-  inline void vsplth(   VectorRegister d, int ui3,          VectorRegister b);
-  inline void vspltw(   VectorRegister d, int ui2,          VectorRegister b);
-  inline void vspltisb( VectorRegister d, int si5);
-  inline void vspltish( VectorRegister d, int si5);
-  inline void vspltisw( VectorRegister d, int si5);
-  inline void vperm(    VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vsel(     VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vsl(      VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsldoi(   VectorRegister d, VectorRegister a, VectorRegister b, int ui4);
-  inline void vslo(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsr(      VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsro(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddcuw(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddshs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddsbs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddsws(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddubm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vadduwm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vadduhm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddudm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddubs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vadduws(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vadduhs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vaddfp(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubcuw(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubshs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubsbs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubsws(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsububm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubuwm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubuhm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubudm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsububs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubuws(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubuhs(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsubfp(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmulesb(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmuleub(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmulesh(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmuleuh(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmulosb(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmuloub(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmulosh(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmulosw(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmulouh(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmuluwm(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmhaddshs(VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmhraddshs(VectorRegister d,VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmladduhm(VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmsubuhm( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmsummbm( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmsumshm( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmsumshs( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmsumuhm( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmsumuhs( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vmaddfp(  VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
-  inline void vsumsws(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsum2sws( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsum4sbs( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsum4ubs( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsum4shs( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vavgsb(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vavgsw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vavgsh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vavgub(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vavguw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vavguh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmaxsb(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmaxsw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmaxsh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmaxub(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmaxuw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmaxuh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vminsb(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vminsw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vminsh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vminub(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vminuw(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vminuh(   VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpequb( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpequh( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpequw( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtsh( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtsb( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtsw( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtub( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtuh( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtuw( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpequb_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpequh_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpequw_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtsh_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtsb_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtsw_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtub_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtuh_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcmpgtuw_(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vand(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vandc(    VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vnor(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vor(      VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vmr(      VectorRegister d, VectorRegister a);
-  inline void vxor(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vrld(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vrlb(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vrlw(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vrlh(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vslb(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vskw(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vslh(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsrb(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsrw(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsrh(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsrab(    VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsraw(    VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsrah(    VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpopcntw( VectorRegister d, VectorRegister b);
+  inline void lvebx_PPC(    VectorRegister d, Register s1, Register s2);
+  inline void lvehx_PPC(    VectorRegister d, Register s1, Register s2);
+  inline void lvewx_PPC(    VectorRegister d, Register s1, Register s2);
+  inline void lvx_PPC(      VectorRegister d, Register s1, Register s2);
+  inline void lvxl_PPC(     VectorRegister d, Register s1, Register s2);
+  inline void stvebx_PPC(   VectorRegister d, Register s1, Register s2);
+  inline void stvehx_PPC(   VectorRegister d, Register s1, Register s2);
+  inline void stvewx_PPC(   VectorRegister d, Register s1, Register s2);
+  inline void stvx_PPC(     VectorRegister d, Register s1, Register s2);
+  inline void stvxl_PPC(    VectorRegister d, Register s1, Register s2);
+  inline void lvsl_PPC(     VectorRegister d, Register s1, Register s2);
+  inline void lvsr_PPC(     VectorRegister d, Register s1, Register s2);
+  inline void vpkpx_PPC(    VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkshss_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkswss_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkshus_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkswus_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkuhum_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkuwum_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkuhus_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpkuwus_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vupkhpx_PPC(  VectorRegister d, VectorRegister b);
+  inline void vupkhsb_PPC(  VectorRegister d, VectorRegister b);
+  inline void vupkhsh_PPC(  VectorRegister d, VectorRegister b);
+  inline void vupklpx_PPC(  VectorRegister d, VectorRegister b);
+  inline void vupklsb_PPC(  VectorRegister d, VectorRegister b);
+  inline void vupklsh_PPC(  VectorRegister d, VectorRegister b);
+  inline void vmrghb_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmrghw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmrghh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmrglb_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmrglw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmrglh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsplt_PPC(    VectorRegister d, int ui4,          VectorRegister b);
+  inline void vsplth_PPC(   VectorRegister d, int ui3,          VectorRegister b);
+  inline void vspltw_PPC(   VectorRegister d, int ui2,          VectorRegister b);
+  inline void vspltisb_PPC( VectorRegister d, int si5);
+  inline void vspltish_PPC( VectorRegister d, int si5);
+  inline void vspltisw_PPC( VectorRegister d, int si5);
+  inline void vperm_PPC(    VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vsel_PPC(     VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vsl_PPC(      VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsldoi_PPC(   VectorRegister d, VectorRegister a, VectorRegister b, int ui4);
+  inline void vslo_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsr_PPC(      VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsro_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddcuw_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddshs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddsbs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddsws_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddubm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vadduwm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vadduhm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddudm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddubs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vadduws_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vadduhs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vaddfp_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubcuw_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubshs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubsbs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubsws_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsububm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubuwm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubuhm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubudm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsububs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubuws_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubuhs_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsubfp_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmulesb_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmuleub_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmulesh_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmuleuh_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmulosb_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmuloub_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmulosh_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmulosw_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmulouh_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmuluwm_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmhaddshs_PPC(VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmhraddshs_PPC(VectorRegister d,VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmladduhm_PPC(VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmsubuhm_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmsummbm_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmsumshm_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmsumshs_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmsumuhm_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmsumuhs_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vmaddfp_PPC(  VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vsumsws_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsum2sws_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsum4sbs_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsum4ubs_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsum4shs_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vavgsb_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vavgsw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vavgsh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vavgub_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vavguw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vavguh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmaxsb_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmaxsw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmaxsh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmaxub_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmaxuw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmaxuh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vminsb_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vminsw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vminsh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vminub_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vminuw_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vminuh_PPC(   VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpequb_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpequh_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpequw_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtsh_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtsb_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtsw_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtub_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtuh_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtuw_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpequb__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpequh__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpequw__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtsh__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtsb__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtsw__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtub__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtuh__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcmpgtuw__PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vand_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vandc_PPC(    VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vnor_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vor_PPC(      VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vmr_PPC(      VectorRegister d, VectorRegister a);
+  inline void vxor_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vrld_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vrlb_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vrlw_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vrlh_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vslb_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vskw_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vslh_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsrb_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsrw_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsrh_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsrab_PPC(    VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsraw_PPC(    VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsrah_PPC(    VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpopcntw_PPC( VectorRegister d, VectorRegister b);
   // Vector Floating-Point not implemented yet
-  inline void mtvscr(   VectorRegister b);
-  inline void mfvscr(   VectorRegister d);
+  inline void mtvscr_PPC(   VectorRegister b);
+  inline void mfvscr_PPC(   VectorRegister d);
 
   // Vector-Scalar (VSX) instructions.
-  inline void lxvd2x(   VectorSRegister d, Register a);
-  inline void lxvd2x(   VectorSRegister d, Register a, Register b);
-  inline void stxvd2x(  VectorSRegister d, Register a);
-  inline void stxvd2x(  VectorSRegister d, Register a, Register b);
-  inline void mtvrwz(   VectorRegister  d, Register a);
-  inline void mfvrwz(   Register        a, VectorRegister d);
-  inline void mtvrd(    VectorRegister  d, Register a);
-  inline void mfvrd(    Register        a, VectorRegister d);
-  inline void xxpermdi( VectorSRegister d, VectorSRegister a, VectorSRegister b, int dm);
-  inline void xxmrghw(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xxmrglw(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void mtvsrd(   VectorSRegister d, Register a);
-  inline void mtvsrwz(  VectorSRegister d, Register a);
-  inline void xxspltw(  VectorSRegister d, VectorSRegister b, int ui2);
-  inline void xxlor(    VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xxlxor(   VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xxleqv(   VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvdivsp(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvdivdp(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvabssp(  VectorSRegister d, VectorSRegister b);
-  inline void xvabsdp(  VectorSRegister d, VectorSRegister b);
-  inline void xvnegsp(  VectorSRegister d, VectorSRegister b);
-  inline void xvnegdp(  VectorSRegister d, VectorSRegister b);
-  inline void xvsqrtsp( VectorSRegister d, VectorSRegister b);
-  inline void xvsqrtdp( VectorSRegister d, VectorSRegister b);
-  inline void xscvdpspn(VectorSRegister d, VectorSRegister b);
-  inline void xvadddp(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvsubdp(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvmulsp(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvmuldp(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvmaddasp(VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvmaddadp(VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvmsubasp(VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvmsubadp(VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvnmsubasp(VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xvnmsubadp(VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void lxvd2x_PPC(   VectorSRegister d, Register a);
+  inline void lxvd2x_PPC(   VectorSRegister d, Register a, Register b);
+  inline void stxvd2x_PPC(  VectorSRegister d, Register a);
+  inline void stxvd2x_PPC(  VectorSRegister d, Register a, Register b);
+  inline void mtvrwz_PPC(   VectorRegister  d, Register a);
+  inline void mfvrwz_PPC(   Register        a, VectorRegister d);
+  inline void mtvrd_PPC(    VectorRegister  d, Register a);
+  inline void mfvrd_PPC(    Register        a, VectorRegister d);
+  inline void xxpermdi_PPC( VectorSRegister d, VectorSRegister a, VectorSRegister b, int dm);
+  inline void xxmrghw_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xxmrglw_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void mtvsrd_PPC(   VectorSRegister d, Register a);
+  inline void mtvsrwz_PPC(  VectorSRegister d, Register a);
+  inline void xxspltw_PPC(  VectorSRegister d, VectorSRegister b, int ui2);
+  inline void xxlor_PPC(    VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xxlxor_PPC(   VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xxleqv_PPC(   VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvdivsp_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvdivdp_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvabssp_PPC(  VectorSRegister d, VectorSRegister b);
+  inline void xvabsdp_PPC(  VectorSRegister d, VectorSRegister b);
+  inline void xvnegsp_PPC(  VectorSRegister d, VectorSRegister b);
+  inline void xvnegdp_PPC(  VectorSRegister d, VectorSRegister b);
+  inline void xvsqrtsp_PPC( VectorSRegister d, VectorSRegister b);
+  inline void xvsqrtdp_PPC( VectorSRegister d, VectorSRegister b);
+  inline void xscvdpspn_PPC(VectorSRegister d, VectorSRegister b);
+  inline void xvadddp_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvsubdp_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvmulsp_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvmuldp_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvmaddasp_PPC(VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvmaddadp_PPC(VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvmsubasp_PPC(VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvmsubadp_PPC(VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvnmsubasp_PPC(VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xvnmsubadp_PPC(VectorSRegister d, VectorSRegister a, VectorSRegister b);
 
   // VSX Extended Mnemonics
-  inline void xxspltd(  VectorSRegister d, VectorSRegister a, int x);
-  inline void xxmrghd(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xxmrgld(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
-  inline void xxswapd(  VectorSRegister d, VectorSRegister a);
+  inline void xxspltd_PPC(  VectorSRegister d, VectorSRegister a, int x);
+  inline void xxmrghd_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xxmrgld_PPC(  VectorSRegister d, VectorSRegister a, VectorSRegister b);
+  inline void xxswapd_PPC(  VectorSRegister d, VectorSRegister a);
 
   // Vector-Scalar (VSX) instructions.
-  inline void mtfprd(   FloatRegister   d, Register a);
-  inline void mtfprwa(  FloatRegister   d, Register a);
-  inline void mffprd(   Register        a, FloatRegister d);
+  inline void mtfprd_PPC(   FloatRegister   d, Register a);
+  inline void mtfprwa_PPC(  FloatRegister   d, Register a);
+  inline void mffprd_PPC(   Register        a, FloatRegister d);
 
   // Deliver A Random Number (introduced with POWER9)
-  inline void darn( Register d, int l = 1 /*L=CRN*/);
+  inline void darn_PPC( Register d, int l = 1 /*L=CRN*/);
 
   // AES (introduced with Power 8)
-  inline void vcipher(     VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vcipherlast( VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vncipher(    VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vncipherlast(VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vsbox(       VectorRegister d, VectorRegister a);
+  inline void vcipher_PPC(     VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vcipherlast_PPC( VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vncipher_PPC(    VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vncipherlast_PPC(VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vsbox_PPC(       VectorRegister d, VectorRegister a);
 
   // SHA (introduced with Power 8)
-  inline void vshasigmad(VectorRegister d, VectorRegister a, bool st, int six);
-  inline void vshasigmaw(VectorRegister d, VectorRegister a, bool st, int six);
+  inline void vshasigmad_PPC(VectorRegister d, VectorRegister a, bool st, int six);
+  inline void vshasigmaw_PPC(VectorRegister d, VectorRegister a, bool st, int six);
 
   // Vector Binary Polynomial Multiplication (introduced with Power 8)
-  inline void vpmsumb(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpmsumd(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpmsumh(  VectorRegister d, VectorRegister a, VectorRegister b);
-  inline void vpmsumw(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpmsumb_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpmsumd_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpmsumh_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
+  inline void vpmsumw_PPC(  VectorRegister d, VectorRegister a, VectorRegister b);
 
   // Vector Permute and Xor (introduced with Power 8)
-  inline void vpermxor( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
+  inline void vpermxor_PPC( VectorRegister d, VectorRegister a, VectorRegister b, VectorRegister c);
 
   // Transactional Memory instructions (introduced with Power 8)
-  inline void tbegin_();    // R=0
-  inline void tbeginrot_(); // R=1 Rollback-Only Transaction
-  inline void tend_();    // A=0
-  inline void tendall_(); // A=1
-  inline void tabort_();
-  inline void tabort_(Register a);
-  inline void tabortwc_(int t, Register a, Register b);
-  inline void tabortwci_(int t, Register a, int si);
-  inline void tabortdc_(int t, Register a, Register b);
-  inline void tabortdci_(int t, Register a, int si);
-  inline void tsuspend_(); // tsr with L=0
-  inline void tresume_();  // tsr with L=1
-  inline void tcheck(int f);
+  inline void tbegin__PPC();    // R=0
+  inline void tbeginrot__PPC(); // R=1 Rollback-Only Transaction
+  inline void tend__PPC();    // A=0
+  inline void tendall__PPC(); // A=1
+  inline void tabort__PPC();
+  inline void tabort__PPC(Register a);
+  inline void tabortwc__PPC(int t, Register a, Register b);
+  inline void tabortwci__PPC(int t, Register a, int si);
+  inline void tabortdc__PPC(int t, Register a, Register b);
+  inline void tabortdci__PPC(int t, Register a, int si);
+  inline void tsuspend__PPC(); // tsr with L=0
+  inline void tresume__PPC();  // tsr with L=1
+  inline void tcheck_PPC(int f);
 
   static bool is_tbegin(int x) {
     return TBEGIN_OPCODE == (x & (0x3f << OPCODE_SHIFT | 0x3ff << 1));
@@ -2614,89 +2617,89 @@ class Assembler : public AbstractAssembler {
 
   // The following encoders use r0 as second operand. These instructions
   // read r0 as '0'.
-  inline void lwzx( Register d, Register s2);
-  inline void lwz(  Register d, int si16);
-  inline void lwax( Register d, Register s2);
-  inline void lwa(  Register d, int si16);
-  inline void lwbrx(Register d, Register s2);
-  inline void lhzx( Register d, Register s2);
-  inline void lhz(  Register d, int si16);
-  inline void lhax( Register d, Register s2);
-  inline void lha(  Register d, int si16);
-  inline void lhbrx(Register d, Register s2);
-  inline void lbzx( Register d, Register s2);
-  inline void lbz(  Register d, int si16);
-  inline void ldx(  Register d, Register s2);
-  inline void ld(   Register d, int si16);
-  inline void ldbrx(Register d, Register s2);
-  inline void stwx( Register d, Register s2);
-  inline void stw(  Register d, int si16);
-  inline void stwbrx( Register d, Register s2);
-  inline void sthx( Register d, Register s2);
-  inline void sth(  Register d, int si16);
-  inline void sthbrx( Register d, Register s2);
-  inline void stbx( Register d, Register s2);
-  inline void stb(  Register d, int si16);
-  inline void stdx( Register d, Register s2);
-  inline void std(  Register d, int si16);
-  inline void stdbrx( Register d, Register s2);
+  inline void lwzx_PPC( Register d, Register s2);
+  inline void lwz_PPC(  Register d, int si16);
+  inline void lwax_PPC( Register d, Register s2);
+  inline void lwa_PPC(  Register d, int si16);
+  inline void lwbrx_PPC(Register d, Register s2);
+  inline void lhzx_PPC( Register d, Register s2);
+  inline void lhz_PPC(  Register d, int si16);
+  inline void lhax_PPC( Register d, Register s2);
+  inline void lha_PPC(  Register d, int si16);
+  inline void lhbrx_PPC(Register d, Register s2);
+  inline void lbzx_PPC( Register d, Register s2);
+  inline void lbz_PPC(  Register d, int si16);
+  inline void ldx_PPC(  Register d, Register s2);
+  inline void ld_PPC(   Register d, int si16);
+  inline void ldbrx_PPC(Register d, Register s2);
+  inline void stwx_PPC( Register d, Register s2);
+  inline void stw_PPC(  Register d, int si16);
+  inline void stwbrx_PPC( Register d, Register s2);
+  inline void sthx_PPC( Register d, Register s2);
+  inline void sth_PPC(  Register d, int si16);
+  inline void sthbrx_PPC( Register d, Register s2);
+  inline void stbx_PPC( Register d, Register s2);
+  inline void stb_PPC(  Register d, int si16);
+  inline void stdx_PPC( Register d, Register s2);
+  inline void std_PPC(  Register d, int si16);
+  inline void stdbrx_PPC( Register d, Register s2);
 
   // RISCV 2, section 3.2.1 Instruction Cache Instructions
-  inline void icbi(    Register s2);
+  inline void icbi_PPC(    Register s2);
   // RISCV 2, section 3.2.2 Data Cache Instructions
   //inlinevoid dcba(   Register s2); // Instruction for embedded processor only.
-  inline void dcbz(    Register s2);
-  inline void dcbst(   Register s2);
-  inline void dcbf(    Register s2);
+  inline void dcbz_PPC(    Register s2);
+  inline void dcbst_PPC(   Register s2);
+  inline void dcbf_PPC(    Register s2);
   // dcache read hint
-  inline void dcbt(    Register s2);
-  inline void dcbtct(  Register s2, int ct);
-  inline void dcbtds(  Register s2, int ds);
+  inline void dcbt_PPC(    Register s2);
+  inline void dcbtct_PPC(  Register s2, int ct);
+  inline void dcbtds_PPC(  Register s2, int ds);
   // dcache write hint
-  inline void dcbtst(  Register s2);
-  inline void dcbtstct(Register s2, int ct);
+  inline void dcbtst_PPC(  Register s2);
+  inline void dcbtstct_PPC(Register s2, int ct);
 
   // Atomics: use ra0mem to disallow R0 as base.
-  inline void lbarx_unchecked(Register d, Register b, int eh1);
-  inline void lharx_unchecked(Register d, Register b, int eh1);
-  inline void lwarx_unchecked(Register d, Register b, int eh1);
-  inline void ldarx_unchecked(Register d, Register b, int eh1);
-  inline void lqarx_unchecked(Register d, Register b, int eh1);
-  inline void lbarx( Register d, Register b, bool hint_exclusive_access);
-  inline void lharx( Register d, Register b, bool hint_exclusive_access);
-  inline void lwarx( Register d, Register b, bool hint_exclusive_access);
-  inline void ldarx( Register d, Register b, bool hint_exclusive_access);
-  inline void lqarx( Register d, Register b, bool hint_exclusive_access);
-  inline void stbcx_(Register s, Register b);
-  inline void sthcx_(Register s, Register b);
-  inline void stwcx_(Register s, Register b);
-  inline void stdcx_(Register s, Register b);
-  inline void stqcx_(Register s, Register b);
-  inline void lfs(   FloatRegister d, int si16);
-  inline void lfsx(  FloatRegister d, Register b);
-  inline void lfd(   FloatRegister d, int si16);
-  inline void lfdx(  FloatRegister d, Register b);
-  inline void stfs(  FloatRegister s, int si16);
-  inline void stfsx( FloatRegister s, Register b);
-  inline void stfd(  FloatRegister s, int si16);
-  inline void stfdx( FloatRegister s, Register b);
-  inline void lvebx( VectorRegister d, Register s2);
-  inline void lvehx( VectorRegister d, Register s2);
-  inline void lvewx( VectorRegister d, Register s2);
-  inline void lvx(   VectorRegister d, Register s2);
-  inline void lvxl(  VectorRegister d, Register s2);
-  inline void stvebx(VectorRegister d, Register s2);
-  inline void stvehx(VectorRegister d, Register s2);
-  inline void stvewx(VectorRegister d, Register s2);
-  inline void stvx(  VectorRegister d, Register s2);
-  inline void stvxl( VectorRegister d, Register s2);
-  inline void lvsl(  VectorRegister d, Register s2);
-  inline void lvsr(  VectorRegister d, Register s2);
+  inline void lbarx_unchecked_PPC(Register d, Register b, int eh1);
+  inline void lharx_unchecked_PPC(Register d, Register b, int eh1);
+  inline void lwarx_unchecked_PPC(Register d, Register b, int eh1);
+  inline void ldarx_unchecked_PPC(Register d, Register b, int eh1);
+  inline void lqarx_unchecked_PPC(Register d, Register b, int eh1);
+  inline void lbarx_PPC( Register d, Register b, bool hint_exclusive_access);
+  inline void lharx_PPC( Register d, Register b, bool hint_exclusive_access);
+  inline void lwarx_PPC( Register d, Register b, bool hint_exclusive_access);
+  inline void ldarx_PPC( Register d, Register b, bool hint_exclusive_access);
+  inline void lqarx_PPC( Register d, Register b, bool hint_exclusive_access);
+  inline void stbcx__PPC(Register s, Register b);
+  inline void sthcx__PPC(Register s, Register b);
+  inline void stwcx__PPC(Register s, Register b);
+  inline void stdcx__PPC(Register s, Register b);
+  inline void stqcx__PPC(Register s, Register b);
+  inline void lfs_PPC(   FloatRegister d, int si16);
+  inline void lfsx_PPC(  FloatRegister d, Register b);
+  inline void lfd_PPC(   FloatRegister d, int si16);
+  inline void lfdx_PPC(  FloatRegister d, Register b);
+  inline void stfs_PPC(  FloatRegister s, int si16);
+  inline void stfsx_PPC( FloatRegister s, Register b);
+  inline void stfd_PPC(  FloatRegister s, int si16);
+  inline void stfdx_PPC( FloatRegister s, Register b);
+  inline void lvebx_PPC( VectorRegister d, Register s2);
+  inline void lvehx_PPC( VectorRegister d, Register s2);
+  inline void lvewx_PPC( VectorRegister d, Register s2);
+  inline void lvx_PPC(   VectorRegister d, Register s2);
+  inline void lvxl_PPC(  VectorRegister d, Register s2);
+  inline void stvebx_PPC(VectorRegister d, Register s2);
+  inline void stvehx_PPC(VectorRegister d, Register s2);
+  inline void stvewx_PPC(VectorRegister d, Register s2);
+  inline void stvx_PPC(  VectorRegister d, Register s2);
+  inline void stvxl_PPC( VectorRegister d, Register s2);
+  inline void lvsl_PPC(  VectorRegister d, Register s2);
+  inline void lvsr_PPC(  VectorRegister d, Register s2);
 
   // Endianess specific concatenation of 2 loaded vectors.
-  inline void load_perm(VectorRegister perm, Register addr);
-  inline void vec_perm(VectorRegister first_dest, VectorRegister second, VectorRegister perm);
-  inline void vec_perm(VectorRegister dest, VectorRegister first, VectorRegister second, VectorRegister perm);
+  inline void load_perm_PPC(VectorRegister perm, Register addr);
+  inline void vec_perm_PPC(VectorRegister first_dest, VectorRegister second, VectorRegister perm);
+  inline void vec_perm_PPC(VectorRegister dest, VectorRegister first, VectorRegister second, VectorRegister perm);
 
   // RegisterOrConstant versions.
   // These emitters choose between the versions using two registers and
@@ -2705,32 +2708,32 @@ class Assembler : public AbstractAssembler {
   // load the constant are emitted beforehand. Store instructions need a
   // tmp reg if the constant is not encodable as immediate.
   // Size unpredictable.
-  void ld(  Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lwa( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lwz( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lha( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lhz( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lbz( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void std( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void stw( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void sth( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void stb( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void add( Register d, RegisterOrConstant roc, Register s1);
-  void subf(Register d, RegisterOrConstant roc, Register s1);
-  void cmpd(ConditionRegister d, RegisterOrConstant roc, Register s1);
+  void ld_PPC(  Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void lwa_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void lwz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void lha_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void lhz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void lbz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void std_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
+  void stw_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
+  void sth_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
+  void stb_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
+  void add_PPC( Register d, RegisterOrConstant roc, Register s1);
+  void subf_PPC(Register d, RegisterOrConstant roc, Register s1);
+  void cmpd_PPC(ConditionRegister d, RegisterOrConstant roc, Register s1);
   // Load pointer d from s1+roc.
-  void ld_ptr(Register d, RegisterOrConstant roc, Register s1 = noreg) { ld(d, roc, s1); }
+  void ld_ptr_PPC(Register d, RegisterOrConstant roc, Register s1 = noreg) { ld_PPC(d, roc, s1); }
 
   // Emit several instructions to load a 64 bit constant. This issues a fixed
   // instruction pattern so that the constant can be patched later on.
   enum {
     load_const_size = 5 * BytesPerInstWord
   };
-         void load_const(Register d, long a,            Register tmp = noreg);
-  inline void load_const(Register d, void* a,           Register tmp = noreg);
-  inline void load_const(Register d, Label& L,          Register tmp = noreg);
-  inline void load_const(Register d, AddressLiteral& a, Register tmp = noreg);
-  inline void load_const32(Register d, int i); // load signed int (patchable)
+         void load_const_PPC(Register d, long a,            Register tmp = noreg);
+  inline void load_const_PPC(Register d, void* a,           Register tmp = noreg);
+  inline void load_const_PPC(Register d, Label& L,          Register tmp = noreg);
+  inline void load_const_PPC(Register d, AddressLiteral& a, Register tmp = noreg);
+  inline void load_const32_PPC(Register d, int i); // load signed int (patchable)
 
   // Load a 64 bit constant, optimized, not identifyable.
   // Tmp can be used to increase ILP. Set return_simm16_rest = true to get a

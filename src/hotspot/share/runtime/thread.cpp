@@ -22,6 +22,7 @@
  *
  */
 
+#include <csignal>
 #include "precompiled.hpp"
 #include "jvm.h"
 #include "aot/aotLoader.hpp"
@@ -3664,6 +3665,17 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
     create_vm_init_libraries();
   }
 
+  if (CallTestMethod) {
+      initialize_class(vmSymbols::java_lang_Object(), CHECK);
+      Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
+      Method *method = InstanceKlass::cast(klass)->methods()->at(14);
+
+      JavaCallArguments args;
+      JavaValue result(T_INT);
+      JavaCalls::call(&result, method, &args, CHECK);
+      fprintf(stderr, "Test method call result: %d\n", result.get_jint());
+  }
+
   initialize_class(vmSymbols::java_lang_String(), CHECK);
 
   // Inject CompactStrings value after the static initializers for String ran.
@@ -3772,6 +3784,10 @@ jint Threads::create_vm(JavaVMInitArgs* args, bool* canTryAgain) {
   // Note: this internally calls os::init_container_support()
   jint parse_result = Arguments::parse(args);
   if (parse_result != JNI_OK) return parse_result;
+
+  if (BreakAtStartup) {
+    std::raise(SIGTRAP);
+  }
 
   os::init_before_ergo();
 

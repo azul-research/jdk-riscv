@@ -56,9 +56,9 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_int() {
   Argument jni_arg(jni_offset());
   Register r = jni_arg.is_register() ? jni_arg.as_register() : R0;
 
-  __ lwa(r, locals_j_arg_at(offset())); // sign extension of integer
+  __ lwa_PPC(r, locals_j_arg_at(offset())); // sign extension of integer
   if (DEBUG_ONLY(true ||) !jni_arg.is_register()) {
-    __ std(r, sp_c_arg_at(jni_arg.number()));
+    __ std_PPC(r, sp_c_arg_at(jni_arg.number()));
   }
 }
 
@@ -66,9 +66,9 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_long() {
   Argument jni_arg(jni_offset());
   Register r = jni_arg.is_register() ? jni_arg.as_register() : R0;
 
-  __ ld(r, locals_j_arg_at(offset()+1)); // long resides in upper slot
+  __ ld_PPC(r, locals_j_arg_at(offset()+1)); // long resides in upper slot
   if (DEBUG_ONLY(true ||) !jni_arg.is_register()) {
-    __ std(r, sp_c_arg_at(jni_arg.number()));
+    __ std_PPC(r, sp_c_arg_at(jni_arg.number()));
   }
 }
 
@@ -77,9 +77,9 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
                          ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1->encoding())
                          : F0;
 
-  __ lfs(fp_reg, locals_j_arg_at(offset()));
+  __ lfs_PPC(fp_reg, locals_j_arg_at(offset()));
   if (DEBUG_ONLY(true ||) jni_offset() > 8) {
-    __ stfs(fp_reg, sp_c_arg_at(jni_offset()));
+    __ stfs_PPC(fp_reg, sp_c_arg_at(jni_offset()));
   }
 }
 
@@ -88,9 +88,9 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
                          ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1->encoding())
                          : F0;
 
-  __ lfd(fp_reg, locals_j_arg_at(offset()+1));
+  __ lfd_PPC(fp_reg, locals_j_arg_at(offset()+1));
   if (DEBUG_ONLY(true ||) jni_offset() > 8) {
-    __ stfd(fp_reg, sp_c_arg_at(jni_offset()));
+    __ stfd_PPC(fp_reg, sp_c_arg_at(jni_offset()));
   }
 }
 
@@ -103,30 +103,25 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_object() {
 
   Label do_null;
   if (do_NULL_check) {
-    __ ld(R0, locals_j_arg_at(offset()));
-    __ cmpdi(CCR0, R0, 0);
-    __ li(r, 0);
-    __ beq(CCR0, do_null);
+    __ ld_PPC(R0, locals_j_arg_at(offset()));
+    __ cmpdi_PPC(CCR0, R0, 0);
+    __ li_PPC(r, 0);
+    __ beq_PPC(CCR0, do_null);
   }
-  __ addir(r, locals_j_arg_at(offset()));
+  __ addir_PPC(r, locals_j_arg_at(offset()));
   __ bind(do_null);
   if (DEBUG_ONLY(true ||) !jni_arg.is_register()) {
-    __ std(r, sp_c_arg_at(jni_arg.number()));
+    __ std_PPC(r, sp_c_arg_at(jni_arg.number()));
   }
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprint) {
-#if !defined(ABI_ELFv2)
-  // Emit fd for current codebuffer. Needs patching!
-  __ emit_fd();
-#endif
-
   // Generate code to handle arguments.
   iterate(fingerprint);
 
   // Return the result handler.
-  __ load_const(R3_RET, AbstractInterpreter::result_handler(method()->result_type()));
-  __ blr();
+  __ load_const_PPC(R3_RET, AbstractInterpreter::result_handler(method()->result_type()));
+  __ blr_PPC();
 
   __ flush();
 }

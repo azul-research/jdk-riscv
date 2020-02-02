@@ -1143,7 +1143,7 @@ bool SafePointNode::needs_polling_address_input() {
 // Emit an interrupt that is caught by the debugger (for debugging compiler).
 void emit_break(CodeBuffer &cbuf) {
   MacroAssembler _masm(&cbuf);
-  __ illtrap();
+  __ illtrap_PPC();
 }
 
 #ifndef PRODUCT
@@ -1164,7 +1164,7 @@ uint MachBreakpointNode::size(PhaseRegAlloc *ra_) const {
 
 void emit_nop(CodeBuffer &cbuf) {
   MacroAssembler _masm(&cbuf);
-  __ nop();
+  __ nop_PPC();
 }
 
 static inline void emit_long(CodeBuffer &cbuf, int value) {
@@ -1273,7 +1273,7 @@ EmitCallOffsets emit_call_with_trampoline_stub(MacroAssembler &_masm, address en
   // Note: At this point we do not have the address of the trampoline
   // stub, and the entry point might be too far away for bl, so __ pc()
   // serves as dummy and the bl will be patched later.
-  __ bl((address) __ pc());
+  __ bl_PPC((address) __ pc());
 
   offsets.ret_addr_offset = __ offset() - start_offset;
 
@@ -1351,7 +1351,7 @@ void MachPrologNode::format(PhaseRegAlloc *ra_, outputStream *st) const {
 #endif
 
 // Macro used instead of the common __ to emulate the pipes of RISCV.
-// Instead of e.g. __ ld(...) one hase to write ___(ld) ld(...) This enables the
+// Instead of e.g. __ ld_PPC(...) one hase to write ___(ld) ld_PPC(...) This enables the
 // micro scheduler to cope with "hand written" assembler like in the prolog. Though
 // still no scheduling of this code is possible, the micro scheduler is aware of the
 // code and can update its internal data. The following mechanism is used to achieve this:
@@ -1394,10 +1394,10 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     // Add nop at beginning of all frameless methods to prevent any
     // oop instructions from getting overwritten by make_not_entrant
     // (patching attempt would fail).
-    ___(nop) nop();
+    ___(nop) nop_PPC();
   } else {
     // Get return pc.
-    ___(mflr) mflr(return_pc);
+    ___(mflr) mflr_PPC(return_pc);
   }
 
   if (C->clinit_barrier_on_entry()) {
@@ -1412,8 +1412,8 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     __ clinit_barrier(klass, R16_thread, &L_skip_barrier /*L_fast_path*/);
 
     __ load_const_optimized(klass, SharedRuntime::get_handle_wrong_method_stub(), R0);
-    __ mtctr(klass);
-    __ bctr();
+    __ mtctr_PPC(klass);
+    __ bctr_PPC();
 
     __ bind(L_skip_barrier);
   }
@@ -1457,9 +1457,9 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
       if (Assembler::is_simm(stdoffset, 16)) {
         // Signed 16 bit offset, a simple std is ok.
         if (UseLoadInstructionsForStackBangingRISCV64) {
-          ___(ld) ld(R0,  (int)(signed short)stdoffset, R1_SP);
+          ___(ld) ld_PPC(R0,  (int)(signed short)stdoffset, R1_SP);
         } else {
-          ___(std) std(R0, (int)(signed short)stdoffset, R1_SP);
+          ___(std) std_PPC(R0, (int)(signed short)stdoffset, R1_SP);
         }
       } else if (Assembler::is_simm(stdoffset, 31)) {
         // Use largeoffset calculations for addis & ld/std.
@@ -1467,11 +1467,11 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
         const int lo = MacroAssembler::largeoffset_si16_si16_lo(stdoffset);
 
         Register tmp = R11;
-        ___(addis) addis(tmp, R1_SP, hi);
+        ___(addis) addis_PPC(tmp, R1_SP, hi);
         if (UseLoadInstructionsForStackBangingRISCV64) {
-          ___(ld) ld(R0, lo, tmp);
+          ___(ld) ld_PPC(R0, lo, tmp);
         } else {
-          ___(std) std(R0, lo, tmp);
+          ___(std) std_PPC(R0, lo, tmp);
         }
       } else {
         ShouldNotReachHere();
@@ -1490,15 +1490,15 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
   if (UsePower6SchedulerRISCV64 &&
       !method_is_frameless && Assembler::is_simm((int)(-offset), 16) &&
       !(false /* ConstantsALot TODO: RISCV port*/)) {
-    ___(or) mr(callers_sp, R1_SP);
-    ___(std) std(return_pc, _abi(lr), R1_SP);
-    ___(stdu) stdu(R1_SP, -offset, R1_SP);
+    ___(or) mr_PPC(callers_sp, R1_SP);
+    ___(std) std_PPC(return_pc, _abi(lr), R1_SP);
+    ___(stdu) stdu_PPC(R1_SP, -offset, R1_SP);
     return;
   }
 
   if (!method_is_frameless) {
     // Get callers sp.
-    ___(or) mr(callers_sp, R1_SP);
+    ___(or) mr_PPC(callers_sp, R1_SP);
 
     // Push method's frame, modifies SP.
     assert(Assembler::is_uimm(framesize, 32U), "wrong type");
@@ -1507,17 +1507,17 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     Register tmp = push_frame_temp;
     // Had to insert code of push_frame((unsigned int)framesize, push_frame_temp).
     if (Assembler::is_simm(-offset, 16)) {
-      ___(stdu) stdu(R1_SP, -offset, R1_SP);
+      ___(stdu) stdu_PPC(R1_SP, -offset, R1_SP);
     } else {
       long x = -offset;
-      // Had to insert load_const(tmp, -offset).
-      ___(addis)  lis( tmp, (int)((signed short)(((x >> 32) & 0xffff0000) >> 16)));
-      ___(ori)    ori( tmp, tmp, ((x >> 32) & 0x0000ffff));
-      ___(rldicr) sldi(tmp, tmp, 32);
-      ___(oris)   oris(tmp, tmp, (x & 0xffff0000) >> 16);
-      ___(ori)    ori( tmp, tmp, (x & 0x0000ffff));
+      // Had to insert load_const_PPC(tmp, -offset).
+      ___(addis)  lis_PPC( tmp, (int)((signed short)(((x >> 32) & 0xffff0000) >> 16)));
+      ___(ori)    ori_PPC( tmp, tmp, ((x >> 32) & 0x0000ffff));
+      ___(rldicr) sldi_PPC(tmp, tmp, 32);
+      ___(oris)   oris_PPC(tmp, tmp, (x & 0xffff0000) >> 16);
+      ___(ori)    ori_PPC( tmp, tmp, (x & 0x0000ffff));
 
-      ___(stdux) stdux(R1_SP, R1_SP, tmp);
+      ___(stdux) stdux_PPC(R1_SP, R1_SP, tmp);
     }
   }
 #if 0 // TODO: RISCV port
@@ -1532,7 +1532,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 #endif
   if (!method_is_frameless) {
     // Save return pc.
-    ___(std) std(return_pc, _abi(lr), callers_sp);
+    ___(std) std_PPC(return_pc, _abi(lr), callers_sp);
   }
 
   C->set_frame_complete(cbuf.insts_size());
@@ -1548,7 +1548,7 @@ uint MachPrologNode::size(PhaseRegAlloc *ra_) const {
 
 int MachPrologNode::reloc() const {
   // Return number of relocatable values contained in this instruction.
-  return 1; // 1 reloc entry for load_const(toc).
+  return 1; // 1 reloc entry for load_const_PPC(toc).
 }
 
 //=============================================================================
@@ -1581,12 +1581,12 @@ void MachEpilogNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 
   if (!method_is_frameless) {
     // Restore return pc relative to callers' sp.
-    __ ld(return_pc, ((int)framesize) + _abi(lr), R1_SP);
+    __ ld_PPC(return_pc, ((int)framesize) + _abi(lr), R1_SP);
   }
 
   if (method_needs_polling) {
     if (SafepointMechanism::uses_thread_local_poll()) {
-      __ ld(polling_page, in_bytes(JavaThread::polling_page_offset()), R16_thread);
+      __ ld_PPC(polling_page, in_bytes(JavaThread::polling_page_offset()), R16_thread);
     } else {
       __ load_const_optimized(polling_page, (long)(address) os::get_polling_page());
     }
@@ -1594,9 +1594,9 @@ void MachEpilogNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 
   if (!method_is_frameless) {
     // Move return pc to LR.
-    __ mtlr(return_pc);
+    __ mtlr_PPC(return_pc);
     // Pop frame (fixed frame-size).
-    __ addi(R1_SP, R1_SP, (int)framesize);
+    __ addi_PPC(R1_SP, R1_SP, (int)framesize);
   }
 
   if (StackReservedPages > 0 && C->has_reserved_stack_access()) {
@@ -1637,9 +1637,9 @@ int MachEpilogNode::safepoint_offset() const {
 void MachLoadPollAddrLateNode::emit(CodeBuffer& cbuf, PhaseRegAlloc* ra_) const {
   MacroAssembler _masm(&cbuf);
   if (LoadPollAddressFromThread) {
-    _masm.ld(R11, in_bytes(JavaThread::poll_address_offset()), R16_thread);
+    _masm.ld_PPC(R11, in_bytes(JavaThread::poll_address_offset()), R16_thread);
   } else {
-    _masm.nop();
+    _masm.nop_PPC();
   }
 }
 
@@ -1753,10 +1753,10 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       int dst_offset = ra_->reg2offset(dst_lo);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ ld(R0, src_offset, R1_SP);
-        __ std(R0, dst_offset, R1_SP);
-        __ ld(R0, src_offset+8, R1_SP);
-        __ std(R0, dst_offset+8, R1_SP);
+        __ ld_PPC(R0, src_offset, R1_SP);
+        __ std_PPC(R0, dst_offset, R1_SP);
+        __ ld_PPC(R0, src_offset+8, R1_SP);
+        __ std_PPC(R0, dst_offset+8, R1_SP);
       }
       size += 16;
     }
@@ -1766,8 +1766,8 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       int dst_offset = ra_->reg2offset(dst_lo);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ addi(R0, R1_SP, dst_offset);
-        __ stxvd2x(Rsrc, R0);
+        __ addi_PPC(R0, R1_SP, dst_offset);
+        __ stxvd2x_PPC(Rsrc, R0);
       }
       size += 8;
     }
@@ -1777,8 +1777,8 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       int src_offset = ra_->reg2offset(src_lo);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ addi(R0, R1_SP, src_offset);
-        __ lxvd2x(Rdst, R0);
+        __ addi_PPC(R0, R1_SP, src_offset);
+        __ lxvd2x_PPC(Rdst, R0);
       }
       size += 8;
     }
@@ -1788,7 +1788,7 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       VectorSRegister Rdst = as_VectorSRegister(Matcher::_regEncode[dst_lo]);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ xxlor(Rdst, Rsrc, Rsrc);
+        __ xxlor_PPC(Rdst, Rsrc, Rsrc);
       }
       size += 4;
     }
@@ -1833,7 +1833,7 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       if (cbuf) {
         MacroAssembler _masm(cbuf);
         if (size) {
-          __ mr(Rdst, Rsrc);
+          __ mr_PPC(Rdst, Rsrc);
         }
       }
 #ifndef PRODUCT
@@ -1880,7 +1880,7 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       MacroAssembler _masm(cbuf);
       FloatRegister Rsrc = as_FloatRegister(Matcher::_regEncode[src_lo]);
       FloatRegister Rdst = as_FloatRegister(Matcher::_regEncode[dst_lo]);
-      __ fmr(Rdst, Rsrc);
+      __ fmr_PPC(Rdst, Rsrc);
     }
 #ifndef PRODUCT
     else if (!do_size) {
@@ -2050,7 +2050,7 @@ void MachNopNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *) const {
   MacroAssembler _masm(&cbuf);
   // _count contains the number of nops needed for padding.
   for (int i = 0; i < _count; i++) {
-    __ nop();
+    __ nop_PPC();
   }
 }
 
@@ -2074,7 +2074,7 @@ void BoxLockNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
   int reg    = ra_->get_encode(this);
 
   if (Assembler::is_simm(offset, 16)) {
-    __ addi(as_Register(reg), R1, offset);
+    __ addi_PPC(as_Register(reg), R1, offset);
   } else {
     ShouldNotReachHere();
   }
@@ -2109,8 +2109,8 @@ void MachUEPNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
       __ trap_null_check(R3_ARG1);
     } else {
       Label valid;
-      __ cmpdi(CCR0, R3_ARG1, 0);
-      __ bne_predict_taken(CCR0, valid);
+      __ cmpdi_PPC(CCR0, R3_ARG1, 0);
+      __ bne_predict_taken_PPC(CCR0, valid);
       // We have a null argument, branch to ic_miss_stub.
       __ b64_patchable((address)SharedRuntime::get_ic_miss_stub(),
                            relocInfo::runtime_call_type);
@@ -2124,8 +2124,8 @@ void MachUEPNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     __ trap_ic_miss_check(receiver_klass, ic_klass);
   } else {
     Label valid;
-    __ cmpd(CCR0, receiver_klass, ic_klass);
-    __ beq_predict_taken(CCR0, valid);
+    __ cmpd_PPC(CCR0, receiver_klass, ic_klass);
+    __ beq_predict_taken_PPC(CCR0, valid);
     // We have an unexpected klass, branch to ic_miss_stub.
     __ b64_patchable((address)SharedRuntime::get_ic_miss_stub(),
                          relocInfo::runtime_call_type);
@@ -2136,7 +2136,7 @@ void MachUEPNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 }
 
 #if 0 // TODO: RISCV port
-// Optimize UEP code on z (save a load_const() call in main path).
+// Optimize UEP code on z (save a load_const_PPC() call in main path).
 int MachUEPNode::ep_offset() {
   return 0;
 }
@@ -2649,7 +2649,7 @@ encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lbz);
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lbz($dst$$Register, Idisp, $mem$$base$$Register);
+    __ lbz_PPC($dst$$Register, Idisp, $mem$$base$$Register);
   %}
 
   // Load acquire.
@@ -2657,9 +2657,9 @@ encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lbz($dst$$Register, Idisp, $mem$$base$$Register);
-    __ twi_0($dst$$Register);
-    __ isync();
+    __ lbz_PPC($dst$$Register, Idisp, $mem$$base$$Register);
+    __ twi_0_PPC($dst$$Register);
+    __ isync_PPC();
   %}
 
   enc_class enc_lhz(iRegIdst dst, memory mem) %{
@@ -2667,7 +2667,7 @@ encode %{
 
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lhz($dst$$Register, Idisp, $mem$$base$$Register);
+    __ lhz_PPC($dst$$Register, Idisp, $mem$$base$$Register);
   %}
 
   // Load acquire.
@@ -2676,9 +2676,9 @@ encode %{
 
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lhz($dst$$Register, Idisp, $mem$$base$$Register);
-    __ twi_0($dst$$Register);
-    __ isync();
+    __ lhz_PPC($dst$$Register, Idisp, $mem$$base$$Register);
+    __ twi_0_PPC($dst$$Register);
+    __ isync_PPC();
   %}
 
   enc_class enc_lwz(iRegIdst dst, memory mem) %{
@@ -2686,7 +2686,7 @@ encode %{
 
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lwz($dst$$Register, Idisp, $mem$$base$$Register);
+    __ lwz_PPC($dst$$Register, Idisp, $mem$$base$$Register);
   %}
 
   // Load acquire.
@@ -2695,9 +2695,9 @@ encode %{
 
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lwz($dst$$Register, Idisp, $mem$$base$$Register);
-    __ twi_0($dst$$Register);
-    __ isync();
+    __ lwz_PPC($dst$$Register, Idisp, $mem$$base$$Register);
+    __ twi_0_PPC($dst$$Register);
+    __ isync_PPC();
   %}
 
   enc_class enc_ld(iRegLdst dst, memoryAlg4 mem) %{
@@ -2706,7 +2706,7 @@ encode %{
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
     // Operand 'ds' requires 4-alignment.
     assert((Idisp & 0x3) == 0, "unaligned offset");
-    __ ld($dst$$Register, Idisp, $mem$$base$$Register);
+    __ ld_PPC($dst$$Register, Idisp, $mem$$base$$Register);
   %}
 
   // Load acquire.
@@ -2716,16 +2716,16 @@ encode %{
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
     // Operand 'ds' requires 4-alignment.
     assert((Idisp & 0x3) == 0, "unaligned offset");
-    __ ld($dst$$Register, Idisp, $mem$$base$$Register);
-    __ twi_0($dst$$Register);
-    __ isync();
+    __ ld_PPC($dst$$Register, Idisp, $mem$$base$$Register);
+    __ twi_0_PPC($dst$$Register);
+    __ isync_PPC();
   %}
 
   enc_class enc_lfd(RegF dst, memory mem) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lfd);
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lfd($dst$$FloatRegister, Idisp, $mem$$base$$Register);
+    __ lfd_PPC($dst$$FloatRegister, Idisp, $mem$$base$$Register);
   %}
 
   enc_class enc_load_long_constL(iRegLdst dst, immL src, iRegLdst toc) %{
@@ -2749,7 +2749,7 @@ encode %{
     // Keep the current instruction offset in mind.
     ((loadConLNode*)this)->_cbuf_insts_offset = __ offset();
 
-    __ ld($dst$$Register, toc_offset, $toc$$Register);
+    __ ld_PPC($dst$$Register, toc_offset, $toc$$Register);
   %}
 
   enc_class enc_load_long_constL_hi(iRegLdst dst, iRegLdst toc, immL src) %{
@@ -2776,7 +2776,7 @@ encode %{
       ((loadConL_hiNode*)this)->_cbuf_insts_offset = __ offset();
     }
 
-    __ addis($dst$$Register, $toc$$Register, MacroAssembler::largeoffset_si16_si16_hi(_const_toc_offset));
+    __ addis_PPC($dst$$Register, $toc$$Register, MacroAssembler::largeoffset_si16_si16_hi(_const_toc_offset));
   %}
 
 %} // encode
@@ -3017,7 +3017,7 @@ encode %{
     // Get the constant's TOC offset.
     toc_offset = __ offset_to_method_toc(const_toc_addr);
 
-    __ ld($dst$$Register, toc_offset, $toc$$Register);
+    __ ld_PPC($dst$$Register, toc_offset, $toc$$Register);
   %}
 
   enc_class enc_load_long_constP_hi(iRegLdst dst, immP src, iRegLdst toc) %{
@@ -3052,7 +3052,7 @@ encode %{
       ((loadConP_hiNode*)this)->_const_toc_offset = toc_offset;
     }
 
-    __ addis($dst$$Register, $toc$$Register, MacroAssembler::largeoffset_si16_si16_hi(_const_toc_offset));
+    __ addis_PPC($dst$$Register, $toc$$Register, MacroAssembler::largeoffset_si16_si16_hi(_const_toc_offset));
   %}
 
   // Postalloc expand emitter for loading a ptr constant from the method's TOC.
@@ -3159,7 +3159,7 @@ encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_stw);
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ stw($src$$Register, Idisp, $mem$$base$$Register);
+    __ stw_PPC($src$$Register, Idisp, $mem$$base$$Register);
   %}
 
   enc_class enc_std(iRegIsrc src, memoryAlg4 mem) %{
@@ -3168,21 +3168,21 @@ encode %{
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
     // Operand 'ds' requires 4-alignment.
     assert((Idisp & 0x3) == 0, "unaligned offset");
-    __ std($src$$Register, Idisp, $mem$$base$$Register);
+    __ std_PPC($src$$Register, Idisp, $mem$$base$$Register);
   %}
 
   enc_class enc_stfs(RegF src, memory mem) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_stfs);
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ stfs($src$$FloatRegister, Idisp, $mem$$base$$Register);
+    __ stfs_PPC($src$$FloatRegister, Idisp, $mem$$base$$Register);
   %}
 
   enc_class enc_stfd(RegF src, memory mem) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_stfd);
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ stfd($src$$FloatRegister, Idisp, $mem$$base$$Register);
+    __ stfd_PPC($src$$FloatRegister, Idisp, $mem$$base$$Register);
   %}
 
   // Use release_store for card-marking to ensure that previous
@@ -3196,10 +3196,10 @@ encode %{
     // Proposed code sequence for the cmove implementation:
     //
     // Label skip_release;
-    // __ beq(CCRfixed, skip_release);
+    // __ beq_PPC(CCRfixed, skip_release);
     // __ release();
     // __ bind(skip_release);
-    // __ stb(card mark);
+    // __ stb_PPC(card mark);
 
     MacroAssembler _masm(&cbuf);
     Label skip_storestore;
@@ -3207,11 +3207,11 @@ encode %{
 #if 0 // TODO: RISCV port
     // Check CMSCollectorCardTableBarrierSetBSExt::_requires_release and do the
     // StoreStore barrier conditionally.
-    __ lwz(R0, 0, $releaseFieldAddr$$Register);
-    __ cmpwi($crx$$CondRegister, R0, 0);
-    __ beq_predict_taken($crx$$CondRegister, skip_storestore);
+    __ lwz_PPC(R0, 0, $releaseFieldAddr$$Register);
+    __ cmpwi_PPC($crx$$CondRegister, R0, 0);
+    __ beq_predict_taken_PPC($crx$$CondRegister, skip_storestore);
 #endif
-    __ li(R0, 0);
+    __ li_PPC(R0, 0);
     __ membar(Assembler::StoreStore);
 #if 0 // TODO: RISCV port
     __ bind(skip_storestore);
@@ -3219,10 +3219,10 @@ encode %{
 
     // Do the store.
     if ($mem$$index == 0) {
-      __ stb(R0, $mem$$disp, $mem$$base$$Register);
+      __ stb_PPC(R0, $mem$$disp, $mem$$base$$Register);
     } else {
       assert(0 == $mem$$disp, "no displacement possible with indexed load/stores on riscv");
-      __ stbx(R0, $mem$$base$$Register, $mem$$index$$Register);
+      __ stbx_PPC(R0, $mem$$base$$Register, $mem$$index$$Register);
     }
   %}
 
@@ -3428,8 +3428,8 @@ encode %{
     Label done;
     assert((Assembler::bcondCRbiIs1 & ~Assembler::bcondCRbiIs0) == 8, "check encoding");
     // Branch if not (cmp crx).
-    __ bc(cc_to_inverse_boint(cc), cc_to_biint(cc, flags_reg), done);
-    __ mr($dst$$Register, $src$$Register);
+    __ bc_PPC(cc_to_inverse_boint(cc), cc_to_biint(cc, flags_reg), done);
+    __ mr_PPC($dst$$Register, $src$$Register);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -3441,8 +3441,8 @@ encode %{
     Label done;
     assert((Assembler::bcondCRbiIs1 & ~Assembler::bcondCRbiIs0) == 8, "check encoding");
     // Branch if not (cmp crx).
-    __ bc(cc_to_inverse_boint($cmp$$cmpcode), cc_to_biint($cmp$$cmpcode, $crx$$reg), done);
-    __ li($dst$$Register, $src$$constant);
+    __ bc_PPC(cc_to_inverse_boint($cmp$$cmpcode), cc_to_biint($cmp$$cmpcode, $crx$$reg), done);
+    __ li_PPC($dst$$Register, $src$$constant);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -3452,7 +3452,7 @@ encode %{
   enc_class enc_andc(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andc);
     MacroAssembler _masm(&cbuf);
-    __ andc($dst$$Register, $src1$$Register, $src2$$Register);
+    __ andc_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
 
   enc_class enc_convI2B_regI__cmove(iRegIdst dst, iRegIsrc src, flagsReg crx, immI16 zero, immI16 notzero) %{
@@ -3461,10 +3461,10 @@ encode %{
     MacroAssembler _masm(&cbuf);
 
     Label done;
-    __ cmpwi($crx$$CondRegister, $src$$Register, 0);
-    __ li($dst$$Register, $zero$$constant);
-    __ beq($crx$$CondRegister, done);
-    __ li($dst$$Register, $notzero$$constant);
+    __ cmpwi_PPC($crx$$CondRegister, $src$$Register, 0);
+    __ li_PPC($dst$$Register, $zero$$constant);
+    __ beq_PPC($crx$$CondRegister, done);
+    __ li_PPC($dst$$Register, $notzero$$constant);
     __ bind(done);
   %}
 
@@ -3474,10 +3474,10 @@ encode %{
     MacroAssembler _masm(&cbuf);
 
     Label done;
-    __ cmpdi($crx$$CondRegister, $src$$Register, 0);
-    __ li($dst$$Register, $zero$$constant);
-    __ beq($crx$$CondRegister, done);
-    __ li($dst$$Register, $notzero$$constant);
+    __ cmpdi_PPC($crx$$CondRegister, $src$$Register, 0);
+    __ li_PPC($dst$$Register, $zero$$constant);
+    __ beq_PPC($crx$$CondRegister, done);
+    __ li_PPC($dst$$Register, $notzero$$constant);
     __ bind(done);
   %}
 
@@ -3487,8 +3487,8 @@ encode %{
     MacroAssembler _masm(&cbuf);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
     Label done;
-    __ bso($crx$$CondRegister, done);
-    __ ld($dst$$Register, Idisp, $mem$$base$$Register);
+    __ bso_PPC($crx$$CondRegister, done);
+    __ ld_PPC($dst$$Register, Idisp, $mem$$base$$Register);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -3498,8 +3498,8 @@ encode %{
 
     MacroAssembler _masm(&cbuf);
     Label done;
-    __ bso($crx$$CondRegister, done);
-    __ mffprd($dst$$Register, $src$$FloatRegister);
+    __ bso_PPC($crx$$CondRegister, done);
+    __ mffprd_PPC($dst$$Register, $src$$FloatRegister);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -3527,7 +3527,7 @@ encode %{
       }
     }
 
-    __ bc(Assembler::add_bhint_to_boint(bhint, cc_to_boint(cc)),
+    __ bc_PPC(Assembler::add_bhint_to_boint(bhint, cc_to_boint(cc)),
           cc_to_biint(cc, flags_reg),
           l);
   %}
@@ -3596,7 +3596,7 @@ encode %{
                     l,
                     MacroAssembler::bc_far_optimize_on_relocate);
     } else {
-      __ bc    (Assembler::add_bhint_to_boint(bhint, cc_to_boint(cc)),
+      __ bc_PPC    (Assembler::add_bhint_to_boint(bhint, cc_to_boint(cc)),
                     cc_to_biint(cc, flags_reg),
                     l);
     }
@@ -3745,7 +3745,7 @@ encode %{
       // stub, and the entry point might be too far away for bl, so __ pc()
       // serves as dummy and the bl will be patched later.
       cbuf.set_insts_mark();
-      __ bl(__ pc());  // Emits a relocation.
+      __ bl_PPC(__ pc());  // Emits a relocation.
 
       // The stub for call to interpreter.
       address stub = CompiledStaticCall::emit_to_interp_stub(cbuf);
@@ -3794,7 +3794,7 @@ encode %{
     // At this point I do not have the address of the trampoline stub,
     // and the entry point might be too far away for bl. Pc() serves
     // as dummy and bl will be patched later.
-    __ bl((address) __ pc());
+    __ bl_PPC((address) __ pc());
   %}
 
   // postalloc expand emitter for virtual calls.
@@ -3899,15 +3899,15 @@ encode %{
 
       int entry_offset = in_bytes(Klass::vtable_start_offset()) + _vtable_index * vtableEntry::size_in_bytes();
       int v_off = entry_offset + vtableEntry::method_offset_in_bytes();
-      __ li(R19_method, v_off);
-      __ ldx(R19_method/*method oop*/, R19_method/*method offset*/, R11_scratch1/*class*/);
+      __ li_PPC(R19_method, v_off);
+      __ ldx_PPC(R19_method/*method oop*/, R19_method/*method offset*/, R11_scratch1/*class*/);
       // NOTE: for vtable dispatches, the vtable entry will never be
       // null. However it may very well end up in handle_wrong_method
       // if the method is abstract for the particular class.
-      __ ld(R11_scratch1, in_bytes(Method::from_compiled_offset()), R19_method);
+      __ ld_PPC(R11_scratch1, in_bytes(Method::from_compiled_offset()), R19_method);
       // Call target. Either compiled code or C2I adapter.
-      __ mtctr(R11_scratch1);
-      __ bctrl();
+      __ mtctr_PPC(R11_scratch1);
+      __ bctrl_PPC();
       if (((MachCallDynamicJavaNode*)this)->ret_addr_offset() != __ offset() - start_offset) {
         tty->print(" %d, %d\n", ((MachCallDynamicJavaNode*)this)->ret_addr_offset(),__ offset() - start_offset);
       }
@@ -3956,7 +3956,7 @@ encode %{
   enc_class enc_leaf_call_mtctr(iRegLsrc src) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mtctr);
     MacroAssembler _masm(&cbuf);
-    __ mtctr($src$$Register);
+    __ mtctr_PPC($src$$Register);
   %}
 
   // Postalloc expand emitter for runtime leaf calls.
@@ -5467,7 +5467,7 @@ instruct convB2I_reg_2(iRegIdst dst, iRegIsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_extsb);
-    __ extsb($dst$$Register, $src$$Register);
+    __ extsb_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -5626,7 +5626,7 @@ instruct loadS(iRegIdst dst, memory mem) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lha);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lha($dst$$Register, Idisp, $mem$$base$$Register);
+    __ lha_PPC($dst$$Register, Idisp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -5643,9 +5643,9 @@ instruct loadS_ac(iRegIdst dst, memory mem) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lha($dst$$Register, Idisp, $mem$$base$$Register);
-    __ twi_0($dst$$Register);
-    __ isync();
+    __ lha_PPC($dst$$Register, Idisp, $mem$$base$$Register);
+    __ twi_0_PPC($dst$$Register);
+    __ isync_PPC();
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -5750,7 +5750,7 @@ instruct loadI2L(iRegLdst dst, memoryAlg4 mem) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lwa);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lwa($dst$$Register, Idisp, $mem$$base$$Register);
+    __ lwa_PPC($dst$$Register, Idisp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -5767,9 +5767,9 @@ instruct loadI2L_ac(iRegLdst dst, memoryAlg4 mem) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lwa);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lwa($dst$$Register, Idisp, $mem$$base$$Register);
-    __ twi_0($dst$$Register);
-    __ isync();
+    __ lwa_PPC($dst$$Register, Idisp, $mem$$base$$Register);
+    __ twi_0_PPC($dst$$Register);
+    __ isync_PPC();
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -5834,7 +5834,7 @@ instruct loadV16(vecX dst, indirect mem) %{
   format %{ "LXVD2X      $dst, $mem \t// load 16-byte Vector" %}
   size(4);
   ins_encode %{
-    __ lxvd2x($dst$$VectorSRegister, $mem$$Register);
+    __ lxvd2x_PPC($dst$$VectorSRegister, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -5969,7 +5969,7 @@ instruct loadF(regF dst, memory mem) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lfs);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ lfs($dst$$FloatRegister, Idisp, $mem$$base$$Register);
+    __ lfs_PPC($dst$$FloatRegister, Idisp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -5990,11 +5990,11 @@ instruct loadF_ac(regF dst, memory mem, flagsRegCR0 cr0) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
     Label next;
-    __ lfs($dst$$FloatRegister, Idisp, $mem$$base$$Register);
-    __ fcmpu(CCR0, $dst$$FloatRegister, $dst$$FloatRegister);
-    __ bne(CCR0, next);
+    __ lfs_PPC($dst$$FloatRegister, Idisp, $mem$$base$$Register);
+    __ fcmpu_PPC(CCR0, $dst$$FloatRegister, $dst$$FloatRegister);
+    __ bne_PPC(CCR0, next);
     __ bind(next);
-    __ isync();
+    __ isync_PPC();
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6027,11 +6027,11 @@ instruct loadD_ac(regD dst, memory mem, flagsRegCR0 cr0) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
     Label next;
-    __ lfd($dst$$FloatRegister, Idisp, $mem$$base$$Register);
-    __ fcmpu(CCR0, $dst$$FloatRegister, $dst$$FloatRegister);
-    __ bne(CCR0, next);
+    __ lfd_PPC($dst$$FloatRegister, Idisp, $mem$$base$$Register);
+    __ fcmpu_PPC(CCR0, $dst$$FloatRegister, $dst$$FloatRegister);
+    __ bne_PPC(CCR0, next);
     __ bind(next);
-    __ isync();
+    __ isync_PPC();
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6087,7 +6087,7 @@ instruct loadConI16(iRegIdst dst, immI16 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6102,7 +6102,7 @@ instruct loadConIhi16(iRegIdst dst, immIhi16 src) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
     // Lis sign extends 16-bit src then shifts it 16 bit to the left.
-    __ lis($dst$$Register, (int)((short)(($src$$constant & 0xFFFF0000) >> 16)));
+    __ lis_PPC($dst$$Register, (int)((short)(($src$$constant & 0xFFFF0000) >> 16)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6118,7 +6118,7 @@ instruct loadConI32_lo16(iRegIdst dst, iRegIsrc src1, immI16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ori);
-    __ ori($dst$$Register, $src1$$Register, ($src2$$constant) & 0xFFFF);
+    __ ori_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0xFFFF);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6146,7 +6146,7 @@ instruct loadConL16(iRegLdst dst, immL16 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short) ($src$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short) ($src$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6160,7 +6160,7 @@ instruct loadConL32hi16(iRegLdst dst, immL32hi16 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
-    __ lis($dst$$Register, (int)((short)(($src$$constant & 0xFFFF0000) >> 16)));
+    __ lis_PPC($dst$$Register, (int)((short)(($src$$constant & 0xFFFF0000) >> 16)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6176,7 +6176,7 @@ instruct loadConL32_lo16(iRegLdst dst, iRegLsrc src1, immL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ori);
-    __ ori($dst$$Register, $src1$$Register, ($src2$$constant) & 0xFFFF);
+    __ ori_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0xFFFF);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6257,7 +6257,7 @@ instruct loadConL_lo(iRegLdst dst, immL src, iRegLdst base) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ld);
     int offset = ra_->C->in_scratch_emit_size() ? 0 : _const_toc_offset_hi_node->_const_toc_offset;
-    __ ld($dst$$Register, MacroAssembler::largeoffset_si16_si16_lo(offset), $base$$Register);
+    __ ld_PPC($dst$$Register, MacroAssembler::largeoffset_si16_si16_lo(offset), $base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6283,7 +6283,7 @@ instruct loadConN0(iRegNdst dst, immN_0 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, 0);
+    __ li_PPC($dst$$Register, 0);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6297,7 +6297,7 @@ instruct loadConN_hi(iRegNdst dst, immN src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
-    __ lis($dst$$Register, (int)(short)(($src$$constant >> 16) & 0xffff));
+    __ lis_PPC($dst$$Register, (int)(short)(($src$$constant >> 16) & 0xffff));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6315,17 +6315,17 @@ instruct loadConN_lo(iRegNdst dst, iRegNsrc src1, immN src2) %{
     int oop_index = __ oop_recorder()->find_index((jobject)$src2$$constant);
     RelocationHolder rspec = oop_Relocation::spec(oop_index);
     __ relocate(rspec, 1);
-    __ ori($dst$$Register, $src1$$Register, $src2$$constant & 0xffff);
+    __ ori_PPC($dst$$Register, $src1$$Register, $src2$$constant & 0xffff);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct rldicl(iRegLdst dst, iRegLsrc src, immI16 shift, immI16 mask_begin) %{
+instruct rldicl_PPC(iRegLdst dst, iRegLsrc src, immI16 shift, immI16 mask_begin) %{
   effect(DEF dst, USE src, USE shift, USE mask_begin);
 
   size(4);
   ins_encode %{
-    __ rldicl($dst$$Register, $src$$Register, $shift$$constant, $mask_begin$$constant);
+    __ rldicl_PPC($dst$$Register, $src$$Register, $shift$$constant, $mask_begin$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6342,7 +6342,7 @@ instruct clearMs32b(iRegNdst dst, iRegNsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src$$Register, 0x20);
+    __ clrldi_PPC($dst$$Register, $src$$Register, 0x20);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6404,7 +6404,7 @@ instruct loadConNKlass_hi(iRegNdst dst, immNKlass_NM src) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
     intptr_t Csrc = CompressedKlassPointers::encode((Klass *)$src$$constant);
-    __ lis($dst$$Register, (int)(short)((Csrc >> 16) & 0xffff));
+    __ lis_PPC($dst$$Register, (int)(short)((Csrc >> 16) & 0xffff));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6419,7 +6419,7 @@ instruct loadConNKlass_mask(iRegNdst dst, immNKlass_NM src1, iRegNsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src2$$Register, 0x20);
+    __ clrldi_PPC($dst$$Register, $src2$$Register, 0x20);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6441,7 +6441,7 @@ instruct loadConNKlass_lo(iRegNdst dst, immNKlass_NM src1, iRegNsrc src2) %{
     RelocationHolder rspec = metadata_Relocation::spec(klass_index);
 
     __ relocate(rspec, 1);
-    __ ori($dst$$Register, $src2$$Register, Csrc & 0xffff);
+    __ ori_PPC($dst$$Register, $src2$$Register, Csrc & 0xffff);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6493,7 +6493,7 @@ instruct loadConP0or1(iRegPdst dst, immP_0or1 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6542,7 +6542,7 @@ instruct loadConP_lo(iRegPdst dst, immP_NM src, iRegLdst base) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ld);
     int offset = ra_->C->in_scratch_emit_size() ? 0 : _const_toc_offset_hi_node->_const_toc_offset;
-    __ ld($dst$$Register, MacroAssembler::largeoffset_si16_si16_lo(offset), $base$$Register);
+    __ ld_PPC($dst$$Register, MacroAssembler::largeoffset_si16_si16_lo(offset), $base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6583,7 +6583,7 @@ instruct loadConF(regF dst, immF src, iRegLdst toc) %{
       ciEnv::current()->record_out_of_memory_failure();
       return;
     }
-    __ lfs($dst$$FloatRegister, __ offset_to_method_toc(float_address), $toc$$Register);
+    __ lfs_PPC($dst$$FloatRegister, __ offset_to_method_toc(float_address), $toc$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6612,9 +6612,9 @@ instruct loadConFComp(regF dst, immF src, iRegLdst toc) %{
     int hi = (offset + (1<<15))>>16;
     int lo = offset - hi * (1<<16);
 
-    __ addis(Rtoc, Rtoc, hi);
-    __ lfs(Rdst, lo, Rtoc);
-    __ addis(Rtoc, Rtoc, -hi);
+    __ addis_PPC(Rtoc, Rtoc, hi);
+    __ lfs_PPC(Rdst, lo, Rtoc);
+    __ addis_PPC(Rtoc, Rtoc, -hi);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6648,7 +6648,7 @@ instruct loadConD(regD dst, immD src, iRegLdst toc) %{
       return;
     }
     int offset =  __ offset_to_method_toc(float_address);
-    __ lfd($dst$$FloatRegister, offset, $toc$$Register);
+    __ lfd_PPC($dst$$FloatRegister, offset, $toc$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6677,9 +6677,9 @@ instruct loadConDComp(regD dst, immD src, iRegLdst toc) %{
     int hi = (offset + (1<<15))>>16;
     int lo = offset - hi * (1<<16);
 
-    __ addis(Rtoc, Rtoc, hi);
-    __ lfd(Rdst, lo, Rtoc);
-    __ addis(Rtoc, Rtoc, -hi);
+    __ addis_PPC(Rtoc, Rtoc, hi);
+    __ lfd_PPC(Rdst, lo, Rtoc);
+    __ addis_PPC(Rtoc, Rtoc, -hi);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6709,7 +6709,7 @@ instruct prefetch_alloc_zero(indirectMemory mem, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_dcbtst);
-    __ dcbz($src$$Register, $mem$$base$$Register);
+    __ dcbz_PPC($src$$Register, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6723,7 +6723,7 @@ instruct prefetch_alloc_zero_no_offset(indirectMemory mem) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_dcbtst);
-    __ dcbz($mem$$base$$Register);
+    __ dcbz_PPC($mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6737,7 +6737,7 @@ instruct prefetch_alloc(indirectMemory mem, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_dcbtst);
-    __ dcbtst($src$$Register, $mem$$base$$Register);
+    __ dcbtst_PPC($src$$Register, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6751,7 +6751,7 @@ instruct prefetch_alloc_no_offset(indirectMemory mem) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_dcbtst);
-    __ dcbtst($mem$$base$$Register);
+    __ dcbtst_PPC($mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6768,7 +6768,7 @@ instruct storeB(memory mem, iRegIsrc src) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_stb);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ stb($src$$Register, Idisp, $mem$$base$$Register);
+    __ stb_PPC($src$$Register, Idisp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6783,7 +6783,7 @@ instruct storeC(memory mem, iRegIsrc src) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sth);
     int Idisp = $mem$$disp + frame_slots_bias($mem$$base, ra_);
-    __ sth($src$$Register, Idisp, $mem$$base$$Register);
+    __ sth_PPC($src$$Register, Idisp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6844,7 +6844,7 @@ instruct storeV16(indirect mem, vecX src) %{
   format %{ "STXVD2X     $mem, $src \t// store 16-byte Vector" %}
   size(4);
   ins_encode %{
-    __ stxvd2x($src$$VectorSRegister, $mem$$Register);
+    __ stxvd2x_PPC($src$$VectorSRegister, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -6955,10 +6955,10 @@ instruct storeCM_G1(memory mem, immI_0 zero) %{
   size(8);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ li(R0, 0);
+    __ li_PPC(R0, 0);
     //__ release(); // G1: oops are allowed to get visible after dirty marking
     guarantee($mem$$base$$Register != R1_SP, "use frame_slots_bias");
-    __ stb(R0, $mem$$disp, $mem$$base$$Register);
+    __ stb_PPC(R0, $mem$$disp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -6977,7 +6977,7 @@ instruct encodeP_shift(iRegNdst dst, iRegNsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ srdi($dst$$Register, $src$$Register, CompressedOops::shift() & 0x3f);
+    __ srdi_PPC($dst$$Register, $src$$Register, CompressedOops::shift() & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7008,7 +7008,7 @@ instruct cond_sub_base(iRegNdst dst, flagsRegSrc crx, iRegPsrc src1) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     Label done;
-    __ beq($crx$$CondRegister, done);
+    __ beq_PPC($crx$$CondRegister, done);
     __ sub_const_optimized($dst$$Register, $src1$$Register, CompressedOops::base(), R0);
     __ bind(done);
   %}
@@ -7026,7 +7026,7 @@ instruct cond_set_0_oop(iRegNdst dst, flagsRegSrc crx, iRegPsrc src1) %{
   ins_encode %{
     // This is a Power7 instruction for which no machine description exists.
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ isel_0($dst$$Register, $crx$$CondRegister, Assembler::equal, $src1$$Register);
+    __ isel_0_PPC($dst$$Register, $crx$$CondRegister, Assembler::equal, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7040,7 +7040,7 @@ instruct encodeP_Disjoint(iRegNdst dst, iRegPsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ rldicl($dst$$Register, $src$$Register, 64-CompressedOops::shift(), 32);
+    __ rldicl_PPC($dst$$Register, $src$$Register, 64-CompressedOops::shift(), 32);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7079,7 +7079,7 @@ instruct encodeP_not_null_base_null(iRegNdst dst, iRegPsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ srdi($dst$$Register, $src$$Register, CompressedOops::shift() & 0x3f);
+    __ srdi_PPC($dst$$Register, $src$$Register, CompressedOops::shift() & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7111,7 +7111,7 @@ instruct decodeN_shift(iRegPdst dst, iRegPsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ sldi($dst$$Register, $src$$Register, CompressedOops::shift());
+    __ sldi_PPC($dst$$Register, $src$$Register, CompressedOops::shift());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7145,7 +7145,7 @@ instruct cond_add_base(iRegPdst dst, flagsRegSrc crx, iRegPsrc src) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     Label done;
-    __ beq($crx$$CondRegister, done);
+    __ beq_PPC($crx$$CondRegister, done);
     __ add_const_optimized($dst$$Register, $src$$Register, CompressedOops::base(), R0);
     __ bind(done);
   %}
@@ -7165,7 +7165,7 @@ instruct cond_set_0_ptr(iRegPdst dst, flagsRegSrc crx, iRegPsrc src1) %{
   ins_encode %{
     // This is a Power7 instruction for which no machine description exists.
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ isel_0($dst$$Register, $crx$$CondRegister, Assembler::equal, $src1$$Register);
+    __ isel_0_PPC($dst$$Register, $crx$$CondRegister, Assembler::equal, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7194,7 +7194,7 @@ instruct decodeN_nullBase(iRegPdst dst, iRegNsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ sldi($dst$$Register, $src$$Register, CompressedOops::shift());
+    __ sldi_PPC($dst$$Register, $src$$Register, CompressedOops::shift());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7211,7 +7211,7 @@ instruct decodeN_mergeDisjoint(iRegPdst dst, iRegNsrc src, iRegLsrc base) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldimi);
-    __ rldimi($dst$$Register, $src$$Register, CompressedOops::shift(), 32-CompressedOops::shift());
+    __ rldimi_PPC($dst$$Register, $src$$Register, CompressedOops::shift(), 32-CompressedOops::shift());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7356,7 +7356,7 @@ instruct encodePKlass_shift(iRegNdst dst, iRegNsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ srdi($dst$$Register, $src$$Register, CompressedKlassPointers::shift());
+    __ srdi_PPC($dst$$Register, $src$$Register, CompressedKlassPointers::shift());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7371,7 +7371,7 @@ instruct encodePKlass_sub_base(iRegPdst dst, iRegLsrc base, iRegPdst src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_subf);
-    __ subf($dst$$Register, $base$$Register, $src$$Register);
+    __ subf_PPC($dst$$Register, $base$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7385,7 +7385,7 @@ instruct encodePKlass_Disjoint(iRegNdst dst, iRegPsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ rldicl($dst$$Register, $src$$Register, 64-CompressedKlassPointers::shift(), 32);
+    __ rldicl_PPC($dst$$Register, $src$$Register, 64-CompressedKlassPointers::shift(), 32);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7445,7 +7445,7 @@ instruct decodeNKlass_shift(iRegPdst dst, iRegPsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ sldi($dst$$Register, $src$$Register, CompressedKlassPointers::shift());
+    __ sldi_PPC($dst$$Register, $src$$Register, CompressedKlassPointers::shift());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7461,7 +7461,7 @@ instruct decodeNKlass_add_base(iRegPdst dst, iRegLsrc base, iRegPdst src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $base$$Register, $src$$Register);
+    __ add_PPC($dst$$Register, $base$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -7655,7 +7655,7 @@ instruct cmovI_reg_isel(cmpOp cmp, flagsRegSrc crx, iRegIdst dst, iRegIsrc src) 
     // exists. Anyways, the scheduler should be off on Power7.
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int cc        = $cmp$$cmpcode;
-    __ isel($dst$$Register, $crx$$CondRegister,
+    __ isel_PPC($dst$$Register, $crx$$CondRegister,
             (Assembler::Condition)(cc & 3), /*invert*/((~cc) & 8), $src$$Register);
   %}
   ins_pipe(pipe_class_default);
@@ -7701,7 +7701,7 @@ instruct cmovL_reg_isel(cmpOp cmp, flagsRegSrc crx, iRegLdst dst, iRegLsrc src) 
     // exists. Anyways, the scheduler should be off on Power7.
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int cc        = $cmp$$cmpcode;
-    __ isel($dst$$Register, $crx$$CondRegister,
+    __ isel_PPC($dst$$Register, $crx$$CondRegister,
             (Assembler::Condition)(cc & 3), /*invert*/((~cc) & 8), $src$$Register);
   %}
   ins_pipe(pipe_class_default);
@@ -7747,7 +7747,7 @@ instruct cmovN_reg_isel(cmpOp cmp, flagsRegSrc crx, iRegNdst dst, iRegNsrc src) 
     // exists. Anyways, the scheduler should be off on Power7.
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int cc        = $cmp$$cmpcode;
-    __ isel($dst$$Register, $crx$$CondRegister,
+    __ isel_PPC($dst$$Register, $crx$$CondRegister,
             (Assembler::Condition)(cc & 3), /*invert*/((~cc) & 8), $src$$Register);
   %}
   ins_pipe(pipe_class_default);
@@ -7794,7 +7794,7 @@ instruct cmovP_reg_isel(cmpOp cmp, flagsRegSrc crx, iRegPdst dst, iRegPsrc src) 
     // exists. Anyways, the scheduler should be off on Power7.
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     int cc        = $cmp$$cmpcode;
-    __ isel($dst$$Register, $crx$$CondRegister,
+    __ isel_PPC($dst$$Register, $crx$$CondRegister,
             (Assembler::Condition)(cc & 3), /*invert*/((~cc) & 8), $src$$Register);
   %}
   ins_pipe(pipe_class_default);
@@ -7841,8 +7841,8 @@ instruct cmovF_reg(cmpOp cmp, flagsRegSrc crx, regF dst, regF src) %{
     Label done;
     assert((Assembler::bcondCRbiIs1 & ~Assembler::bcondCRbiIs0) == 8, "check encoding");
     // Branch if not (cmp crx).
-    __ bc(cc_to_inverse_boint($cmp$$cmpcode), cc_to_biint($cmp$$cmpcode, $crx$$reg), done);
-    __ fmr($dst$$FloatRegister, $src$$FloatRegister);
+    __ bc_PPC(cc_to_inverse_boint($cmp$$cmpcode), cc_to_biint($cmp$$cmpcode, $crx$$reg), done);
+    __ fmr_PPC($dst$$FloatRegister, $src$$FloatRegister);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -7863,8 +7863,8 @@ instruct cmovD_reg(cmpOp cmp, flagsRegSrc crx, regD dst, regD src) %{
     Label done;
     assert((Assembler::bcondCRbiIs1 & ~Assembler::bcondCRbiIs0) == 8, "check encoding");
     // Branch if not (cmp crx).
-    __ bc(cc_to_inverse_boint($cmp$$cmpcode), cc_to_biint($cmp$$cmpcode, $crx$$reg), done);
-    __ fmr($dst$$FloatRegister, $src$$FloatRegister);
+    __ bc_PPC(cc_to_inverse_boint($cmp$$cmpcode), cc_to_biint($cmp$$cmpcode, $crx$$reg), done);
+    __ fmr_PPC($dst$$FloatRegister, $src$$FloatRegister);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -7908,7 +7908,7 @@ instruct storePConditional_regP_regP_regP(flagsRegCR0 cr0, indirect mem_ptr, iRe
   format %{ "STDCX_  if ($cr0 = ($oldVal == *$mem_ptr)) *mem_ptr = $newVal; as bool" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_stdcx_);
-    __ stdcx_($newVal$$Register, $mem_ptr$$Register);
+    __ stdcx__PPC($newVal$$Register, $mem_ptr$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -7924,7 +7924,7 @@ instruct loadPLocked(iRegPdst dst, memory mem) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ldarx);
-    __ ldarx($dst$$Register, $mem$$Register, MacroAssembler::cmpxchgx_hint_atomic_update());
+    __ ldarx_PPC($dst$$Register, $mem$$Register, MacroAssembler::cmpxchgx_hint_atomic_update());
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -7949,9 +7949,9 @@ instruct compareAndSwapB_regP_regI_regI(iRegIdst res, iRegPdst mem_ptr, iRegIsrc
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -7969,9 +7969,9 @@ instruct compareAndSwapB4_regP_regI_regI(iRegIdst res, rarg3RegP mem_ptr, iRegIs
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -7989,9 +7989,9 @@ instruct compareAndSwapS_regP_regI_regI(iRegIdst res, iRegPdst mem_ptr, iRegIsrc
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8009,9 +8009,9 @@ instruct compareAndSwapS4_regP_regI_regI(iRegIdst res, rarg3RegP mem_ptr, iRegIs
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8028,9 +8028,9 @@ instruct compareAndSwapI_regP_regI_regI(iRegIdst res, iRegPdst mem_ptr, iRegIsrc
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8047,9 +8047,9 @@ instruct compareAndSwapN_regP_regN_regN(iRegIdst res, iRegPdst mem_ptr, iRegNsrc
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8066,9 +8066,9 @@ instruct compareAndSwapL_regP_regL_regL(iRegIdst res, iRegPdst mem_ptr, iRegLsrc
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, NULL, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8085,9 +8085,9 @@ instruct compareAndSwapP_regP_regP_regP(iRegIdst res, iRegPdst mem_ptr, iRegPsrc
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 $res$$Register, NULL, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8388,10 +8388,10 @@ instruct compareAndExchangeB_acq_regP_regI_regI(iRegIdst res, iRegPdst mem_ptr, 
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8409,10 +8409,10 @@ instruct compareAndExchangeB4_acq_regP_regI_regI(iRegIdst res, rarg3RegP mem_ptr
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8460,10 +8460,10 @@ instruct compareAndExchangeS_acq_regP_regI_regI(iRegIdst res, iRegPdst mem_ptr, 
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8481,10 +8481,10 @@ instruct compareAndExchangeS4_acq_regP_regI_regI(iRegIdst res, rarg3RegP mem_ptr
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8517,10 +8517,10 @@ instruct compareAndExchangeI_acq_regP_regI_regI(iRegIdst res, iRegPdst mem_ptr, 
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8553,10 +8553,10 @@ instruct compareAndExchangeN_acq_regP_regN_regN(iRegNdst res, iRegPdst mem_ptr, 
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8589,10 +8589,10 @@ instruct compareAndExchangeL_acq_regP_regL_regL(iRegLdst res, iRegPdst mem_ptr, 
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, NULL, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8625,10 +8625,10 @@ instruct compareAndExchangeP_acq_regP_regP_regP(iRegPdst res, iRegPdst mem_ptr, 
                 MacroAssembler::MemBarNone, MacroAssembler::cmpxchgx_hint_atomic_update(),
                 noreg, NULL, true);
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
       // isync would be sufficient in case of CompareAndExchangeAcquire, but we currently don't optimize for that.
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8645,9 +8645,9 @@ instruct getAndAddB(iRegIdst res, iRegPdst mem_ptr, iRegIsrc src, flagsRegCR0 cr
     __ getandaddb($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, noreg, noreg, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8662,9 +8662,9 @@ instruct getAndAddB4(iRegIdst res, rarg3RegP mem_ptr, iRegIsrc src, iRegIsrc tmp
     __ getandaddb($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, $tmp1$$Register, $tmp2$$Register, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8679,9 +8679,9 @@ instruct getAndAddS(iRegIdst res, iRegPdst mem_ptr, iRegIsrc src, flagsRegCR0 cr
     __ getandaddh($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, noreg, noreg, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8696,9 +8696,9 @@ instruct getAndAddS4(iRegIdst res, rarg3RegP mem_ptr, iRegIsrc src, iRegIsrc tmp
     __ getandaddh($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, $tmp1$$Register, $tmp2$$Register, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8712,9 +8712,9 @@ instruct getAndAddI(iRegIdst res, iRegPdst mem_ptr, iRegIsrc src, flagsRegCR0 cr
     __ getandaddw($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8728,9 +8728,9 @@ instruct getAndAddL(iRegLdst res, iRegPdst mem_ptr, iRegLsrc src, flagsRegCR0 cr
     __ getandaddd($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8745,9 +8745,9 @@ instruct getAndSetB(iRegIdst res, iRegPdst mem_ptr, iRegIsrc src, flagsRegCR0 cr
     __ getandsetb($res$$Register, $src$$Register, $mem_ptr$$Register,
                   noreg, noreg, noreg, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8762,9 +8762,9 @@ instruct getAndSetB4(iRegIdst res, rarg3RegP mem_ptr, iRegIsrc src, iRegIsrc tmp
     __ getandsetb($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, $tmp1$$Register, $tmp2$$Register, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8779,9 +8779,9 @@ instruct getAndSetS(iRegIdst res, iRegPdst mem_ptr, iRegIsrc src, flagsRegCR0 cr
     __ getandseth($res$$Register, $src$$Register, $mem_ptr$$Register,
                   noreg, noreg, noreg, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8796,9 +8796,9 @@ instruct getAndSetS4(iRegIdst res, rarg3RegP mem_ptr, iRegIsrc src, iRegIsrc tmp
     __ getandseth($res$$Register, $src$$Register, $mem_ptr$$Register,
                   R0, $tmp1$$Register, $tmp2$$Register, MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8812,9 +8812,9 @@ instruct getAndSetI(iRegIdst res, iRegPdst mem_ptr, iRegIsrc src, flagsRegCR0 cr
     __ getandsetw($res$$Register, $src$$Register, $mem_ptr$$Register,
                   MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8828,9 +8828,9 @@ instruct getAndSetL(iRegLdst res, iRegPdst mem_ptr, iRegLsrc src, flagsRegCR0 cr
     __ getandsetd($res$$Register, $src$$Register, $mem_ptr$$Register,
                   MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8844,9 +8844,9 @@ instruct getAndSetP(iRegPdst res, iRegPdst mem_ptr, iRegPsrc src, flagsRegCR0 cr
     __ getandsetd($res$$Register, $src$$Register, $mem_ptr$$Register,
                   MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8860,9 +8860,9 @@ instruct getAndSetN(iRegNdst res, iRegPdst mem_ptr, iRegNsrc src, flagsRegCR0 cr
     __ getandsetw($res$$Register, $src$$Register, $mem_ptr$$Register,
                   MacroAssembler::cmpxchgx_hint_atomic_update());
     if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-      __ isync();
+      __ isync_PPC();
     } else {
-      __ sync();
+      __ sync_PPC();
     }
   %}
   ins_pipe(pipe_class_default);
@@ -8878,7 +8878,7 @@ instruct addI_reg_reg(iRegIdst dst, iRegIsrc_iRegL2Isrc src1, iRegIsrc_iRegL2Isr
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $src1$$Register, $src2$$Register);
+    __ add_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8891,7 +8891,7 @@ instruct addI_reg_reg_2(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $src1$$Register, $src2$$Register);
+    __ add_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8917,7 +8917,7 @@ instruct addI_reg_imm16(iRegIdst dst, iRegIsrc src1, immI16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ addi($dst$$Register, $src1$$Register, $src2$$constant);
+    __ addi_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8929,7 +8929,7 @@ instruct addI_reg_immhi16(iRegIdst dst, iRegIsrc src1, immIhi16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
-    __ addis($dst$$Register, $src1$$Register, ($src2$$constant)>>16);
+    __ addis_PPC($dst$$Register, $src1$$Register, ($src2$$constant)>>16);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8941,7 +8941,7 @@ instruct addL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $src1$$Register, $src2$$Register);
+    __ add_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8954,7 +8954,7 @@ instruct addL_reg_reg_2(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $src1$$Register, $src2$$Register);
+    __ add_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8981,7 +8981,7 @@ instruct addI_regL_regL(iRegIdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $src1$$Register, $src2$$Register);
+    __ add_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -8994,7 +8994,7 @@ instruct addL_reg_imm16(iRegLdst dst, iRegLsrc src1, immL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ addi($dst$$Register, $src1$$Register, $src2$$constant);
+    __ addi_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9008,7 +9008,7 @@ instruct addL_reg_immhi16(iRegLdst dst, iRegLsrc src1, immL32hi16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
-    __ addis($dst$$Register, $src1$$Register, ($src2$$constant)>>16);
+    __ addis_PPC($dst$$Register, $src1$$Register, ($src2$$constant)>>16);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9020,7 +9020,7 @@ instruct addP_reg_reg(iRegPdst dst, iRegP_N2P src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_add);
-    __ add($dst$$Register, $src1$$Register, $src2$$Register);
+    __ add_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9034,7 +9034,7 @@ instruct addP_reg_imm16(iRegPdst dst, iRegP_N2P src1, immL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ addi($dst$$Register, $src1$$Register, $src2$$constant);
+    __ addi_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9048,7 +9048,7 @@ instruct addP_reg_immhi16(iRegPdst dst, iRegP_N2P src1, immL32hi16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addis);
-    __ addis($dst$$Register, $src1$$Register, ($src2$$constant)>>16);
+    __ addis_PPC($dst$$Register, $src1$$Register, ($src2$$constant)>>16);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9063,7 +9063,7 @@ instruct subI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_subf);
-    __ subf($dst$$Register, $src2$$Register, $src1$$Register);
+    __ subf_PPC($dst$$Register, $src2$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9080,7 +9080,7 @@ instruct subI_imm16_reg(iRegIdst dst, immI16 src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_subfic);
-    __ subfic($dst$$Register, $src2$$Register, $src1$$constant);
+    __ subfic_PPC($dst$$Register, $src2$$Register, $src1$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9096,7 +9096,7 @@ instruct signmask32I_regI(iRegIdst dst, iRegIsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_srawi);
-    __ srawi($dst$$Register, $src$$Register, 0x1f);
+    __ srawi_PPC($dst$$Register, $src$$Register, 0x1f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9120,7 +9120,7 @@ instruct negI_regI(iRegIdst dst, immI_0 zero, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_neg);
-    __ neg($dst$$Register, $src2$$Register);
+    __ neg_PPC($dst$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9132,7 +9132,7 @@ instruct subL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_subf);
-    __ subf($dst$$Register, $src2$$Register, $src1$$Register);
+    __ subf_PPC($dst$$Register, $src2$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9145,7 +9145,7 @@ instruct subI_regL_regL(iRegIdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_subf);
-    __ subf($dst$$Register, $src2$$Register, $src1$$Register);
+    __ subf_PPC($dst$$Register, $src2$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9161,7 +9161,7 @@ instruct signmask64I_regL(iRegIdst dst, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sradi);
-    __ sradi($dst$$Register, $src$$Register, 0x3f);
+    __ sradi_PPC($dst$$Register, $src$$Register, 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9177,7 +9177,7 @@ instruct signmask64L_regL(iRegLdst dst, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sradi);
-    __ sradi($dst$$Register, $src$$Register, 0x3f);
+    __ sradi_PPC($dst$$Register, $src$$Register, 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9189,7 +9189,7 @@ instruct negL_reg_reg(iRegLdst dst, immL_0 zero, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_neg);
-    __ neg($dst$$Register, $src2$$Register);
+    __ neg_PPC($dst$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9202,7 +9202,7 @@ instruct negI_con0_regL(iRegIdst dst, immL_0 zero, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_neg);
-    __ neg($dst$$Register, $src2$$Register);
+    __ neg_PPC($dst$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9219,7 +9219,7 @@ instruct mulI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mullw);
-    __ mullw($dst$$Register, $src1$$Register, $src2$$Register);
+    __ mullw_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9233,7 +9233,7 @@ instruct mulI_reg_imm16(iRegIdst dst, iRegIsrc src1, immI16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mulli);
-    __ mulli($dst$$Register, $src1$$Register, $src2$$constant);
+    __ mulli_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9246,7 +9246,7 @@ instruct mulL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mulld);
-    __ mulld($dst$$Register, $src1$$Register, $src2$$Register);
+    __ mulld_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9260,7 +9260,7 @@ instruct mulHighL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mulhd);
-    __ mulhd($dst$$Register, $src1$$Register, $src2$$Register);
+    __ mulhd_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9274,7 +9274,7 @@ instruct mulL_reg_imm16(iRegLdst dst, iRegLsrc src1, immL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mulli);
-    __ mulli($dst$$Register, $src1$$Register, $src2$$constant);
+    __ mulli_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9288,7 +9288,7 @@ instruct divI_reg_immIvalueMinus1(iRegIdst dst, iRegIsrc src1, immI_minus1 src2)
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_neg);
-    __ neg($dst$$Register, $src1$$Register);
+    __ neg_PPC($dst$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9305,7 +9305,7 @@ instruct divI_reg_regnotMinus1(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_divw);
-    __ divw($dst$$Register, $src1$$Register, $src2$$Register);
+    __ divw_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9316,14 +9316,14 @@ instruct cmovI_bne_negI_reg(iRegIdst dst, flagsRegSrc crx, iRegIsrc src1) %{
 
   ins_variable_size_depending_on_alignment(true);
 
-  format %{ "CMOVE   $dst, neg($src1), $crx" %}
+  format %{ "CMOVE   $dst, neg_PPC($src1), $crx" %}
   // Worst case is branch + move + stop, no stop without scheduler.
   size((false /* TODO: RISCV PORT (InsertEndGroupRISCV64 && Compile::current()->do_hb_scheduling())*/ ? 12 : 8));
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmove);
     Label done;
-    __ bne($crx$$CondRegister, done);
-    __ neg($dst$$Register, $src1$$Register);
+    __ bne_PPC($crx$$CondRegister, done);
+    __ neg_PPC($dst$$Register, $src1$$Register);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -9340,7 +9340,7 @@ instruct divI_reg_reg_Ex(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
     flagsReg tmp1;
     cmpI_reg_imm16(tmp1, src2, imm);          // check src2 == -1
     divI_reg_regnotMinus1(dst, src1, src2);   // dst = src1 / src2
-    cmovI_bne_negI_reg(dst, tmp1, src1);      // cmove dst = neg(src1) if src2 == -1
+    cmovI_bne_negI_reg(dst, tmp1, src1);      // cmove dst = neg_PPC(src1) if src2 == -1
   %}
 %}
 
@@ -9353,7 +9353,7 @@ instruct divL_reg_immLvalueMinus1(iRegLdst dst, iRegLsrc src1, immL_minus1 src2)
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_neg);
-    __ neg($dst$$Register, $src1$$Register);
+    __ neg_PPC($dst$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9368,7 +9368,7 @@ instruct divL_reg_regnotMinus1(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_divd);
-    __ divd($dst$$Register, $src1$$Register, $src2$$Register);
+    __ divd_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9379,14 +9379,14 @@ instruct cmovL_bne_negL_reg(iRegLdst dst, flagsRegSrc crx, iRegLsrc src1) %{
 
   ins_variable_size_depending_on_alignment(true);
 
-  format %{ "CMOVE   $dst, neg($src1), $crx" %}
+  format %{ "CMOVE   $dst, neg_PPC($src1), $crx" %}
   // Worst case is branch + move + stop, no stop without scheduler.
   size((false /* TODO: RISCV PORT (InsertEndGroupRISCV64 && Compile::current()->do_hb_scheduling())*/ ? 12 : 8));
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmove);
     Label done;
-    __ bne($crx$$CondRegister, done);
-    __ neg($dst$$Register, $src1$$Register);
+    __ bne_PPC($crx$$CondRegister, done);
+    __ neg_PPC($dst$$Register, $src1$$Register);
     // TODO RISCV port __ endgroup_if_needed(_size == 12);
     __ bind(done);
   %}
@@ -9403,7 +9403,7 @@ instruct divL_reg_reg_Ex(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
     flagsReg tmp1;
     cmpL_reg_imm16(tmp1, src2, imm);          // check src2 == -1
     divL_reg_regnotMinus1(dst, src1, src2);   // dst = src1 / src2
-    cmovL_bne_negL_reg(dst, tmp1, src1);      // cmove dst = neg(src1) if src2 == -1
+    cmovL_bne_negL_reg(dst, tmp1, src1);      // cmove dst = neg_PPC(src1) if src2 == -1
   %}
 %}
 
@@ -9419,7 +9419,7 @@ instruct modI_reg_reg_Ex(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
     iRegIdst tmp3;
     cmpI_reg_imm16(tmp1, src2, imm);           // check src2 == -1
     divI_reg_regnotMinus1(tmp2, src1, src2);   // tmp2 = src1 / src2
-    cmovI_bne_negI_reg(tmp2, tmp1, src1);      // cmove tmp2 = neg(src1) if src2 == -1
+    cmovI_bne_negI_reg(tmp2, tmp1, src1);      // cmove tmp2 = neg_PPC(src1) if src2 == -1
     mulI_reg_reg(tmp3, src2, tmp2);            // tmp3 = src2 * tmp2
     subI_reg_reg(dst, src1, tmp3);             // dst = src1 - tmp3
   %}
@@ -9437,7 +9437,7 @@ instruct modL_reg_reg_Ex(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
     iRegLdst tmp3;
     cmpL_reg_imm16(tmp1, src2, imm);             // check src2 == -1
     divL_reg_regnotMinus1(tmp2, src1, src2);     // tmp2 = src1 / src2
-    cmovL_bne_negL_reg(tmp2, tmp1, src1);        // cmove tmp2 = neg(src1) if src2 == -1
+    cmovL_bne_negL_reg(tmp2, tmp1, src1);        // cmove tmp2 = neg_PPC(src1) if src2 == -1
     mulL_reg_reg(tmp3, src2, tmp2);              // tmp3 = src2 * tmp2
     subL_reg_reg(dst, src1, tmp3);               // dst = src1 - tmp3
   %}
@@ -9458,7 +9458,7 @@ instruct maskI_reg_imm(iRegIdst dst, iRegIsrc src, uimmI6 mask) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src$$Register, $mask$$constant);
+    __ clrldi_PPC($dst$$Register, $src$$Register, $mask$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9472,7 +9472,7 @@ instruct lShiftI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_slw);
-    __ slw($dst$$Register, $src1$$Register, $src2$$Register);
+    __ slw_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9496,7 +9496,7 @@ instruct lShiftI_reg_imm(iRegIdst dst, iRegIsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwinm);
-    __ slwi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x1f);
+    __ slwi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x1f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9514,9 +9514,9 @@ instruct lShiftI_andI_immInegpow2_imm5(iRegIdst dst, iRegIsrc src1, immInegpow2 
     long src3      = $src3$$constant;
     long maskbits  = src3 + log2_long((jlong) (julong) (juint) -src2);
     if (maskbits >= 32) {
-      __ li($dst$$Register, 0); // addi
+      __ li_PPC($dst$$Register, 0); // addi
     } else {
-      __ rlwinm($dst$$Register, $src1$$Register, src3 & 0x1f, 0, (31-maskbits) & 0x1f);
+      __ rlwinm_PPC($dst$$Register, $src1$$Register, src3 & 0x1f, 0, (31-maskbits) & 0x1f);
     }
   %}
   ins_pipe(pipe_class_default);
@@ -9535,9 +9535,9 @@ instruct lShiftI_andI_immInegpow2_rShiftI_imm5(iRegIdst dst, iRegIsrc src1, immI
     long src3      = $src3$$constant;
     long maskbits  = src3 + log2_long((jlong) (julong) (juint) -src2);
     if (maskbits >= 32) {
-      __ li($dst$$Register, 0); // addi
+      __ li_PPC($dst$$Register, 0); // addi
     } else {
-      __ rlwinm($dst$$Register, $src1$$Register, 0, 0, (31-maskbits) & 0x1f);
+      __ rlwinm_PPC($dst$$Register, $src1$$Register, 0, 0, (31-maskbits) & 0x1f);
     }
   %}
   ins_pipe(pipe_class_default);
@@ -9552,7 +9552,7 @@ instruct lShiftL_regL_regI(iRegLdst dst, iRegLsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sld);
-    __ sld($dst$$Register, $src1$$Register, $src2$$Register);
+    __ sld_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9576,7 +9576,7 @@ instruct lshiftL_regL_immI(iRegLdst dst, iRegLsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ sldi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ sldi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9590,7 +9590,7 @@ instruct lShiftL_regI_immGE32(iRegLdst dst, iRegIsrc src1, uimmI6_ge32 src2) %{
   format %{ "SLDI    $dst, i2l($src1), $src2" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ sldi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ sldi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9605,7 +9605,7 @@ instruct scaledPositiveI2L_lShiftL_convI2L_reg_imm6(iRegLdst dst, iRegIsrc src1,
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldic);
-    __ clrlsldi($dst$$Register, $src1$$Register, 0x20, $src2$$constant);
+    __ clrlsldi_PPC($dst$$Register, $src1$$Register, 0x20, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9619,7 +9619,7 @@ instruct arShiftI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sraw);
-    __ sraw($dst$$Register, $src1$$Register, $src2$$Register);
+    __ sraw_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9644,7 +9644,7 @@ instruct arShiftI_reg_imm(iRegIdst dst, iRegIsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_srawi);
-    __ srawi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x1f);
+    __ srawi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x1f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9658,7 +9658,7 @@ instruct arShiftL_regL_regI(iRegLdst dst, iRegLsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_srad);
-    __ srad($dst$$Register, $src1$$Register, $src2$$Register);
+    __ srad_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9684,7 +9684,7 @@ instruct arShiftL_regL_immI(iRegLdst dst, iRegLsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sradi);
-    __ sradi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ sradi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9697,7 +9697,7 @@ instruct convL2I_arShiftL_regL_immI(iRegIdst dst, iRegLsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_sradi);
-    __ sradi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ sradi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9711,7 +9711,7 @@ instruct urShiftI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_srw);
-    __ srw($dst$$Register, $src1$$Register, $src2$$Register);
+    __ srw_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9737,7 +9737,7 @@ instruct urShiftI_reg_imm(iRegIdst dst, iRegIsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwinm);
-    __ srwi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x1f);
+    __ srwi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x1f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9751,7 +9751,7 @@ instruct urShiftL_regL_regI(iRegLdst dst, iRegLsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_srd);
-    __ srd($dst$$Register, $src1$$Register, $src2$$Register);
+    __ srd_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9777,7 +9777,7 @@ instruct urShiftL_regL_immI(iRegLdst dst, iRegLsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ srdi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ srdi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9790,7 +9790,7 @@ instruct convL2I_urShiftL_regL_immI(iRegIdst dst, iRegLsrc src1, immI src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ srdi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ srdi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9803,7 +9803,7 @@ instruct shrP_convP2X_reg_imm6(iRegLdst dst, iRegP_N2P src1, uimmI6 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ srdi($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
+    __ srdi_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0x3f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9822,7 +9822,7 @@ instruct andI_urShiftI_regI_immI_immIpow2minus1(iRegIdst dst, iRegIsrc src1, imm
       // if necessary, adjust mask to omit rotated bits.
       length = 32 - rshift;
     }
-    __ extrdi($dst$$Register, $src1$$Register, length, 64 - (rshift + length));
+    __ extrdi_PPC($dst$$Register, $src1$$Register, length, 64 - (rshift + length));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9841,7 +9841,7 @@ instruct andL_urShiftL_regL_immI_immLpow2minus1(iRegLdst dst, iRegLsrc src1, imm
       // if necessary, adjust mask to omit rotated bits.
       length = 64 - rshift;
     }
-    __ extrdi($dst$$Register, $src1$$Register, length, 64 - (rshift + length));
+    __ extrdi_PPC($dst$$Register, $src1$$Register, length, 64 - (rshift + length));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9853,7 +9853,7 @@ instruct sxtI_reg(iRegIdst dst, iRegIsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_extsw);
-    __ extsw($dst$$Register, $src$$Register);
+    __ extsw_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9869,7 +9869,7 @@ instruct rotlI_reg_immi8(iRegIdst dst, iRegIsrc src, immI8 lshift, immI8 rshift)
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwinm);
-    __ rotlwi($dst$$Register, $src$$Register, $lshift$$constant);
+    __ rotlwi_PPC($dst$$Register, $src$$Register, $lshift$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9883,7 +9883,7 @@ instruct rotrI_reg_immi8(iRegIdst dst, iRegIsrc src, immI8 rshift, immI8 lshift)
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwinm);
-    __ rotrwi($dst$$Register, $src$$Register, $rshift$$constant);
+    __ rotrwi_PPC($dst$$Register, $src$$Register, $rshift$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9898,7 +9898,7 @@ instruct addF_reg_reg(regF dst, regF src1, regF src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fadds);
-    __ fadds($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fadds_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9911,7 +9911,7 @@ instruct addD_reg_reg(regD dst, regD src1, regD src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fadd);
-    __ fadd($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fadd_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9924,7 +9924,7 @@ instruct subF_reg_reg(regF dst, regF src1, regF src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fsubs);
-    __ fsubs($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fsubs_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9936,7 +9936,7 @@ instruct subD_reg_reg(regD dst, regD src1, regD src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fsub);
-    __ fsub($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fsub_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9948,7 +9948,7 @@ instruct mulF_reg_reg(regF dst, regF src1, regF src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmuls);
-    __ fmuls($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fmuls_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9960,7 +9960,7 @@ instruct mulD_reg_reg(regD dst, regD src1, regD src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmul);
-    __ fmul($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fmul_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9972,7 +9972,7 @@ instruct divF_reg_reg(regF dst, regF src1, regF src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fdivs);
-    __ fdivs($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fdivs_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9984,7 +9984,7 @@ instruct divD_reg_reg(regD dst, regD src1, regD src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fdiv);
-    __ fdiv($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fdiv_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -9996,7 +9996,7 @@ instruct absF_reg(regF dst, regF src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fabs);
-    __ fabs($dst$$FloatRegister, $src$$FloatRegister);
+    __ fabs_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10008,7 +10008,7 @@ instruct absD_reg(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fabs);
-    __ fabs($dst$$FloatRegister, $src$$FloatRegister);
+    __ fabs_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10019,7 +10019,7 @@ instruct negF_reg(regF dst, regF src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fneg);
-    __ fneg($dst$$FloatRegister, $src$$FloatRegister);
+    __ fneg_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10030,7 +10030,7 @@ instruct negD_reg(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fneg);
-    __ fneg($dst$$FloatRegister, $src$$FloatRegister);
+    __ fneg_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10042,7 +10042,7 @@ instruct negF_absF_reg(regF dst, regF src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fnabs);
-    __ fnabs($dst$$FloatRegister, $src$$FloatRegister);
+    __ fnabs_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10054,7 +10054,7 @@ instruct negD_absD_reg(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fnabs);
-    __ fnabs($dst$$FloatRegister, $src$$FloatRegister);
+    __ fnabs_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10067,7 +10067,7 @@ instruct sqrtD_reg(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fsqrt);
-    __ fsqrt($dst$$FloatRegister, $src$$FloatRegister);
+    __ fsqrt_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10082,7 +10082,7 @@ instruct sqrtF_reg(regF dst, regF src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fsqrts);
-    __ fsqrts($dst$$FloatRegister, $src$$FloatRegister);
+    __ fsqrts_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10119,7 +10119,7 @@ instruct maddF_reg_reg(regF dst, regF src1, regF src2, regF src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmadds);
-    __ fmadds($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fmadds_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10132,7 +10132,7 @@ instruct maddD_reg_reg(regD dst, regD src1, regD src2, regD src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmadd);
-    __ fmadd($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fmadd_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10146,7 +10146,7 @@ instruct mnsubF_reg_reg(regF dst, regF src1, regF src2, regF src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fnmsubs);
-    __ fnmsubs($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fnmsubs_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10160,7 +10160,7 @@ instruct mnsubD_reg_reg(regD dst, regD src1, regD src2, regD src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fnmsub);
-    __ fnmsub($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fnmsub_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10174,7 +10174,7 @@ instruct mnaddF_reg_reg(regF dst, regF src1, regF src2, regF src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fnmadds);
-    __ fnmadds($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fnmadds_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10188,7 +10188,7 @@ instruct mnaddD_reg_reg(regD dst, regD src1, regD src2, regD src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fnmadd);
-    __ fnmadd($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fnmadd_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10201,7 +10201,7 @@ instruct msubF_reg_reg(regF dst, regF src1, regF src2, regF src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmsubs);
-    __ fmsubs($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fmsubs_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10214,7 +10214,7 @@ instruct msubD_reg_reg(regD dst, regD src1, regD src2, regD src3) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmsub);
-    __ fmsub($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
+    __ fmsub_PPC($dst$$FloatRegister, $src1$$FloatRegister, $src2$$FloatRegister, $src3$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10231,7 +10231,7 @@ instruct andI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_and);
-    __ andr($dst$$Register, $src1$$Register, $src2$$Register);
+    __ andr_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10244,7 +10244,7 @@ instruct andI_reg_immIhi16(iRegIdst dst, iRegIsrc src1, immIhi16  src2, flagsReg
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andis_);
-    __ andis_($dst$$Register, $src1$$Register, (int)((unsigned short)(($src2$$constant & 0xFFFF0000) >> 16)));
+    __ andis__PPC($dst$$Register, $src1$$Register, (int)((unsigned short)(($src2$$constant & 0xFFFF0000) >> 16)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10259,7 +10259,7 @@ instruct andI_reg_uimm16(iRegIdst dst, iRegIsrc src1, uimmI16 src2, flagsRegCR0 
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andi_);
     // FIXME: avoid andi_ ?
-    __ andi_($dst$$Register, $src1$$Register, $src2$$constant);
+    __ andi__PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10271,7 +10271,7 @@ instruct andI_reg_immInegpow2(iRegIdst dst, iRegIsrc src1, immInegpow2 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ clrrdi($dst$$Register, $src1$$Register, log2_long((jlong)(julong)(juint)-($src2$$constant)));
+    __ clrrdi_PPC($dst$$Register, $src1$$Register, log2_long((jlong)(julong)(juint)-($src2$$constant)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10282,7 +10282,7 @@ instruct andI_reg_immIpow2minus1(iRegIdst dst, iRegIsrc src1, immIpow2minus1 src
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src1$$Register, 64-log2_long((((jlong) $src2$$constant)+1)));
+    __ clrldi_PPC($dst$$Register, $src1$$Register, 64-log2_long((((jlong) $src2$$constant)+1)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10294,7 +10294,7 @@ instruct andI_reg_immIpowerOf2(iRegIdst dst, iRegIsrc src1, immIpowerOf2 src2) %
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwinm);
-    __ rlwinm($dst$$Register, $src1$$Register, 0,
+    __ rlwinm_PPC($dst$$Register, $src1$$Register, 0,
               (31-log2_long((jlong) $src2$$constant)) & 0x1f, (31-log2_long((jlong) $src2$$constant)) & 0x1f);
   %}
   ins_pipe(pipe_class_default);
@@ -10309,7 +10309,7 @@ instruct andL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_and);
-    __ andr($dst$$Register, $src1$$Register, $src2$$Register);
+    __ andr_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10324,7 +10324,7 @@ instruct andL_reg_uimm16(iRegLdst dst, iRegLsrc src1, uimmL16 src2, flagsRegCR0 
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andi_);
     // FIXME: avoid andi_ ?
-    __ andi_($dst$$Register, $src1$$Register, $src2$$constant);
+    __ andi__PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10336,7 +10336,7 @@ instruct andL_reg_immLnegpow2(iRegLdst dst, iRegLsrc src1, immLnegpow2 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ clrrdi($dst$$Register, $src1$$Register, log2_long((jlong)-$src2$$constant));
+    __ clrrdi_PPC($dst$$Register, $src1$$Register, log2_long((jlong)-$src2$$constant));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10347,7 +10347,7 @@ instruct andL_reg_immLpow2minus1(iRegLdst dst, iRegLsrc src1, immLpow2minus1 src
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src1$$Register, 64-log2_long((((jlong) $src2$$constant)+1)));
+    __ clrldi_PPC($dst$$Register, $src1$$Register, 64-log2_long((((jlong) $src2$$constant)+1)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10361,7 +10361,7 @@ instruct convL2I_andL_reg_immLpow2minus1(iRegIdst dst, iRegLsrc src1, immLpow2mi
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src1$$Register, 64-log2_long((((jlong) $src2$$constant)+1)));
+    __ clrldi_PPC($dst$$Register, $src1$$Register, 64-log2_long((((jlong) $src2$$constant)+1)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10375,7 +10375,7 @@ instruct orI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_or);
-    __ or_unchecked($dst$$Register, $src1$$Register, $src2$$Register);
+    __ or_unchecked_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10388,7 +10388,7 @@ instruct orI_reg_reg_2(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_or);
-    __ or_unchecked($dst$$Register, $src1$$Register, $src2$$Register);
+    __ or_unchecked_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10414,7 +10414,7 @@ instruct orI_reg_uimm16(iRegIdst dst, iRegIsrc src1, uimmI16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ori);
-    __ ori($dst$$Register, $src1$$Register, ($src2$$constant) & 0xFFFF);
+    __ ori_PPC($dst$$Register, $src1$$Register, ($src2$$constant) & 0xFFFF);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10428,7 +10428,7 @@ instruct orL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   format %{ "OR      $dst, $src1, $src2 \t// long" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_or);
-    __ or_unchecked($dst$$Register, $src1$$Register, $src2$$Register);
+    __ or_unchecked_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10442,7 +10442,7 @@ instruct orI_regL_regL(iRegIdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_or);
-    __ or_unchecked($dst$$Register, $src1$$Register, $src2$$Register);
+    __ or_unchecked_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10456,7 +10456,7 @@ instruct orL_reg_uimm16(iRegLdst dst, iRegLsrc src1, uimmL16 con) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_ori);
-    __ ori($dst$$Register, $src1$$Register, ($con$$constant) & 0xFFFF);
+    __ ori_PPC($dst$$Register, $src1$$Register, ($con$$constant) & 0xFFFF);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10470,7 +10470,7 @@ instruct xorI_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_xor);
-    __ xorr($dst$$Register, $src1$$Register, $src2$$Register);
+    __ xorr_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10483,7 +10483,7 @@ instruct xorI_reg_reg_2(iRegIdst dst, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_xor);
-    __ xorr($dst$$Register, $src1$$Register, $src2$$Register);
+    __ xorr_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10509,7 +10509,7 @@ instruct xorI_reg_uimm16(iRegIdst dst, iRegIsrc src1, uimmI16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_xori);
-    __ xori($dst$$Register, $src1$$Register, $src2$$constant);
+    __ xori_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10523,7 +10523,7 @@ instruct xorL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_xor);
-    __ xorr($dst$$Register, $src1$$Register, $src2$$Register);
+    __ xorr_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10537,7 +10537,7 @@ instruct xorI_regL_regL(iRegIdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_xor);
-    __ xorr($dst$$Register, $src1$$Register, $src2$$Register);
+    __ xorr_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10551,7 +10551,7 @@ instruct xorL_reg_uimm16(iRegLdst dst, iRegLsrc src1, uimmL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_xori);
-    __ xori($dst$$Register, $src1$$Register, $src2$$constant);
+    __ xori_PPC($dst$$Register, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10564,7 +10564,7 @@ instruct notI_reg(iRegIdst dst, iRegIsrc src1, immI_minus1 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_nor);
-    __ nor($dst$$Register, $src1$$Register, $src1$$Register);
+    __ nor_PPC($dst$$Register, $src1$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10577,7 +10577,7 @@ instruct notL_reg(iRegLdst dst, iRegLsrc src1, immL_minus1 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_nor);
-    __ nor($dst$$Register, $src1$$Register, $src1$$Register);
+    __ nor_PPC($dst$$Register, $src1$$Register, $src1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10587,7 +10587,7 @@ instruct andcI_reg_reg(iRegIdst dst, iRegIsrc src1, immI_minus1 src2, iRegIsrc s
   match(Set dst (AndI (XorI src1 src2) src3));
   ins_cost(DEFAULT_COST);
 
-  format %{ "ANDW    $dst, xori($src1, $src2), $src3" %}
+  format %{ "ANDW    $dst, xori_PPC($src1, $src2), $src3" %}
   size(4);
   ins_encode( enc_andc(dst, src3, src1) );
   ins_pipe(pipe_class_default);
@@ -10603,7 +10603,7 @@ instruct andcL_reg_reg(iRegLdst dst, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andc);
-    __ andc($dst$$Register, $src1$$Register, $src2$$Register);
+    __ andc_PPC($dst$$Register, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10631,7 +10631,7 @@ instruct moveL2D_reg(regD dst, iRegLsrc src) %{
   format %{ "MTFPRD  $dst, $src" %}
   size(4);
   ins_encode %{
-    __ mtfprd($dst$$FloatRegister, $src$$Register);
+    __ mtfprd_PPC($dst$$FloatRegister, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10644,7 +10644,7 @@ instruct moveI2D_reg(regD dst, iRegIsrc src) %{
   format %{ "MTFPRWA $dst, $src" %}
   size(4);
   ins_encode %{
-    __ mtfprwa($dst$$FloatRegister, $src$$Register);
+    __ mtfprwa_PPC($dst$$FloatRegister, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -10731,7 +10731,7 @@ instruct moveI2F_stack_reg(regF dst, stackSlotI src) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_lfs);
     int Idisp = $src$$disp + frame_slots_bias($src$$base, ra_);
-    __ lfs($dst$$FloatRegister, Idisp, $src$$base$$Register);
+    __ lfs_PPC($dst$$FloatRegister, Idisp, $src$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
 %}
@@ -10961,7 +10961,7 @@ instruct convI2Bool_andI_reg_immIpowerOf2(iRegIdst dst, iRegIsrc src, immIpowerO
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwinm);
-    __ rlwinm($dst$$Register, $src$$Register, (32-log2_long((jlong)$mask$$constant)) & 0x1f, 31, 31);
+    __ rlwinm_PPC($dst$$Register, $src$$Register, (32-log2_long((jlong)$mask$$constant)) & 0x1f, 31, 31);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11063,7 +11063,7 @@ instruct cmpLTMask_reg_immI0(iRegIdst dst, iRegIsrc src1, immI_0 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_srawi);
-    __ srawi($dst$$Register, $src1$$Register, 0x1f);
+    __ srawi_PPC($dst$$Register, $src1$$Register, 0x1f);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11081,17 +11081,17 @@ instruct convB2I_reg(iRegIdst dst, iRegIsrc src, immI_24 amount) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_extsb);
-    __ extsb($dst$$Register, $src$$Register);
+    __ extsb_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct extsh(iRegIdst dst, iRegIsrc src) %{
+instruct extsh_PPC(iRegIdst dst, iRegIsrc src) %{
   effect(DEF dst, USE src);
 
   size(4);
   ins_encode %{
-    __ extsh($dst$$Register, $src$$Register);
+    __ extsh_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11103,7 +11103,7 @@ instruct convS2I_reg(iRegIdst dst, iRegIsrc src, immI_16 amount) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_extsh);
-    __ extsh($dst$$Register, $src$$Register);
+    __ extsh_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11116,7 +11116,7 @@ instruct sxtI_L2L_reg(iRegLdst dst, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_extsw);
-    __ extsw($dst$$Register, $src$$Register);
+    __ extsw_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11141,7 +11141,7 @@ instruct convD2IRaw_regD(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fctiwz);;
-    __ fctiwz($dst$$FloatRegister, $src$$FloatRegister);
+    __ fctiwz_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11323,7 +11323,7 @@ instruct convF2IRaw_regF(regF dst, regF src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fctiwz);
-    __ fctiwz($dst$$FloatRegister, $src$$FloatRegister);
+    __ fctiwz_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11368,7 +11368,7 @@ instruct convI2L_reg(iRegLdst dst, iRegIsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_extsw);
-    __ extsw($dst$$Register, $src$$Register);
+    __ extsw_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11382,7 +11382,7 @@ instruct zeroExtendL_regI(iRegLdst dst, iRegIsrc src, immL_32bits mask) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src$$Register, 32);
+    __ clrldi_PPC($dst$$Register, $src$$Register, 32);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11396,7 +11396,7 @@ instruct zeroExtendL_regL(iRegLdst dst, iRegLsrc src, immL_32bits mask) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicl);
-    __ clrldi($dst$$Register, $src$$Register, 32);
+    __ clrldi_PPC($dst$$Register, $src$$Register, 32);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11410,7 +11410,7 @@ instruct convF2LRaw_regF(regF dst, regF src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fctiwz);
-    __ fctidz($dst$$FloatRegister, $src$$FloatRegister);
+    __ fctidz_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11586,7 +11586,7 @@ instruct convD2LRaw_regD(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fctiwz);
-    __ fctidz($dst$$FloatRegister, $src$$FloatRegister);
+    __ fctidz_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11635,7 +11635,7 @@ instruct convL2DRaw_regD(regD dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fcfid);
-    __ fcfid($dst$$FloatRegister, $src$$FloatRegister);
+    __ fcfid_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11647,7 +11647,7 @@ instruct convD2F_reg(regF dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_frsp);
-    __ frsp($dst$$FloatRegister, $src$$FloatRegister);
+    __ frsp_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11680,7 +11680,7 @@ instruct convL2FRaw_regF(regF dst, regD src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fcfid);
-    __ fcfids($dst$$FloatRegister, $src$$FloatRegister);
+    __ fcfids_PPC($dst$$FloatRegister, $src$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -11824,7 +11824,7 @@ instruct cmpI_reg_reg(flagsReg crx, iRegIsrc src1, iRegIsrc src2) %{
   format %{ "CMPW    $crx, $src1, $src2" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmp);
-    __ cmpw($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmpw_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11835,7 +11835,7 @@ instruct cmpI_reg_imm16(flagsReg crx, iRegIsrc src1, immI16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpi);
-    __ cmpwi($crx$$CondRegister, $src1$$Register, $src2$$constant);
+    __ cmpwi_PPC($crx$$CondRegister, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11848,7 +11848,7 @@ instruct testI_reg_imm(flagsRegCR0 cr0, iRegIsrc src1, uimmI16 src2, immI_0 zero
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andi_);
-    __ andi_(R0, $src1$$Register, $src2$$constant);
+    __ andi__PPC(R0, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11859,7 +11859,7 @@ instruct cmpL_reg_reg(flagsReg crx, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmp);
-    __ cmpd($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmpd_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11870,7 +11870,7 @@ instruct cmpL_reg_imm16(flagsReg crx, iRegLsrc src1, immL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpi);
-    __ cmpdi($crx$$CondRegister, $src1$$Register, $src2$$constant);
+    __ cmpdi_PPC($crx$$CondRegister, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11882,7 +11882,7 @@ instruct cmpUL_reg_reg(flagsReg crx, iRegLsrc src1, iRegLsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpl);
-    __ cmpld($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmpld_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11893,7 +11893,7 @@ instruct cmpUL_reg_imm16(flagsReg crx, iRegLsrc src1, uimmL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpli);
-    __ cmpldi($crx$$CondRegister, $src1$$Register, $src2$$constant);
+    __ cmpldi_PPC($crx$$CondRegister, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11905,7 +11905,7 @@ instruct testL_reg_reg(flagsRegCR0 cr0, iRegLsrc src1, iRegLsrc src2, immL_0 zer
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_and_);
-    __ and_(R0, $src1$$Register, $src2$$Register);
+    __ and__PPC(R0, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11917,7 +11917,7 @@ instruct testL_reg_imm(flagsRegCR0 cr0, iRegLsrc src1, uimmL16 src2, immL_0 zero
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_andi_);
-    __ andi_(R0, $src1$$Register, $src2$$constant);
+    __ andi__PPC(R0, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -11935,11 +11935,11 @@ instruct cmovI_conIvalueMinus1_conIvalue1(iRegIdst dst, flagsRegSrc crx) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmove);
     Label done;
-    // li(Rdst, 0);              // equal -> 0
-    __ beq($crx$$CondRegister, done);
-    __ li($dst$$Register, 1);    // greater -> +1
-    __ bgt($crx$$CondRegister, done);
-    __ li($dst$$Register, -1);   // unordered or less -> -1
+    // li_PPC(Rdst, 0);              // equal -> 0
+    __ beq_PPC($crx$$CondRegister, done);
+    __ li_PPC($dst$$Register, 1);    // greater -> +1
+    __ bgt_PPC($crx$$CondRegister, done);
+    __ li_PPC($dst$$Register, -1);   // unordered or less -> -1
     // TODO: RISCV port__ endgroup_if_needed(_size == 20);
     __ bind(done);
   %}
@@ -12017,7 +12017,7 @@ instruct cmpL3_reg_reg_ExEx(iRegIdst dst, iRegLsrc src1, iRegLsrc src2) %{
 //
 // Match range check 'If le (CmpU length index)'.
 instruct rangeCheck_iReg_uimm15(cmpOp cmp, iRegIsrc src_length, uimmI15 index, label labl) %{
-  match(If cmp (CmpU src_length index));
+  match(If cmp_PPC (CmpU src_length index));
   effect(USE labl);
   predicate(TrapBasedRangeChecks &&
             _kids[0]->_leaf->as_Bool()->_test._test == BoolTest::le &&
@@ -12044,7 +12044,7 @@ instruct rangeCheck_iReg_uimm15(cmpOp cmp, iRegIsrc src_length, uimmI15 index, l
 
 // Match range check 'If lt (CmpU index length)'.
 instruct rangeCheck_iReg_iReg(cmpOp cmp, iRegIsrc src_index, iRegIsrc src_length, label labl) %{
-  match(If cmp (CmpU src_index src_length));
+  match(If cmp_PPC (CmpU src_index src_length));
   effect(USE labl);
   predicate(TrapBasedRangeChecks &&
             _kids[0]->_leaf->as_Bool()->_test._test == BoolTest::lt &&
@@ -12071,7 +12071,7 @@ instruct rangeCheck_iReg_iReg(cmpOp cmp, iRegIsrc src_index, iRegIsrc src_length
 
 // Match range check 'If lt (CmpU index length)'.
 instruct rangeCheck_uimm15_iReg(cmpOp cmp, iRegIsrc src_index, uimmI15 length, label labl) %{
-  match(If cmp (CmpU src_index length));
+  match(If cmp_PPC (CmpU src_index length));
   effect(USE labl);
   predicate(TrapBasedRangeChecks &&
             _kids[0]->_leaf->as_Bool()->_test._test == BoolTest::lt &&
@@ -12102,7 +12102,7 @@ instruct compU_reg_reg(flagsReg crx, iRegIsrc src1, iRegIsrc src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpl);
-    __ cmplw($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmplw_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12113,7 +12113,7 @@ instruct compU_reg_uimm16(flagsReg crx, iRegIsrc src1, uimmI16 src2) %{
   format %{ "CMPLWI  $crx, $src1, $src2" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpli);
-    __ cmplwi($crx$$CondRegister, $src1$$Register, $src2$$constant);
+    __ cmplwi_PPC($crx$$CondRegister, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12121,7 +12121,7 @@ instruct compU_reg_uimm16(flagsReg crx, iRegIsrc src1, uimmI16 src2) %{
 // Implicit zero checks (more implicit null checks).
 // No constant pool entries required.
 instruct zeroCheckN_iReg_imm0(cmpOp cmp, iRegNsrc value, immN_0 zero, label labl) %{
-  match(If cmp (CmpN value zero));
+  match(If cmp_PPC (CmpN value zero));
   effect(USE labl);
   predicate(TrapBasedNullChecks &&
             _kids[0]->_leaf->as_Bool()->_test._test == BoolTest::ne &&
@@ -12156,7 +12156,7 @@ instruct cmpN_reg_reg(flagsReg crx, iRegNsrc src1, iRegNsrc src2) %{
   format %{ "CMPLW   $crx, $src1, $src2 \t// compressed ptr" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpl);
-    __ cmplw($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmplw_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12170,7 +12170,7 @@ instruct cmpN_reg_imm0(flagsReg crx, iRegNsrc src1, immN_0 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpli);
-    __ cmplwi($crx$$CondRegister, $src1$$Register, $src2$$constant);
+    __ cmplwi_PPC($crx$$CondRegister, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12178,7 +12178,7 @@ instruct cmpN_reg_imm0(flagsReg crx, iRegNsrc src1, immN_0 src2) %{
 // Implicit zero checks (more implicit null checks).
 // No constant pool entries required.
 instruct zeroCheckP_reg_imm0(cmpOp cmp, iRegP_N2P value, immP_0 zero, label labl) %{
-  match(If cmp (CmpP value zero));
+  match(If cmp_PPC (CmpP value zero));
   effect(USE labl);
   predicate(TrapBasedNullChecks &&
             _kids[0]->_leaf->as_Bool()->_test._test == BoolTest::ne &&
@@ -12211,7 +12211,7 @@ instruct cmpP_reg_reg(flagsReg crx, iRegP_N2P src1, iRegP_N2P src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpl);
-    __ cmpld($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmpld_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12222,7 +12222,7 @@ instruct cmpP_reg_null(flagsReg crx, iRegP_N2P src1, immP_0or1 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpl);
-    __ cmpldi($crx$$CondRegister, $src1$$Register, (int)((short)($src2$$constant & 0xFFFF)));
+    __ cmpldi_PPC($crx$$CondRegister, $src1$$Register, (int)((short)($src2$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12239,7 +12239,7 @@ instruct cmpP_reg_imm16(flagsReg crx, iRegPsrc src1, immL16 src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmpi);
-    __ cmpdi($crx$$CondRegister, $src1$$Register, $src2$$constant);
+    __ cmpdi_PPC($crx$$CondRegister, $src1$$Register, $src2$$constant);
   %}
   ins_pipe(pipe_class_compare);
 %}
@@ -12256,7 +12256,7 @@ instruct cmpFUnordered_reg_reg(flagsReg crx, regF src1, regF src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fcmpu);
-    __ fcmpu($crx$$CondRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fcmpu_PPC($crx$$CondRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12274,9 +12274,9 @@ instruct cmov_bns_less(flagsReg crx) %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cmovecr);
     Label done;
-    __ bns($crx$$CondRegister, done);        // not unordered -> keep crx
-    __ li(R0, 0);
-    __ cmpwi($crx$$CondRegister, R0, 1);     // unordered -> set crx to 'less'
+    __ bns_PPC($crx$$CondRegister, done);        // not unordered -> keep crx
+    __ li_PPC(R0, 0);
+    __ cmpwi_PPC($crx$$CondRegister, R0, 1);     // unordered -> set crx to 'less'
     // TODO RISCV port __ endgroup_if_needed(_size == 16);
     __ bind(done);
   %}
@@ -12285,7 +12285,7 @@ instruct cmov_bns_less(flagsReg crx) %{
 
 // Compare floating, generate condition code.
 instruct cmpF_reg_reg_Ex(flagsReg crx, regF src1, regF src2) %{
-  // FIXME: should we match 'If cmp (CmpF src1 src2))' ??
+  // FIXME: should we match 'If cmp_PPC (CmpF src1 src2))' ??
   //
   // The following code sequence occurs a lot in mpegaudio:
   //
@@ -12371,7 +12371,7 @@ instruct cmpDUnordered_reg_reg(flagsReg crx, regD src1, regD src2) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fcmpu);
-    __ fcmpu($crx$$CondRegister, $src1$$FloatRegister, $src2$$FloatRegister);
+    __ fcmpu_PPC($crx$$CondRegister, $src1$$FloatRegister, $src2$$FloatRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12449,10 +12449,10 @@ instruct cmprb_Digit_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2, flagsRe
   size(12);
   ins_encode %{
     // 0x30: 0, 0x39: 9
-    __ li($src2$$Register, 0x3930);
+    __ li_PPC($src2$$Register, 0x3930);
     // compare src1 with ranges 0x30 to 0x39
-    __ cmprb($crx$$CondRegister, 0, $src1$$Register, $src2$$Register);
-    __ setb($dst$$Register, $crx$$CondRegister);
+    __ cmprb_PPC($crx$$CondRegister, 0, $src1$$Register, $src2$$Register);
+    __ setb_PPC($dst$$Register, $crx$$CondRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12480,29 +12480,29 @@ instruct cmprb_LowerCase_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2, fla
   ins_encode %{
     Label done;
     // 0x61: a, 0x7A: z
-    __ li($src2$$Register, 0x7A61);
+    __ li_PPC($src2$$Register, 0x7A61);
     // compare src1 with ranges 0x61 to 0x7A
-    __ cmprb($crx$$CondRegister, 0, $src1$$Register, $src2$$Register);
-    __ bgt($crx$$CondRegister, done);
+    __ cmprb_PPC($crx$$CondRegister, 0, $src1$$Register, $src2$$Register);
+    __ bgt_PPC($crx$$CondRegister, done);
 
     // 0xDF: sharp s, 0xFF: y with diaeresis, 0xF7 is not the lower case
-    __ lis($src2$$Register, (signed short)0xF6DF);
-    __ ori($src2$$Register, $src2$$Register, 0xFFF8);
+    __ lis_PPC($src2$$Register, (signed short)0xF6DF);
+    __ ori_PPC($src2$$Register, $src2$$Register, 0xFFF8);
     // compare src1 with ranges 0xDF to 0xF6 and 0xF8 to 0xFF
-    __ cmprb($crx$$CondRegister, 1, $src1$$Register, $src2$$Register);
-    __ bgt($crx$$CondRegister, done);
+    __ cmprb_PPC($crx$$CondRegister, 1, $src1$$Register, $src2$$Register);
+    __ bgt_PPC($crx$$CondRegister, done);
 
     // 0xAA: feminine ordinal indicator
     // 0xB5: micro sign
     // 0xBA: masculine ordinal indicator
-    __ lis($src2$$Register, (signed short)0xAAB5);
-    __ ori($src2$$Register, $src2$$Register, 0xBABA);
-    __ insrdi($src2$$Register, $src2$$Register, 32, 0);
+    __ lis_PPC($src2$$Register, (signed short)0xAAB5);
+    __ ori_PPC($src2$$Register, $src2$$Register, 0xBABA);
+    __ insrdi_PPC($src2$$Register, $src2$$Register, 32, 0);
     // compare src1 with 0xAA, 0xB5, and 0xBA
-    __ cmpeqb($crx$$CondRegister, $src1$$Register, $src2$$Register);
+    __ cmpeqb_PPC($crx$$CondRegister, $src1$$Register, $src2$$Register);
 
     __ bind(done);
-    __ setb($dst$$Register, $crx$$CondRegister);
+    __ setb_PPC($dst$$Register, $crx$$CondRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12525,19 +12525,19 @@ instruct cmprb_UpperCase_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2, fla
   ins_encode %{
     Label done;
     // 0x41: A, 0x5A: Z
-    __ li($src2$$Register, 0x5A41);
+    __ li_PPC($src2$$Register, 0x5A41);
     // compare src1 with a range 0x41 to 0x5A
-    __ cmprb($crx$$CondRegister, 0, $src1$$Register, $src2$$Register);
-    __ bgt($crx$$CondRegister, done);
+    __ cmprb_PPC($crx$$CondRegister, 0, $src1$$Register, $src2$$Register);
+    __ bgt_PPC($crx$$CondRegister, done);
 
     // 0xC0: a with grave, 0xDE: thorn, 0xD7 is not the upper case
-    __ lis($src2$$Register, (signed short)0xD6C0);
-    __ ori($src2$$Register, $src2$$Register, 0xDED8);
+    __ lis_PPC($src2$$Register, (signed short)0xD6C0);
+    __ ori_PPC($src2$$Register, $src2$$Register, 0xDED8);
     // compare src1 with ranges 0xC0 to 0xD6 and 0xD8 to 0xDE
-    __ cmprb($crx$$CondRegister, 1, $src1$$Register, $src2$$Register);
+    __ cmprb_PPC($crx$$CondRegister, 1, $src1$$Register, $src2$$Register);
 
     __ bind(done);
-    __ setb($dst$$Register, $crx$$CondRegister);
+    __ setb_PPC($dst$$Register, $crx$$CondRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12554,11 +12554,11 @@ instruct cmprb_Whitespace_reg_reg(iRegIdst dst, iRegIsrc src1, iRegIsrc src2, fl
   size(16);
   ins_encode %{
     // 0x09 to 0x0D, 0x1C to 0x20
-    __ li($src2$$Register, 0x0D09);
-    __ addis($src2$$Register, $src2$$Register, 0x0201C);
+    __ li_PPC($src2$$Register, 0x0D09);
+    __ addis_PPC($src2$$Register, $src2$$Register, 0x0201C);
     // compare src with ranges 0x09 to 0x0D and 0x1C to 0x20
-    __ cmprb($crx$$CondRegister, 1, $src1$$Register, $src2$$Register);
-    __ setb($dst$$Register, $crx$$CondRegister);
+    __ cmprb_PPC($crx$$CondRegister, 1, $src1$$Register, $src2$$Register);
+    __ setb_PPC($dst$$Register, $crx$$CondRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12582,7 +12582,7 @@ instruct branch(label labl) %{
      // `p' is `NULL' when this encoding class is used only to
      // determine the size of the encoded instruction.
      Label& l = (NULL == p)? d : *(p);
-     __ b(l);
+     __ b_PPC(l);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12809,7 +12809,7 @@ instruct align_addr(iRegPdst dst, iRegPsrc src, immLnegpow2 mask) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldicr);
-    __ clrrdi($dst$$Register, $src$$Register, log2_long((jlong)-$mask$$constant));
+    __ clrrdi_PPC($dst$$Register, $src$$Register, log2_long((jlong)-$mask$$constant));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -12822,7 +12822,7 @@ instruct array_size(iRegLdst dst, iRegPsrc end, iRegPsrc start) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_subf);
-    __ subf($dst$$Register, $start$$Register, $end$$Register);
+    __ subf_PPC($dst$$Register, $start$$Register, $end$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13360,14 +13360,14 @@ instruct string_compress(rarg1RegP src, rarg2RegP dst, iRegIsrc len, iRegIdst re
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     Label Lskip, Ldone;
-    __ li($result$$Register, 0);
+    __ li_PPC($result$$Register, 0);
     __ string_compress_16($src$$Register, $dst$$Register, $len$$Register, $tmp1$$Register,
                           $tmp2$$Register, $tmp3$$Register, $tmp4$$Register, $tmp5$$Register, Ldone);
-    __ rldicl_($tmp1$$Register, $len$$Register, 0, 64-3); // Remaining characters.
-    __ beq(CCR0, Lskip);
+    __ rldicl__PPC($tmp1$$Register, $len$$Register, 0, 64-3); // Remaining characters.
+    __ beq_PPC(CCR0, Lskip);
     __ string_compress($src$$Register, $dst$$Register, $tmp1$$Register, $tmp2$$Register, Ldone);
     __ bind(Lskip);
-    __ mr($result$$Register, $len$$Register);
+    __ mr_PPC($result$$Register, $len$$Register);
     __ bind(Ldone);
   %}
   ins_pipe(pipe_class_default);
@@ -13385,8 +13385,8 @@ instruct string_inflate(Universe dummy, rarg1RegP src, rarg2RegP dst, iRegIsrc l
     Label Ldone;
     __ string_inflate_16($src$$Register, $dst$$Register, $len$$Register, $tmp1$$Register,
                          $tmp2$$Register, $tmp3$$Register, $tmp4$$Register, $tmp5$$Register);
-    __ rldicl_($tmp1$$Register, $len$$Register, 0, 64-3); // Remaining characters.
-    __ beq(CCR0, Ldone);
+    __ rldicl__PPC($tmp1$$Register, $len$$Register, 0, 64-3); // Remaining characters.
+    __ beq_PPC(CCR0, Ldone);
     __ string_inflate($src$$Register, $dst$$Register, $tmp1$$Register, $tmp2$$Register);
     __ bind(Ldone);
   %}
@@ -13422,25 +13422,25 @@ instruct encode_iso_array(rarg1RegP src, rarg2RegP dst, iRegIsrc len, iRegIdst r
     Label Lslow, Lfailure1, Lfailure2, Ldone;
     __ string_compress_16($src$$Register, $dst$$Register, $len$$Register, $tmp1$$Register,
                           $tmp2$$Register, $tmp3$$Register, $tmp4$$Register, $tmp5$$Register, Lfailure1);
-    __ rldicl_($result$$Register, $len$$Register, 0, 64-3); // Remaining characters.
-    __ beq(CCR0, Ldone);
+    __ rldicl__PPC($result$$Register, $len$$Register, 0, 64-3); // Remaining characters.
+    __ beq_PPC(CCR0, Ldone);
     __ bind(Lslow);
     __ string_compress($src$$Register, $dst$$Register, $result$$Register, $tmp2$$Register, Lfailure2);
-    __ li($result$$Register, 0);
-    __ b(Ldone);
+    __ li_PPC($result$$Register, 0);
+    __ b_PPC(Ldone);
 
     __ bind(Lfailure1);
-    __ mr($result$$Register, $len$$Register);
-    __ mfctr($tmp1$$Register);
-    __ rldimi_($result$$Register, $tmp1$$Register, 3, 0); // Remaining characters.
-    __ beq(CCR0, Ldone);
-    __ b(Lslow);
+    __ mr_PPC($result$$Register, $len$$Register);
+    __ mfctr_PPC($tmp1$$Register);
+    __ rldimi__PPC($result$$Register, $tmp1$$Register, 3, 0); // Remaining characters.
+    __ beq_PPC(CCR0, Ldone);
+    __ b_PPC(Lslow);
 
     __ bind(Lfailure2);
-    __ mfctr($result$$Register); // Remaining characters.
+    __ mfctr_PPC($result$$Register); // Remaining characters.
 
     __ bind(Ldone);
-    __ subf($result$$Register, $result$$Register, $len$$Register);
+    __ subf_PPC($result$$Register, $result$$Register, $len$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13476,8 +13476,8 @@ instruct minI_reg_reg_isel(iRegIdst dst, iRegIsrc src1, iRegIsrc src2, flagsRegC
 
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ cmpw(CCR0, $src1$$Register, $src2$$Register);
-    __ isel($dst$$Register, CCR0, Assembler::less, /*invert*/false, $src1$$Register, $src2$$Register);
+    __ cmpw_PPC(CCR0, $src1$$Register, $src2$$Register);
+    __ isel_PPC($dst$$Register, CCR0, Assembler::less, /*invert*/false, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13510,8 +13510,8 @@ instruct maxI_reg_reg_isel(iRegIdst dst, iRegIsrc src1, iRegIsrc src2, flagsRegC
 
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ cmpw(CCR0, $src1$$Register, $src2$$Register);
-    __ isel($dst$$Register, CCR0, Assembler::greater, /*invert*/false, $src1$$Register, $src2$$Register);
+    __ cmpw_PPC(CCR0, $src1$$Register, $src2$$Register);
+    __ isel_PPC($dst$$Register, CCR0, Assembler::greater, /*invert*/false, $src1$$Register, $src2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13528,7 +13528,7 @@ instruct popCountI(iRegIdst dst, iRegIsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_popcntb);
-    __ popcntw($dst$$Register, $src$$Register);
+    __ popcntw_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13543,7 +13543,7 @@ instruct popCountL(iRegIdst dst, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_popcntb);
-    __ popcntd($dst$$Register, $src$$Register);
+    __ popcntd_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13557,7 +13557,7 @@ instruct countLeadingZerosI(iRegIdst dst, iRegIsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cntlzw);
-    __ cntlzw($dst$$Register, $src$$Register);
+    __ cntlzw_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13571,7 +13571,7 @@ instruct countLeadingZerosL(iRegIdst dst, iRegLsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cntlzd);
-    __ cntlzd($dst$$Register, $src$$Register);
+    __ cntlzd_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13585,7 +13585,7 @@ instruct countLeadingZerosP(iRegIdst dst, iRegPsrc src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_cntlzd);
-    __ cntlzd($dst$$Register, $src$$Register);
+    __ cntlzd_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13617,7 +13617,7 @@ instruct countTrailingZerosI_cnttzw(iRegIdst dst, iRegIsrc src) %{
   format %{ "CNTTZW  $dst, $src" %}
   size(4);
   ins_encode %{
-    __ cnttzw($dst$$Register, $src$$Register);
+    __ cnttzw_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13648,7 +13648,7 @@ instruct countTrailingZerosL_cnttzd(iRegIdst dst, iRegLsrc src) %{
   format %{ "CNTTZD  $dst, $src" %}
   size(4);
   ins_encode %{
-    __ cnttzd($dst$$Register, $src$$Register);
+    __ cnttzd_PPC($dst$$Register, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13662,13 +13662,13 @@ instruct insrwi_a(iRegIdst dst, iRegIsrc src, immI16 pos, immI16 shift) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwimi);
-    __ insrwi($dst$$Register, $src$$Register, $shift$$constant, $pos$$constant);
+    __ insrwi_PPC($dst$$Register, $src$$Register, $shift$$constant, $pos$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
 
 // As insrwi_a, but with USE_DEF.
-instruct insrwi(iRegIdst dst, iRegIsrc src, immI16 pos, immI16 shift) %{
+instruct insrwi_PPC(iRegIdst dst, iRegIsrc src, immI16 pos, immI16 shift) %{
   effect(USE_DEF dst, USE src, USE pos, USE shift);
   predicate(false);
 
@@ -13676,7 +13676,7 @@ instruct insrwi(iRegIdst dst, iRegIsrc src, immI16 pos, immI16 shift) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rlwimi);
-    __ insrwi($dst$$Register, $src$$Register, $shift$$constant, $pos$$constant);
+    __ insrwi_PPC($dst$$Register, $src$$Register, $shift$$constant, $pos$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13699,10 +13699,10 @@ instruct bytes_reverse_int_Ex(iRegIdst dst, iRegIsrc src) %{
     urShiftI_reg_imm(tmpI1, src, imm24);
     insrwi_a(dst, tmpI1, imm24, imm8);
     urShiftI_reg_imm(tmpI2, src, imm16);
-    insrwi(dst, tmpI2, imm8, imm16);
+    insrwi_PPC(dst, tmpI2, imm8, imm16);
     urShiftI_reg_imm(tmpI3, src, imm8);
-    insrwi(dst, tmpI3, imm8, imm8);
-    insrwi(dst, src, imm0, imm8);
+    insrwi_PPC(dst, tmpI3, imm8, imm8);
+    insrwi_PPC(dst, src, imm0, imm8);
   %}
 %}
 
@@ -13727,19 +13727,19 @@ instruct bytes_reverse_long_Ex(iRegLdst dst, iRegLsrc src) %{
     iRegLdst tmpL6;
 
                                         // src   : |a|b|c|d|e|f|g|h|
-    rldicl(tmpL1, src, imm8, imm24);    // tmpL1 : | | | |e|f|g|h|a|
-    rldicl(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |a| | | |e|
-    rldicl(tmpL3, tmpL2, imm32, imm0);  // tmpL3 : | | | |e| | | |a|
-    rldicl(tmpL1, src, imm16, imm24);   // tmpL1 : | | | |f|g|h|a|b|
-    rldicl(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |b| | | |f|
-    rldicl(tmpL4, tmpL2, imm40, imm0);  // tmpL4 : | | |f| | | |b| |
+    rldicl_PPC(tmpL1, src, imm8, imm24);    // tmpL1 : | | | |e|f|g|h|a|
+    rldicl_PPC(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |a| | | |e|
+    rldicl_PPC(tmpL3, tmpL2, imm32, imm0);  // tmpL3 : | | | |e| | | |a|
+    rldicl_PPC(tmpL1, src, imm16, imm24);   // tmpL1 : | | | |f|g|h|a|b|
+    rldicl_PPC(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |b| | | |f|
+    rldicl_PPC(tmpL4, tmpL2, imm40, imm0);  // tmpL4 : | | |f| | | |b| |
     orL_reg_reg(tmpL5, tmpL3, tmpL4);   // tmpL5 : | | |f|e| | |b|a|
-    rldicl(tmpL1, src, imm24, imm24);   // tmpL1 : | | | |g|h|a|b|c|
-    rldicl(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |c| | | |g|
-    rldicl(tmpL3, tmpL2, imm48, imm0);  // tmpL3 : | |g| | | |c| | |
-    rldicl(tmpL1, src, imm32, imm24);   // tmpL1 : | | | |h|a|b|c|d|
-    rldicl(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |d| | | |h|
-    rldicl(tmpL4, tmpL2, imm56, imm0);  // tmpL4 : |h| | | |d| | | |
+    rldicl_PPC(tmpL1, src, imm24, imm24);   // tmpL1 : | | | |g|h|a|b|c|
+    rldicl_PPC(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |c| | | |g|
+    rldicl_PPC(tmpL3, tmpL2, imm48, imm0);  // tmpL3 : | |g| | | |c| | |
+    rldicl_PPC(tmpL1, src, imm32, imm24);   // tmpL1 : | | | |h|a|b|c|d|
+    rldicl_PPC(tmpL2, tmpL1, imm32, imm24); // tmpL2 : | | | |d| | | |h|
+    rldicl_PPC(tmpL4, tmpL2, imm56, imm0);  // tmpL4 : |h| | | |d| | | |
     orL_reg_reg(tmpL6, tmpL3, tmpL4);   // tmpL6 : |h|g| | |d|c| | |
     orL_reg_reg(dst, tmpL5, tmpL6);     // dst   : |h|g|f|e|d|c|b|a|
   %}
@@ -13754,7 +13754,7 @@ instruct bytes_reverse_ushort_Ex(iRegIdst dst, iRegIsrc src) %{
     immI16   imm8 %{ (int)  8 %}
 
     urShiftI_reg_imm(dst, src, imm8);
-    insrwi(dst, src, imm16, imm8);
+    insrwi_PPC(dst, src, imm16, imm8);
   %}
 %}
 
@@ -13768,8 +13768,8 @@ instruct bytes_reverse_short_Ex(iRegIdst dst, iRegIsrc src) %{
     iRegLdst tmpI1;
 
     urShiftI_reg_imm(tmpI1, src, imm8);
-    insrwi(tmpI1, src, imm16, imm8);
-    extsh(dst, tmpI1);
+    insrwi_PPC(tmpI1, src, imm16, imm8);
+    extsh_PPC(dst, tmpI1);
   %}
 %}
 
@@ -13780,7 +13780,7 @@ instruct loadI_reversed(iRegIdst dst, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ lwbrx($dst$$Register, $mem$$Register);
+    __ lwbrx_PPC($dst$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13793,7 +13793,7 @@ instruct loadL_reversed(iRegLdst dst, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ ldbrx($dst$$Register, $mem$$Register);
+    __ ldbrx_PPC($dst$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13805,7 +13805,7 @@ instruct loadUS_reversed(iRegIdst dst, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ lhbrx($dst$$Register, $mem$$Register);
+    __ lhbrx_PPC($dst$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13817,8 +13817,8 @@ instruct loadS_reversed(iRegIdst dst, indirect mem) %{
 
   size(8);
   ins_encode %{
-    __ lhbrx($dst$$Register, $mem$$Register);
-    __ extsh($dst$$Register, $dst$$Register);
+    __ lhbrx_PPC($dst$$Register, $mem$$Register);
+    __ extsh_PPC($dst$$Register, $dst$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13830,7 +13830,7 @@ instruct storeI_reversed(iRegIsrc src, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ stwbrx($src$$Register, $mem$$Register);
+    __ stwbrx_PPC($src$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13843,7 +13843,7 @@ instruct storeL_reversed(iRegLsrc src, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ stdbrx($src$$Register, $mem$$Register);
+    __ stdbrx_PPC($src$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13855,7 +13855,7 @@ instruct storeUS_reversed(iRegIsrc src, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ sthbrx($src$$Register, $mem$$Register);
+    __ sthbrx_PPC($src$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13867,29 +13867,29 @@ instruct storeS_reversed(iRegIsrc src, indirect mem) %{
 
   size(4);
   ins_encode %{
-    __ sthbrx($src$$Register, $mem$$Register);
+    __ sthbrx_PPC($src$$Register, $mem$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct mtvsrwz(vecX temp1, iRegIsrc src) %{
+instruct mtvsrwz_PPC(vecX temp1, iRegIsrc src) %{
   effect(DEF temp1, USE src);
 
   format %{ "MTVSRWZ $temp1, $src \t// Move to 16-byte register" %}
   size(4);
   ins_encode %{
-    __ mtvsrwz($temp1$$VectorSRegister, $src$$Register);
+    __ mtvsrwz_PPC($temp1$$VectorSRegister, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct xxspltw(vecX dst, vecX src, immI8 imm1) %{
+instruct xxspltw_PPC(vecX dst, vecX src, immI8 imm1) %{
   effect(DEF dst, USE src, USE imm1);
 
   format %{ "XXSPLTW $dst, $src, $imm1 \t// Splat word" %}
   size(4);
   ins_encode %{
-    __ xxspltw($dst$$VectorSRegister, $src$$VectorSRegister, $imm1$$constant);
+    __ xxspltw_PPC($dst$$VectorSRegister, $src$$VectorSRegister, $imm1$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13900,7 +13900,7 @@ instruct xscvdpspn_regF(vecX dst, regF src) %{
   format %{ "XSCVDPSPN $dst, $src \t// Convert scalar single precision to vector single precision" %}
   size(4);
   ins_encode %{
-    __ xscvdpspn($dst$$VectorSRegister, $src$$FloatRegister->to_vsr());
+    __ xscvdpspn_PPC($dst$$VectorSRegister, $src$$FloatRegister->to_vsr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13916,7 +13916,7 @@ instruct repl32(iRegLdst dst) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldimi);
-    __ insrdi($dst$$Register, $dst$$Register, 32, 0);
+    __ insrdi_PPC($dst$$Register, $dst$$Register, 32, 0);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13930,7 +13930,7 @@ instruct repl48(iRegLdst dst) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldimi);
-    __ insrdi($dst$$Register, $dst$$Register, 48, 0);
+    __ insrdi_PPC($dst$$Register, $dst$$Register, 48, 0);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13944,7 +13944,7 @@ instruct repl56(iRegLdst dst) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_rldimi);
-    __ insrdi($dst$$Register, $dst$$Register, 56, 0);
+    __ insrdi_PPC($dst$$Register, $dst$$Register, 56, 0);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13967,7 +13967,7 @@ instruct repl8B_immI0(iRegLdst dst, immI_0 zero) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($zero$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($zero$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13979,7 +13979,7 @@ instruct repl8B_immIminus1(iRegLdst dst, immI_minus1 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -13995,8 +13995,8 @@ instruct repl16B_reg_Ex(vecX dst, iRegIsrc src) %{
     moveReg(tmpL, src);
     repl56(tmpL);
     repl48(tmpL);
-    mtvsrwz(tmpV, tmpL);
-    xxspltw(dst, tmpV, imm1);
+    mtvsrwz_PPC(tmpV, tmpL);
+    xxspltw_PPC(dst, tmpV, imm1);
   %}
 %}
 
@@ -14007,7 +14007,7 @@ instruct repl16B_immI0(vecX dst, immI_0 zero) %{
   format %{ "XXLXOR      $dst, $zero \t// replicate16B" %}
   size(4);
   ins_encode %{
-    __ xxlxor($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxlxor_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14019,7 +14019,7 @@ instruct repl16B_immIminus1(vecX dst, immI_minus1 src) %{
   format %{ "XXLEQV      $dst, $src \t// replicate16B" %}
   size(4);
   ins_encode %{
-    __ xxleqv($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxleqv_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14041,7 +14041,7 @@ instruct repl4S_immI0(iRegLdst dst, immI_0 zero) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($zero$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($zero$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14053,7 +14053,7 @@ instruct repl4S_immIminus1(iRegLdst dst, immI_minus1 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14069,8 +14069,8 @@ instruct repl8S_reg_Ex(vecX dst, iRegIsrc src) %{
     moveReg(tmpL, src);
     repl48(tmpL);
     repl32(tmpL);
-    mtvsrd(tmpV, tmpL);
-    xxpermdi(dst, tmpV, tmpV, zero);
+    mtvsrd_PPC(tmpV, tmpL);
+    xxpermdi_PPC(dst, tmpV, tmpV, zero);
   %}
 %}
 
@@ -14081,7 +14081,7 @@ instruct repl8S_immI0(vecX dst, immI_0 zero) %{
   format %{ "XXLXOR      $dst, $zero \t// replicate8S" %}
   size(4);
   ins_encode %{
-    __ xxlxor($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxlxor_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14093,7 +14093,7 @@ instruct repl8S_immIminus1(vecX dst, immI_minus1 src) %{
   format %{ "XXLEQV      $dst, $src \t// replicate8S" %}
   size(4);
   ins_encode %{
-    __ xxleqv($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxleqv_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14115,7 +14115,7 @@ instruct repl2I_immI0(iRegLdst dst, immI_0 zero) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($zero$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($zero$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14127,7 +14127,7 @@ instruct repl2I_immIminus1(iRegLdst dst, immI_minus1 src) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
+    __ li_PPC($dst$$Register, (int)((short)($src$$constant & 0xFFFF)));
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14143,8 +14143,8 @@ instruct repl4I_reg_Ex(vecX dst, iRegIsrc src) %{
     immI8  zero %{ (int)  0 %}
     moveReg(tmpL, src);
     repl32(tmpL);
-    mtvsrd(tmpV, tmpL);
-    xxpermdi(dst, tmpV, tmpV, zero);
+    mtvsrd_PPC(tmpV, tmpL);
+    xxpermdi_PPC(dst, tmpV, tmpV, zero);
   %}
 %}
 
@@ -14155,7 +14155,7 @@ instruct repl4I_immI0(vecX dst, immI_0 zero) %{
   format %{ "XXLXOR      $dst, $zero \t// replicate4I" %}
   size(4);
   ins_encode %{
-    __ xxlxor($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxlxor_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14167,7 +14167,7 @@ instruct repl4I_immIminus1(vecX dst, immI_minus1 src) %{
   format %{ "XXLEQV      $dst, $dst, $dst \t// replicate4I" %}
   size(4);
   ins_encode %{
-    __ xxleqv($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxleqv_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14205,7 +14205,7 @@ instruct repl2F_immF0(iRegLdst dst, immF_0 zero) %{
   format %{ "LI      $dst, #0 \t// replicate2F" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_addi);
-    __ li($dst$$Register, 0x0);
+    __ li_PPC($dst$$Register, 0x0);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14221,7 +14221,7 @@ instruct vadd16B_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VADDUBM  $dst,$src1,$src2\t// add packed16B" %}
   size(4);
   ins_encode %{
-    __ vaddubm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vaddubm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14232,7 +14232,7 @@ instruct vadd8S_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VADDUHM  $dst,$src1,$src2\t// add packed8S" %}
   size(4);
   ins_encode %{
-    __ vadduhm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vadduhm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14243,7 +14243,7 @@ instruct vadd4I_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VADDUWM  $dst,$src1,$src2\t// add packed4I" %}
   size(4);
   ins_encode %{
-    __ vadduwm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vadduwm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14254,7 +14254,7 @@ instruct vadd4F_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VADDFP  $dst,$src1,$src2\t// add packed4F" %}
   size(4);
   ins_encode %{
-    __ vaddfp($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vaddfp_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14265,7 +14265,7 @@ instruct vadd2L_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VADDUDM  $dst,$src1,$src2\t// add packed2L" %}
   size(4);
   ins_encode %{
-    __ vaddudm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vaddudm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14276,7 +14276,7 @@ instruct vadd2D_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "XVADDDP  $dst,$src1,$src2\t// add packed2D" %}
   size(4);
   ins_encode %{
-    __ xvadddp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvadddp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14289,7 +14289,7 @@ instruct vsub16B_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VSUBUBM  $dst,$src1,$src2\t// sub packed16B" %}
   size(4);
   ins_encode %{
-    __ vsububm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vsububm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14300,7 +14300,7 @@ instruct vsub8S_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VSUBUHM  $dst,$src1,$src2\t// sub packed8S" %}
   size(4);
   ins_encode %{
-    __ vsubuhm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vsubuhm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14311,7 +14311,7 @@ instruct vsub4I_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VSUBUWM  $dst,$src1,$src2\t// sub packed4I" %}
   size(4);
   ins_encode %{
-    __ vsubuwm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vsubuwm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14322,7 +14322,7 @@ instruct vsub4F_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VSUBFP  $dst,$src1,$src2\t// sub packed4F" %}
   size(4);
   ins_encode %{
-    __ vsubfp($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vsubfp_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14333,7 +14333,7 @@ instruct vsub2L_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VSUBUDM  $dst,$src1,$src2\t// sub packed2L" %}
   size(4);
   ins_encode %{
-    __ vsubudm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vsubudm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14344,7 +14344,7 @@ instruct vsub2D_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "XVSUBDP  $dst,$src1,$src2\t// sub packed2D" %}
   size(4);
   ins_encode %{
-    __ xvsubdp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvsubdp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14359,8 +14359,8 @@ instruct vmul8S_reg(vecX dst, vecX src1, vecX src2, vecX tmp) %{
   format %{ "VMLADDUHM  $dst,$src1,$src2\t// mul packed8S" %}
   size(8);
   ins_encode %{
-    __ vspltish($tmp$$VectorSRegister->to_vr(), 0);
-    __ vmladduhm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr(), $tmp$$VectorSRegister->to_vr());
+    __ vspltish_PPC($tmp$$VectorSRegister->to_vr(), 0);
+    __ vmladduhm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr(), $tmp$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14371,7 +14371,7 @@ instruct vmul4I_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "VMULUWM  $dst,$src1,$src2\t// mul packed4I" %}
   size(4);
   ins_encode %{
-    __ vmuluwm($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
+    __ vmuluwm_PPC($dst$$VectorSRegister->to_vr(), $src1$$VectorSRegister->to_vr(), $src2$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14382,7 +14382,7 @@ instruct vmul4F_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "XVMULSP  $dst,$src1,$src2\t// mul packed4F" %}
   size(4);
   ins_encode %{
-    __ xvmulsp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvmulsp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14393,7 +14393,7 @@ instruct vmul2D_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "XVMULDP  $dst,$src1,$src2\t// mul packed2D" %}
   size(4);
   ins_encode %{
-    __ xvmuldp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvmuldp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14406,7 +14406,7 @@ instruct vdiv4F_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "XVDIVSP  $dst,$src1,$src2\t// div packed4F" %}
   size(4);
   ins_encode %{
-    __ xvdivsp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvdivsp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14417,7 +14417,7 @@ instruct vdiv2D_reg(vecX dst, vecX src1, vecX src2) %{
   format %{ "XVDIVDP  $dst,$src1,$src2\t// div packed2D" %}
   size(4);
   ins_encode %{
-    __ xvdivdp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvdivdp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14430,7 +14430,7 @@ instruct vabs4F_reg(vecX dst, vecX src) %{
   format %{ "XVABSSP $dst,$src\t// absolute packed4F" %}
   size(4);
   ins_encode %{
-    __ xvabssp($dst$$VectorSRegister, $src$$VectorSRegister);
+    __ xvabssp_PPC($dst$$VectorSRegister, $src$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14441,7 +14441,7 @@ instruct vabs2D_reg(vecX dst, vecX src) %{
   format %{ "XVABSDP $dst,$src\t// absolute packed2D" %}
   size(4);
   ins_encode %{
-    __ xvabsdp($dst$$VectorSRegister, $src$$VectorSRegister);
+    __ xvabsdp_PPC($dst$$VectorSRegister, $src$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14454,7 +14454,7 @@ instruct vneg4F_reg(vecX dst, vecX src) %{
   format %{ "XVNEGSP $dst,$src\t// negate packed4F" %}
   size(4);
   ins_encode %{
-    __ xvnegsp($dst$$VectorSRegister, $src$$VectorSRegister);
+    __ xvnegsp_PPC($dst$$VectorSRegister, $src$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14465,7 +14465,7 @@ instruct vneg2D_reg(vecX dst, vecX src) %{
   format %{ "XVNEGDP $dst,$src\t// negate packed2D" %}
   size(4);
   ins_encode %{
-    __ xvnegdp($dst$$VectorSRegister, $src$$VectorSRegister);
+    __ xvnegdp_PPC($dst$$VectorSRegister, $src$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14478,7 +14478,7 @@ instruct vsqrt4F_reg(vecX dst, vecX src) %{
   format %{ "XVSQRTSP $dst,$src\t// sqrt packed4F" %}
   size(4);
   ins_encode %{
-    __ xvsqrtsp($dst$$VectorSRegister, $src$$VectorSRegister);
+    __ xvsqrtsp_PPC($dst$$VectorSRegister, $src$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14489,7 +14489,7 @@ instruct vsqrt2D_reg(vecX dst, vecX src) %{
   format %{ "XVSQRTDP  $dst,$src\t// sqrt packed2D" %}
   size(4);
   ins_encode %{
-    __ xvsqrtdp($dst$$VectorSRegister, $src$$VectorSRegister);
+    __ xvsqrtdp_PPC($dst$$VectorSRegister, $src$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14502,7 +14502,7 @@ instruct vpopcnt4I_reg(vecX dst, vecX src) %{
   format %{ "VPOPCNTW $dst,$src\t// pop count packed4I" %}
   size(4);
   ins_encode %{
-    __ vpopcntw($dst$$VectorSRegister->to_vr(), $src$$VectorSRegister->to_vr());
+    __ vpopcntw_PPC($dst$$VectorSRegister->to_vr(), $src$$VectorSRegister->to_vr());
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14517,7 +14517,7 @@ instruct vfma4F(vecX dst, vecX src1, vecX src2) %{
 
   size(4);
   ins_encode %{
-    __ xvmaddasp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvmaddasp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14532,7 +14532,7 @@ instruct vfma4F_neg1(vecX dst, vecX src1, vecX src2) %{
 
   size(4);
   ins_encode %{
-    __ xvnmsubasp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvnmsubasp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14546,7 +14546,7 @@ instruct vfma4F_neg2(vecX dst, vecX src1, vecX src2) %{
 
   size(4);
   ins_encode %{
-    __ xvmsubasp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvmsubasp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14560,7 +14560,7 @@ instruct vfma2D(vecX dst, vecX src1, vecX src2) %{
 
   size(4);
   ins_encode %{
-    __ xvmaddadp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvmaddadp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14575,7 +14575,7 @@ instruct vfma2D_neg1(vecX dst, vecX src1, vecX src2) %{
 
   size(4);
   ins_encode %{
-    __ xvnmsubadp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvnmsubadp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14589,7 +14589,7 @@ instruct vfma2D_neg2(vecX dst, vecX src1, vecX src2) %{
 
   size(4);
   ins_encode %{
-    __ xvmsubadp($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
+    __ xvmsubadp_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14606,9 +14606,9 @@ instruct overflowAddL_reg_reg(flagsRegCR0 cr0, iRegLsrc op1, iRegLsrc op2) %{
   format %{ "add_    $op1, $op2\t# overflow check long" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ li(R0, 0);
-    __ mtxer(R0); // clear XER.SO
-    __ addo_(R0, $op1$$Register, $op2$$Register);
+    __ li_PPC(R0, 0);
+    __ mtxer_PPC(R0); // clear XER.SO
+    __ addo__PPC(R0, $op1$$Register, $op2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14619,9 +14619,9 @@ instruct overflowSubL_reg_reg(flagsRegCR0 cr0, iRegLsrc op1, iRegLsrc op2) %{
   format %{ "subfo_  R0, $op2, $op1\t# overflow check long" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ li(R0, 0);
-    __ mtxer(R0); // clear XER.SO
-    __ subfo_(R0, $op2$$Register, $op1$$Register);
+    __ li_PPC(R0, 0);
+    __ mtxer_PPC(R0); // clear XER.SO
+    __ subfo__PPC(R0, $op2$$Register, $op1$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14632,9 +14632,9 @@ instruct overflowNegL_reg(flagsRegCR0 cr0, immL_0 zero, iRegLsrc op2) %{
   format %{ "nego_   R0, $op2\t# overflow check long" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ li(R0, 0);
-    __ mtxer(R0); // clear XER.SO
-    __ nego_(R0, $op2$$Register);
+    __ li_PPC(R0, 0);
+    __ mtxer_PPC(R0); // clear XER.SO
+    __ nego__PPC(R0, $op2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14645,9 +14645,9 @@ instruct overflowMulL_reg_reg(flagsRegCR0 cr0, iRegLsrc op1, iRegLsrc op2) %{
   format %{ "mulldo_ R0, $op1, $op2\t# overflow check long" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ li(R0, 0);
-    __ mtxer(R0); // clear XER.SO
-    __ mulldo_(R0, $op1$$Register, $op2$$Register);
+    __ li_PPC(R0, 0);
+    __ mtxer_PPC(R0); // clear XER.SO
+    __ mulldo__PPC(R0, $op1$$Register, $op2$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14661,7 +14661,7 @@ instruct repl4F_reg_Ex(vecX dst, regF src) %{
     immI8  zero %{ (int)  0 %}
 
     xscvdpspn_regF(tmpV, src);
-    xxspltw(dst, tmpV, zero);
+    xxspltw_PPC(dst, tmpV, zero);
   %}
 %}
 
@@ -14680,7 +14680,7 @@ instruct repl4F_immF0(vecX dst, immF_0 zero) %{
 
   format %{ "XXLXOR      $dst, $zero \t// replicate4F" %}
   ins_encode %{
-    __ xxlxor($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxlxor_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14692,7 +14692,7 @@ instruct repl2D_reg_Ex(vecX dst, regD src) %{
   format %{ "XXPERMDI      $dst, $src, $src, 0 \t// Splat doubleword" %}
   size(4);
   ins_encode %{
-    __ xxpermdi($dst$$VectorSRegister, $src$$FloatRegister->to_vsr(), $src$$FloatRegister->to_vsr(), 0);
+    __ xxpermdi_PPC($dst$$VectorSRegister, $src$$FloatRegister->to_vsr(), $src$$FloatRegister->to_vsr(), 0);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14704,41 +14704,41 @@ instruct repl2D_immD0(vecX dst, immD_0 zero) %{
   format %{ "XXLXOR      $dst, $zero \t// replicate2D" %}
   size(4);
   ins_encode %{
-    __ xxlxor($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxlxor_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct mtvsrd(vecX dst, iRegLsrc src) %{
+instruct mtvsrd_PPC(vecX dst, iRegLsrc src) %{
   predicate(false);
   effect(DEF dst, USE src);
 
   format %{ "MTVSRD      $dst, $src \t// Move to 16-byte register" %}
   size(4);
   ins_encode %{
-    __ mtvsrd($dst$$VectorSRegister, $src$$Register);
+    __ mtvsrd_PPC($dst$$VectorSRegister, $src$$Register);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct xxspltd(vecX dst, vecX src, immI8 zero) %{
+instruct xxspltd_PPC(vecX dst, vecX src, immI8 zero) %{
   effect(DEF dst, USE src, USE zero);
 
   format %{ "XXSPLATD      $dst, $src, $zero \t// Splat doubleword" %}
   size(4);
   ins_encode %{
-    __ xxpermdi($dst$$VectorSRegister, $src$$VectorSRegister, $src$$VectorSRegister, $zero$$constant);
+    __ xxpermdi_PPC($dst$$VectorSRegister, $src$$VectorSRegister, $src$$VectorSRegister, $zero$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
 
-instruct xxpermdi(vecX dst, vecX src1, vecX src2, immI8 zero) %{
+instruct xxpermdi_PPC(vecX dst, vecX src1, vecX src2, immI8 zero) %{
   effect(DEF dst, USE src1, USE src2, USE zero);
 
   format %{ "XXPERMDI      $dst, $src1, $src2, $zero \t// Splat doubleword" %}
   size(4);
   ins_encode %{
-    __ xxpermdi($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister, $zero$$constant);
+    __ xxpermdi_PPC($dst$$VectorSRegister, $src1$$VectorSRegister, $src2$$VectorSRegister, $zero$$constant);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14749,8 +14749,8 @@ instruct repl2L_reg_Ex(vecX dst, iRegLsrc src) %{
   expand %{
     vecX tmpV;
     immI8  zero %{ (int)  0 %}
-    mtvsrd(tmpV, src);
-    xxpermdi(dst, tmpV, tmpV, zero);
+    mtvsrd_PPC(tmpV, src);
+    xxpermdi_PPC(dst, tmpV, tmpV, zero);
   %}
 %}
 
@@ -14761,7 +14761,7 @@ instruct repl2L_immI0(vecX dst, immI_0 zero) %{
   format %{ "XXLXOR      $dst, $zero \t// replicate2L" %}
   size(4);
   ins_encode %{
-    __ xxlxor($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxlxor_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14773,7 +14773,7 @@ instruct repl2L_immIminus1(vecX dst, immI_minus1 src) %{
   format %{ "XXLEQV      $dst, $src \t// replicate2L" %}
   size(4);
   ins_encode %{
-    __ xxleqv($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
+    __ xxleqv_PPC($dst$$VectorSRegister, $dst$$VectorSRegister, $dst$$VectorSRegister);
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14910,7 +14910,7 @@ instruct CallLeafDirect(method meth) %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_bctrl);
-    __ bctrl();
+    __ bctrl_PPC();
   %}
   ins_pipe(pipe_class_call);
 %}
@@ -14959,8 +14959,8 @@ instruct TailCalljmpInd(iRegPdstNoScratch jump_target, inline_cache_regP method_
   size(8);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ mtctr($jump_target$$Register);
-    __ bctr();
+    __ mtctr_PPC($jump_target$$Register);
+    __ bctr_PPC();
   %}
   ins_pipe(pipe_class_call);
 %}
@@ -14973,7 +14973,7 @@ instruct Ret() %{
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_blr);
     // LR is restored in MachEpilogNode. Just do the RET here.
-    __ blr();
+    __ blr_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -14994,9 +14994,9 @@ instruct tailjmpInd(iRegPdstNoScratch jump_target, rarg1RegP ex_oop) %{
   size(12);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ ld(R4_ARG2/* issuing pc */, _abi(lr), R1_SP);
-    __ mtctr($jump_target$$Register);
-    __ bctr();
+    __ ld_PPC(R4_ARG2/* issuing pc */, _abi(lr), R1_SP);
+    __ mtctr_PPC($jump_target$$Register);
+    __ bctr_PPC();
   %}
   ins_pipe(pipe_class_call);
 %}
@@ -15071,7 +15071,7 @@ instruct endGroup() %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_endgroup);
-    __ endgroup();
+    __ endgroup_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -15087,7 +15087,7 @@ instruct fxNop() %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmr);
-    __ nop();
+    __ nop_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -15101,7 +15101,7 @@ instruct fpNop0() %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmr);
-    __ fpnop0();
+    __ fpnop0_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -15115,7 +15115,7 @@ instruct fpNop1() %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_fmr);
-    __ fpnop1();
+    __ fpnop1_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -15126,7 +15126,7 @@ instruct brNop0() %{
   format %{ "brNop0" %}
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mcrf);
-    __ brnop0();
+    __ brnop0_PPC();
   %}
   ins_is_nop(true);
   ins_pipe(pipe_class_default);
@@ -15141,7 +15141,7 @@ instruct brNop1() %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mcrf);
-    __ brnop1();
+    __ brnop1_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}
@@ -15155,7 +15155,7 @@ instruct brNop2() %{
   size(4);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_mcrf);
-    __ brnop2();
+    __ brnop2_PPC();
   %}
   ins_pipe(pipe_class_default);
 %}

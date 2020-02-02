@@ -72,9 +72,9 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
     slop_delta  = load_const_maxLen - (__ pc() - start_pc);
     slop_bytes += slop_delta;
     assert(slop_delta >= 0, "negative slop(%d) encountered, adjust code size estimate!", slop_delta);
-    __ lwz(R12_scratch2, offs, R11_scratch1);
-    __ addi(R12_scratch2, R12_scratch2, 1);
-    __ stw(R12_scratch2, offs, R11_scratch1);
+    __ lwz_PPC(R12_scratch2, offs, R11_scratch1);
+    __ addi_PPC(R12_scratch2, R12_scratch2, 1);
+    __ stw_PPC(R12_scratch2, offs, R11_scratch1);
   }
 #endif
 
@@ -92,10 +92,10 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
     Label L;
     // Check offset vs vtable length.
     const Register vtable_len = R12_scratch2;
-    __ lwz(vtable_len, in_bytes(Klass::vtable_length_offset()), rcvr_klass);
-    __ cmpwi(CCR0, vtable_len, vtable_index*vtableEntry::size());
-    __ bge(CCR0, L);
-    __ li(R12_scratch2, vtable_index);
+    __ lwz_PPC(vtable_len, in_bytes(Klass::vtable_length_offset()), rcvr_klass);
+    __ cmpwi_PPC(CCR0, vtable_len, vtable_index*vtableEntry::size());
+    __ bge_PPC(CCR0, L);
+    __ li_PPC(R12_scratch2, vtable_index);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, bad_compiled_vtable_index), R3_ARG1, R12_scratch2, false);
     __ bind(L);
   }
@@ -105,13 +105,13 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
                      vtable_index*vtableEntry::size_in_bytes();
   int v_off        = entry_offset + vtableEntry::method_offset_in_bytes();
 
-  __ ld(R19_method, (RegisterOrConstant)v_off, rcvr_klass);
+  __ ld_PPC(R19_method, (RegisterOrConstant)v_off, rcvr_klass);
 
 #ifndef PRODUCT
   if (DebugVtables) {
     Label L;
-    __ cmpdi(CCR0, R19_method, 0);
-    __ bne(CCR0, L);
+    __ cmpdi_PPC(CCR0, R19_method, 0);
+    __ bne_PPC(CCR0, L);
     __ stop("Vtable entry is ZERO", 102);
     __ bind(L);
   }
@@ -122,9 +122,9 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
                               // NOTE: for vtable dispatches, the vtable entry will never be null.
 
   __ null_check(R19_method, in_bytes(Method::from_compiled_offset()), /*implicit only*/NULL);
-  __ ld(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
-  __ mtctr(R12_scratch2);
-  __ bctr();
+  __ ld_PPC(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
+  __ mtctr_PPC(R12_scratch2);
+  __ bctr_PPC();
 
   masm->flush();
   bookkeeping(masm, tty, s, npe_addr, ame_addr, true, vtable_index, slop_bytes, 0);
@@ -159,9 +159,9 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
     slop_delta  = load_const_maxLen - (__ pc() - start_pc);
     slop_bytes += slop_delta;
     assert(slop_delta >= 0, "negative slop(%d) encountered, adjust code size estimate!", slop_delta);
-    __ lwz(R12_scratch2, offs, R11_scratch1);
-    __ addi(R12_scratch2, R12_scratch2, 1);
-    __ stw(R12_scratch2, offs, R11_scratch1);
+    __ lwz_PPC(R12_scratch2, offs, R11_scratch1);
+    __ addi_PPC(R12_scratch2, R12_scratch2, 1);
+    __ stw_PPC(R12_scratch2, offs, R11_scratch1);
   }
 #endif
 
@@ -182,13 +182,13 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   __ load_klass(rcvr_klass, R3_ARG1);
 
   // Receiver subtype check against REFC.
-  __ ld(interface, CompiledICHolder::holder_klass_offset(), R19_method);
+  __ ld_PPC(interface, CompiledICHolder::holder_klass_offset(), R19_method);
   __ lookup_interface_method(rcvr_klass, interface, noreg,
                              R0, tmp1, tmp2,
                              L_no_such_interface, /*return_method=*/ false);
 
   // Get Method* and entrypoint for compiler
-  __ ld(interface, CompiledICHolder::holder_metadata_offset(), R19_method);
+  __ ld_PPC(interface, CompiledICHolder::holder_metadata_offset(), R19_method);
   __ lookup_interface_method(rcvr_klass, interface, itable_index,
                              R19_method, tmp1, tmp2,
                              L_no_such_interface, /*return_method=*/ true);
@@ -196,8 +196,8 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
 #ifndef PRODUCT
   if (DebugVtables) {
     Label ok;
-    __ cmpd(CCR0, R19_method, 0);
-    __ bne(CCR0, ok);
+    __ cmpd_PPC(CCR0, R19_method, 0);
+    __ bne_PPC(CCR0, ok);
     __ stop("method is null", 103);
     __ bind(ok);
   }
@@ -208,9 +208,9 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
 
   // Must do an explicit check if implicit checks are disabled.
   __ null_check(R19_method, in_bytes(Method::from_compiled_offset()), &L_no_such_interface);
-  __ ld(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
-  __ mtctr(R12_scratch2);
-  __ bctr();
+  __ ld_PPC(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
+  __ mtctr_PPC(R12_scratch2);
+  __ bctr_PPC();
 
   // Handle IncompatibleClassChangeError in itable stubs.
   // More detailed error message.
@@ -223,8 +223,8 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   slop_delta  = load_const_maxLen - (__ pc() - start_pc);
   slop_bytes += slop_delta;
   assert(slop_delta >= 0, "negative slop(%d) encountered, adjust code size estimate!", slop_delta);
-  __ mtctr(R11_scratch1);
-  __ bctr();
+  __ mtctr_PPC(R11_scratch1);
+  __ bctr_PPC();
 
   masm->flush();
   bookkeeping(masm, tty, s, npe_addr, ame_addr, false, itable_index, slop_bytes, 0);
