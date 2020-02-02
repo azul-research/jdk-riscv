@@ -2070,7 +2070,7 @@ class Assembler : public AbstractAssembler {
   inline void msub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void nmadd_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void nmsub_RV(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void fence_RV(int pr, int sc, int f);
+  inline void fence(int pr, int sc, int f);
 
   // Concrete instructions
   // op_imm
@@ -2262,9 +2262,9 @@ class Assembler : public AbstractAssembler {
   inline void fcvtql_RV(  Register d, Register s, int rm);
   inline void fcvtqlu_RV( Register d, Register s, int rm);
   //fence
-  inline void fence_RV(   int pr, int sc);
-  inline void fence_tso_RV();
-  inline void fencei_RV();
+  inline void fence(   int pr, int sc);
+  inline void fence_tso();
+  inline void fencei();
   // pseudoinstructions
   inline void nop_RV();
   inline void j_RV(int off);
