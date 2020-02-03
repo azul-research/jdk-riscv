@@ -136,6 +136,7 @@
 #include "jfr/jfr.hpp"
 #endif
 
+
 // Initialization after module runtime initialization
 void universe_post_module_init();  // must happen after call_initPhase2
 
@@ -3671,6 +3672,14 @@ Method* findTestMethod(InstanceKlass *klass) {
     return 0;
 }
 
+void printStaticFields(InstanceKlass *klass) {
+    char fname[100];
+    for (int i = 0; i < klass->java_fields_count(); ++i) {
+        klass->field_name(i)->as_C_string(fname, 100);
+        fprintf(stderr, "%s: 0x%x\n", fname, klass->java_mirror()->int_field(klass->field_offset(i)));
+    }
+}
+
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   TraceTime timer("Initialize java.lang classes", TRACETIME_LOG(Info, startuptime));
 
@@ -3689,6 +3698,7 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
           JavaValue result(T_INT);
           JavaCalls::call(&result, method, &args, CHECK);
           fprintf(stderr, "Test method call result: %d\n", result.get_jint());
+	  printStaticFields(InstanceKlass::cast(klass));
       } else {
           fprintf(stderr, "Test method not found\n");
       }

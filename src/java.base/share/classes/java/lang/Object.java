@@ -38,6 +38,8 @@ import jdk.internal.HotSpotIntrinsicCandidate;
  */
 public class Object {
 
+	private static int v, v2;
+
     private static native void registerNatives();
     static {
         registerNatives();
@@ -48,6 +50,8 @@ public class Object {
 	 * @return 42
 	 */
     public static int testMethod() {
+	v = 0x123;
+        v2 = 0x234;
         return 42;
     }
 
