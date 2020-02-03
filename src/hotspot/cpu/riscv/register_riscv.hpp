@@ -831,6 +831,14 @@ REGISTER_DECLARATION(Register, R21_sender_SP_RV,           R21);
 #define R21_sender_SP_RV           AS_REGISTER(Register, R21)
 #endif
 
+// Scratch registers are volatile.
+REGISTER_DECLARATION(Register, R5_scratch1_RV, R5);
+REGISTER_DECLARATION(Register, R6_scratch2_RV, R6);
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R5_scratch1_RV   AS_REGISTER(Register, R5)
+#define R6_scratch2_RV   AS_REGISTER(Register, R6)
+#endif
+
 
 // Register declarations to be used in frame manager assembly code.
 // Use only callee save registers in order to keep values across C-calls.

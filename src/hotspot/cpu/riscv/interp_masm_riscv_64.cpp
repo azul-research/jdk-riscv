@@ -247,77 +247,68 @@ void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rr
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  lwzu_PPC(r, Interpreter::stackElementSize, R15_esp);
+  lwu(r, R23_esp_RV, Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_ptr(Register r) {
-  ldu_PPC(r, Interpreter::stackElementSize, R15_esp);
+  ld(r, R23_esp_RV, Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_l(Register r) {
-  ld_PPC(r, Interpreter::stackElementSize, R15_esp);
-  addi_PPC(R15_esp, R15_esp, 2 * Interpreter::stackElementSize);
+  ld(r, R23_esp_RV, Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, 2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_f(FloatRegister f) {
-  lfsu_PPC(f, Interpreter::stackElementSize, R15_esp);
+  flw(f, R23_esp_RV, Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_d(FloatRegister f) {
-  lfd_PPC(f, Interpreter::stackElementSize, R15_esp);
-  addi_PPC(R15_esp, R15_esp, 2 * Interpreter::stackElementSize);
+  fld(f, R23_esp_RV, Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, 2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_i(Register r) {
-  stw_PPC(r, 0, R15_esp);
-  addi_PPC(R15_esp, R15_esp, - Interpreter::stackElementSize );
+  sw(r, R23_esp_RV, 0);
+  addi(R23_esp_RV, R23_esp_RV, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_ptr(Register r) {
-  std_PPC(r, 0, R15_esp);
-  addi_PPC(R15_esp, R15_esp, - Interpreter::stackElementSize );
+  sd(r, R23_esp_RV, 0);
+  addi(R23_esp_RV, R23_esp_RV, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_l(Register r) {
-  // Clear unused slot.
-  load_const_optimized(R0, 0L);
-  std_PPC(R0, 0, R15_esp);
-  std_PPC(r, - Interpreter::stackElementSize, R15_esp);
-  addi_PPC(R15_esp, R15_esp, - 2 * Interpreter::stackElementSize );
+  sd(R0_ZERO_RV, R23_esp_RV, 0);
+  sd(r, R23_esp_RV, -Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, -2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_f(FloatRegister f) {
-  stfs_PPC(f, 0, R15_esp);
-  addi_PPC(R15_esp, R15_esp, - Interpreter::stackElementSize );
+  fsw(f, R23_esp_RV, 0);
+  addi(R23_esp_RV, R23_esp_RV, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_d(FloatRegister f)   {
-  stfd_PPC(f, - Interpreter::stackElementSize, R15_esp);
-  addi_PPC(R15_esp, R15_esp, - 2 * Interpreter::stackElementSize );
+  fsd(f, R23_esp_RV, -Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, -2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_2ptrs(Register first, Register second) {
-  std_PPC(first, 0, R15_esp);
-  std_PPC(second, -Interpreter::stackElementSize, R15_esp);
-  addi_PPC(R15_esp, R15_esp, - 2 * Interpreter::stackElementSize );
+  sd(first, R23_esp_RV, 0);
+  sd(second, R23_esp_RV, -Interpreter::stackElementSize);
+  addi(R23_esp_RV, R23_esp_RV, -2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::move_l_to_d(Register l, FloatRegister d) {
-  if (VM_Version::has_mtfprd()) {
-    mtfprd_PPC(d, l);
-  } else {
-    std_PPC(l, 0, R15_esp);
-    lfd_PPC(d, 0, R15_esp);
-  }
+  fmvdx(d, l);
 }
 
 void InterpreterMacroAssembler::move_d_to_l(FloatRegister d, Register l) {
-  if (VM_Version::has_mtfprd()) {
-    mffprd_PPC(l, d);
-  } else {
-    stfd_PPC(d, 0, R15_esp);
-    ld_PPC(l, 0, R15_esp);
-  }
+  fmvxd(l, d);
 }
 
 void InterpreterMacroAssembler::push(TosState state) {

@@ -71,6 +71,8 @@ inline void Assembler::op_imm32(Register d, Register s, int f, int imm) { emit_i
 inline void Assembler::op32(Register d, Register s1, Register s2, int f1, int f2) { emit_int32_PPC(OP32_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
 inline void Assembler::op_fp(Register d, Register s1, Register s2, int rm, int f) { emit_int32_PPC(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
 inline void Assembler::op_fp(Register d, Register s1, int s2, int rm, int f) { emit_int32_PPC(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+inline void Assembler::op_fp(FloatRegister d, Register s1, int s2, int rm, int f) { emit_int32_PPC(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+inline void Assembler::op_fp(Register d, FloatRegister s1, int s2, int rm, int f) { emit_int32_PPC(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
 inline void Assembler::madd(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32_PPC(MADD_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 inline void Assembler::msub(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32_PPC(MSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 inline void Assembler::nmadd(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32_PPC(NMSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
@@ -240,8 +242,8 @@ inline void Assembler::fcvtld(  Register d, Register s, int rm) { op_fp(d, s, 0x
 inline void Assembler::fcvtlud( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x61); }
 inline void Assembler::fcvtdl(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x69); }
 inline void Assembler::fcvtdlu( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x69); }
-inline void Assembler::fmvxd(   Register d, Register s) { op_fp(d, s, 0x0, 0x0, 0x71); }
-inline void Assembler::fmvdx(   Register d, Register s) { op_fp(d, s, 0x0, 0x0, 0x79); }
+inline void Assembler::fmvxd(   Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x0, 0x71); }
+inline void Assembler::fmvdx(   FloatRegister d, Register s) { op_fp(d, s, 0x0, 0x0, 0x79); }
 
 inline void Assembler::flq(     FloatRegister d,    Register s, int imm) { load_fp( d,    s, 0x4, imm); }
 inline void Assembler::fsq(     FloatRegister s, Register base, int imm) { store_fp(s, base, 0x4, imm); }

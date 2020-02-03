@@ -219,6 +219,7 @@ class Assembler : public AbstractAssembler {
   static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 26) | (rl << 25)); }
   static inline int rs1(int x) { return x << 15; }
   static inline int rs1(Register x) { return rs1(x->encoding()); }
+  static inline int rs1(FloatRegister x) { return rs1(x->encoding()); }
   static inline int rs2(int x) { return x << 20; }
   static inline int rs2(Register x) { return rs2(x->encoding()); }
   static inline int rs2(FloatRegister x) { return rs2(x->encoding()); }
@@ -2042,6 +2043,8 @@ class Assembler : public AbstractAssembler {
   inline void op32(Register d, Register s1, Register s2, int f1, int f2);
   inline void op_fp(Register d, Register s1, Register s2, int rm, int f);
   inline void op_fp(Register d, Register s1, int s2, int rm, int f);
+  inline void op_fp(FloatRegister d, Register s1, int s2, int rm, int f);
+  inline void op_fp(Register d, FloatRegister s1, int s2, int rm, int f);
   inline void madd(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void msub(Register d, Register s1, Register s2, Register s3, int rm, int f);
   inline void nmadd(Register d, Register s1, Register s2, Register s3, int rm, int f);
@@ -2207,8 +2210,8 @@ class Assembler : public AbstractAssembler {
   inline void fcvtlud( Register d, Register s, int rm);
   inline void fcvtdl(  Register d, Register s, int rm);
   inline void fcvtdlu( Register d, Register s, int rm);
-  inline void fmvxd(   Register d, Register s);
-  inline void fmvdx(   Register d, Register s);
+  inline void fmvxd(   Register d, FloatRegister s);
+  inline void fmvdx(   FloatRegister d, Register s);
   //qp fp
   inline void flq(     FloatRegister d, Register s1, int imm);
   inline void fsq(     FloatRegister s, Register base, int imm);
