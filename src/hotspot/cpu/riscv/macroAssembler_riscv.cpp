@@ -4984,8 +4984,8 @@ void MacroAssembler::stop(int type, const char* msg, int id) {
   load_const_optimized(R3_ARG1, type);
   load_const_optimized(R4_ARG2, (void *)msg, /*tmp=*/R0);
   call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R3_ARG1, R4_ARG2);
-  illtrap_PPC();
-  emit_int32_PPC(id);
+  illtrap();
+  emit_int32(id);
   block_comment("} stop;");
 }
 

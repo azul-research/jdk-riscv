@@ -1225,7 +1225,7 @@ void TemplateInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
 address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   return entry;
 
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
@@ -2386,7 +2386,7 @@ void TemplateInterpreterGenerator::stop_interpreter_at() {
   __ lwa_PPC(R12_scratch2, offs2, R12_scratch2);
   __ cmpd_PPC(CCR0, R12_scratch2, R11_scratch1);
   __ bne_PPC(CCR0, L);
-  __ illtrap_PPC();
+  __ illtrap();
   __ bind(L);
 }
 

@@ -63,7 +63,7 @@ void RangeCheckStub::emit_code(LIR_Assembler* ce) {
     __ bctrl_PPC();
     ce->add_call_info_here(_info);
     ce->verify_oop_map(_info);
-    debug_only(__ illtrap_PPC());
+    debug_only(__ illtrap());
     return;
   }
 
@@ -87,7 +87,7 @@ void RangeCheckStub::emit_code(LIR_Assembler* ce) {
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  debug_only(__ illtrap_PPC());
+  debug_only(__ illtrap());
 }
 
 
@@ -104,7 +104,7 @@ void PredicateFailedStub::emit_code(LIR_Assembler* ce) {
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  debug_only(__ illtrap_PPC());
+  debug_only(__ illtrap());
 }
 
 
@@ -145,7 +145,7 @@ void DivByZeroStub::emit_code(LIR_Assembler* ce) {
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  debug_only(__ illtrap_PPC());
+  debug_only(__ illtrap());
 }
 
 
@@ -168,7 +168,7 @@ void ImplicitNullCheckStub::emit_code(LIR_Assembler* ce) {
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  debug_only(__ illtrap_PPC());
+  debug_only(__ illtrap());
 }
 
 
@@ -182,7 +182,7 @@ void SimpleExceptionStub::emit_code(LIR_Assembler* ce) {
   __ mtctr_PPC(R0);
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
-  debug_only( __ illtrap_PPC(); )
+  debug_only( __ illtrap(); )
 }
 
 
@@ -437,7 +437,7 @@ void DeoptimizeStub::emit_code(LIR_Assembler* ce) {
   __ load_const_optimized(R0, _trap_request); // Pass trap request in R0.
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
-  debug_only(__ illtrap_PPC());
+  debug_only(__ illtrap());
 }
 
 

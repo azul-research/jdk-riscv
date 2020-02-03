@@ -1204,11 +1204,11 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
 
   __ align(CodeEntryAlignment);
   i2c_entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   c2i_unverified_entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   c2i_entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   return AdapterHandlerLibrary::new_entry(fingerprint, i2c_entry, c2i_entry, c2i_unverified_entry, NULL);
   gen_i2c_adapter(masm, total_args_passed, comp_args_on_stack, sig_bt, regs);
 
@@ -3200,7 +3200,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   MacroAssembler* masm = new MacroAssembler(&buffer);
 
   address start = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   int frame_size_in_bytes = 0;
   return SafepointBlob::create(&buffer, oop_maps, frame_size_in_bytes / wordSize);
 
@@ -3325,7 +3325,7 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
   address start = __ pc();
   int frame_complete = __ offset();
   frame_size_in_bytes = 0;
-  __ illtrap_PPC(); // FIXME_RISCV
+  __ illtrap(); // FIXME_RISCV
   return RuntimeStub::new_runtime_stub(name, &buffer, frame_complete, frame_size_in_bytes/wordSize,
                                        oop_maps, true);
 

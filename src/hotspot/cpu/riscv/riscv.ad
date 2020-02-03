@@ -1143,7 +1143,7 @@ bool SafePointNode::needs_polling_address_input() {
 // Emit an interrupt that is caught by the debugger (for debugging compiler).
 void emit_break(CodeBuffer &cbuf) {
   MacroAssembler _masm(&cbuf);
-  __ illtrap_PPC();
+  __ illtrap();
 }
 
 #ifndef PRODUCT

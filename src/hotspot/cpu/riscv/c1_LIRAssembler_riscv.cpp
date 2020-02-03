@@ -2689,7 +2689,7 @@ void LIR_Assembler::reset_FPU() {
 
 
 void LIR_Assembler::breakpoint() {
-  __ illtrap_PPC();
+  __ illtrap();
 }
 
 

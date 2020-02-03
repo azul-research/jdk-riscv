@@ -1136,7 +1136,7 @@ class Assembler : public AbstractAssembler {
   static int aa(       int         x)  { return  opp_u_field(x,             30, 30); }
   static int ba(       int         x)  { return  opp_u_field(x,             15, 11); }
   static int bb(       int         x)  { return  opp_u_field(x,             20, 16); }
-  static int bc_PPC(       int         x)  { return  opp_u_field(x,             25, 21); }
+  static int bc(       int         x)  { return  opp_u_field(x,             25, 21); }
   static int bd(       int         x)  { return  opp_s_field(x,             29, 16); }
   static int bf( ConditionRegister cr) { return  bf(cr->encoding()); }
   static int bf(       int         x)  { return  opp_u_field(x,              8,  6); }
@@ -1307,16 +1307,16 @@ class Assembler : public AbstractAssembler {
     AbstractAssembler::flush();
   }
 
-  inline void emit_int32_PPC(int);  // shadows AbstractAssembler::emit_int32
-  inline void emit_data_PPC(int);
-  inline void emit_data_PPC(int, RelocationHolder const&);
-  inline void emit_data_PPC(int, relocInfo::relocType rtype);
+  inline void emit_int32(int);  // shadows AbstractAssembler::emit_int32
+  inline void emit_data(int);
+  inline void emit_data(int, RelocationHolder const&);
+  inline void emit_data(int, relocInfo::relocType rtype);
 
   // Emit an address.
   inline address emit_addr(const address addr = NULL);
 
   /////////////////////////////////////////////////////////////////////////////////////
-  // RISCV instructions
+  // PPC instructions
   /////////////////////////////////////////////////////////////////////////////////////
 
   // Memory instructions use r0 as hard coded 0, e.g. to simulate loading
@@ -1324,11 +1324,7 @@ class Assembler : public AbstractAssembler {
   // passed to them. Use either extended mnemonics encoders or the special ra0
   // versions.
 
-  // Issue an illegal instruction.
-  inline void illtrap_PPC();
-  static inline bool is_illtrap_PPC(int x);
-
-  // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
+  // PPC 1, section 3.3.8, Fixed-Point Arithmetic Instructions
   inline void addi_PPC( Register d, Register a, int si16);
   inline void addis_PPC(Register d, Register a, int si16);
  private:
@@ -2024,7 +2020,11 @@ class Assembler : public AbstractAssembler {
   }
 
  public:
-  // RISCV instructions are suffixed with _RV temporarily
+  // RISCV instructions
+
+  // Issue an illegal instruction.
+  inline void illtrap();
+  static inline bool is_illtrap(int x);
 
   // Generic instructions
   inline void op_imm(Register d, Register s, int f, int imm);
