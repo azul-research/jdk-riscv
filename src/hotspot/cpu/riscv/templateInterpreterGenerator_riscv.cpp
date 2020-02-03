@@ -559,8 +559,8 @@ address TemplateInterpreterGenerator::generate_ArrayIndexOutOfBounds_handler() {
   address entry = __ pc();
   __ empty_expression_stack();
   // R4_ARG2 already contains the array.
-  // Index is in R17_tos.
-  __ mr_PPC(R5_ARG3, R17_tos);
+  // Index is in R25_tos_RV.
+  __ mr_PPC(R5_ARG3, R25_tos_RV);
   __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_ArrayIndexOutOfBoundsException), R4_ARG2, R5_ARG3);
   return entry;
 }
@@ -573,7 +573,7 @@ address TemplateInterpreterGenerator::generate_ClassCastException_handler() {
 
   // Load exception object.
   // Thread will be loaded to R3_ARG1.
-  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_ClassCastException), R17_tos);
+  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_ClassCastException), R25_tos_RV);
 #ifdef ASSERT
   // Above call must not return here since exception pending.
   __ should_not_reach_here();
@@ -584,7 +584,7 @@ address TemplateInterpreterGenerator::generate_ClassCastException_handler() {
 address TemplateInterpreterGenerator::generate_exception_handler_common(const char* name, const char* message, bool pass_oop) {
   address entry = __ pc();
   //__ untested("generate_exception_handler_common");
-  Register Rexception = R17_tos;
+  Register Rexception = R25_tos_RV;
 
   // Expression stack must be empty before entering the VM if an exception happened.
   __ empty_expression_stack();
@@ -620,7 +620,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     case ctos:
     case stos:
     case atos:
-    case itos: __ mr_PPC(R17_tos, R3_RET); break;   // RET -> TOS cache
+    case itos: __ mr_PPC(R25_tos_RV, R3_RET); break;   // RET -> TOS cache
     case ftos:
     case dtos: __ fmr_PPC(F15_ftos, F1_RET); break; // TOS cache -> GR_FRET
     case vtos: break;                           // Nothing to do, this was a void return.
@@ -671,7 +671,7 @@ address TemplateInterpreterGenerator::generate_deopt_entry_for(TosState state, i
     case ctos:
     case stos:
     case atos:
-    case itos: __ mr_PPC(R17_tos, R3_RET); break;   // GR_RET -> TOS cache
+    case itos: __ mr_PPC(R25_tos_RV, R3_RET); break;   // GR_RET -> TOS cache
     case ftos:
     case dtos: __ fmr_PPC(F15_ftos, F1_RET); break; // TOS cache -> GR_FRET
     case vtos: break;                           // Nothing to do, this was a void return.
@@ -1992,7 +1992,7 @@ address TemplateInterpreterGenerator::generate_CRC32C_updateBytes_entry(Abstract
 // Exceptions
 
 void TemplateInterpreterGenerator::generate_throw_exception() {
-  Register Rexception    = R17_tos,
+  Register Rexception    = R25_tos_RV,
            Rcontinuation = R3_RET;
 
   // --------------------------------------------------------------------------
@@ -2198,9 +2198,9 @@ address TemplateInterpreterGenerator::generate_earlyret_entry_for(TosState state
     case ztos:
     case ctos:
     case stos:
-    case itos: __ narrow(R17_tos); /* fall through */
+    case itos: __ narrow(R25_tos_RV); /* fall through */
     case ltos:
-    case atos: __ mr_PPC(R3_RET, R17_tos); break;
+    case atos: __ mr_PPC(R3_RET, R25_tos_RV); break;
     case ftos:
     case dtos: __ fmr_PPC(F1_RET, F15_ftos); break;
     case vtos: // This might be a constructor. Final fields (and volatile fields on RISCV64) need

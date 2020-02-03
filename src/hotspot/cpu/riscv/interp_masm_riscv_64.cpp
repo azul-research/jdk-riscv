@@ -171,16 +171,16 @@ void InterpreterMacroAssembler::load_earlyret_value(TosState state, Register Rsc
   li_PPC(Rscratch2, 0);
 
   switch (state) {
-    case atos: ld_PPC(R17_tos, in_bytes(JvmtiThreadState::earlyret_oop_offset()), RjvmtiState);
+    case atos: ld_PPC(R25_tos_RV, in_bytes(JvmtiThreadState::earlyret_oop_offset()), RjvmtiState);
                std_PPC(Rscratch2, in_bytes(JvmtiThreadState::earlyret_oop_offset()), RjvmtiState);
                break;
-    case ltos: ld_PPC(R17_tos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
+    case ltos: ld_PPC(R25_tos_RV, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
     case btos: // fall through
     case ztos: // fall through
     case ctos: // fall through
     case stos: // fall through
-    case itos: lwz_PPC(R17_tos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
+    case itos: lwz_PPC(R25_tos_RV, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
     case ftos: lfs_PPC(F15_ftos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
@@ -350,7 +350,7 @@ void InterpreterMacroAssembler::pop(TosState state) {
     case vtos: /* nothing to do */   break;
     default  : ShouldNotReachHere();
   }
-  verify_oop(R17_tos, state);
+  verify_oop(R25_tos_RV, state);
 }
 
 void InterpreterMacroAssembler::empty_expression_stack() {
@@ -577,8 +577,8 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   cmplw_PPC(CCR0, Rindex, Rlength);
   sldi_PPC(RsxtIndex, RsxtIndex, index_shift);
   blt_PPC(CCR0, LnotOOR);
-  // Index should be in R17_tos, array should be in R4_ARG2.
-  mr_if_needed(R17_tos, Rindex);
+  // Index should be in R25_tos_RV, array should be in R4_ARG2.
+  mr_if_needed(R25_tos_RV, Rindex);
   mr_if_needed(R4_ARG2, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
   mtctr_PPC(Rtmp);
@@ -869,7 +869,7 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
     bind(no_reserved_zone_enabling);
   }
 
-  verify_oop(R17_tos, state);
+  verify_oop(R25_tos_RV, state);
   verify_thread();
 
   merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R11_scratch1, R12_scratch2);

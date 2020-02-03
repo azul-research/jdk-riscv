@@ -87,22 +87,22 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void load_receiver(Register Rparam_count, Register Rrecv_dst);
 
   // helpers for expression stack
-  void pop_i(     Register r = R17_tos);
-  void pop_ptr(   Register r = R17_tos);
-  void pop_l(     Register r = R17_tos);
+  void pop_i(     Register r = R25_tos_RV);
+  void pop_ptr(   Register r = R25_tos_RV);
+  void pop_l(     Register r = R25_tos_RV);
   void pop_f(FloatRegister f = F15_ftos);
   void pop_d(FloatRegister f = F15_ftos );
 
-  void push_i(     Register r = R17_tos);
-  void push_ptr(   Register r = R17_tos);
-  void push_l(     Register r = R17_tos);
+  void push_i(     Register r = R25_tos_RV);
+  void push_ptr(   Register r = R25_tos_RV);
+  void push_l(     Register r = R25_tos_RV);
   void push_f(FloatRegister f = F15_ftos );
   void push_d(FloatRegister f = F15_ftos);
 
   void push_2ptrs(Register first, Register second);
 
-  void move_l_to_d(Register l = R17_tos, FloatRegister d = F15_ftos);
-  void move_d_to_l(FloatRegister d = F15_ftos, Register l = R17_tos);
+  void move_l_to_d(Register l = R25_tos_RV, FloatRegister d = F15_ftos);
+  void move_d_to_l(FloatRegister d = F15_ftos, Register l = R25_tos_RV);
 
   void pop (TosState state);           // transition vtos -> state
   void push(TosState state);           // transition state -> vtos

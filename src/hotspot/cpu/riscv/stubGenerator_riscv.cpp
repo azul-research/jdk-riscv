@@ -175,7 +175,7 @@ class StubGenerator: public StubCodeGenerator {
       BLOCK_COMMENT("Copy Java arguments");
       // copy Java arguments
 
-      // Calculate top_of_arguments_addr which will be R17_tos (not prepushed) later.
+      // Calculate top_of_arguments_addr which will be R25_tos_RV (not prepushed) later.
       __ add(r_top_of_arguments_addr,
              R2_SP_RV, r_frame_alignment_in_bytes);
 
