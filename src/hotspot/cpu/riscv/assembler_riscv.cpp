@@ -363,7 +363,11 @@ bool Assembler::li_32_RV(Register d, long long imm) {
   return false;
 }
 
-void Assembler::li_RV(Register d, long long imm) { // TODO optimize
+void Assembler::li(Register d, void* addr) {
+  li(d, (long)(unsigned long)addr);
+}
+
+void Assembler::li(Register d, long long imm) { // TODO optimize
   if (li_32_RV(d, imm)) {
     return;
   }

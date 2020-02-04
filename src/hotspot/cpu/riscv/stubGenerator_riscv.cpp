@@ -246,7 +246,7 @@ class StubGenerator: public StubCodeGenerator {
       assert(tos != r_arg_thread && R27_method_RV != r_arg_thread, "trashed r_arg_thread");
 
       // Set R15_prev_state to 0 for simplifying checks in callee.
-      __ li_RV(R19_templateTableBase_RV, (long)(unsigned long)Interpreter::dispatch_table((TosState)0));
+      __ li(R19_templateTableBase_RV, Interpreter::dispatch_table((TosState)0));
       // Stack on entry to frame manager / native entry:
       //
       //      F0      [TOP_IJAVA_FRAME_ABI]
@@ -258,7 +258,7 @@ class StubGenerator: public StubCodeGenerator {
       //
 
       // global toc register
-      __ li_RV(R20_TOC_RV, (long)(unsigned long)MacroAssembler::global_toc());
+      __ li(R20_TOC_RV, MacroAssembler::global_toc());
       // Remember the senderSP so we interpreter can pop c2i arguments off of the stack
       // when called via a c2i.
 

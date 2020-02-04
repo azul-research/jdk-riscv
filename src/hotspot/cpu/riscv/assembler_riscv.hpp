@@ -2260,7 +2260,8 @@ class Assembler : public AbstractAssembler {
 private:
   bool li_32_RV(Register d, long long imm);
 public:
-  void li_RV(Register d, long long imm);
+  void li(Register d, long long imm);
+  void li(Register d, void* addr);
 
   // --- PPC instructions follow ---
 

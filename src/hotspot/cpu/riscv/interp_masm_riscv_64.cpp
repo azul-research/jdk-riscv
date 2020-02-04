@@ -203,10 +203,10 @@ void InterpreterMacroAssembler::load_earlyret_value(TosState state, Register Rsc
 void InterpreterMacroAssembler::load_dispatch_table(Register dst, address* table) {
   address table_base = (address)Interpreter::dispatch_table((TosState)0);
   intptr_t table_offs = (intptr_t)table - (intptr_t)table_base;
-  if (is_simm16(table_offs)) {
-    addi_PPC(dst, R25_templateTableBase, (int)table_offs);
+  if (is_simm12(table_offs)) {
+    addi(dst, R19_templateTableBase_RV, (int)table_offs);
   } else {
-    load_const_optimized(dst, table, R0);
+    li(dst, table);
   }
 }
 
