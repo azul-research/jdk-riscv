@@ -1180,7 +1180,7 @@ void LIRGenerator::do_If(If* x) {
 
 
 LIR_Opr LIRGenerator::getThreadPointer() {
-  return FrameMap::as_pointer_opr(R16_thread);
+  return FrameMap::as_pointer_opr(R24_thread);
 }
 
 

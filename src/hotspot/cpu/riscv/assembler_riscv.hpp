@@ -147,7 +147,7 @@ class Argument {
 
   Register as_register() const {
     assert(is_register(), "must be a register argument");
-    return as_Register(number() + R3_ARG1->encoding());
+    return as_Register(number() + R3_ARG1_PPC->encoding());
   }
 };
 

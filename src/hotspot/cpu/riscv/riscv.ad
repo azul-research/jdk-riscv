@@ -385,7 +385,7 @@ alloc_class chunk0 (
   R3,  R3_H,
 
   // special registers, not available for allocation
-  R16, R16_H,     // R16_thread
+  R16, R16_H,     // R24_thread
   R13, R13_H,     // system thread id
   R2,  R2_H,      // may be used for TOC
   R1,  R1_H,      // SP
@@ -568,7 +568,7 @@ reg_class bits32_reg_rw(
 /*R13*/             // system thread id
   R14,
   R15,
-/*R16*/             // R16_thread
+/*R16*/             // R24_thread
   R17,
   R18,
   R19,
@@ -605,7 +605,7 @@ reg_class bits32_reg_ro(
 /*R13*/             // system thread id
   R14,
   R15,
-/*R16*/             // R16_thread
+/*R16*/             // R24_thread
   R17,
   R18,
   R19,
@@ -665,7 +665,7 @@ reg_class bits64_reg_rw(
 /*R13_H, R13*/   // system thread id
   R14_H, R14,
   R15_H, R15,
-/*R16_H, R16*/   // R16_thread
+/*R16_H, R16*/   // R24_thread
   R17_H, R17,
   R18_H, R18,
   R19_H, R19,
@@ -703,7 +703,7 @@ reg_class bits64_reg_leaf_call(
 /*R13_H, R13*/   // system thread id
   R14_H, R14,
   R15_H, R15,
-/*R16_H, R16*/   // R16_thread
+/*R16_H, R16*/   // R24_thread
   R17_H, R17,
   R18_H, R18,
   R19_H, R19,
@@ -741,7 +741,7 @@ reg_class bits64_constant_table_base(
 /*R13_H, R13*/   // system thread id
   R14_H, R14,
   R15_H, R15,
-/*R16_H, R16*/   // R16_thread
+/*R16_H, R16*/   // R24_thread
   R17_H, R17,
   R18_H, R18,
 /*R19_H, R19*/
@@ -778,7 +778,7 @@ reg_class bits64_reg_ro(
 /*R13_H, R13*/   // system thread id
   R14_H, R14,
   R15_H, R15,
-  R16_H, R16,    // R16_thread
+  R16_H, R16,    // R24_thread
   R17_H, R17,
   R18_H, R18,
   R19_H, R19,
@@ -1409,7 +1409,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     // Notify OOP recorder (don't need the relocation)
     AddressLiteral md = __ constant_metadata_address(C->method()->holder()->constant_encoding());
     __ load_const_optimized(klass, md.value(), R0);
-    __ clinit_barrier(klass, R16_thread, &L_skip_barrier /*L_fast_path*/);
+    __ clinit_barrier(klass, R24_thread, &L_skip_barrier /*L_fast_path*/);
 
     __ load_const_optimized(klass, SharedRuntime::get_handle_wrong_method_stub(), R0);
     __ mtctr_PPC(klass);
@@ -1457,9 +1457,9 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
       if (Assembler::is_simm(stdoffset, 16)) {
         // Signed 16 bit offset, a simple std is ok.
         if (UseLoadInstructionsForStackBangingRISCV64) {
-          ___(ld) ld_PPC(R0,  (int)(signed short)stdoffset, R1_SP);
+          ___(ld) ld_PPC(R0,  (int)(signed short)stdoffset, R1_SP_PPC);
         } else {
-          ___(std) std_PPC(R0, (int)(signed short)stdoffset, R1_SP);
+          ___(std) std_PPC(R0, (int)(signed short)stdoffset, R1_SP_PPC);
         }
       } else if (Assembler::is_simm(stdoffset, 31)) {
         // Use largeoffset calculations for addis & ld/std.
@@ -1467,7 +1467,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
         const int lo = MacroAssembler::largeoffset_si16_si16_lo(stdoffset);
 
         Register tmp = R11;
-        ___(addis) addis_PPC(tmp, R1_SP, hi);
+        ___(addis) addis_PPC(tmp, R1_SP_PPC, hi);
         if (UseLoadInstructionsForStackBangingRISCV64) {
           ___(ld) ld_PPC(R0, lo, tmp);
         } else {
@@ -1490,15 +1490,15 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
   if (UsePower6SchedulerRISCV64 &&
       !method_is_frameless && Assembler::is_simm((int)(-offset), 16) &&
       !(false /* ConstantsALot TODO: RISCV port*/)) {
-    ___(or) mr_PPC(callers_sp, R1_SP);
-    ___(std) std_PPC(return_pc, _abi(lr), R1_SP);
-    ___(stdu) stdu_PPC(R1_SP, -offset, R1_SP);
+    ___(or) mr_PPC(callers_sp, R1_SP_PPC);
+    ___(std) std_PPC(return_pc, _abi(lr), R1_SP_PPC);
+    ___(stdu) stdu_PPC(R1_SP_PPC, -offset, R1_SP_PPC);
     return;
   }
 
   if (!method_is_frameless) {
     // Get callers sp.
-    ___(or) mr_PPC(callers_sp, R1_SP);
+    ___(or) mr_PPC(callers_sp, R1_SP_PPC);
 
     // Push method's frame, modifies SP.
     assert(Assembler::is_uimm(framesize, 32U), "wrong type");
@@ -1507,7 +1507,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     Register tmp = push_frame_temp;
     // Had to insert code of push_frame((unsigned int)framesize, push_frame_temp).
     if (Assembler::is_simm(-offset, 16)) {
-      ___(stdu) stdu_PPC(R1_SP, -offset, R1_SP);
+      ___(stdu) stdu_PPC(R1_SP_PPC, -offset, R1_SP_PPC);
     } else {
       long x = -offset;
       // Had to insert load_const_PPC(tmp, -offset).
@@ -1517,7 +1517,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
       ___(oris)   oris_PPC(tmp, tmp, (x & 0xffff0000) >> 16);
       ___(ori)    ori_PPC( tmp, tmp, (x & 0x0000ffff));
 
-      ___(stdux) stdux_PPC(R1_SP, R1_SP, tmp);
+      ___(stdux) stdux_PPC(R1_SP_PPC, R1_SP_PPC, tmp);
     }
   }
 #if 0 // TODO: RISCV port
@@ -1581,12 +1581,12 @@ void MachEpilogNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 
   if (!method_is_frameless) {
     // Restore return pc relative to callers' sp.
-    __ ld_PPC(return_pc, ((int)framesize) + _abi(lr), R1_SP);
+    __ ld_PPC(return_pc, ((int)framesize) + _abi(lr), R1_SP_PPC);
   }
 
   if (method_needs_polling) {
     if (SafepointMechanism::uses_thread_local_poll()) {
-      __ ld_PPC(polling_page, in_bytes(JavaThread::polling_page_offset()), R16_thread);
+      __ ld_PPC(polling_page, in_bytes(JavaThread::polling_page_offset()), R24_thread);
     } else {
       __ load_const_optimized(polling_page, (long)(address) os::get_polling_page());
     }
@@ -1596,7 +1596,7 @@ void MachEpilogNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     // Move return pc to LR.
     __ mtlr_PPC(return_pc);
     // Pop frame (fixed frame-size).
-    __ addi_PPC(R1_SP, R1_SP, (int)framesize);
+    __ addi_PPC(R1_SP_PPC, R1_SP_PPC, (int)framesize);
   }
 
   if (StackReservedPages > 0 && C->has_reserved_stack_access()) {
@@ -1637,7 +1637,7 @@ int MachEpilogNode::safepoint_offset() const {
 void MachLoadPollAddrLateNode::emit(CodeBuffer& cbuf, PhaseRegAlloc* ra_) const {
   MacroAssembler _masm(&cbuf);
   if (LoadPollAddressFromThread) {
-    _masm.ld_PPC(R11, in_bytes(JavaThread::poll_address_offset()), R16_thread);
+    _masm.ld_PPC(R11, in_bytes(JavaThread::poll_address_offset()), R24_thread);
   } else {
     _masm.nop_PPC();
   }
@@ -1653,7 +1653,7 @@ uint MachLoadPollAddrLateNode::size(PhaseRegAlloc* ra_) const {
 
 #ifndef PRODUCT
 void MachLoadPollAddrLateNode::format(PhaseRegAlloc* ra_, outputStream* st) const {
-  st->print_cr(" LD R11, PollAddressOffset, R16_thread \t// LoadPollAddressFromThread");
+  st->print_cr(" LD R11, PollAddressOffset, R24_thread \t// LoadPollAddressFromThread");
 }
 #endif
 
@@ -1708,11 +1708,11 @@ static int ld_st_helper(CodeBuffer *cbuf, const char *op_str, uint opcode, int r
       (Assembler::LD_OPCODE == opcode || Assembler::STD_OPCODE == opcode) ?
         Assembler::ds(offset+0 /* TODO: RISCV port C->frame_slots_sp_bias_in_bytes()*/)
       : Assembler::d1(offset+0 /* TODO: RISCV port C->frame_slots_sp_bias_in_bytes()*/); // Makes no difference in opt build.
-    emit_long(*cbuf, opcode | Assembler::rt(Matcher::_regEncode[reg]) | d | Assembler::ra(R1_SP));
+    emit_long(*cbuf, opcode | Assembler::rt(Matcher::_regEncode[reg]) | d | Assembler::ra(R1_SP_PPC));
   }
 #ifndef PRODUCT
   else if (do_print) {
-    st->print("%-7s %s, [R1_SP + #%d+%d] \t// spill copy",
+    st->print("%-7s %s, [R1_SP_PPC + #%d+%d] \t// spill copy",
               op_str,
               Matcher::regName[reg],
               offset, 0 /* TODO: RISCV port C->frame_slots_sp_bias_in_bytes()*/);
@@ -1753,10 +1753,10 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       int dst_offset = ra_->reg2offset(dst_lo);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ ld_PPC(R0, src_offset, R1_SP);
-        __ std_PPC(R0, dst_offset, R1_SP);
-        __ ld_PPC(R0, src_offset+8, R1_SP);
-        __ std_PPC(R0, dst_offset+8, R1_SP);
+        __ ld_PPC(R0, src_offset, R1_SP_PPC);
+        __ std_PPC(R0, dst_offset, R1_SP_PPC);
+        __ ld_PPC(R0, src_offset+8, R1_SP_PPC);
+        __ std_PPC(R0, dst_offset+8, R1_SP_PPC);
       }
       size += 16;
     }
@@ -1766,7 +1766,7 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       int dst_offset = ra_->reg2offset(dst_lo);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ addi_PPC(R0, R1_SP, dst_offset);
+        __ addi_PPC(R0, R1_SP_PPC, dst_offset);
         __ stxvd2x_PPC(Rsrc, R0);
       }
       size += 8;
@@ -1777,7 +1777,7 @@ uint MachSpillCopyNode::implementation(CodeBuffer *cbuf, PhaseRegAlloc *ra_, boo
       int src_offset = ra_->reg2offset(src_lo);
       if (cbuf) {
         MacroAssembler _masm(cbuf);
-        __ addi_PPC(R0, R1_SP, src_offset);
+        __ addi_PPC(R0, R1_SP_PPC, src_offset);
         __ lxvd2x_PPC(Rdst, R0);
       }
       size += 8;
@@ -2098,18 +2098,18 @@ void MachUEPNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 
   // Inline_cache contains a klass.
   Register ic_klass       = as_Register(Matcher::inline_cache_reg_encode());
-  Register receiver_klass = R12_scratch2;  // tmp
+  Register receiver_klass = R6_scratch2;  // tmp
 
-  assert_different_registers(ic_klass, receiver_klass, R11_scratch1, R3_ARG1);
-  assert(R11_scratch1 == R11, "need prologue scratch register");
+  assert_different_registers(ic_klass, receiver_klass, R5_scratch1, R3_ARG1_PPC);
+  assert(R5_scratch1 == R11, "need prologue scratch register");
 
   // Check for NULL argument if we don't have implicit null checks.
   if (!ImplicitNullChecks || !os::zero_page_read_protected()) {
     if (TrapBasedNullChecks) {
-      __ trap_null_check(R3_ARG1);
+      __ trap_null_check(R3_ARG1_PPC);
     } else {
       Label valid;
-      __ cmpdi_PPC(CCR0, R3_ARG1, 0);
+      __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
       __ bne_predict_taken_PPC(CCR0, valid);
       // We have a null argument, branch to ic_miss_stub.
       __ b64_patchable((address)SharedRuntime::get_ic_miss_stub(),
@@ -2118,7 +2118,7 @@ void MachUEPNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
     }
   }
   // Assume argument is not NULL, load klass from receiver.
-  __ load_klass(receiver_klass, R3_ARG1);
+  __ load_klass(receiver_klass, R3_ARG1_PPC);
 
   if (TrapBasedICMissChecks) {
     __ trap_ic_miss_check(receiver_klass, ic_klass);
@@ -2212,7 +2212,7 @@ int HandlerImpl::emit_deopt_handler(CodeBuffer& cbuf) {
 
 // Use a frame slots bias for frameless methods if accessing the stack.
 static int frame_slots_bias(int reg_enc, PhaseRegAlloc* ra_) {
-  if (as_Register(reg_enc) == R1_SP) {
+  if (as_Register(reg_enc) == R1_SP_PPC) {
     return 0; // TODO: RISCV port ra_->C->frame_slots_sp_bias_in_bytes();
   }
   return 0;
@@ -3866,7 +3866,7 @@ encode %{
     MacroAssembler _masm(&cbuf);
     int start_offset = __ offset();
 
-    Register Rtoc = (ra_) ? $constanttablebase : R2_TOC;
+    Register Rtoc = (ra_) ? $constanttablebase : R2_TOC_PPC;
 #if 0
     int vtable_index = this->_vtable_index;
     if (_vtable_index < 0) {
@@ -3893,20 +3893,20 @@ encode %{
       assert(!UseInlineCaches, "expect vtable calls only if not using ICs");
       // Go thru the vtable. Get receiver klass. Receiver already
       // checked for non-null. If we'll go thru a C2I adapter, the
-      // interpreter expects method in R19_method.
+      // interpreter expects method in R27_method.
 
-      __ load_klass(R11_scratch1, R3);
+      __ load_klass(R5_scratch1, R3);
 
       int entry_offset = in_bytes(Klass::vtable_start_offset()) + _vtable_index * vtableEntry::size_in_bytes();
       int v_off = entry_offset + vtableEntry::method_offset_in_bytes();
-      __ li_PPC(R19_method, v_off);
-      __ ldx_PPC(R19_method/*method oop*/, R19_method/*method offset*/, R11_scratch1/*class*/);
+      __ li_PPC(R27_method, v_off);
+      __ ldx_PPC(R27_method/*method oop*/, R27_method/*method offset*/, R5_scratch1/*class*/);
       // NOTE: for vtable dispatches, the vtable entry will never be
       // null. However it may very well end up in handle_wrong_method
       // if the method is abstract for the particular class.
-      __ ld_PPC(R11_scratch1, in_bytes(Method::from_compiled_offset()), R19_method);
+      __ ld_PPC(R5_scratch1, in_bytes(Method::from_compiled_offset()), R27_method);
       // Call target. Either compiled code or C2I adapter.
-      __ mtctr_PPC(R11_scratch1);
+      __ mtctr_PPC(R5_scratch1);
       __ bctrl_PPC();
       if (((MachCallDynamicJavaNode*)this)->ret_addr_offset() != __ offset() - start_offset) {
         tty->print(" %d, %d\n", ((MachCallDynamicJavaNode*)this)->ret_addr_offset(),__ offset() - start_offset);
@@ -3933,7 +3933,7 @@ encode %{
     FunctionDescriptor fdtemp;
     const FunctionDescriptor* fd = !($meth$$method) ? &fdtemp : (FunctionDescriptor*)$meth$$method;
 
-    Register Rtoc = R12_scratch2;
+    Register Rtoc = R6_scratch2;
     // Calculate the method's TOC.
     __ calculate_address_from_global_toc(Rtoc, __ method_toc());
     // Put entry, env, toc into the constant pool, this needs up to 3 constant
@@ -4077,10 +4077,10 @@ frame %{
   // compiled code and the interpreter.
 
   // Inline Cache Register or method for I2C.
-  inline_cache_reg(R19); // R19_method
+  inline_cache_reg(R19); // R27_method
 
   // Method Oop Register when calling interpreter.
-  interpreter_method_oop_reg(R19); // R19_method
+  interpreter_method_oop_reg(R19); // R27_method
 
   // Optional: name the operand used by cisc-spilling to access
   // [stack_pointer + offset].
@@ -4090,7 +4090,7 @@ frame %{
   sync_stack_slots((frame::jit_monitor_size / VMRegImpl::stack_slot_size));
 
   // Compiled code's Frame Pointer.
-  frame_pointer(R1); // R1_SP
+  frame_pointer(R1); // R1_SP_PPC
 
   // Interpreter stores its frame pointer in a register which is
   // stored to the stack by I2CAdaptors. I2CAdaptors convert from
@@ -4116,7 +4116,7 @@ frame %{
   //
   // A: Link register is stored in stack slot ...
   // M:  ... but it's in the caller's frame according to RISCV-64 ABI.
-  // J: Therefore, we make sure that the link register is also in R11_scratch1
+  // J: Therefore, we make sure that the link register is also in R5_scratch1
   //    at the end of the prolog.
   // B: We use R20, now.
   //return_addr(REG R20);
@@ -5173,7 +5173,7 @@ operand stackSlotI(sRegI reg) %{
   //match(RegI);
   format %{ "[sp+$reg]" %}
   interface(MEMORY_INTER) %{
-    base(0x1);   // R1_SP
+    base(0x1);   // R1_SP_PPC
     index(0x0);
     scale(0x0);
     disp($reg);  // Stack Offset
@@ -5186,7 +5186,7 @@ operand stackSlotL(sRegL reg) %{
   //match(RegL);
   format %{ "[sp+$reg]" %}
   interface(MEMORY_INTER) %{
-    base(0x1);   // R1_SP
+    base(0x1);   // R1_SP_PPC
     index(0x0);
     scale(0x0);
     disp($reg);  // Stack Offset
@@ -5199,7 +5199,7 @@ operand stackSlotP(sRegP reg) %{
   //match(RegP);
   format %{ "[sp+$reg]" %}
   interface(MEMORY_INTER) %{
-    base(0x1);   // R1_SP
+    base(0x1);   // R1_SP_PPC
     index(0x0);
     scale(0x0);
     disp($reg);  // Stack Offset
@@ -5212,7 +5212,7 @@ operand stackSlotF(sRegF reg) %{
   //match(RegF);
   format %{ "[sp+$reg]" %}
   interface(MEMORY_INTER) %{
-    base(0x1);   // R1_SP
+    base(0x1);   // R1_SP_PPC
     index(0x0);
     scale(0x0);
     disp($reg);  // Stack Offset
@@ -5225,7 +5225,7 @@ operand stackSlotD(sRegD reg) %{
   //match(RegD);
   format %{ "[sp+$reg]" %}
   interface(MEMORY_INTER) %{
-    base(0x1);   // R1_SP
+    base(0x1);   // R1_SP_PPC
     index(0x0);
     scale(0x0);
     disp($reg);  // Stack Offset
@@ -6957,7 +6957,7 @@ instruct storeCM_G1(memory mem, immI_0 zero) %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
     __ li_PPC(R0, 0);
     //__ release(); // G1: oops are allowed to get visible after dirty marking
-    guarantee($mem$$base$$Register != R1_SP, "use frame_slots_bias");
+    guarantee($mem$$base$$Register != R1_SP_PPC, "use frame_slots_bias");
     __ stb_PPC(R0, $mem$$disp, $mem$$base$$Register);
   %}
   ins_pipe(pipe_class_memory);
@@ -14988,13 +14988,13 @@ instruct tailjmpInd(iRegPdstNoScratch jump_target, rarg1RegP ex_oop) %{
   match(TailJump jump_target ex_oop);
   ins_cost(CALL_COST);
 
-  format %{ "LD      R4_ARG2 = LR\n\t"
+  format %{ "LD      R4_ARG2_PPC = LR\n\t"
             "MTCTR   $jump_target\n\t"
             "BCTR     \t// TailJump, exception oop: $ex_oop" %}
   size(12);
   ins_encode %{
     // TODO: RISCV port $archOpcode(riscv64Opcode_compound);
-    __ ld_PPC(R4_ARG2/* issuing pc */, _abi(lr), R1_SP);
+    __ ld_PPC(R4_ARG2_PPC/* issuing pc */, _abi(lr), R1_SP_PPC);
     __ mtctr_PPC($jump_target$$Register);
     __ bctr_PPC();
   %}

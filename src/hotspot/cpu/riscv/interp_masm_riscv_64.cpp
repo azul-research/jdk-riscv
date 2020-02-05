@@ -62,11 +62,11 @@ void InterpreterMacroAssembler::jump_to_entry(address entry, Register Rscratch) 
 }
 
 void InterpreterMacroAssembler::dispatch_next(TosState state, int bcp_incr, bool generate_poll) {
-  Register bytecode = R12_scratch2;
+  Register bytecode = R6_scratch2;
   if (bcp_incr != 0) {
-    lbzu_PPC(bytecode, bcp_incr, R14_bcp);
+    lbzu_PPC(bytecode, bcp_incr, R22_bcp);
   } else {
-    lbz_PPC(bytecode, 0, R14_bcp);
+    lbz_PPC(bytecode, 0, R22_bcp);
   }
 
   dispatch_Lbyte_code(state, bytecode, Interpreter::dispatch_table(state), generate_poll);
@@ -74,29 +74,29 @@ void InterpreterMacroAssembler::dispatch_next(TosState state, int bcp_incr, bool
 
 void InterpreterMacroAssembler::dispatch_via(TosState state, address* table) {
   // Load current bytecode.
-  Register bytecode = R12_scratch2;
-  lbz_PPC(bytecode, 0, R14_bcp);
+  Register bytecode = R6_scratch2;
+  lbz_PPC(bytecode, 0, R22_bcp);
   dispatch_Lbyte_code(state, bytecode, table);
 }
 
 // Dispatch code executed in the prolog of a bytecode which does not do it's
-// own dispatch. The dispatch address is computed and placed in R24_dispatch_addr.
+// own dispatch. The dispatch address is computed and placed in R24_dispatch_addr_PPC.
 void InterpreterMacroAssembler::dispatch_prolog(TosState state, int bcp_incr) {
-  Register bytecode = R12_scratch2;
-  lbz_PPC(bytecode, bcp_incr, R14_bcp);
+  Register bytecode = R6_scratch2;
+  lbz_PPC(bytecode, bcp_incr, R22_bcp);
 
-  load_dispatch_table(R24_dispatch_addr, Interpreter::dispatch_table(state));
+  load_dispatch_table(R24_dispatch_addr_PPC, Interpreter::dispatch_table(state));
 
   sldi_PPC(bytecode, bytecode, LogBytesPerWord);
-  ldx_PPC(R24_dispatch_addr, R24_dispatch_addr, bytecode);
+  ldx_PPC(R24_dispatch_addr_PPC, R24_dispatch_addr_PPC, bytecode);
 }
 
 // Dispatch code executed in the epilog of a bytecode which does not do it's
-// own dispatch. The dispatch address in R24_dispatch_addr is used for the
+// own dispatch. The dispatch address in R24_dispatch_addr_PPC is used for the
 // dispatch.
 void InterpreterMacroAssembler::dispatch_epilog(TosState state, int bcp_incr) {
-  if (bcp_incr) { addi_PPC(R14_bcp, R14_bcp, bcp_incr); }
-  mtctr_PPC(R24_dispatch_addr);
+  if (bcp_incr) { addi_PPC(R22_bcp, R22_bcp, bcp_incr); }
+  mtctr_PPC(R24_dispatch_addr_PPC);
   bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
 }
 
@@ -106,7 +106,7 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg) 
     Label L;
 
     // Check the "pending popframe condition" flag in the current thread.
-    lwz_PPC(scratch_reg, in_bytes(JavaThread::popframe_condition_offset()), R16_thread);
+    lwz_PPC(scratch_reg, in_bytes(JavaThread::popframe_condition_offset()), R24_thread);
 
     // Initiate popframe handling only if it is not already being
     // processed. If the flag has the popframe_processing bit set, it
@@ -132,7 +132,7 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg) 
 #endif
 
     // Jump to Interpreter::_remove_activation_preserving_args_entry.
-    mtctr_PPC(R3_RET);
+    mtctr_PPC(R3_RET_PPC);
     bctr_PPC();
 
     align(32, 12);
@@ -144,7 +144,7 @@ void InterpreterMacroAssembler::check_and_handle_earlyret(Register scratch_reg) 
   const Register Rthr_state_addr = scratch_reg;
   if (JvmtiExport::can_force_early_return()) {
     Label Lno_early_ret;
-    ld_PPC(Rthr_state_addr, in_bytes(JavaThread::jvmti_thread_state_offset()), R16_thread);
+    ld_PPC(Rthr_state_addr, in_bytes(JavaThread::jvmti_thread_state_offset()), R24_thread);
     cmpdi_PPC(CCR0, Rthr_state_addr, 0);
     beq_PPC(CCR0, Lno_early_ret);
 
@@ -153,9 +153,9 @@ void InterpreterMacroAssembler::check_and_handle_earlyret(Register scratch_reg) 
     bne_PPC(CCR0, Lno_early_ret);
 
     // Jump to Interpreter::_earlyret_entry.
-    lwz_PPC(R3_ARG1, in_bytes(JvmtiThreadState::earlyret_tos_offset()), Rthr_state_addr);
+    lwz_PPC(R3_ARG1_PPC, in_bytes(JvmtiThreadState::earlyret_tos_offset()), Rthr_state_addr);
     call_VM_leaf(CAST_FROM_FN_PTR(address, Interpreter::remove_activation_early_entry));
-    mtlr_PPC(R3_RET);
+    mtlr_PPC(R3_RET_PPC);
     blr_PPC();
 
     align(32, 12);
@@ -167,24 +167,24 @@ void InterpreterMacroAssembler::load_earlyret_value(TosState state, Register Rsc
   const Register RjvmtiState = Rscratch1;
   const Register Rscratch2   = R0;
 
-  ld_PPC(RjvmtiState, in_bytes(JavaThread::jvmti_thread_state_offset()), R16_thread);
+  ld_PPC(RjvmtiState, in_bytes(JavaThread::jvmti_thread_state_offset()), R24_thread);
   li_PPC(Rscratch2, 0);
 
   switch (state) {
-    case atos: ld_PPC(R25_tos_RV, in_bytes(JvmtiThreadState::earlyret_oop_offset()), RjvmtiState);
+    case atos: ld_PPC(R25_tos, in_bytes(JvmtiThreadState::earlyret_oop_offset()), RjvmtiState);
                std_PPC(Rscratch2, in_bytes(JvmtiThreadState::earlyret_oop_offset()), RjvmtiState);
                break;
-    case ltos: ld_PPC(R25_tos_RV, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
+    case ltos: ld_PPC(R25_tos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
     case btos: // fall through
     case ztos: // fall through
     case ctos: // fall through
     case stos: // fall through
-    case itos: lwz_PPC(R25_tos_RV, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
+    case itos: lwz_PPC(R25_tos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
-    case ftos: lfs_PPC(F15_ftos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
+    case ftos: lfs_PPC(F23_ftos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
-    case dtos: lfd_PPC(F15_ftos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
+    case dtos: lfd_PPC(F23_ftos, in_bytes(JvmtiThreadState::earlyret_value_offset()), RjvmtiState);
                break;
     case vtos: break;
     default  : ShouldNotReachHere();
@@ -204,7 +204,7 @@ void InterpreterMacroAssembler::load_dispatch_table(Register dst, address* table
   address table_base = (address)Interpreter::dispatch_table((TosState)0);
   intptr_t table_offs = (intptr_t)table - (intptr_t)table_base;
   if (is_simm12(table_offs)) {
-    addi(dst, R19_templateTableBase_RV, (int)table_offs);
+    addi(dst, R19_templateTableBase, (int)table_offs);
   } else {
     li(dst, table);
   }
@@ -212,95 +212,95 @@ void InterpreterMacroAssembler::load_dispatch_table(Register dst, address* table
 
 void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register bytecode,
                                                     address* table, bool generate_poll) {
-  assert_different_registers(bytecode, R11_scratch1);
+  assert_different_registers(bytecode, R5_scratch1);
 
   // Calc dispatch table address.
-  load_dispatch_table(R11_scratch1, table);
+  load_dispatch_table(R5_scratch1, table);
 
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
     address *sfpt_tbl = Interpreter::safept_table(state);
     if (table != sfpt_tbl) {
       Label dispatch;
-      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R16_thread);
+      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R24_thread);
       // Armed page has poll_bit set, if poll bit is cleared just continue.
       andi__PPC(R0, R0, SafepointMechanism::poll_bit());
       beq_PPC(CCR0, dispatch);
-      load_dispatch_table(R11_scratch1, sfpt_tbl);
+      load_dispatch_table(R5_scratch1, sfpt_tbl);
       align(32, 16);
       bind(dispatch);
     }
   }
 
-  sldi_PPC(R12_scratch2, bytecode, LogBytesPerWord);
-  ldx_PPC(R11_scratch1, R11_scratch1, R12_scratch2);
+  sldi_PPC(R6_scratch2, bytecode, LogBytesPerWord);
+  ldx_PPC(R5_scratch1, R5_scratch1, R6_scratch2);
 
   // Jump off!
-  mtctr_PPC(R11_scratch1);
+  mtctr_PPC(R5_scratch1);
   bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
 }
 
 void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rrecv_dst) {
   sldi_PPC(Rrecv_dst, Rparam_count, Interpreter::logStackElementSize);
-  ldx_PPC(Rrecv_dst, Rrecv_dst, R15_esp);
+  ldx_PPC(Rrecv_dst, Rrecv_dst, R23_esp);
 }
 
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  lwu(r, R23_esp_RV, Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, Interpreter::stackElementSize);
+  lwu(r, R23_esp, Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_ptr(Register r) {
-  ld(r, R23_esp_RV, Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, Interpreter::stackElementSize);
+  ld(r, R23_esp, Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_l(Register r) {
-  ld(r, R23_esp_RV, Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, 2 * Interpreter::stackElementSize);
+  ld(r, R23_esp, Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, 2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_f(FloatRegister f) {
-  flw(f, R23_esp_RV, Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, Interpreter::stackElementSize);
+  flw(f, R23_esp, Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::pop_d(FloatRegister f) {
-  fld(f, R23_esp_RV, Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, 2 * Interpreter::stackElementSize);
+  fld(f, R23_esp, Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, 2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_i(Register r) {
-  sw(r, R23_esp_RV, 0);
-  addi(R23_esp_RV, R23_esp_RV, -Interpreter::stackElementSize);
+  sw(r, R23_esp, 0);
+  addi(R23_esp, R23_esp, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_ptr(Register r) {
-  sd(r, R23_esp_RV, 0);
-  addi(R23_esp_RV, R23_esp_RV, -Interpreter::stackElementSize);
+  sd(r, R23_esp, 0);
+  addi(R23_esp, R23_esp, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_l(Register r) {
-  sd(R0_ZERO_RV, R23_esp_RV, 0);
-  sd(r, R23_esp_RV, -Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, -2 * Interpreter::stackElementSize);
+  sd(R0_ZERO, R23_esp, 0);
+  sd(r, R23_esp, -Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, -2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_f(FloatRegister f) {
-  fsw(f, R23_esp_RV, 0);
-  addi(R23_esp_RV, R23_esp_RV, -Interpreter::stackElementSize);
+  fsw(f, R23_esp, 0);
+  addi(R23_esp, R23_esp, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_d(FloatRegister f)   {
-  fsd(f, R23_esp_RV, -Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, -2 * Interpreter::stackElementSize);
+  fsd(f, R23_esp, -Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, -2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::push_2ptrs(Register first, Register second) {
-  sd(first, R23_esp_RV, 0);
-  sd(second, R23_esp_RV, -Interpreter::stackElementSize);
-  addi(R23_esp_RV, R23_esp_RV, -2 * Interpreter::stackElementSize);
+  sd(first, R23_esp, 0);
+  sd(second, R23_esp, -Interpreter::stackElementSize);
+  addi(R23_esp, R23_esp, -2 * Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::move_l_to_d(Register l, FloatRegister d) {
@@ -341,11 +341,11 @@ void InterpreterMacroAssembler::pop(TosState state) {
     case vtos: /* nothing to do */   break;
     default  : ShouldNotReachHere();
   }
-  verify_oop(R25_tos_RV, state);
+  verify_oop(R25_tos, state);
 }
 
 void InterpreterMacroAssembler::empty_expression_stack() {
-  addi_PPC(R15_esp, R26_monitor, - Interpreter::stackElementSize);
+  addi_PPC(R23_esp, R26_monitor_PPC, - Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset,
@@ -353,19 +353,19 @@ void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
   if (is_signed == Signed) {
-    lb(R7_TMP2_RV, R22_bcp_RV, bcp_offset + 1);
+    lb(R7_TMP2, R22_bcp, bcp_offset + 1);
   } else {
-    lbu(R7_TMP2_RV, R22_bcp_RV, bcp_offset + 1);
+    lbu(R7_TMP2, R22_bcp, bcp_offset + 1);
   }
-  slli(R7_TMP2_RV, R7_TMP2_RV, 8);
-  lbu(Rdst, R22_bcp_RV, bcp_offset);
-  andr(Rdst, R7_TMP2_RV, Rdst);
+  slli(R7_TMP2, R7_TMP2, 8);
+  lbu(Rdst, R22_bcp, bcp_offset);
+  andr(Rdst, R7_TMP2, Rdst);
 #else
   // Read Java big endian format.
   if (is_signed == Signed) {
-    lh(Rdst, R22_bcp_RV, bcp_offset);
+    lh(Rdst, R22_bcp, bcp_offset);
   } else {
-    lhu(Rdst, R22_bcp_RV, bcp_offset);
+    lhu(Rdst, R22_bcp, bcp_offset);
   }
 #endif
 }
@@ -376,9 +376,9 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
 #if defined(VM_LITTLE_ENDIAN)
   if (bcp_offset) {
     load_const_optimized(Rdst, bcp_offset);
-    lwbrx_PPC(Rdst, R14_bcp, Rdst);
+    lwbrx_PPC(Rdst, R22_bcp, Rdst);
   } else {
-    lwbrx_PPC(Rdst, R14_bcp);
+    lwbrx_PPC(Rdst, R22_bcp);
   }
   if (is_signed == Signed) {
     extsw_PPC(Rdst, Rdst);
@@ -388,15 +388,15 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
   if (bcp_offset & 3) { // Offset unaligned?
     load_const_optimized(Rdst, bcp_offset);
     if (is_signed == Signed) {
-      lwax_PPC(Rdst, R14_bcp, Rdst);
+      lwax_PPC(Rdst, R22_bcp, Rdst);
     } else {
-      lwzx_PPC(Rdst, R14_bcp, Rdst);
+      lwzx_PPC(Rdst, R22_bcp, Rdst);
     }
   } else {
     if (is_signed == Signed) {
-      lwa_PPC(Rdst, bcp_offset, R14_bcp);
+      lwa_PPC(Rdst, bcp_offset, R22_bcp);
     } else {
-      lwz_PPC(Rdst, bcp_offset, R14_bcp);
+      lwz_PPC(Rdst, bcp_offset, R22_bcp);
     }
   }
 #endif
@@ -412,18 +412,18 @@ void InterpreterMacroAssembler::get_cache_index_at_bcp(Register Rdst, int bcp_of
   assert(bcp_offset > 0, "bcp is still pointing to start of bytecode");
   // Cache index is always in the native format, courtesy of Rewriter.
   if (index_size == sizeof(u2)) {
-    lhz_PPC(Rdst, bcp_offset, R14_bcp);
+    lhz_PPC(Rdst, bcp_offset, R22_bcp);
   } else if (index_size == sizeof(u4)) {
     if (bcp_offset & 3) {
       load_const_optimized(Rdst, bcp_offset);
-      lwax_PPC(Rdst, R14_bcp, Rdst);
+      lwax_PPC(Rdst, R22_bcp, Rdst);
     } else {
-      lwa_PPC(Rdst, bcp_offset, R14_bcp);
+      lwa_PPC(Rdst, bcp_offset, R22_bcp);
     }
     assert(ConstantPool::decode_invokedynamic_index(~123) == 123, "else change next line");
     nand_PPC(Rdst, Rdst, Rdst); // convert to plain index
   } else if (index_size == sizeof(u1)) {
-    lbz_PPC(Rdst, bcp_offset, R14_bcp);
+    lbz_PPC(Rdst, bcp_offset, R22_bcp);
   } else {
     ShouldNotReachHere();
   }
@@ -434,7 +434,7 @@ void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int b
                                                            size_t index_size) {
   get_cache_index_at_bcp(cache, bcp_offset, index_size);
   sldi_PPC(cache, cache, exact_log2(in_words(ConstantPoolCacheEntry::size()) * BytesPerWord));
-  add_PPC(cache, R27_constPoolCache, cache);
+  add_PPC(cache, R27_constPoolCache_PPC, cache);
 }
 
 // Load 4-byte signed or unsigned integer in Java format (that is, big-endian format)
@@ -567,9 +567,9 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   cmplw_PPC(CCR0, Rindex, Rlength);
   sldi_PPC(RsxtIndex, RsxtIndex, index_shift);
   blt_PPC(CCR0, LnotOOR);
-  // Index should be in R25_tos_RV, array should be in R4_ARG2.
-  mr_if_needed(R25_tos_RV, Rindex);
-  mr_if_needed(R4_ARG2, Rarray);
+  // Index should be in R25_tos, array should be in R4_ARG2_PPC.
+  mr_if_needed(R25_tos, Rindex);
+  mr_if_needed(R4_ARG2_PPC, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
   mtctr_PPC(Rtmp);
   bctr_PPC();
@@ -598,7 +598,7 @@ void InterpreterMacroAssembler::index_check(Register array, Register index,
 }
 
 void InterpreterMacroAssembler::get_const(Register Rdst) {
-  ld_PPC(Rdst, in_bytes(Method::const_offset()), R19_method);
+  ld_PPC(Rdst, in_bytes(Method::const_offset()), R27_method);
 }
 
 void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
@@ -633,15 +633,15 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
                                                               bool install_monitor_exception) {
   Label Lunlocked, Lno_unlock;
   {
-    Register Rdo_not_unlock_flag = R11_scratch1;
-    Register Raccess_flags       = R12_scratch2;
+    Register Rdo_not_unlock_flag = R5_scratch1;
+    Register Raccess_flags       = R6_scratch2;
 
     // Check if synchronized method or unlocking prevented by
     // JavaThread::do_not_unlock_if_synchronized flag.
-    lbz_PPC(Rdo_not_unlock_flag, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R16_thread);
-    lwz_PPC(Raccess_flags, in_bytes(Method::access_flags_offset()), R19_method);
+    lbz_PPC(Rdo_not_unlock_flag, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+    lwz_PPC(Raccess_flags, in_bytes(Method::access_flags_offset()), R27_method);
     li_PPC(R0, 0);
-    stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R16_thread); // reset flag
+    stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread); // reset flag
 
     push(state);
 
@@ -655,11 +655,11 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
 
   // Unlock
   {
-    Register Rmonitor_base = R11_scratch1;
+    Register Rmonitor_base = R5_scratch1;
 
     Label Lunlock;
     // If it's still locked, everything is ok, unlock it.
-    ld_PPC(Rmonitor_base, 0, R1_SP);
+    ld_PPC(Rmonitor_base, 0, R1_SP_PPC);
     addi_PPC(Rmonitor_base, Rmonitor_base,
          -(frame::ijava_state_size + frame::interpreter_frame_monitor_size_in_bytes())); // Monitor base
 
@@ -686,19 +686,19 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
   bind(Lunlocked);
   {
     Label Lexception, Lrestart;
-    Register Rcurrent_obj_addr = R11_scratch1;
+    Register Rcurrent_obj_addr = R5_scratch1;
     const int delta = frame::interpreter_frame_monitor_size_in_bytes();
     assert((delta & LongAlignmentMask) == 0, "sizeof BasicObjectLock must be even number of doublewords");
 
     bind(Lrestart);
     // Set up search loop: Calc num of iterations.
     {
-      Register Riterations = R12_scratch2;
+      Register Riterations = R6_scratch2;
       Register Rmonitor_base = Rcurrent_obj_addr;
-      ld_PPC(Rmonitor_base, 0, R1_SP);
+      ld_PPC(Rmonitor_base, 0, R1_SP_PPC);
       addi_PPC(Rmonitor_base, Rmonitor_base, - frame::ijava_state_size);  // Monitor base
 
-      subf__PPC(Riterations, R26_monitor, Rmonitor_base);
+      subf__PPC(Riterations, R26_monitor_PPC, Rmonitor_base);
       ble_PPC(CCR0, Lno_unlock);
 
       addi_PPC(Rcurrent_obj_addr, Rmonitor_base,
@@ -736,7 +736,7 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
     } else {
       // Stack unrolling. Unlock object and if requested, install illegal_monitor_exception.
       // Unlock does not block, so don't have to worry about the frame.
-      Register Rmonitor_addr = R11_scratch1;
+      Register Rmonitor_addr = R5_scratch1;
       addi_PPC(Rmonitor_addr, Rcurrent_obj_addr, -BasicObjectLock::obj_offset_in_bytes() + delta);
       unlock_object(Rmonitor_addr);
       if (install_monitor_exception) {
@@ -755,7 +755,7 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
 void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register return_pc,
                                              Register Rscratch1, Register Rscratch2) {
   // Pop interpreter frame.
-  ld_PPC(Rscratch1, 0, R1_SP); // *SP
+  ld_PPC(Rscratch1, 0, R1_SP_PPC); // *SP
   ld_PPC(Rsender_sp, _ijava_state_neg(sender_sp), Rscratch1); // top_frame_sp
   ld_PPC(Rscratch2, 0, Rscratch1); // **SP
 #ifdef ASSERT
@@ -773,14 +773,14 @@ void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register retur
   }
 
   // Merge top frames.
-  subf_PPC(Rscratch1, R1_SP, Rsender_sp); // top_frame_sp - SP
-  stdux_PPC(Rscratch2, R1_SP, Rscratch1); // atomically set *(SP = top_frame_sp) = **SP
+  subf_PPC(Rscratch1, R1_SP_PPC, Rsender_sp); // top_frame_sp - SP
+  stdux_PPC(Rscratch2, R1_SP_PPC, Rscratch1); // atomically set *(SP = top_frame_sp) = **SP
 }
 
 void InterpreterMacroAssembler::narrow(Register result) {
-  Register ret_type = R11_scratch1;
-  ld_PPC(R11_scratch1, in_bytes(Method::const_offset()), R19_method);
-  lbz_PPC(ret_type, in_bytes(ConstMethod::result_type_offset()), R11_scratch1);
+  Register ret_type = R5_scratch1;
+  ld_PPC(R5_scratch1, in_bytes(Method::const_offset()), R27_method);
+  lbz_PPC(ret_type, in_bytes(ConstMethod::result_type_offset()), R5_scratch1);
 
   Label notBool, notByte, notChar, done;
 
@@ -845,13 +845,13 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
     // frame compression we can get different SPs when we do calls. A subsequent
     // call could have a smaller SP, so that this compare succeeds for an
     // inner call of the method annotated with ReservedStack.
-    ld_ptr_PPC(R0, JavaThread::reserved_stack_activation_offset(), R16_thread);
-    ld_ptr_PPC(R11_scratch1, _abi(callers_sp), R1_SP); // Load frame pointer.
-    cmpld_PPC(CCR0, R11_scratch1, R0);
+    ld_ptr_PPC(R0, JavaThread::reserved_stack_activation_offset(), R24_thread);
+    ld_ptr_PPC(R5_scratch1, _abi(callers_sp), R1_SP_PPC); // Load frame pointer.
+    cmpld_PPC(CCR0, R5_scratch1, R0);
     blt_predict_taken_PPC(CCR0, no_reserved_zone_enabling);
 
     // Enable reserved zone again, throw stack overflow exception.
-    call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), R16_thread);
+    call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), R24_thread);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_delayed_StackOverflowError));
 
     should_not_reach_here();
@@ -859,10 +859,10 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
     bind(no_reserved_zone_enabling);
   }
 
-  verify_oop(R25_tos_RV, state);
+  verify_oop(R25_tos, state);
   verify_thread();
 
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R11_scratch1, R12_scratch2);
+  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
   mtlr_PPC(R0);
   BLOCK_COMMENT("} remove_activation");
 }
@@ -893,10 +893,10 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
     //   InterpreterRuntime::monitorenter(THREAD, monitor);
     // }
 
-    const Register displaced_header = R7_ARG5;
-    const Register object_mark_addr = R8_ARG6;
-    const Register current_header   = R9_ARG7;
-    const Register tmp              = R10_ARG8;
+    const Register displaced_header = R7_ARG5_PPC;
+    const Register object_mark_addr = R8_ARG6_PPC;
+    const Register current_header   = R9_ARG7_PPC;
+    const Register tmp              = R10_ARG8_PPC;
 
     Label done;
     Label cas_failed, slow_case;
@@ -951,7 +951,7 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
 
     // Check if owner is self by comparing the value in the markOop of object
     // (current_header) with the stack pointer.
-    sub_PPC(current_header, current_header, R1_SP);
+    sub_PPC(current_header, current_header, R1_SP_PPC);
 
     assert(os::vm_page_size() > 0xfff, "page size too small - change the constant");
     load_const_optimized(tmp, ~(os::vm_page_size()-1) | markOopDesc::lock_mask_in_place);
@@ -1005,10 +1005,10 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     //   InterpreterRuntime::monitorexit(THREAD, monitor);
     // }
 
-    const Register object           = R7_ARG5;
-    const Register displaced_header = R8_ARG6;
-    const Register object_mark_addr = R9_ARG7;
-    const Register current_header   = R10_ARG8;
+    const Register object           = R7_ARG5_PPC;
+    const Register displaced_header = R8_ARG6_PPC;
+    const Register object_mark_addr = R9_ARG7_PPC;
+    const Register current_header   = R10_ARG8_PPC;
 
     Label free_slot;
     Label slow_case;
@@ -1096,7 +1096,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   ld_PPC(Rtarget_addr, in_bytes(Method::from_interpreted_offset()), Rtarget_method);
 
   if (JvmtiExport::can_post_interpreter_events()) {
-    lwz_PPC(Rinterp_only, in_bytes(JavaThread::interp_only_mode_offset()), R16_thread);
+    lwz_PPC(Rinterp_only, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
 
     // JVMTI events, such as single-stepping, are implemented partly by avoiding running
     // compiled code in threads for which the event is enabled. Check here for
@@ -1120,7 +1120,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   }
 #endif // ASSERT
 
-  mr_PPC(R21_sender_SP, R1_SP);
+  mr_PPC(R21_sender_SP, R1_SP_PPC);
 
   // Calc a precise SP for the call. The SP value we calculated in
   // generate_fixed_frame() is based on the max_stack() value, so we would waste stack space
@@ -1130,11 +1130,11 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   // to meet the abi scratch requirements.
   // The max_stack pointer will get restored by means of the GR_Lmax_stack local in
   // the return entry of the interpreter.
-  addi_PPC(Rscratch2, R15_esp, Interpreter::stackElementSize - frame::abi_reg_args_ppc_size);
+  addi_PPC(Rscratch2, R23_esp, Interpreter::stackElementSize - frame::abi_reg_args_ppc_size);
   clrrdi_PPC(Rscratch2, Rscratch2, exact_log2(frame::alignment_in_bytes)); // round towards smaller address
   resize_frame_absolute(Rscratch2, Rscratch2, R0);
 
-  mr_if_needed(R19_method, Rtarget_method);
+  mr_if_needed(R27_method, Rtarget_method);
   mtctr_PPC(Rtarget_addr);
   mtlr_PPC(Rret_addr);
 
@@ -1152,19 +1152,19 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
 void InterpreterMacroAssembler::set_method_data_pointer_for_bcp() {
   assert(ProfileInterpreter, "must be profiling interpreter");
   Label get_continue;
-  ld_PPC(R28_mdx, in_bytes(Method::method_data_offset()), R19_method);
+  ld_PPC(R28_mdx_PPC, in_bytes(Method::method_data_offset()), R27_method);
   test_method_data_pointer(get_continue);
-  call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::bcp_to_di), R19_method, R14_bcp);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::bcp_to_di), R27_method, R22_bcp);
 
-  addi_PPC(R28_mdx, R28_mdx, in_bytes(MethodData::data_offset()));
-  add_PPC(R28_mdx, R28_mdx, R3_RET);
+  addi_PPC(R28_mdx_PPC, R28_mdx_PPC, in_bytes(MethodData::data_offset()));
+  add_PPC(R28_mdx_PPC, R28_mdx_PPC, R3_RET_PPC);
   bind(get_continue);
 }
 
 // Test ImethodDataPtr. If it is null, continue at the specified label.
 void InterpreterMacroAssembler::test_method_data_pointer(Label& zero_continue) {
   assert(ProfileInterpreter, "must be profiling interpreter");
-  cmpdi_PPC(CCR0, R28_mdx, 0);
+  cmpdi_PPC(CCR0, R28_mdx_PPC, 0);
   beq_PPC(CCR0, zero_continue);
 }
 
@@ -1176,14 +1176,14 @@ void InterpreterMacroAssembler::verify_method_data_pointer() {
 
   // If the mdp is valid, it will point to a DataLayout header which is
   // consistent with the bcp. The converse is highly probable also.
-  lhz_PPC(R11_scratch1, in_bytes(DataLayout::bci_offset()), R28_mdx);
-  ld_PPC(R12_scratch2, in_bytes(Method::const_offset()), R19_method);
-  addi_PPC(R11_scratch1, R11_scratch1, in_bytes(ConstMethod::codes_offset()));
-  add_PPC(R11_scratch1, R12_scratch2, R12_scratch2);
-  cmpd_PPC(CCR0, R11_scratch1, R14_bcp);
+  lhz_PPC(R5_scratch1, in_bytes(DataLayout::bci_offset()), R28_mdx_PPC);
+  ld_PPC(R6_scratch2, in_bytes(Method::const_offset()), R27_method);
+  addi_PPC(R5_scratch1, R5_scratch1, in_bytes(ConstMethod::codes_offset()));
+  add_PPC(R5_scratch1, R6_scratch2, R6_scratch2);
+  cmpd_PPC(CCR0, R5_scratch1, R22_bcp);
   beq_PPC(CCR0, verify_continue);
 
-  call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::verify_mdp ), R19_method, R14_bcp, R28_mdx);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::verify_mdp ), R27_method, R22_bcp, R28_mdx_PPC);
 
   bind(verify_continue);
 #endif
@@ -1201,7 +1201,7 @@ void InterpreterMacroAssembler::test_invocation_counter_for_mdp(Register invocat
   // If no method data exists, and the counter is high enough, make one.
   lwz_PPC(Rscratch, in_bytes(MethodCounters::interpreter_profile_limit_offset()), method_counters);
 
-  cmpdi_PPC(CCR0, R28_mdx, 0);
+  cmpdi_PPC(CCR0, R28_mdx_PPC, 0);
   // Test to see if we should create a method data oop.
   cmpd_PPC(CCR1, Rscratch, invocation_count);
   bne_PPC(CCR0, done);
@@ -1218,7 +1218,7 @@ void InterpreterMacroAssembler::test_invocation_counter_for_mdp(Register invocat
 
 void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_count, Register method_counters,
                                                             Register target_bcp, Register disp, Register Rtmp) {
-  assert_different_registers(backedge_count, target_bcp, disp, Rtmp, R4_ARG2);
+  assert_different_registers(backedge_count, target_bcp, disp, Rtmp, R4_ARG2_PPC);
   assert(UseOnStackReplacement,"Must UseOnStackReplacement to test_backedge_count_for_osr");
 
   Label did_not_overflow;
@@ -1241,15 +1241,15 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
   }
 
   // Overflow in loop, pass branch bytecode.
-  subf_PPC(R4_ARG2, disp, target_bcp); // Compute branch bytecode (previous bcp).
-  call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::frequency_counter_overflow), R4_ARG2, true);
+  subf_PPC(R4_ARG2_PPC, disp, target_bcp); // Compute branch bytecode (previous bcp).
+  call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::frequency_counter_overflow), R4_ARG2_PPC, true);
 
   // Was an OSR adapter generated?
-  cmpdi_PPC(CCR0, R3_RET, 0);
+  cmpdi_PPC(CCR0, R3_RET_PPC, 0);
   beq_PPC(CCR0, overflow_with_error);
 
   // Has the nmethod been invalidated already?
-  lbz_PPC(Rtmp, nmethod::state_offset(), R3_RET);
+  lbz_PPC(Rtmp, nmethod::state_offset(), R3_RET_PPC);
   cmpwi_PPC(CCR0, Rtmp, nmethod::in_use);
   bne_PPC(CCR0, overflow_with_error);
 
@@ -1258,19 +1258,19 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
 
   // Save nmethod.
   const Register osr_nmethod = R31;
-  mr_PPC(osr_nmethod, R3_RET);
-  set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP, R11_scratch1);
-  call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::OSR_migration_begin), R16_thread);
+  mr_PPC(osr_nmethod, R3_RET_PPC);
+  set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R5_scratch1);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::OSR_migration_begin), R24_thread);
   reset_last_Java_frame();
   // OSR buffer is in ARG1
 
   // Remove the interpreter frame.
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R11_scratch1, R12_scratch2);
+  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
 
   // Jump to the osr code.
-  ld_PPC(R11_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
+  ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
   mtlr_PPC(R0);
-  mtctr_PPC(R11_scratch1);
+  mtctr_PPC(R5_scratch1);
   bctr_PPC();
 
   align(32, 12);
@@ -1282,7 +1282,7 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
 void InterpreterMacroAssembler::set_mdp_data_at(int constant, Register value) {
   assert(ProfileInterpreter, "must be profiling interpreter");
 
-  std_PPC(value, constant, R28_mdx);
+  std_PPC(value, constant, R28_mdx_PPC);
 }
 
 // Increment the value at some constant offset from the method data pointer.
@@ -1291,7 +1291,7 @@ void InterpreterMacroAssembler::increment_mdp_data_at(int constant,
                                                       Register Rbumped_count,
                                                       bool decrement) {
   // Locate the counter at a fixed offset from the mdp:
-  addi_PPC(counter_addr, R28_mdx, constant);
+  addi_PPC(counter_addr, R28_mdx_PPC, constant);
   increment_mdp_data_at(counter_addr, Rbumped_count, decrement);
 }
 
@@ -1303,7 +1303,7 @@ void InterpreterMacroAssembler::increment_mdp_data_at(Register reg,
                                                       Register Rbumped_count,
                                                       bool decrement) {
   // Add the constant to reg to get the offset.
-  add_PPC(scratch, R28_mdx, reg);
+  add_PPC(scratch, R28_mdx_PPC, reg);
   // Then calculate the counter address.
   addi_PPC(scratch, scratch, constant);
   increment_mdp_data_at(scratch, Rbumped_count, decrement);
@@ -1337,11 +1337,11 @@ void InterpreterMacroAssembler::set_mdp_flag_at(int flag_constant,
                                                 Register scratch) {
   assert(ProfileInterpreter, "must be profiling interpreter");
   // Load the data header.
-  lbz_PPC(scratch, in_bytes(DataLayout::flags_offset()), R28_mdx);
+  lbz_PPC(scratch, in_bytes(DataLayout::flags_offset()), R28_mdx_PPC);
   // Set the flag.
   ori_PPC(scratch, scratch, flag_constant);
   // Store the modified header.
-  stb_PPC(scratch, in_bytes(DataLayout::flags_offset()), R28_mdx);
+  stb_PPC(scratch, in_bytes(DataLayout::flags_offset()), R28_mdx_PPC);
 }
 
 // Test the location at some offset from the method data pointer.
@@ -1352,7 +1352,7 @@ void InterpreterMacroAssembler::test_mdp_data_at(int offset,
                                                  Register test_out) {
   assert(ProfileInterpreter, "must be profiling interpreter");
 
-  ld_PPC(test_out, offset, R28_mdx);
+  ld_PPC(test_out, offset, R28_mdx_PPC);
   cmpd_PPC(CCR0,  value, test_out);
   bne_PPC(CCR0, not_equal_continue);
 }
@@ -1363,8 +1363,8 @@ void InterpreterMacroAssembler::update_mdp_by_offset(int offset_of_disp,
                                                      Register scratch) {
   assert(ProfileInterpreter, "must be profiling interpreter");
 
-  ld_PPC(scratch, offset_of_disp, R28_mdx);
-  add_PPC(R28_mdx, scratch, R28_mdx);
+  ld_PPC(scratch, offset_of_disp, R28_mdx_PPC);
+  add_PPC(R28_mdx_PPC, scratch, R28_mdx_PPC);
 }
 
 // Update the method data pointer by the displacement located at the
@@ -1374,15 +1374,15 @@ void InterpreterMacroAssembler::update_mdp_by_offset(Register reg,
                                                      Register scratch) {
   assert(ProfileInterpreter, "must be profiling interpreter");
 
-  add_PPC(scratch, reg, R28_mdx);
+  add_PPC(scratch, reg, R28_mdx_PPC);
   ld_PPC(scratch, offset_of_disp, scratch);
-  add_PPC(R28_mdx, scratch, R28_mdx);
+  add_PPC(R28_mdx_PPC, scratch, R28_mdx_PPC);
 }
 
 // Update the method data pointer by a simple constant displacement.
 void InterpreterMacroAssembler::update_mdp_by_constant(int constant) {
   assert(ProfileInterpreter, "must be profiling interpreter");
-  addi_PPC(R28_mdx, R28_mdx, constant);
+  addi_PPC(R28_mdx_PPC, R28_mdx_PPC, constant);
 }
 
 // Update the method data pointer for a _ret bytecode whose target
@@ -1819,7 +1819,7 @@ void InterpreterMacroAssembler::profile_arguments_type(Register callee,
     return;
   }
 
-  assert_different_registers(callee, tmp1, tmp2, R28_mdx);
+  assert_different_registers(callee, tmp1, tmp2, R28_mdx_PPC);
 
   if (MethodData::profile_arguments() || MethodData::profile_return()) {
     Label profile_continue;
@@ -1829,19 +1829,19 @@ void InterpreterMacroAssembler::profile_arguments_type(Register callee,
     int off_to_start = is_virtual ?
       in_bytes(VirtualCallData::virtual_call_data_size()) : in_bytes(CounterData::counter_data_size());
 
-    lbz_PPC(tmp1, in_bytes(DataLayout::tag_offset()) - off_to_start, R28_mdx);
+    lbz_PPC(tmp1, in_bytes(DataLayout::tag_offset()) - off_to_start, R28_mdx_PPC);
     cmpwi_PPC(CCR0, tmp1, is_virtual ? DataLayout::virtual_call_type_data_tag : DataLayout::call_type_data_tag);
     bne_PPC(CCR0, profile_continue);
 
     if (MethodData::profile_arguments()) {
       Label done;
       int off_to_args = in_bytes(TypeEntriesAtCall::args_data_offset());
-      add_PPC(R28_mdx, off_to_args, R28_mdx);
+      add_PPC(R28_mdx_PPC, off_to_args, R28_mdx_PPC);
 
       for (int i = 0; i < TypeProfileArgsLimit; i++) {
         if (i > 0 || MethodData::profile_return()) {
           // If return value type is profiled we may have no argument to profile.
-          ld_PPC(tmp1, in_bytes(TypeEntriesAtCall::cell_count_offset())-off_to_args, R28_mdx);
+          ld_PPC(tmp1, in_bytes(TypeEntriesAtCall::cell_count_offset())-off_to_args, R28_mdx_PPC);
           cmpdi_PPC(CCR0, tmp1, (i+1)*TypeStackSlotEntries::per_arg_count());
           addi_PPC(tmp1, tmp1, -i*TypeStackSlotEntries::per_arg_count());
           blt_PPC(CCR0, done);
@@ -1852,21 +1852,21 @@ void InterpreterMacroAssembler::profile_arguments_type(Register callee,
         // list, for n arguments translates into offset n - o - 1 from
         // the end of the argument list. But there's an extra slot at
         // the top of the stack. So the offset is n - o from Lesp.
-        ld_PPC(tmp2, in_bytes(TypeEntriesAtCall::stack_slot_offset(i))-off_to_args, R28_mdx);
+        ld_PPC(tmp2, in_bytes(TypeEntriesAtCall::stack_slot_offset(i))-off_to_args, R28_mdx_PPC);
         subf_PPC(tmp1, tmp2, tmp1);
 
         sldi_PPC(tmp1, tmp1, Interpreter::logStackElementSize);
-        ldx_PPC(tmp1, tmp1, R15_esp);
+        ldx_PPC(tmp1, tmp1, R23_esp);
 
-        profile_obj_type(tmp1, R28_mdx, in_bytes(TypeEntriesAtCall::argument_type_offset(i))-off_to_args, tmp2, tmp1);
+        profile_obj_type(tmp1, R28_mdx_PPC, in_bytes(TypeEntriesAtCall::argument_type_offset(i))-off_to_args, tmp2, tmp1);
 
         int to_add = in_bytes(TypeStackSlotEntries::per_arg_size());
-        addi_PPC(R28_mdx, R28_mdx, to_add);
+        addi_PPC(R28_mdx_PPC, R28_mdx_PPC, to_add);
         off_to_args += to_add;
       }
 
       if (MethodData::profile_return()) {
-        ld_PPC(tmp1, in_bytes(TypeEntriesAtCall::cell_count_offset())-off_to_args, R28_mdx);
+        ld_PPC(tmp1, in_bytes(TypeEntriesAtCall::cell_count_offset())-off_to_args, R28_mdx_PPC);
         addi_PPC(tmp1, tmp1, -TypeProfileArgsLimit*TypeStackSlotEntries::per_arg_count());
       }
 
@@ -1880,7 +1880,7 @@ void InterpreterMacroAssembler::profile_arguments_type(Register callee,
         assert(ReturnTypeEntry::static_cell_count() < TypeStackSlotEntries::per_arg_count(),
                "can't move past ret type");
         sldi_PPC(tmp1, tmp1, exact_log2(DataLayout::cell_size));
-        add_PPC(R28_mdx, tmp1, R28_mdx);
+        add_PPC(R28_mdx_PPC, tmp1, R28_mdx_PPC);
       }
     } else {
       assert(MethodData::profile_return(), "either profile call args or call ret");
@@ -1908,8 +1908,8 @@ void InterpreterMacroAssembler::profile_return_type(Register ret, Register tmp1,
       // begining of the ProfileData we intend to update to check its
       // type because we're right after it and we don't known its
       // length.
-      lbz_PPC(tmp1, 0, R14_bcp);
-      lbz_PPC(tmp2, Method::intrinsic_id_offset_in_bytes(), R19_method);
+      lbz_PPC(tmp1, 0, R22_bcp);
+      lbz_PPC(tmp2, Method::intrinsic_id_offset_in_bytes(), R27_method);
       cmpwi_PPC(CCR0, tmp1, Bytecodes::_invokedynamic);
       cmpwi_PPC(CCR1, tmp1, Bytecodes::_invokehandle);
       cror_PPC(CCR0, Assembler::equal, CCR1, Assembler::equal);
@@ -1918,7 +1918,7 @@ void InterpreterMacroAssembler::profile_return_type(Register ret, Register tmp1,
       bne_PPC(CCR0, profile_continue);
     }
 
-    profile_obj_type(ret, R28_mdx, -in_bytes(ReturnTypeEntry::size()), tmp1, tmp2);
+    profile_obj_type(ret, R28_mdx_PPC, -in_bytes(ReturnTypeEntry::size()), tmp1, tmp2);
 
     align(32, 12);
     bind(profile_continue);
@@ -1934,7 +1934,7 @@ void InterpreterMacroAssembler::profile_parameters_type(Register tmp1, Register 
 
     // Load the offset of the area within the MDO used for
     // parameters. If it's negative we're not profiling any parameters.
-    lwz_PPC(tmp1, in_bytes(MethodData::parameters_type_data_di_offset()) - in_bytes(MethodData::data_offset()), R28_mdx);
+    lwz_PPC(tmp1, in_bytes(MethodData::parameters_type_data_di_offset()) - in_bytes(MethodData::data_offset()), R28_mdx_PPC);
     cmpwi_PPC(CCR0, tmp1, 0);
     blt_PPC(CCR0, profile_continue);
 
@@ -1945,7 +1945,7 @@ void InterpreterMacroAssembler::profile_parameters_type(Register tmp1, Register 
 
     // Pointer to the parameter area in the MDO.
     const Register mdp = tmp1;
-    add_PPC(mdp, tmp1, R28_mdx);
+    add_PPC(mdp, tmp1, R28_mdx_PPC);
 
     // Offset of the current profile entry to update.
     const Register entry_offset = tmp2;
@@ -1969,7 +1969,7 @@ void InterpreterMacroAssembler::profile_parameters_type(Register tmp1, Register 
     sldi_PPC(tmp3, tmp3, Interpreter::logStackElementSize);
     neg_PPC(tmp3, tmp3);
     // Read the parameter from the local area.
-    ldx_PPC(tmp3, tmp3, R18_locals);
+    ldx_PPC(tmp3, tmp3, R26_locals);
 
     // Make entry_offset now point to the type field for this parameter.
     int type_base = in_bytes(ParametersTypeData::type_offset(0));
@@ -2004,7 +2004,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
          "size of a monitor must respect alignment of SP");
 
   resize_frame(-monitor_size, /*temp*/esp); // Allocate space for new monitor
-  std_PPC(R1_SP, _ijava_state_neg(top_frame_sp), esp); // esp contains fp
+  std_PPC(R1_SP_PPC, _ijava_state_neg(top_frame_sp), esp); // esp contains fp
 
   // Shuffle expression stack down. Recall that stack_base points
   // just above the new expression stack bottom. Old_tos and new_tos
@@ -2013,8 +2013,8 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
     Label copy_slot, copy_slot_finished;
     const Register n_slots = slot;
 
-    addi_PPC(esp, R15_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
-    subf_PPC(n_slots, esp, R26_monitor);
+    addi_PPC(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
+    subf_PPC(n_slots, esp, R26_monitor_PPC);
     srdi__PPC(n_slots, n_slots, LogBytesPerWord);          // Compute number of slots to copy.
     assert(LogBytesPerWord == 3, "conflicts assembler instructions");
     beq_PPC(CCR0, copy_slot_finished);                     // Nothing to copy.
@@ -2031,8 +2031,8 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
     bind(copy_slot_finished);
   }
 
-  addi_PPC(R15_esp, R15_esp, -monitor_size);
-  addi_PPC(R26_monitor, R26_monitor, -monitor_size);
+  addi_PPC(R23_esp, R23_esp, -monitor_size);
+  addi_PPC(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
 
   // Restart interpreter
 }
@@ -2047,7 +2047,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rdst_address, Register Rindex) {
   slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  sub(Rdst_address, R26_locals_RV, Rdst_address);
+  sub(Rdst_address, R26_locals, Rdst_address);
   lwu(Rdst_value, Rdst_address, 0);
 }
 
@@ -2058,7 +2058,7 @@ void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rds
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rdst_address, Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R18_locals);
+  subf_PPC(Rdst_address, Rdst_address, R26_locals);
   ld_PPC(Rdst_value, -8, Rdst_address);
 }
 
@@ -2073,7 +2073,7 @@ void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
                                                Register Rdst_address,
                                                Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R18_locals);
+  subf_PPC(Rdst_address, Rdst_address, R26_locals);
   ld_PPC(Rdst_value, 0, Rdst_address);
 }
 
@@ -2086,7 +2086,7 @@ void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
                                                  Register Rdst_address,
                                                  Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R18_locals);
+  subf_PPC(Rdst_address, Rdst_address, R26_locals);
   lfs_PPC(Rdst_value, 0, Rdst_address);
 }
 
@@ -2099,7 +2099,7 @@ void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
                                                   Register Rdst_address,
                                                   Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R18_locals);
+  subf_PPC(Rdst_address, Rdst_address, R26_locals);
   lfd_PPC(Rdst_value, -8, Rdst_address);
 }
 
@@ -2108,7 +2108,7 @@ void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
 //   - Rindex
 void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R18_locals);
+  subf_PPC(Rindex, Rindex, R26_locals);
   stw_PPC(Rvalue, 0, Rindex);
 }
 
@@ -2117,7 +2117,7 @@ void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex
 //   - Rindex
 void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R18_locals);
+  subf_PPC(Rindex, Rindex, R26_locals);
   std_PPC(Rvalue, -8, Rindex);
 }
 
@@ -2126,7 +2126,7 @@ void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rinde
 //   - Rindex
 void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R18_locals);
+  subf_PPC(Rindex, Rindex, R26_locals);
   std_PPC(Rvalue, 0, Rindex);
 }
 
@@ -2135,7 +2135,7 @@ void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R18_locals);
+  subf_PPC(Rindex, Rindex, R26_locals);
   stfs_PPC(Rvalue, 0, Rindex);
 }
 
@@ -2144,7 +2144,7 @@ void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R18_locals);
+  subf_PPC(Rindex, Rindex, R26_locals);
   stfd_PPC(Rvalue, -8, Rindex);
 }
 
@@ -2179,24 +2179,24 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
 }
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point, bool check_exceptions) {
-  save_interpreter_state(R11_scratch1);
+  save_interpreter_state(R5_scratch1);
 
   MacroAssembler::call_VM(oop_result, entry_point, false);
 
-  restore_interpreter_state(R11_scratch1, /*bcp_and_mdx_only*/ true);
+  restore_interpreter_state(R5_scratch1, /*bcp_and_mdx_only*/ true);
 
-  check_and_handle_popframe(R11_scratch1);
-  check_and_handle_earlyret(R11_scratch1);
+  check_and_handle_popframe(R5_scratch1);
+  check_and_handle_earlyret(R5_scratch1);
   // Now check exceptions manually.
   if (check_exceptions) {
-    check_and_forward_exception(R11_scratch1, R12_scratch2);
+    check_and_forward_exception(R5_scratch1, R6_scratch2);
   }
 }
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point,
                                         Register arg_1, bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2, arg_1);
+  mr_if_needed(R4_ARG2_PPC, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2204,9 +2204,9 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         Register arg_1, Register arg_2,
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2, arg_1);
-  assert(arg_2 != R4_ARG2, "smashed argument");
-  mr_if_needed(R5_ARG3, arg_2);
+  mr_if_needed(R4_ARG2_PPC, arg_1);
+  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
+  mr_if_needed(R5_ARG3_PPC, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2214,40 +2214,40 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         Register arg_1, Register arg_2, Register arg_3,
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2, arg_1);
-  assert(arg_2 != R4_ARG2, "smashed argument");
-  mr_if_needed(R5_ARG3, arg_2);
-  assert(arg_3 != R4_ARG2 && arg_3 != R5_ARG3, "smashed argument");
-  mr_if_needed(R6_ARG4, arg_3);
+  mr_if_needed(R4_ARG2_PPC, arg_1);
+  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
+  mr_if_needed(R5_ARG3_PPC, arg_2);
+  assert(arg_3 != R4_ARG2_PPC && arg_3 != R5_ARG3_PPC, "smashed argument");
+  mr_if_needed(R6_ARG4_PPC, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void InterpreterMacroAssembler::save_interpreter_state(Register scratch) {
-  ld_PPC(scratch, 0, R1_SP);
-  std_PPC(R15_esp, _ijava_state_neg(esp), scratch);
-  std_PPC(R14_bcp, _ijava_state_neg(bcp), scratch);
-  std_PPC(R26_monitor, _ijava_state_neg(monitors), scratch);
-  if (ProfileInterpreter) { std_PPC(R28_mdx, _ijava_state_neg(mdx), scratch); }
+  ld_PPC(scratch, 0, R1_SP_PPC);
+  std_PPC(R23_esp, _ijava_state_neg(esp), scratch);
+  std_PPC(R22_bcp, _ijava_state_neg(bcp), scratch);
+  std_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), scratch);
+  if (ProfileInterpreter) { std_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), scratch); }
   // Other entries should be unchanged.
 }
 
 void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool bcp_and_mdx_only) {
-  ld_PPC(scratch, 0, R1_SP);
-  ld_PPC(R14_bcp, _ijava_state_neg(bcp), scratch); // Changed by VM code (exception).
-  if (ProfileInterpreter) { ld_PPC(R28_mdx, _ijava_state_neg(mdx), scratch); } // Changed by VM code.
+  ld_PPC(scratch, 0, R1_SP_PPC);
+  ld_PPC(R22_bcp, _ijava_state_neg(bcp), scratch); // Changed by VM code (exception).
+  if (ProfileInterpreter) { ld_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), scratch); } // Changed by VM code.
   if (!bcp_and_mdx_only) {
     // Following ones are Metadata.
-    ld_PPC(R19_method, _ijava_state_neg(method), scratch);
-    ld_PPC(R27_constPoolCache, _ijava_state_neg(cpoolCache), scratch);
+    ld_PPC(R27_method, _ijava_state_neg(method), scratch);
+    ld_PPC(R27_constPoolCache_PPC, _ijava_state_neg(cpoolCache), scratch);
     // Following ones are stack addresses and don't require reload.
-    ld_PPC(R15_esp, _ijava_state_neg(esp), scratch);
-    ld_PPC(R18_locals, _ijava_state_neg(locals), scratch);
-    ld_PPC(R26_monitor, _ijava_state_neg(monitors), scratch);
+    ld_PPC(R23_esp, _ijava_state_neg(esp), scratch);
+    ld_PPC(R26_locals, _ijava_state_neg(locals), scratch);
+    ld_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), scratch);
   }
 #ifdef ASSERT
   {
     Label Lok;
-    subf_PPC(R0, R1_SP, scratch);
+    subf_PPC(R0, R1_SP_PPC, scratch);
     cmpdi_PPC(CCR0, R0, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
     bge_PPC(CCR0, Lok);
     stop("frame too small (restore istate)", 0x5432);
@@ -2360,18 +2360,18 @@ void InterpreterMacroAssembler::verify_oop_or_return_address(Register reg, Regis
 
   address fd = CAST_FROM_FN_PTR(address, verify_return_address);
   const int nbytes_save = MacroAssembler::num_volatile_regs * 8;
-  save_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  save_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   save_LR_CR(Rtmp); // Save in old frame.
   push_frame_reg_args(nbytes_save, Rtmp);
 
   load_const_optimized(Rtmp, fd, R0);
-  mr_if_needed(R4_ARG2, reg);
-  mr_PPC(R3_ARG1, R19_method);
+  mr_if_needed(R4_ARG2_PPC, reg);
+  mr_PPC(R3_ARG1_PPC, R27_method);
   call_c(Rtmp); // call C
 
   pop_frame();
   restore_LR_CR(Rtmp);
-  restore_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   b_PPC(skip);
 
   // Perform a more elaborate out-of-line call.
@@ -2399,7 +2399,7 @@ void InterpreterMacroAssembler::notify_method_entry() {
   if (JvmtiExport::can_post_interpreter_events()) {
     Label jvmti_post_done;
 
-    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R16_thread);
+    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
     cmpwi_PPC(CCR0, R0, 0);
     beq_PPC(CCR0, jvmti_post_done);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::post_method_entry),
@@ -2434,7 +2434,7 @@ void InterpreterMacroAssembler::notify_method_exit(bool is_native_method, TosSta
   if (mode == NotifyJVMTI && JvmtiExport::can_post_interpreter_events()) {
     Label jvmti_post_done;
 
-    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R16_thread);
+    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
     cmpwi_PPC(CCR0, R0, 0);
     beq_PPC(CCR0, jvmti_post_done);
     if (!is_native_method) { push(state); } // Expose tos to GC.

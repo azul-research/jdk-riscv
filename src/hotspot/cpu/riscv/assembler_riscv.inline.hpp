@@ -114,8 +114,8 @@ inline void Assembler::bltu(   Register s1, Register s2, int off)  { branch(s1, 
 inline void Assembler::bge(    Register s1, Register s2, int off)  { branch(s1, s2, 0x5, off); }
 inline void Assembler::bgeu(   Register s1, Register s2, int off)  { branch(s1, s2, 0x7, off); }
 
-inline void Assembler::beqz(   Register s, int off)  { beq (s, R0_ZERO_RV, off); }
-inline void Assembler::bnez(   Register s, int off)  { bne(s, R0_ZERO_RV, off); }
+inline void Assembler::beqz(   Register s, int off)  { beq (s, R0_ZERO, off); }
+inline void Assembler::bnez(   Register s, int off)  { bne(s, R0_ZERO, off); }
 
 inline void Assembler::blt(    Register s1, Register s2, Label& L) { blt( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
 inline void Assembler::bge(    Register s1, Register s2, Label& L) { bge( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
@@ -123,8 +123,8 @@ inline void Assembler::beq(    Register s1, Register s2, Label& L) { beq( s1, s2
 inline void Assembler::bne(    Register s1, Register s2, Label& L) { bne( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
 inline void Assembler::bgeu(   Register s1, Register s2, Label& L) { bgeu(s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
 
-inline void Assembler::beqz(   Register s, Label& L) { beq(s, R0_ZERO_RV, L); }
-inline void Assembler::bnez(   Register s, Label& L) { bne(s, R0_ZERO_RV, L); }
+inline void Assembler::beqz(   Register s, Label& L) { beq(s, R0_ZERO, L); }
+inline void Assembler::bnez(   Register s, Label& L) { bne(s, R0_ZERO, L); }
 
 inline void Assembler::ld(     Register d, Register s, int off) { load(d, s, 0x3, off); }
 inline void Assembler::lw(     Register d, Register s, int off) { load(d, s, 0x2, off); }

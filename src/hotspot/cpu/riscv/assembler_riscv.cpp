@@ -348,7 +348,7 @@ bool Assembler::li_32_RV(Register d, long long imm) {
   int sign12 = (unsigned short)(l12 << 4) >> 15;
   long long rem12 = (imm >> 12) + sign12; // Compensation for sign extend.
   if (rem12 == 0) {
-  addi(d, R0_ZERO_RV, imm);
+  addi(d, R0_ZERO, imm);
   return true;
   }
 

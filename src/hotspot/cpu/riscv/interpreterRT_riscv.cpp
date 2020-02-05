@@ -40,9 +40,9 @@
 
 // Access macros for Java and C arguments.
 // The first Java argument is at index -1.
-#define locals_j_arg_at(index)    (Interpreter::local_offset_in_bytes(index)), R18_locals
+#define locals_j_arg_at(index)    (Interpreter::local_offset_in_bytes(index)), R26_locals
 // The first C argument is at index 0.
-#define sp_c_arg_at(index)        ((index)*wordSize + _abi(carg_1)), R1_SP
+#define sp_c_arg_at(index)        ((index)*wordSize + _abi(carg_1)), R1_SP_PPC
 
 // Implementation of SignatureHandlerGenerator
 
@@ -74,7 +74,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_long() {
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
   FloatRegister fp_reg = (_num_used_fp_arg_regs < 13/*max_fp_register_arguments*/)
-                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1->encoding())
+                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1_PPC->encoding())
                          : F0;
 
   __ lfs_PPC(fp_reg, locals_j_arg_at(offset()));
@@ -85,7 +85,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
   FloatRegister fp_reg = (_num_used_fp_arg_regs < 13/*max_fp_register_arguments*/)
-                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1->encoding())
+                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1_PPC->encoding())
                          : F0;
 
   __ lfd_PPC(fp_reg, locals_j_arg_at(offset()+1));
@@ -96,7 +96,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_object() {
   Argument jni_arg(jni_offset());
-  Register r = jni_arg.is_register() ? jni_arg.as_register() : R11_scratch1;
+  Register r = jni_arg.is_register() ? jni_arg.as_register() : R5_scratch1;
 
   // The handle for a receiver will never be null.
   bool do_NULL_check = offset() != 0 || is_static();
@@ -120,7 +120,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprin
   iterate(fingerprint);
 
   // Return the result handler.
-  __ load_const_PPC(R3_RET, AbstractInterpreter::result_handler(method()->result_type()));
+  __ load_const_PPC(R3_RET_PPC, AbstractInterpreter::result_handler(method()->result_type()));
   __ blr_PPC();
 
   __ flush();

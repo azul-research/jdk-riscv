@@ -618,6 +618,11 @@
 
 #define define_pd_global(type, name, value) const type pd_##name = value;
 
+#ifndef INCLUDE_SUFFIX_CPU
+#define INCLUDE_SUFFIX_CPU _riscv
+#define INCLUDE_SUFFIX_OS _linux
+#endif
+
 // Helper macros for constructing file names for includes.
 #define CPU_HEADER_STEM(basename) PASTE_TOKENS(basename, INCLUDE_SUFFIX_CPU)
 #define OS_HEADER_STEM(basename) PASTE_TOKENS(basename, INCLUDE_SUFFIX_OS)
