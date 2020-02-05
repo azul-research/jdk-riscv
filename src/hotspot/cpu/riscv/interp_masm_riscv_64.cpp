@@ -352,21 +352,20 @@ void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (bcp_offset) {
-    load_const_optimized(Rdst, bcp_offset);
-    lhbrx_PPC(Rdst, R14_bcp, Rdst);
-  } else {
-    lhbrx_PPC(Rdst, R14_bcp);
-  }
   if (is_signed == Signed) {
-    extsh_PPC(Rdst, Rdst);
+    lb(R7_TMP2_RV, R22_bcp_RV, bcp_offset + 1);
+  } else {
+    lbu(R7_TMP2_RV, R22_bcp_RV, bcp_offset + 1);
   }
+  slli(R7_TMP2_RV, R7_TMP2_RV, 8);
+  lbu(Rdst, R22_bcp_RV, bcp_offset);
+  andr(Rdst, R7_TMP2_RV, Rdst);
 #else
   // Read Java big endian format.
   if (is_signed == Signed) {
-    lha_PPC(Rdst, bcp_offset, R14_bcp);
+    lh(Rdst, R22_bcp_RV, bcp_offset);
   } else {
-    lhz_PPC(Rdst, bcp_offset, R14_bcp);
+    lhu(Rdst, R22_bcp_RV, bcp_offset);
   }
 #endif
 }
@@ -2047,9 +2046,9 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
 //   - Rdst_value
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rdst_address, Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R18_locals);
-  lwz_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals_RV, Rdst_address);
+  lwu(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.

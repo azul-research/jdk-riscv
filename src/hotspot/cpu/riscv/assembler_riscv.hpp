@@ -2089,8 +2089,11 @@ class Assembler : public AbstractAssembler {
   inline void bgeu(    Register s1, Register s2, int off);
   inline void beqz(    Register s,               int off);
   inline void bnez(    Register s,               int off);
+  inline void blt(     Register s1, Register s2, Label& L);
+  inline void bge(     Register s1, Register s2, Label& L);
   inline void beq(     Register s1, Register s2, Label& L);
   inline void bne(     Register s1, Register s2, Label& L);
+  inline void bgeu(    Register s1, Register s2, Label& L);
   inline void beqz(    Register s,               Label& L);
   inline void bnez(    Register s,               Label& L);
   // load
@@ -2255,7 +2258,10 @@ class Assembler : public AbstractAssembler {
   inline void call(int off);
   inline void tail(int off);
   inline void neg(Register d, Register s);
+  inline void negw(Register d, Register s);
   inline void mv(Register d, Register s);
+
+  inline void j(Label& L);
 
 private:
   bool li_32_RV(Register d, long long imm);

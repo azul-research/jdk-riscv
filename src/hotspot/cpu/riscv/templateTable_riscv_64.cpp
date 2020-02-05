@@ -483,7 +483,7 @@ void TemplateTable::condy_helper(Label& Done) {
 
 // Get the locals index located in the bytecode stream at bcp + offset.
 void TemplateTable::locals_index(Register Rdst, int offset) {
-  __ lbz_PPC(Rdst, offset, R14_bcp);
+  __ lbu(Rdst, R22_bcp_RV, offset);
 }
 
 void TemplateTable::iload() {
@@ -1232,9 +1232,9 @@ void TemplateTable::iop2(Operation op) {
     case  _and:  __ andr(R25_tos_RV, Rscratch, R25_tos_RV); break;
     case  _or:   __ orr(R25_tos_RV, Rscratch, R25_tos_RV); break;
     case  _xor:  __ xorr(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  shl:   __ rldicl_PPC(R25_tos_RV, R25_tos_RV, 0, 64-5); __ slw_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  shr:   __ rldicl_PPC(R25_tos_RV, R25_tos_RV, 0, 64-5); __ sraw_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  ushr:  __ rldicl_PPC(R25_tos_RV, R25_tos_RV, 0, 64-5); __ srw_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  shl:   __ sllw(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  shr:   __ sraw(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  ushr:  __ srlw(R25_tos_RV, Rscratch, R25_tos_RV); break;
     default:     ShouldNotReachHere();
   }
 }
@@ -1245,11 +1245,11 @@ void TemplateTable::lop2(Operation op) {
   Register Rscratch = R11_scratch1;
   __ pop_l(Rscratch);
   switch (op) {
-    case  add:   __ add_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  sub:   __ sub_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  _and:  __ andr_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  _or:   __ orr_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
-    case  _xor:  __ xorr_PPC(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  add:   __ add(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  sub:   __ sub(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  _and:  __ andr(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  _or:   __ orr(R25_tos_RV, Rscratch, R25_tos_RV); break;
+    case  _xor:  __ xorr(R25_tos_RV, Rscratch, R25_tos_RV); break;
     default:     ShouldNotReachHere();
   }
 }
@@ -1258,107 +1258,100 @@ void TemplateTable::idiv() {
   transition(itos, itos);
 
   Label Lnormal, Lexception, Ldone;
-  Register Rdividend = R11_scratch1; // Used by irem.
+  Register Rdividend = R5_scratch1_RV; // Used by irem.
 
-  __ addi_PPC(R0, R25_tos_RV, 1);
-  __ cmplwi_PPC(CCR0, R0, 2);
-  __ bgt_PPC(CCR0, Lnormal); // divisor <-1 or >1
+  __ addi(R7_TMP2_RV, R25_tos_RV, 1);
+  __ addi(R28_TMP3_RV, R0_ZERO_RV, 2);
+  __ bgeu(R7_TMP2_RV, R28_TMP3_RV, Lnormal); // divisor <-1 or >1
 
-  __ cmpwi_PPC(CCR1, R25_tos_RV, 0);
-  __ beq_PPC(CCR1, Lexception); // divisor == 0
+  __ beqz(R25_tos_RV, Lexception); // divisor == 0
 
   __ pop_i(Rdividend);
-  __ mullw_PPC(R25_tos_RV, Rdividend, R25_tos_RV); // div by +/-1
-  __ b_PPC(Ldone);
+  __ mulw(R25_tos_RV, Rdividend, R25_tos_RV); // div by +/-1
+  __ j(Ldone);
 
   __ bind(Lexception);
-  __ load_dispatch_table(R11_scratch1, (address*)Interpreter::_throw_ArithmeticException_entry);
-  __ mtctr_PPC(R11_scratch1);
-  __ bctr_PPC();
+  __ load_dispatch_table(R7_TMP2_RV, (address*)Interpreter::_throw_ArithmeticException_entry);
+  __ jr(R7_TMP2_RV);
 
   __ align(32, 12);
   __ bind(Lnormal);
   __ pop_i(Rdividend);
-  __ divw_PPC(R25_tos_RV, Rdividend, R25_tos_RV); // Can't divide minint/-1.
+  __ divw(R25_tos_RV, Rdividend, R25_tos_RV); // Can't divide minint/-1.
   __ bind(Ldone);
 }
 
 void TemplateTable::irem() {
   transition(itos, itos);
 
-  __ mr_PPC(R12_scratch2, R25_tos_RV);
+  __ mv(R6_scratch2_RV, R25_tos_RV);
   idiv();
-  __ mullw_PPC(R25_tos_RV, R25_tos_RV, R12_scratch2);
-  __ subf_PPC(R25_tos_RV, R25_tos_RV, R11_scratch1); // Dividend set by idiv.
+  __ mulw(R25_tos_RV, R25_tos_RV, R12_scratch2);
+  __ subw(R25_tos_RV, R11_scratch1, R25_tos_RV); // Dividend (R11_scratch1) set by idiv.
 }
 
 void TemplateTable::lmul() {
   transition(ltos, ltos);
 
   __ pop_l(R11_scratch1);
-  __ mulld_PPC(R25_tos_RV, R11_scratch1, R25_tos_RV);
+  __ mul(R25_tos_RV, R11_scratch1, R25_tos_RV);
 }
 
 void TemplateTable::ldiv() {
   transition(ltos, ltos);
 
   Label Lnormal, Lexception, Ldone;
-  Register Rdividend = R11_scratch1; // Used by lrem.
+  Register Rdividend = R5_scratch1_RV; // Used by lrem.
 
-  __ addi_PPC(R0, R25_tos_RV, 1);
-  __ cmpldi_PPC(CCR0, R0, 2);
-  __ bgt_PPC(CCR0, Lnormal); // divisor <-1 or >1
+  __ addi(R7_TMP2_RV, R25_tos_RV, 1);
+  __ addi(R28_TMP3_RV, R0_ZERO_RV, 2);
+  __ bgeu(R7_TMP2_RV, R28_TMP3_RV, Lnormal); // divisor <-1 or >1
 
-  __ cmpdi_PPC(CCR1, R25_tos_RV, 0);
-  __ beq_PPC(CCR1, Lexception); // divisor == 0
+  __ beqz(R25_tos_RV, Lexception); // divisor == 0
 
   __ pop_l(Rdividend);
-  __ mulld_PPC(R25_tos_RV, Rdividend, R25_tos_RV); // div by +/-1
-  __ b_PPC(Ldone);
+  __ mul(R25_tos_RV, Rdividend, R25_tos_RV); // div by +/-1
+  __ j(Ldone);
 
   __ bind(Lexception);
-  __ load_dispatch_table(R11_scratch1, (address*)Interpreter::_throw_ArithmeticException_entry);
-  __ mtctr_PPC(R11_scratch1);
-  __ bctr_PPC();
+  __ load_dispatch_table(R7_TMP2_RV, (address*)Interpreter::_throw_ArithmeticException_entry);
+  __ jr(R7_TMP2_RV);
 
   __ align(32, 12);
   __ bind(Lnormal);
   __ pop_l(Rdividend);
-  __ divd_PPC(R25_tos_RV, Rdividend, R25_tos_RV); // Can't divide minint/-1.
+  __ div(R25_tos_RV, Rdividend, R25_tos_RV); // Can't divide minint/-1.
   __ bind(Ldone);
 }
 
 void TemplateTable::lrem() {
   transition(ltos, ltos);
 
-  __ mr_PPC(R12_scratch2, R25_tos_RV);
+  __ mv(R6_scratch2_RV, R25_tos_RV);
   ldiv();
-  __ mulld_PPC(R25_tos_RV, R25_tos_RV, R12_scratch2);
-  __ subf_PPC(R25_tos_RV, R25_tos_RV, R11_scratch1); // Dividend set by ldiv.
+  __ mul(R25_tos_RV, R25_tos_RV, R12_scratch2);
+  __ sub(R25_tos_RV, R11_scratch1, R25_tos_RV); // Dividend (R11_scratch1) set by idiv.
 }
 
 void TemplateTable::lshl() {
   transition(itos, ltos);
 
-  __ rldicl_PPC(R25_tos_RV, R25_tos_RV, 0, 64-6); // Extract least significant bits.
   __ pop_l(R11_scratch1);
-  __ sld_PPC(R25_tos_RV, R11_scratch1, R25_tos_RV);
+  __ sll(R25_tos_RV, R11_scratch1, R25_tos_RV);
 }
 
 void TemplateTable::lshr() {
   transition(itos, ltos);
 
-  __ rldicl_PPC(R25_tos_RV, R25_tos_RV, 0, 64-6); // Extract least significant bits.
   __ pop_l(R11_scratch1);
-  __ srad_PPC(R25_tos_RV, R11_scratch1, R25_tos_RV);
+  __ sra(R25_tos_RV, R11_scratch1, R25_tos_RV);
 }
 
 void TemplateTable::lushr() {
   transition(itos, ltos);
 
-  __ rldicl_PPC(R25_tos_RV, R25_tos_RV, 0, 64-6); // Extract least significant bits.
   __ pop_l(R11_scratch1);
-  __ srd_PPC(R25_tos_RV, R11_scratch1, R25_tos_RV);
+  __ srl(R25_tos_RV, R11_scratch1, R25_tos_RV);
 }
 
 void TemplateTable::fop2(Operation op) {
@@ -1403,14 +1396,14 @@ void TemplateTable::dop2(Operation op) {
 void TemplateTable::ineg() {
   transition(itos, itos);
 
-  __ neg_PPC(R25_tos_RV, R25_tos_RV);
+  __ negw(R25_tos_RV, R25_tos_RV);
 }
 
 // Negate the value in the TOS cache.
 void TemplateTable::lneg() {
   transition(ltos, ltos);
 
-  __ neg_PPC(R25_tos_RV, R25_tos_RV);
+  __ neg(R25_tos_RV, R25_tos_RV);
 }
 
 void TemplateTable::fneg() {
@@ -1429,31 +1422,30 @@ void TemplateTable::dneg() {
 void TemplateTable::iinc() {
   transition(vtos, vtos);
 
-  const Register Rindex     = R11_scratch1,
-                 Rincrement = R0,
-                 Rvalue     = R12_scratch2;
+  const Register Rindex     = R5_scratch1_RV,
+                 Rincrement = R7_TMP2_RV,
+                 Rvalue     = R6_scratch2_RV;
 
-  locals_index(Rindex);              // Load locals index from bytecode stream.
-  __ lbz_PPC(Rincrement, 2, R14_bcp);    // Load increment from the bytecode stream.
-  __ extsb_PPC(Rincrement, Rincrement);
+  locals_index(Rindex);             // Load locals index from bytecode stream.
+  __ lb(Rincrement, R14_bcp, 2);    // Load increment from the bytecode stream.
 
   __ load_local_int(Rvalue, Rindex, Rindex); // Puts address of local into Rindex.
 
-  __ add_PPC(Rvalue, Rincrement, Rvalue);
-  __ stw_PPC(Rvalue, 0, Rindex);
+  __ add(Rvalue, Rincrement, Rvalue);
+  __ sw(Rvalue, Rindex, 0);
 }
 
 void TemplateTable::wide_iinc() {
   transition(vtos, vtos);
 
-  Register Rindex       = R11_scratch1,
+  const Register Rindex       = R5_scratch1_RV,
            Rlocals_addr = Rindex,
-           Rincr        = R12_scratch2;
+           Rincr        = R6_scratch2_RV;
   locals_index_wide(Rindex);
   __ get_2_byte_integer_at_bcp(4, Rincr, InterpreterMacroAssembler::Signed);
   __ load_local_int(R25_tos_RV, Rlocals_addr, Rindex);
-  __ add_PPC(R25_tos_RV, Rincr, R25_tos_RV);
-  __ stw_PPC(R25_tos_RV, 0, Rlocals_addr);
+  __ add(R25_tos_RV, Rincr, R25_tos_RV);
+  __ sw(R25_tos_RV, Rlocals_addr, 0);
 }
 
 void TemplateTable::convert() {
@@ -1589,14 +1581,25 @@ void TemplateTable::convert() {
 void TemplateTable::lcmp() {
   transition(ltos, itos);
 
-  const Register Rscratch = R11_scratch1;
+  Label Lless, Lgreater, Ldone;
+
+  const Register Rscratch = R5_scratch1_RV;
   __ pop_l(Rscratch); // first operand, deeper in stack
 
-  __ cmpd_PPC(CCR0, Rscratch, R25_tos_RV); // compare
-  __ mfcr_PPC(R25_tos_RV); // set bit 32..33 as follows: <: 0b10, =: 0b00, >: 0b01
-  __ srwi_PPC(Rscratch, R25_tos_RV, 30);
-  __ srawi_PPC(R25_tos_RV, R25_tos_RV, 31);
-  __ orr_PPC(R25_tos_RV, Rscratch, R25_tos_RV); // set result as follows: <: -1, =: 0, >: 1
+  __ blt(Rscratch, R25_tos_RV, Lless);
+  __ bge(Rscratch, R25_tos_RV, Lgreater);
+
+  __ mv(R25_tos_RV, R0_ZERO_RV);
+  __ j(Ldone);
+
+  __ bind(Lless);
+  __ addi(R25_tos_RV, R0_ZERO_RV, -1);
+  __ j(Ldone);
+
+  __ bind(Lgreater);
+  __ addi(R25_tos_RV, R0_ZERO_RV, 1);
+
+  __ bind(Ldone);
 }
 
 // fcmpl/fcmpg and dcmpl/dcmpg bytecodes
