@@ -343,52 +343,27 @@ void Assembler::load_const_PPC(Register d, long x, Register tmp) {
   }
 }
 
-bool Assembler::li_32(Register d, long imm) {
-  short l12 = imm & 0x0FFF; // lowest 12 bit of immediate.
-  int sign12 = (unsigned short)(l12 << 4) >> 15;
-  long long rem12 = (imm >> 12) + sign12; // Compensation for sign extend.
-  if (rem12 == 0) {
-  addi(d, R0_ZERO, imm);
-  return true;
-  }
-
-  int l32 = imm & 0xFFFFFFFF; // lowest 32 bit of immediate.
-  int signBit = (unsigned) l32 >> 31;
-  long long rem32 = (imm >> 32) + signBit; // Compensation for sign extend.
-  if (rem32 == 0) {
-    lui(d, (l32) + (sign12 << 12)); // Put upper 20 bits and places zero in the lowest 12 bits.
-    if (l12 != 0) addi(d, d, l12);
-    return true;
-  }
-  return false;
-}
-
 void Assembler::li(Register d, void* addr) {
   li(d, (long)(unsigned long)addr);
 }
 
 void Assembler::li(Register d, long imm) { // TODO optimize
-  unsigned long uimm = (unsigned long) imm;
-  long h32 = uimm >> 32;
-  if (h32 == 0) {
-    li_32(d, imm);
-    return;
-  }
-
-  li_32(d, h32); // Copy upper 32 bits
+  unsigned long uimm = imm;
 
   // Accurate copying by 11 bits.
+  int remBit = ((uimm & 0xffffffff00000000) != 0) ? 53 : 21;
+  short part = (uimm >> remBit) & 0x7FF;
+  addi(d, R0_ZERO, part);
   slli(d, d, 11);
-  short part = (uimm >> 21) & 0x7FF;
-  andi(d, d, part);
 
-  slli(d, d, 11);
-  part = (uimm >> 10) & 0x7FF;
-  andi(d, d, part);
+  for (remBit -= 11; remBit > 0; remBit -= 11) {
+    part = (uimm >> remBit) & 0x7FF;
+    addi(d, d, part);
+    slli(d, d, remBit >= 11 ? 11 : remBit);
+  }
 
-  slli(d, d, 10);
-  part = uimm & 0x3FF;
-  andi(d, d, part);
+  part = uimm & ((1 << (remBit + 11)) - 1);
+  addi(d, d, part);
 }
 
 // Load a 64 bit constant, optimized, not identifyable.

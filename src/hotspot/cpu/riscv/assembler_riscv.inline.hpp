@@ -83,7 +83,7 @@ inline void Assembler::madd(  FloatRegister d, FloatRegister s1, FloatRegister s
 inline void Assembler::msub(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(MSUB_RV_OPCODE  | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 inline void Assembler::nmadd( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(NMSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 inline void Assembler::nmsub( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(NMADD_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
-inline void Assembler::fence(int pr, int sc, int f) { emit_int32_PPC(MISC_MEM_RV_OPCODE | pred(pr) | succ(sc) | fm(f)); }
+inline void Assembler::fence(int pr, int sc, int f) { emit_int32(MISC_MEM_RV_OPCODE | pred(pr) | succ(sc) | fm(f)); }
 
 inline void Assembler::addi(   Register d, Register s, int imm)   { op_imm(d, s, 0x0, imm          ); }
 inline void Assembler::slti(   Register d, Register s, int imm)   { op_imm(d, s, 0x2, imm          ); }
@@ -293,7 +293,7 @@ inline void Assembler::fcvtqlu( FloatRegister d, Register s, int rm) { op_fp(d, 
 
 inline void Assembler::fence(int pr, int sc) { fence(pr, sc, NORMAL_MODE); }
 inline void Assembler::fence_tso() { fence(RW_OP, RW_OP, TSO_MODE); }
-inline void Assembler::fencei() { emit_int32_PPC(MISC_MEM_RV_OPCODE | funct3(0x1)); }
+inline void Assembler::fencei() { emit_int32(MISC_MEM_RV_OPCODE | funct3(0x1)); }
 // pseudoinstructions
 
 inline void Assembler::nop() { addi(R0, R0, 0); }
@@ -320,8 +320,8 @@ inline void Assembler::jal(int off) { jal(R1, off); }
 inline void Assembler::jr(Register s) { jalr(R0, s, 0); }
 inline void Assembler::jalr(Register s) { jalr(R1, s, 0); }
 inline void Assembler::ret() { jr(R1); }
-inline void Assembler::call(int off) { auipc(R1, off & 0xfffff000); jalr(R1, R1, off & 0xfff); }
-inline void Assembler::tail(int off) { auipc(R6, off & 0xfffff000); jalr(R0, R6, off & 0xfff); }
+inline void Assembler::call(int off) { auipc(R1, (unsigned) off >> 12); jalr(R1, R1, off & 0xfff); }
+inline void Assembler::tail(int off) { auipc(R6, (unsigned) off >> 12); jalr(R0, R6, off & 0xfff); }
 
 // --- PPC instructions follow ---
 

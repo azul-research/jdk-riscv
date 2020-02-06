@@ -241,8 +241,8 @@ class Assembler : public AbstractAssembler {
     );
   }
   static inline int immu(int x) {
-    // U-immediate must be zero in bits 0:11
-    return x & 0xfffff000;
+    // U-immediate places in the high 20 bits
+    return x << 12;
   }
   static inline int immj(int x) {
     assert((x & 1) == 0, "J-immediate must be zero in bit 0");
@@ -2299,11 +2299,6 @@ class Assembler : public AbstractAssembler {
   inline void ret();
   inline void call(int off);
   inline void tail(int off);
-
-private:
-  bool li_32(Register d, long imm);
-
-public:
 
   // --- PPC instructions follow ---
 
