@@ -1409,13 +1409,13 @@ void TemplateTable::lneg() {
 void TemplateTable::fneg() {
   transition(ftos, ftos);
 
-  __ fneg_PPC(F15_ftos, F15_ftos);
+  __ fneg_PPC(F23_ftos, F23_ftos);
 }
 
 void TemplateTable::dneg() {
   transition(dtos, dtos);
 
-  __ fneg_PPC(F15_ftos, F15_ftos);
+  __ fneg_PPC(F23_ftos, F23_ftos);
 }
 
 // Increments a local variable in place.
