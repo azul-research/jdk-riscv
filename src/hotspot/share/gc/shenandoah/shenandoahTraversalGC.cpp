@@ -28,7 +28,6 @@
 #include "gc/shared/referenceProcessor.hpp"
 #include "gc/shared/referenceProcessorPhaseTimes.hpp"
 #include "gc/shared/workgroup.hpp"
-#include "gc/shared/weakProcessor.inline.hpp"
 #include "gc/shenandoah/shenandoahBarrierSet.hpp"
 #include "gc/shenandoah/shenandoahClosures.inline.hpp"
 #include "gc/shenandoah/shenandoahCodeRoots.hpp"
@@ -595,19 +594,15 @@ void ShenandoahTraversalGC::final_traversal_collection() {
   }
 
   if (!_heap->cancelled_gc()) {
-    fixup_roots();
-    if (_heap->unload_classes()) {
-      _heap->unload_classes_and_cleanup_tables(false);
-    }
-  }
-
-  if (!_heap->cancelled_gc()) {
     assert(_task_queues->is_empty(), "queues must be empty after traversal GC");
     TASKQUEUE_STATS_ONLY(_task_queues->print_taskqueue_stats());
     TASKQUEUE_STATS_ONLY(_task_queues->reset_taskqueue_stats());
 
     // No more marking expected
     _heap->mark_complete_marking_context();
+
+    fixup_roots();
+    _heap->parallel_cleaning(false);
 
     // Resize metaspace
     MetaspaceGC::compute_new_size();
@@ -675,7 +670,7 @@ private:
     if (!CompressedOops::is_null(o)) {
       oop obj = CompressedOops::decode_not_null(o);
       oop forw = ShenandoahBarrierSet::resolve_forwarded_not_null(obj);
-      if (!oopDesc::equals_raw(obj, forw)) {
+      if (obj != forw) {
         RawAccess<IS_NOT_NULL>::oop_store(p, forw);
       }
     }
@@ -709,7 +704,7 @@ void ShenandoahTraversalGC::fixup_roots() {
 #if COMPILER2_OR_JVMCI
   DerivedPointerTable::clear();
 #endif
-  ShenandoahRootUpdater rp(_heap->workers()->active_workers(), ShenandoahPhaseTimings::final_traversal_update_roots, true /* update code cache */);
+  ShenandoahRootUpdater rp(_heap->workers()->active_workers(), ShenandoahPhaseTimings::final_traversal_update_roots);
   ShenandoahTraversalFixRootsTask update_roots_task(&rp);
   _heap->workers()->run_task(&update_roots_task);
 #if COMPILER2_OR_JVMCI

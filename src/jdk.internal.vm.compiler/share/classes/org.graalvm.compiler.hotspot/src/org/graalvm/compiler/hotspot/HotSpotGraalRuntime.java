@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -113,6 +113,11 @@ public final class HotSpotGraalRuntime implements HotSpotGraalRuntimeProvider {
     private final String runtimeName;
     private final String compilerConfigurationName;
     private final HotSpotBackend hostBackend;
+
+    public GlobalMetrics getMetricValues() {
+        return metricValues;
+    }
+
     private final GlobalMetrics metricValues = new GlobalMetrics();
     private final List<SnippetCounter.Group> snippetCounterGroups;
     private final HotSpotGC garbageCollector;
@@ -128,8 +133,6 @@ public final class HotSpotGraalRuntime implements HotSpotGraalRuntimeProvider {
      * obtaining them from this object. However, concurrent updates are never lost.
      */
     private AtomicReference<OptionValues> optionsRef = new AtomicReference<>();
-
-    private final HotSpotGraalCompiler compiler;
 
     private final DiagnosticsOutputDirectory outputDirectory;
     private final Map<ExceptionAction, Integer> compilationProblemsPerAction;
@@ -161,7 +164,6 @@ public final class HotSpotGraalRuntime implements HotSpotGraalRuntimeProvider {
         CompilerConfiguration compilerConfiguration = compilerConfigurationFactory.createCompilerConfiguration();
         compilerConfigurationName = compilerConfigurationFactory.getName();
 
-        compiler = new HotSpotGraalCompiler(jvmciRuntime, this, options);
         if (IS_AOT) {
             management = null;
         } else {
@@ -367,7 +369,11 @@ public final class HotSpotGraalRuntime implements HotSpotGraalRuntimeProvider {
     }
 
     private long runtimeStartTime;
-    private boolean shutdown;
+
+    /**
+     * Called from compiler threads to check whether to bail out of a compilation.
+     */
+    private volatile boolean shutdown;
 
     /**
      * Take action related to entering a new execution phase.
@@ -394,6 +400,16 @@ public final class HotSpotGraalRuntime implements HotSpotGraalRuntimeProvider {
         BenchmarkCounters.shutdown(runtime(), optionsRef.get(), runtimeStartTime);
 
         outputDirectory.close();
+
+        shutdownLibGraal();
+    }
+
+    /**
+     * Substituted by
+     * {@code com.oracle.svm.graal.hotspot.libgraal.Target_org_graalvm_compiler_hotspot_HotSpotGraalRuntime}
+     * to call {@code org.graalvm.nativeimage.VMRuntime.shutdown()}.
+     */
+    private static void shutdownLibGraal() {
     }
 
     void clearMetrics() {
@@ -580,6 +596,7 @@ public final class HotSpotGraalRuntime implements HotSpotGraalRuntimeProvider {
         extra.put(DebugOptions.PrintGraphHost, host);
         extra.put(DebugOptions.PrintGraphPort, port);
         OptionValues compileOptions = new OptionValues(getOptions(), extra);
+        HotSpotGraalCompiler compiler = (HotSpotGraalCompiler) runtime().getCompiler();
         compiler.compileMethod(new HotSpotCompilationRequest(hotSpotMethod, -1, 0L), false, compileOptions);
     }
 

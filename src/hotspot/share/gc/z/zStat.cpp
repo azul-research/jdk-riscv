@@ -41,11 +41,11 @@
 #include "utilities/debug.hpp"
 #include "utilities/ticks.hpp"
 
-#define ZSIZE_FMT               SIZE_FORMAT "M(%.0lf%%)"
+#define ZSIZE_FMT               SIZE_FORMAT "M(%.0f%%)"
 #define ZSIZE_ARGS(size)        ((size) / M), (percent_of(size, ZStatHeap::max_capacity()))
 
 #define ZTABLE_ARGS_NA          "%9s", "-"
-#define ZTABLE_ARGS(size)       SIZE_FORMAT_W(8) "M (%.0lf%%)", \
+#define ZTABLE_ARGS(size)       SIZE_FORMAT_W(8) "M (%.0f%%)", \
                                 ((size) / M), (percent_of(size, ZStatHeap::max_capacity()))
 
 //
@@ -63,7 +63,7 @@ struct ZStatSamplerData {
 
   void add(const ZStatSamplerData& new_sample) {
     _nsamples += new_sample._nsamples;
-    _sum += new_sample._nsamples;
+    _sum += new_sample._sum;
     _max = MAX2(_max, new_sample._max);
   }
 };
@@ -354,12 +354,11 @@ T* ZStatValue::get_cpu_local(uint32_t cpu) const {
 
 void ZStatValue::initialize() {
   // Finalize and align CPU offset
-  _cpu_offset = align_up(_cpu_offset, ZCacheLineSize);
+  _cpu_offset = align_up(_cpu_offset, (uint32_t)ZCacheLineSize);
 
   // Allocation aligned memory
   const size_t size = _cpu_offset * ZCPU::count();
   _base = ZUtils::alloc_aligned(ZCacheLineSize, size);
-  memset((void*)_base, 0, size);
 }
 
 const char* ZStatValue::group() const {
@@ -755,7 +754,7 @@ void ZStatCriticalPhase::register_end(const Ticks& start, const Ticks& end) cons
 //
 // Stat timer
 //
-__thread uint32_t ZStatTimerDisable::_active = 0;
+THREAD_LOCAL uint32_t ZStatTimerDisable::_active = 0;
 
 //
 // Stat sample/inc

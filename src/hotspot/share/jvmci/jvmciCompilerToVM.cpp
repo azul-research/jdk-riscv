@@ -205,7 +205,7 @@ C2V_VMENTRY_NULL(jobject, getFlagValue, (JNIEnv* env, jobject c2vm, jobject name
     JVMCI_THROW_NULL(NullPointerException);
   }
   const char* cstring = JVMCIENV->as_utf8_string(name);
-  JVMFlag* flag = JVMFlag::find_flag(cstring, strlen(cstring), /* allow_locked */ true, /* return_flag */ true);
+  const JVMFlag* flag = JVMFlag::find_declared_flag(cstring);
   if (flag == NULL) {
     return c2vm;
   }
@@ -565,6 +565,33 @@ C2V_VMENTRY_NULL(jobject, lookupType, (JNIEnv* env, jobject, jstring jname, jcla
     }
   }
   JVMCIObject result = JVMCIENV->get_jvmci_type(resolved_klass, JVMCI_CHECK_NULL);
+  return JVMCIENV->get_jobject(result);
+C2V_END
+
+C2V_VMENTRY_NULL(jobject, getArrayType, (JNIEnv* env, jobject, jobject jvmci_type))
+  if (jvmci_type == NULL) {
+    JVMCI_THROW_0(NullPointerException);
+  }
+
+  JVMCIObject jvmci_type_object = JVMCIENV->wrap(jvmci_type);
+  JVMCIKlassHandle array_klass(THREAD);
+  if (JVMCIENV->isa_HotSpotResolvedPrimitiveType(jvmci_type_object)) {
+    BasicType type = JVMCIENV->kindToBasicType(JVMCIENV->get_HotSpotResolvedPrimitiveType_kind(jvmci_type_object), JVMCI_CHECK_0);
+    if (type == T_VOID) {
+      return NULL;
+    }
+    array_klass = Universe::typeArrayKlassObj(type);
+    if (array_klass == NULL) {
+      JVMCI_THROW_MSG_NULL(InternalError, err_msg("No array klass for primitive type %s", type2name(type)));
+    }
+  } else {
+    Klass* klass = JVMCIENV->asKlass(jvmci_type);
+    if (klass == NULL) {
+      JVMCI_THROW_0(NullPointerException);
+    }
+    array_klass = klass->array_klass(CHECK_NULL);
+  }
+  JVMCIObject result = JVMCIENV->get_jvmci_type(array_klass, JVMCI_CHECK_NULL);
   return JVMCIENV->get_jobject(result);
 C2V_END
 
@@ -1007,7 +1034,7 @@ C2V_VMENTRY_NULL(jobject, executeHotSpotNmethod, (JNIEnv* env, jobject, jobject 
 
   if (jap.get_ret_type() == T_VOID) {
     return NULL;
-  } else if (jap.get_ret_type() == T_OBJECT || jap.get_ret_type() == T_ARRAY) {
+  } else if (is_reference_type(jap.get_ret_type())) {
     return JNIHandles::make_local((oop) result.get_jobject());
   } else {
     jvalue *value = (jvalue *) result.get_value_addr();
@@ -1122,8 +1149,8 @@ C2V_VMENTRY_0(jint, getCountersSize, (JNIEnv* env, jobject))
   return (jint) JVMCICounterSize;
 C2V_END
 
-C2V_VMENTRY_0(jboolean, setCountersSize, (JNIEnv* env, jobject, jint new_size))
-  return JavaThread::resize_all_jvmci_counters(new_size);
+C2V_VMENTRY(void, setCountersSize, (JNIEnv* env, jobject, jint new_size))
+  JavaThread::resize_all_jvmci_counters(new_size);
 C2V_END
 
 C2V_VMENTRY_0(jint, allocateCompileId, (JNIEnv* env, jobject, jobject jvmci_method, int entry_bci))
@@ -2571,6 +2598,18 @@ C2V_VMENTRY_0(jboolean, addFailedSpeculation, (JNIEnv* env, jobject, jlong faile
   return FailedSpeculation::add_failed_speculation(NULL, (FailedSpeculation**)(address) failed_speculations_address, (address) speculation, speculation_len);
 }
 
+C2V_VMENTRY(void, callSystemExit, (JNIEnv* env, jobject, jint status))
+  JavaValue result(T_VOID);
+  JavaCallArguments jargs(1);
+  jargs.push_int(status);
+  JavaCalls::call_static(&result,
+                       SystemDictionary::System_klass(),
+                       vmSymbols::exit_method_name(),
+                       vmSymbols::int_void_signature(),
+                       &jargs,
+                       CHECK);
+}
+
 #define CC (char*)  /*cast a literal from (const char*)*/
 #define FN_PTR(f) CAST_FROM_FN_PTR(void*, &(c2v_ ## f))
 
@@ -2617,6 +2656,7 @@ JNINativeMethod CompilerToVM::methods[] = {
   {CC "hasNeverInlineDirective",                      CC "(" HS_RESOLVED_METHOD ")Z",                                                       FN_PTR(hasNeverInlineDirective)},
   {CC "shouldInlineMethod",                           CC "(" HS_RESOLVED_METHOD ")Z",                                                       FN_PTR(shouldInlineMethod)},
   {CC "lookupType",                                   CC "(" STRING HS_RESOLVED_KLASS "Z)" HS_RESOLVED_TYPE,                                FN_PTR(lookupType)},
+  {CC "getArrayType",                                 CC "(" HS_RESOLVED_TYPE ")" HS_RESOLVED_KLASS,                                        FN_PTR(getArrayType)},
   {CC "lookupClass",                                  CC "(" CLASS ")" HS_RESOLVED_TYPE,                                                    FN_PTR(lookupClass)},
   {CC "lookupNameInPool",                             CC "(" HS_CONSTANT_POOL "I)" STRING,                                                  FN_PTR(lookupNameInPool)},
   {CC "lookupNameAndTypeRefIndexInPool",              CC "(" HS_CONSTANT_POOL "I)I",                                                        FN_PTR(lookupNameAndTypeRefIndexInPool)},
@@ -2656,7 +2696,7 @@ JNINativeMethod CompilerToVM::methods[] = {
   {CC "readUncompressedOop",                          CC "(J)" OBJECTCONSTANT,                                                              FN_PTR(readUncompressedOop)},
   {CC "collectCounters",                              CC "()[J",                                                                            FN_PTR(collectCounters)},
   {CC "getCountersSize",                              CC "()I",                                                                             FN_PTR(getCountersSize)},
-  {CC "setCountersSize",                              CC "(I)Z",                                                                            FN_PTR(setCountersSize)},
+  {CC "setCountersSize",                              CC "(I)V",                                                                            FN_PTR(setCountersSize)},
   {CC "allocateCompileId",                            CC "(" HS_RESOLVED_METHOD "I)I",                                                      FN_PTR(allocateCompileId)},
   {CC "isMature",                                     CC "(" METASPACE_METHOD_DATA ")Z",                                                    FN_PTR(isMature)},
   {CC "hasCompiledCodeForOSR",                        CC "(" HS_RESOLVED_METHOD "II)Z",                                                     FN_PTR(hasCompiledCodeForOSR)},
@@ -2715,6 +2755,7 @@ JNINativeMethod CompilerToVM::methods[] = {
   {CC "getFailedSpeculationsAddress",                 CC "(" HS_RESOLVED_METHOD ")J",                                                       FN_PTR(getFailedSpeculationsAddress)},
   {CC "releaseFailedSpeculations",                    CC "(J)V",                                                                            FN_PTR(releaseFailedSpeculations)},
   {CC "addFailedSpeculation",                         CC "(J[B)Z",                                                                          FN_PTR(addFailedSpeculation)},
+  {CC "callSystemExit",                               CC "(I)V",                                                                            FN_PTR(callSystemExit)},
 };
 
 int CompilerToVM::methods_count() {

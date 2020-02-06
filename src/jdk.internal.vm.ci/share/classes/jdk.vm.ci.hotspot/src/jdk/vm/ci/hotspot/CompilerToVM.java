@@ -372,9 +372,8 @@ final class CompilerToVM {
      * @return the outcome of the installation which will be one of
      *         {@link HotSpotVMConfig#codeInstallResultOk},
      *         {@link HotSpotVMConfig#codeInstallResultCacheFull},
-     *         {@link HotSpotVMConfig#codeInstallResultCodeTooLarge},
-     *         {@link HotSpotVMConfig#codeInstallResultDependenciesFailed} or
-     *         {@link HotSpotVMConfig#codeInstallResultDependenciesInvalid}.
+     *         {@link HotSpotVMConfig#codeInstallResultCodeTooLarge} or
+     *         {@link HotSpotVMConfig#codeInstallResultDependenciesFailed}.
      * @throws JVMCIError if there is something wrong with the compiled code or the associated
      *             metadata.
      */
@@ -390,9 +389,8 @@ final class CompilerToVM {
      * @return the outcome of the installation which will be one of
      *         {@link HotSpotVMConfig#codeInstallResultOk},
      *         {@link HotSpotVMConfig#codeInstallResultCacheFull},
-     *         {@link HotSpotVMConfig#codeInstallResultCodeTooLarge},
-     *         {@link HotSpotVMConfig#codeInstallResultDependenciesFailed} or
-     *         {@link HotSpotVMConfig#codeInstallResultDependenciesInvalid}.
+     *         {@link HotSpotVMConfig#codeInstallResultCodeTooLarge} or
+     *         {@link HotSpotVMConfig#codeInstallResultDependenciesFailed}.
      * @throws JVMCIError if there is something wrong with the compiled code or the metadata
      */
     native int getMetadata(TargetDescription target, HotSpotCompiledCode compiledCode, HotSpotMetaData metaData);
@@ -559,10 +557,10 @@ final class CompilerToVM {
     native int getCountersSize();
 
     /**
-     * Attempt to change the size of the counters allocated for JVMCI. This requires a safepoint to
+     * Change the size of the counters allocated for JVMCI. This requires a safepoint to
      * safely reallocate the storage but it's advisable to increase the size in reasonable chunks.
      */
-    native boolean setCountersSize(int newSize);
+    native void setCountersSize(int newSize);
 
     /**
      * Determines if {@code metaspaceMethodData} is mature.
@@ -762,6 +760,12 @@ final class CompilerToVM {
      * @see ResolvedJavaType#getComponentType()
      */
     native HotSpotResolvedJavaType getComponentType(HotSpotResolvedObjectTypeImpl type);
+
+    /**
+     * Get the array class for {@code type}. This can't be done symbolically since anonymous types
+     * can't be looked up by name.
+     */
+    native HotSpotResolvedObjectTypeImpl getArrayType(HotSpotResolvedJavaType type);
 
     /**
      * Forces initialization of {@code type}.
@@ -971,4 +975,9 @@ final class CompilerToVM {
      * @see HotSpotJVMCIRuntime#detachCurrentThread()
      */
     native void detachCurrentThread();
+
+    /**
+     * @see HotSpotJVMCIRuntime#exitHotSpot(int)
+     */
+    native void callSystemExit(int status);
 }

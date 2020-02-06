@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -43,7 +43,6 @@ import java.util.function.Function;
 
 import org.graalvm.compiler.bytecode.Bytecode;
 import org.graalvm.compiler.bytecode.ResolvedJavaMethodBytecode;
-import org.graalvm.compiler.core.common.GraalOptions;
 import org.graalvm.compiler.core.common.PermanentBailoutException;
 import org.graalvm.compiler.core.common.type.StampFactory;
 import org.graalvm.compiler.core.common.type.StampPair;
@@ -146,7 +145,7 @@ public final class FrameStateBuilder implements SideEffectsState {
 
         this.monitorIds = EMPTY_MONITOR_ARRAY;
         this.graph = graph;
-        this.clearNonLiveLocals = GraalOptions.OptClearNonLiveLocals.getValue(graph.getOptions()) && !shouldRetainLocalVariables;
+        this.clearNonLiveLocals = !shouldRetainLocalVariables;
         this.canVerifyKind = true;
     }
 

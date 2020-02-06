@@ -120,7 +120,7 @@ public:
   Node* base() const              { return _base; }
   C2AccessValuePtr& addr() const  { return _addr; }
   BasicType type() const          { return _type; }
-  bool is_oop() const             { return _type == T_OBJECT || _type == T_ARRAY; }
+  bool is_oop() const             { return is_reference_type(_type); }
   bool is_raw() const             { return (_decorators & AS_RAW) != 0; }
   Node* raw_access() const        { return _raw_access; }
 
@@ -261,7 +261,7 @@ public:
   };
 
   virtual bool array_copy_requires_gc_barriers(bool tightly_coupled_alloc, BasicType type, bool is_clone, ArrayCopyPhase phase) const { return false; }
-  virtual void clone_barrier_at_expansion(ArrayCopyNode* ac, Node* call, PhaseIterGVN& igvn) const;
+  virtual void clone_at_expansion(PhaseMacroExpand* phase, ArrayCopyNode* ac) const;
 
   // Support for GC barriers emitted during parsing
   virtual bool has_load_barriers() const { return false; }
@@ -309,7 +309,6 @@ public:
   virtual bool escape_add_to_con_graph(ConnectionGraph* conn_graph, PhaseGVN* gvn, Unique_Node_List* delayed_worklist, Node* n, uint opcode) const { return false; }
   virtual bool escape_add_final_edges(ConnectionGraph* conn_graph, PhaseGVN* gvn, Node* n, uint opcode) const { return false; }
   virtual bool escape_has_out_with_unsafe_object(Node* n) const { return false; }
-  virtual bool escape_is_barrier_node(Node* n) const { return false; }
 
   virtual bool matcher_find_shared_visit(Matcher* matcher, Matcher::MStack& mstack, Node* n, uint opcode, bool& mem_op, int& mem_addr_idx) const { return false; };
   virtual bool matcher_find_shared_post_visit(Matcher* matcher, Node* n, uint opcode) const { return false; };

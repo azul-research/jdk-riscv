@@ -454,9 +454,7 @@ static bool assign_distribution(processorid_t* id_array,
       board = 0;
     }
   }
-  if (available_id != NULL) {
-    FREE_C_HEAP_ARRAY(bool, available_id);
-  }
+  FREE_C_HEAP_ARRAY(bool, available_id);
   return true;
 }
 
@@ -493,9 +491,7 @@ bool os::distribute_processes(uint length, uint* distribution) {
       result = false;
     }
   }
-  if (id_array != NULL) {
-    FREE_C_HEAP_ARRAY(processorid_t, id_array);
-  }
+  FREE_C_HEAP_ARRAY(processorid_t, id_array);
   return result;
 }
 
@@ -562,7 +558,7 @@ void os::init_system_properties_values() {
     MAX3((size_t)MAXPATHLEN,  // For dll_dir & friends.
          sizeof(SYS_EXT_DIR) + sizeof("/lib/"), // invariant ld_library_path
          (size_t)MAXPATHLEN + sizeof(EXTENSIONS_DIR) + sizeof(SYS_EXT_DIR) + sizeof(EXTENSIONS_DIR)); // extensions dir
-  char *buf = (char *)NEW_C_HEAP_ARRAY(char, bufsize, mtInternal);
+  char *buf = NEW_C_HEAP_ARRAY(char, bufsize, mtInternal);
 
   // sysclasspath, java_home, dll_dir
   {
@@ -648,7 +644,7 @@ void os::init_system_properties_values() {
     // through the dlinfo() call, so only add additional space for the path
     // components explicitly added here.
     size_t library_path_size = info->dls_size + strlen(common_path);
-    library_path = (char *)NEW_C_HEAP_ARRAY(char, library_path_size, mtInternal);
+    library_path = NEW_C_HEAP_ARRAY(char, library_path_size, mtInternal);
     library_path[0] = '\0';
 
     // Construct the desired Java library path from the linker's library
@@ -1520,15 +1516,25 @@ void os::print_dll_info(outputStream * st) {
   }
 }
 
+static void change_endianness(Elf32_Half& val) {
+  unsigned char *ptr = (unsigned char *)&val;
+  unsigned char swp = ptr[0];
+  ptr[0] = ptr[1];
+  ptr[1] = swp;
+}
+
 // Loads .dll/.so and
 // in case of error it checks if .dll/.so was built for the
 // same architecture as Hotspot is running on
 
 void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
+  log_info(os)("attempting shared library load of %s", filename);
+
   void * result= ::dlopen(filename, RTLD_LAZY);
   if (result != NULL) {
     // Successful loading
     Events::log(NULL, "Loaded shared library %s", filename);
+    log_info(os)("shared library load of %s was successful", filename);
     return result;
   }
 
@@ -1543,6 +1549,7 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
   }
 
   Events::log(NULL, "Loading shared library %s failed, %s", filename, error_report);
+  log_info(os)("shared library load of %s failed, %s", filename, error_report);
 
   int diag_msg_max_length=ebuflen-strlen(ebuf);
   char* diag_msg_buf=ebuf+strlen(ebuf);
@@ -1570,6 +1577,14 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
     return NULL;
   }
 
+  if (elf_head.e_ident[EI_DATA] != LITTLE_ENDIAN_ONLY(ELFDATA2LSB) BIG_ENDIAN_ONLY(ELFDATA2MSB)) {
+    // handle invalid/out of range endianness values
+    if (elf_head.e_ident[EI_DATA] == 0 || elf_head.e_ident[EI_DATA] > 2) {
+      return NULL;
+    }
+    change_endianness(elf_head.e_machine);
+  }
+
   typedef struct {
     Elf32_Half    code;         // Actual value as defined in elf.h
     Elf32_Half    compat_class; // Compatibility of archs at VM's sense
@@ -1577,6 +1592,10 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
     unsigned char endianess;    // MSB or LSB
     char*         name;         // String representation
   } arch_t;
+
+#ifndef EM_AARCH64
+  #define EM_AARCH64    183               /* ARM AARCH64 */
+#endif
 
   static const arch_t arch_array[]={
     {EM_386,         EM_386,     ELFCLASS32, ELFDATA2LSB, (char*)"IA 32"},
@@ -1588,7 +1607,10 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
     {EM_SPARCV9,     EM_SPARCV9, ELFCLASS64, ELFDATA2MSB, (char*)"Sparc v9 64"},
     {EM_PPC,         EM_PPC,     ELFCLASS32, ELFDATA2MSB, (char*)"Power PC 32"},
     {EM_PPC64,       EM_PPC64,   ELFCLASS64, ELFDATA2MSB, (char*)"Power PC 64"},
-    {EM_ARM,         EM_ARM,     ELFCLASS32, ELFDATA2LSB, (char*)"ARM 32"}
+    {EM_ARM,         EM_ARM,     ELFCLASS32, ELFDATA2LSB, (char*)"ARM"},
+    // we only support 64 bit z architecture
+    {EM_S390,        EM_S390,    ELFCLASS64, ELFDATA2MSB, (char*)"IBM System/390"},
+    {EM_AARCH64,     EM_AARCH64, ELFCLASS64, ELFDATA2LSB, (char*)"AARCH64"}
   };
 
 #if  (defined IA32)
@@ -1612,7 +1634,7 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
        IA32, AMD64, IA64, __sparc, __powerpc__, ARM, ARM
 #endif
 
-  // Identify compatability class for VM's architecture and library's architecture
+  // Identify compatibility class for VM's architecture and library's architecture
   // Obtain string descriptions for architectures
 
   arch_t lib_arch={elf_head.e_machine,0,elf_head.e_ident[EI_CLASS], elf_head.e_ident[EI_DATA], NULL};
@@ -1636,27 +1658,35 @@ void * os::dll_load(const char *filename, char *ebuf, int ebuflen) {
     return NULL;
   }
 
+  if (lib_arch.compat_class != arch_array[running_arch_index].compat_class) {
+    if (lib_arch.name != NULL) {
+      ::snprintf(diag_msg_buf, diag_msg_max_length-1,
+                 " (Possible cause: can't load %s .so on a %s platform)",
+                 lib_arch.name, arch_array[running_arch_index].name);
+    } else {
+      ::snprintf(diag_msg_buf, diag_msg_max_length-1,
+                 " (Possible cause: can't load this .so (machine code=0x%x) on a %s platform)",
+                 lib_arch.code, arch_array[running_arch_index].name);
+    }
+    return NULL;
+  }
+
   if (lib_arch.endianess != arch_array[running_arch_index].endianess) {
     ::snprintf(diag_msg_buf, diag_msg_max_length-1," (Possible cause: endianness mismatch)");
     return NULL;
   }
 
-  if (lib_arch.elf_class != arch_array[running_arch_index].elf_class) {
-    ::snprintf(diag_msg_buf, diag_msg_max_length-1," (Possible cause: architecture word width mismatch)");
+  // ELF file class/capacity : 0 - invalid, 1 - 32bit, 2 - 64bit
+  if (lib_arch.elf_class > 2 || lib_arch.elf_class < 1) {
+    ::snprintf(diag_msg_buf, diag_msg_max_length-1, " (Possible cause: invalid ELF file class)");
     return NULL;
   }
 
-  if (lib_arch.compat_class != arch_array[running_arch_index].compat_class) {
-    if (lib_arch.name!=NULL) {
-      ::snprintf(diag_msg_buf, diag_msg_max_length-1,
-                 " (Possible cause: can't load %s-bit .so on a %s-bit platform)",
-                 lib_arch.name, arch_array[running_arch_index].name);
-    } else {
-      ::snprintf(diag_msg_buf, diag_msg_max_length-1,
-                 " (Possible cause: can't load this .so (machine code=0x%x) on a %s-bit platform)",
-                 lib_arch.code,
-                 arch_array[running_arch_index].name);
-    }
+  if (lib_arch.elf_class != arch_array[running_arch_index].elf_class) {
+    ::snprintf(diag_msg_buf, diag_msg_max_length-1,
+               " (Possible cause: architecture word width mismatch, can't load %d-bit .so on a %d-bit platform)",
+               (int) lib_arch.elf_class * 32, arch_array[running_arch_index].elf_class * 32);
+    return NULL;
   }
 
   return NULL;
@@ -5033,7 +5063,7 @@ void Parker::park(bool isAbsolute, jlong time) {
   Thread* thread = Thread::current();
   assert(thread->is_Java_thread(), "Must be JavaThread");
   JavaThread *jt = (JavaThread *)thread;
-  if (Thread::is_interrupted(thread, false)) {
+  if (jt->is_interrupted(false)) {
     return;
   }
 
@@ -5058,7 +5088,7 @@ void Parker::park(bool isAbsolute, jlong time) {
 
   // Don't wait if cannot get lock since interference arises from
   // unblocking.  Also. check interrupt before trying wait
-  if (Thread::is_interrupted(thread, false) ||
+  if (jt->is_interrupted(false) ||
       os::Solaris::mutex_trylock(_mutex) != 0) {
     return;
   }
@@ -5119,36 +5149,42 @@ void Parker::unpark() {
   }
 }
 
-// Platform Monitor implementation
+// Platform Mutex/Monitor implementations
+
+os::PlatformMutex::PlatformMutex() {
+  int status = os::Solaris::mutex_init(&_mutex);
+  assert_status(status == 0, status, "mutex_init");
+}
+
+os::PlatformMutex::~PlatformMutex() {
+  int status = os::Solaris::mutex_destroy(&_mutex);
+  assert_status(status == 0, status, "mutex_destroy");
+}
+
+void os::PlatformMutex::lock() {
+  int status = os::Solaris::mutex_lock(&_mutex);
+  assert_status(status == 0, status, "mutex_lock");
+}
+
+void os::PlatformMutex::unlock() {
+  int status = os::Solaris::mutex_unlock(&_mutex);
+  assert_status(status == 0, status, "mutex_unlock");
+}
+
+bool os::PlatformMutex::try_lock() {
+  int status = os::Solaris::mutex_trylock(&_mutex);
+  assert_status(status == 0 || status == EBUSY, status, "mutex_trylock");
+  return status == 0;
+}
 
 os::PlatformMonitor::PlatformMonitor() {
   int status = os::Solaris::cond_init(&_cond);
   assert_status(status == 0, status, "cond_init");
-  status = os::Solaris::mutex_init(&_mutex);
-  assert_status(status == 0, status, "mutex_init");
 }
 
 os::PlatformMonitor::~PlatformMonitor() {
   int status = os::Solaris::cond_destroy(&_cond);
   assert_status(status == 0, status, "cond_destroy");
-  status = os::Solaris::mutex_destroy(&_mutex);
-  assert_status(status == 0, status, "mutex_destroy");
-}
-
-void os::PlatformMonitor::lock() {
-  int status = os::Solaris::mutex_lock(&_mutex);
-  assert_status(status == 0, status, "mutex_lock");
-}
-
-void os::PlatformMonitor::unlock() {
-  int status = os::Solaris::mutex_unlock(&_mutex);
-  assert_status(status == 0, status, "mutex_unlock");
-}
-
-bool os::PlatformMonitor::try_lock() {
-  int status = os::Solaris::mutex_trylock(&_mutex);
-  assert_status(status == 0 || status == EBUSY, status, "mutex_trylock");
-  return status == 0;
 }
 
 // Must already be locked
@@ -5342,6 +5378,10 @@ int os::get_core_path(char* buffer, size_t bufferSize) {
                                               p, current_process_id());
 
   return strlen(buffer);
+}
+
+bool os::supports_map_sync() {
+  return false;
 }
 
 #ifndef PRODUCT

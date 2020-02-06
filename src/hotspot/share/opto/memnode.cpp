@@ -342,7 +342,7 @@ Node *MemNode::Ideal_common(PhaseGVN *phase, bool can_reshape) {
       }
     }
     Node* frame = igvn->transform(new ParmNode(phase->C->start(), TypeFunc::FramePtr));
-    Node* halt = igvn->transform(new HaltNode(ctl, frame));
+    Node* halt = igvn->transform(new HaltNode(ctl, frame, "unsafe off-heap access with zero address"));
     phase->C->root()->add_req(halt);
     return this;
   }
@@ -1435,8 +1435,6 @@ Node *LoadNode::split_through_phi(PhaseGVN *phase) {
     }
   }
 
-  bool load_boxed_phi = load_boxed_values && base_is_phi && (base->in(0) == mem->in(0));
-
   // Split through Phi (see original code in loopopts.cpp).
   assert(C->have_alias_type(t_oop), "instance should have alias type");
 
@@ -1556,6 +1554,22 @@ Node *LoadNode::split_through_phi(PhaseGVN *phase) {
   igvn->register_new_node_with_optimizer(phi);
   return phi;
 }
+
+AllocateNode* LoadNode::is_new_object_mark_load(PhaseGVN *phase) const {
+  if (Opcode() == Op_LoadX) {
+    Node* address = in(MemNode::Address);
+    AllocateNode* alloc = AllocateNode::Ideal_allocation(address, phase);
+    Node* mem = in(MemNode::Memory);
+    if (alloc != NULL && mem->is_Proj() &&
+        mem->in(0) != NULL &&
+        mem->in(0) == alloc->initialization() &&
+        alloc->initialization()->proj_out_or_null(0) != NULL) {
+      return alloc;
+    }
+  }
+  return NULL;
+}
+
 
 //------------------------------Ideal------------------------------------------
 // If the load is from Field memory and the pointer is non-null, it might be possible to
@@ -1683,6 +1697,13 @@ Node *LoadNode::Ideal(PhaseGVN *phase, bool can_reshape) {
       set_req(MemNode::Memory, prev_mem);
       return this;
     }
+  }
+
+  AllocateNode* alloc = is_new_object_mark_load(phase);
+  if (alloc != NULL && alloc->Opcode() == Op_Allocate && UseBiasedLocking) {
+    InitializeNode* init = alloc->initialization();
+    Node* control = init->proj_out(0);
+    return alloc->make_ideal_mark(phase, address, control, mem);
   }
 
   return progress ? this : NULL;
@@ -1943,6 +1964,12 @@ const Type* LoadNode::Value(PhaseGVN* phase) const {
       return Type::get_zero_type(_type->basic_type());
     }
   }
+
+  Node* alloc = is_new_object_mark_load(phase);
+  if (alloc != NULL && !(alloc->Opcode() == Op_Allocate && UseBiasedLocking)) {
+    return TypeX::make(markWord::prototype().value());
+  }
+
   return _type;
 }
 
