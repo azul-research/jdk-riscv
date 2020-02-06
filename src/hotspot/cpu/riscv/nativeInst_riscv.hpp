@@ -388,14 +388,14 @@ inline bool is_NativeCallTrampolineStub_at(address address) {
   int first_instr = *(int*)address;
   // calculate_address_from_global_toc and long form of ld_largeoffset_unchecked begin with addis with target R12
   if (Assembler::is_addis(first_instr) &&
-      (Register)(intptr_t)Assembler::inv_rt_field(first_instr) == R12_scratch2) return true;
+      (Register)(intptr_t)Assembler::inv_rt_field(first_instr) == R6_scratch2) return true;
 
   // short form of ld_largeoffset_unchecked is ld which is followed by mtctr
   int second_instr = *((int*)address + 1);
   if (Assembler::is_ld(first_instr) &&
-      (Register)(intptr_t)Assembler::inv_rt_field(first_instr) == R12_scratch2 &&
+      (Register)(intptr_t)Assembler::inv_rt_field(first_instr) == R6_scratch2 &&
       Assembler::is_mtctr(second_instr) &&
-      (Register)(intptr_t)Assembler::inv_rs_field(second_instr) == R12_scratch2) return true;
+      (Register)(intptr_t)Assembler::inv_rs_field(second_instr) == R6_scratch2) return true;
 
   return false;
 }

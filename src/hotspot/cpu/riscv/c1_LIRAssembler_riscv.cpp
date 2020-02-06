@@ -75,7 +75,7 @@ int LIR_Assembler::initial_frame_size_in_bytes() const {
 // If they do not match we jump to slow case.
 int LIR_Assembler::check_icache() {
   int offset = __ offset();
-  __ inline_cache_check(R3_ARG1, R19_inline_cache_reg);
+  __ inline_cache_check(R3_ARG1_PPC, R19_inline_cache_reg_PPC);
   return offset;
 }
 
@@ -86,7 +86,7 @@ void LIR_Assembler::clinit_barrier(ciMethod* method) {
   Register klass = R20;
 
   metadata2reg(method->holder()->constant_encoding(), klass);
-  __ clinit_barrier(klass, R16_thread, &L_skip_barrier /*L_fast_path*/);
+  __ clinit_barrier(klass, R24_thread, &L_skip_barrier /*L_fast_path*/);
 
   __ load_const_optimized(klass, SharedRuntime::get_handle_wrong_method_stub(), R0);
   __ mtctr_PPC(klass);
@@ -184,7 +184,7 @@ int LIR_Assembler::emit_exception_handler() {
   int offset = code_offset();
   address entry_point = CAST_FROM_FN_PTR(address, Runtime1::entry_for(Runtime1::handle_exception_from_callee_id));
   //__ load_const_optimized(R0, entry_point);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(entry_point));
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(entry_point));
   __ mtctr_PPC(R0);
   __ bctr_PPC();
 
@@ -205,10 +205,10 @@ int LIR_Assembler::emit_unwind_handler() {
   const Register Rexception = R3 /*LIRGenerator::exceptionOopOpr()*/, Rexception_save = R31;
 
   // Fetch the exception from TLS and clear out exception related thread state.
-  __ ld_PPC(Rexception, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ ld_PPC(Rexception, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
   __ li_PPC(R0, 0);
-  __ std_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ std_PPC(R0, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_pc_offset()), R24_thread);
 
   __ bind(_unwind_handler_entry);
   __ verify_not_null_oop(Rexception);
@@ -230,7 +230,7 @@ int LIR_Assembler::emit_unwind_handler() {
   // Dispatch to the unwind logic.
   address unwind_stub = Runtime1::entry_for(Runtime1::unwind_exception_id);
   //__ load_const_optimized(R0, unwind_stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(unwind_stub));
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(unwind_stub));
   if (preserve_exception) { __ mr_PPC(Rexception, Rexception_save); }
   __ mtctr_PPC(R0);
   __ bctr_PPC();
@@ -680,13 +680,13 @@ void LIR_Assembler::call(LIR_OpJavaCall* op, relocInfo::relocType rtype) {
 
 
 void LIR_Assembler::ic_call(LIR_OpJavaCall* op) {
-  __ calculate_address_from_global_toc(R2_TOC, __ method_toc());
+  __ calculate_address_from_global_toc(R2_TOC_PPC, __ method_toc());
 
   // Virtual call relocation will point to ic load.
   address virtual_call_meta_addr = __ pc();
   // Load a clear inline cache.
   AddressLiteral empty_ic((address) Universe::non_oop_word());
-  bool success = __ load_const_from_method_toc(R19_inline_cache_reg, empty_ic, R2_TOC);
+  bool success = __ load_const_from_method_toc(R19_inline_cache_reg_PPC, empty_ic, R2_TOC_PPC);
   if (!success) {
     bailout("const section overflow");
     return;
@@ -695,7 +695,7 @@ void LIR_Assembler::ic_call(LIR_OpJavaCall* op) {
   // to determine who we intended to call.
   __ relocate(virtual_call_Relocation::spec(virtual_call_meta_addr));
 
-  success = emit_trampoline_stub_for_call(op->addr(), R2_TOC);
+  success = emit_trampoline_stub_for_call(op->addr(), R2_TOC_PPC);
   if (!success) { return; }
 
   // Note: At this point we do not have the address of the trampoline
@@ -1278,7 +1278,7 @@ void LIR_Assembler::reg2mem(LIR_Opr from_reg, LIR_Opr dest, BasicType type,
 
   if (addr->index()->is_illegal()) {
     if (load_disp) {
-      disp_reg = use_R29 ? R29_TOC : R0;
+      disp_reg = use_R29 ? R20_TOC : R0;
       if (needs_patching) {
         __ load_const32_PPC(disp_reg, 0); // patchable int
       } else {
@@ -1309,7 +1309,7 @@ void LIR_Assembler::reg2mem(LIR_Opr from_reg, LIR_Opr dest, BasicType type,
   }
 
   if (use_R29) {
-    __ load_const_optimized(R29_TOC, MacroAssembler::global_toc(), R0); // reinit
+    __ load_const_optimized(R20_TOC, MacroAssembler::global_toc(), R0); // reinit
   }
 
   if (patch != NULL) {
@@ -1329,19 +1329,19 @@ void LIR_Assembler::return_op(LIR_Opr result) {
   // Pop the stack before the safepoint code.
   int frame_size = initial_frame_size_in_bytes();
   if (Assembler::is_simm(frame_size, 16)) {
-    __ addi_PPC(R1_SP, R1_SP, frame_size);
+    __ addi_PPC(R1_SP_PPC, R1_SP_PPC, frame_size);
   } else {
     __ pop_frame();
   }
 
   if (SafepointMechanism::uses_thread_local_poll()) {
-    __ ld_PPC(polling_page, in_bytes(Thread::polling_page_offset()), R16_thread);
+    __ ld_PPC(polling_page, in_bytes(Thread::polling_page_offset()), R24_thread);
   } else {
     __ load_const_optimized(polling_page, (long)(address) os::get_polling_page(), R0);
   }
 
   // Restore return pc relative to callers' sp.
-  __ ld_PPC(return_pc, _abi(lr), R1_SP);
+  __ ld_PPC(return_pc, _abi(lr), R1_SP_PPC);
   // Move return pc to LR.
   __ mtlr_PPC(return_pc);
 
@@ -1362,7 +1362,7 @@ void LIR_Assembler::return_op(LIR_Opr result) {
 int LIR_Assembler::safepoint_poll(LIR_Opr tmp, CodeEmitInfo* info) {
   const Register poll_addr = tmp->as_register();
   if (SafepointMechanism::uses_thread_local_poll()) {
-    __ ld_PPC(poll_addr, in_bytes(Thread::polling_page_offset()), R16_thread);
+    __ ld_PPC(poll_addr, in_bytes(Thread::polling_page_offset()), R24_thread);
   } else {
     __ load_const_optimized(poll_addr, (intptr_t)os::get_polling_page(), R0);
   }
@@ -1385,10 +1385,10 @@ void LIR_Assembler::emit_static_call_stub() {
     return;
   }
 
-  // For java_to_interp stubs we use R11_scratch1 as scratch register
-  // and in call trampoline stubs we use R12_scratch2. This way we
+  // For java_to_interp stubs we use R5_scratch1 as scratch register
+  // and in call trampoline stubs we use R6_scratch2. This way we
   // can distinguish them (see is_NativeCallTrampolineStub_at()).
-  const Register reg_scratch = R11_scratch1;
+  const Register reg_scratch = R5_scratch1;
 
   // Create a static stub relocation which relates this stub
   // with the call instruction at insts_call_instruction_offset in the
@@ -1403,7 +1403,7 @@ void LIR_Assembler::emit_static_call_stub() {
   // - call
   __ calculate_address_from_global_toc(reg_scratch, __ method_toc());
   AddressLiteral ic = __ allocate_metadata_address((Metadata *)NULL);
-  bool success = __ load_const_from_method_toc(R19_inline_cache_reg, ic, reg_scratch, /*fixed_size*/ true);
+  bool success = __ load_const_from_method_toc(R19_inline_cache_reg_PPC, ic, reg_scratch, /*fixed_size*/ true);
 
   if (ReoptimizeCallSequences) {
     __ b64_patchable((address)-1, relocInfo::none);
@@ -1829,7 +1829,7 @@ void LIR_Assembler::throw_op(LIR_Opr exceptionPC, LIR_Opr exceptionOop, CodeEmit
   address stub = Runtime1::entry_for(compilation()->has_fpu_code() ? Runtime1::handle_exception_id
                                                                    : Runtime1::handle_exception_nofpu_id);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
   __ mtctr_PPC(R0);
   __ bctr_PPC();
 }
@@ -1871,29 +1871,29 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
     assert(copyfunc_addr != NULL, "generic arraycopy stub required");
 
     // 3 parms are int. Convert to long.
-    __ mr_PPC(R3_ARG1, src);
-    __ extsw_PPC(R4_ARG2, src_pos);
-    __ mr_PPC(R5_ARG3, dst);
-    __ extsw_PPC(R6_ARG4, dst_pos);
-    __ extsw_PPC(R7_ARG5, length);
+    __ mr_PPC(R3_ARG1_PPC, src);
+    __ extsw_PPC(R4_ARG2_PPC, src_pos);
+    __ mr_PPC(R5_ARG3_PPC, dst);
+    __ extsw_PPC(R6_ARG4_PPC, dst_pos);
+    __ extsw_PPC(R7_ARG5_PPC, length);
 
 #ifndef PRODUCT
     if (PrintC1Statistics) {
       address counter = (address)&Runtime1::_generic_arraycopystub_cnt;
       int simm16_offs = __ load_const_optimized(tmp, counter, tmp2, true);
-      __ lwz_PPC(R11_scratch1, simm16_offs, tmp);
-      __ addi_PPC(R11_scratch1, R11_scratch1, 1);
-      __ stw_PPC(R11_scratch1, simm16_offs, tmp);
+      __ lwz_PPC(R5_scratch1, simm16_offs, tmp);
+      __ addi_PPC(R5_scratch1, R5_scratch1, 1);
+      __ stw_PPC(R5_scratch1, simm16_offs, tmp);
     }
 #endif
     __ call_c_with_frame_resize(copyfunc_addr, /*stub does not need resized frame*/ 0);
 
-    __ nand_PPC(tmp, R3_RET, R3_RET);
+    __ nand_PPC(tmp, R3_RET_PPC, R3_RET_PPC);
     __ subf_PPC(length, tmp, length);
     __ add_PPC(src_pos, tmp, src_pos);
     __ add_PPC(dst_pos, tmp, dst_pos);
 
-    __ cmpwi_PPC(CCR0, R3_RET, 0);
+    __ cmpwi_PPC(CCR0, R3_RET_PPC, 0);
     __ bc_far_optimized(Assembler::bcondCRbiIs1, __ bi0(CCR0, Assembler::less), *stub->entry());
     __ bind(*stub->continuation());
     return;
@@ -2053,11 +2053,11 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
           __ bne_PPC(CCR0, slow);
         }
 
-        Register src_ptr = R3_ARG1;
-        Register dst_ptr = R4_ARG2;
-        Register len     = R5_ARG3;
-        Register chk_off = R6_ARG4;
-        Register super_k = R7_ARG5;
+        Register src_ptr = R3_ARG1_PPC;
+        Register dst_ptr = R4_ARG2_PPC;
+        Register len     = R5_ARG3_PPC;
+        Register chk_off = R6_ARG4_PPC;
+        Register super_k = R7_ARG5_PPC;
 
         __ addi_PPC(src_ptr, src, arrayOopDesc::base_offset_in_bytes(basic_type));
         __ addi_PPC(dst_ptr, dst, arrayOopDesc::base_offset_in_bytes(basic_type));
@@ -2085,28 +2085,28 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
 #ifndef PRODUCT
         if (PrintC1Statistics) {
           Label failed;
-          __ cmpwi_PPC(CCR0, R3_RET, 0);
+          __ cmpwi_PPC(CCR0, R3_RET_PPC, 0);
           __ bne_PPC(CCR0, failed);
           address counter = (address)&Runtime1::_arraycopy_checkcast_cnt;
           int simm16_offs = __ load_const_optimized(tmp, counter, tmp2, true);
-          __ lwz_PPC(R11_scratch1, simm16_offs, tmp);
-          __ addi_PPC(R11_scratch1, R11_scratch1, 1);
-          __ stw_PPC(R11_scratch1, simm16_offs, tmp);
+          __ lwz_PPC(R5_scratch1, simm16_offs, tmp);
+          __ addi_PPC(R5_scratch1, R5_scratch1, 1);
+          __ stw_PPC(R5_scratch1, simm16_offs, tmp);
           __ bind(failed);
         }
 #endif
 
-        __ nand_PPC(tmp, R3_RET, R3_RET);
-        __ cmpwi_PPC(CCR0, R3_RET, 0);
+        __ nand_PPC(tmp, R3_RET_PPC, R3_RET_PPC);
+        __ cmpwi_PPC(CCR0, R3_RET_PPC, 0);
         __ beq_PPC(CCR0, *stub->continuation());
 
 #ifndef PRODUCT
         if (PrintC1Statistics) {
           address counter = (address)&Runtime1::_arraycopy_checkcast_attempt_cnt;
           int simm16_offs = __ load_const_optimized(tmp, counter, tmp2, true);
-          __ lwz_PPC(R11_scratch1, simm16_offs, tmp);
-          __ addi_PPC(R11_scratch1, R11_scratch1, 1);
-          __ stw_PPC(R11_scratch1, simm16_offs, tmp);
+          __ lwz_PPC(R5_scratch1, simm16_offs, tmp);
+          __ addi_PPC(R5_scratch1, R5_scratch1, 1);
+          __ stw_PPC(R5_scratch1, simm16_offs, tmp);
         }
 #endif
 
@@ -2175,15 +2175,15 @@ void LIR_Assembler::emit_arraycopy(LIR_OpArrayCopy* op) {
   if (PrintC1Statistics) {
     address counter = Runtime1::arraycopy_count_address(basic_type);
     int simm16_offs = __ load_const_optimized(tmp, counter, tmp2, true);
-    __ lwz_PPC(R11_scratch1, simm16_offs, tmp);
-    __ addi_PPC(R11_scratch1, R11_scratch1, 1);
-    __ stw_PPC(R11_scratch1, simm16_offs, tmp);
+    __ lwz_PPC(R5_scratch1, simm16_offs, tmp);
+    __ addi_PPC(R5_scratch1, R5_scratch1, 1);
+    __ stw_PPC(R5_scratch1, simm16_offs, tmp);
   }
 #endif
 
-  Register src_ptr = R3_ARG1;
-  Register dst_ptr = R4_ARG2;
-  Register len     = R5_ARG3;
+  Register src_ptr = R3_ARG1_PPC;
+  Register dst_ptr = R4_ARG2_PPC;
+  Register len     = R5_ARG3_PPC;
 
   __ addi_PPC(src_ptr, src, arrayOopDesc::base_offset_in_bytes(basic_type));
   __ addi_PPC(dst_ptr, dst, arrayOopDesc::base_offset_in_bytes(basic_type));
@@ -2579,7 +2579,7 @@ void LIR_Assembler::emit_opTypeCheck(LIR_OpTypeCheck* op) {
     // Call out-of-line instance of __ check_klass_subtype_slow_path(...):
     const address slow_path = Runtime1::entry_for(Runtime1::slow_subtype_check_id);
     //__ load_const_optimized(R0, slow_path);
-    __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(slow_path));
+    __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(slow_path));
     __ mtctr_PPC(R0);
     __ bctrl_PPC(); // sets CR0
     if (!should_profile) {
@@ -2689,7 +2689,7 @@ void LIR_Assembler::reset_FPU() {
 
 
 void LIR_Assembler::breakpoint() {
-  __ illtrap_PPC();
+  __ illtrap();
 }
 
 
@@ -2900,7 +2900,7 @@ void LIR_Assembler::rt_call(LIR_Opr result, address dest,
   if (dest == Runtime1::entry_for(Runtime1::register_finalizer_id) ||
       dest == Runtime1::entry_for(Runtime1::new_multi_array_id   )) {
     //__ load_const_optimized(R0, dest);
-    __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(dest));
+    __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(dest));
     __ mtctr_PPC(R0);
     __ bctrl_PPC();
     assert(info != NULL, "sanity");
@@ -3116,7 +3116,7 @@ void LIR_Assembler::emit_profile_type(LIR_OpProfileType* op) {
   __ bind(Lupdate);
   if (do_update) {
     Label Lnext;
-    const Register klass = R29_TOC; // kill and reload
+    const Register klass = R20_TOC; // kill and reload
     bool klass_reg_used = false;
 #ifdef ASSERT
     if (exact_klass != NULL) {
@@ -3216,7 +3216,7 @@ void LIR_Assembler::emit_profile_type(LIR_OpProfileType* op) {
     __ std_PPC(R0, index_or_disp(mdo_addr), mdo_addr->base()->as_pointer_register());
 
     __ bind(Lnext);
-    if (klass_reg_used) { __ load_const_optimized(R29_TOC, MacroAssembler::global_toc(), R0); } // reinit
+    if (klass_reg_used) { __ load_const_optimized(R20_TOC, MacroAssembler::global_toc(), R0); } // reinit
   }
   __ bind(Ldone);
 }

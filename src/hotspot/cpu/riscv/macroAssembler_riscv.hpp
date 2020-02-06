@@ -369,7 +369,7 @@ class MacroAssembler: public Assembler {
 
  public:
   // Call into the VM.
-  // Passes the thread pointer (in R3_ARG1) as a prepended argument.
+  // Passes the thread pointer (in R3_ARG1_PPC) as a prepended argument.
   // Makes sure oop return values are visible to the GC.
   void call_VM(Register oop_result, address entry_point, bool check_exceptions = true);
   void call_VM(Register oop_result, address entry_point, Register arg_1, bool check_exceptions = true);
@@ -656,12 +656,12 @@ class MacroAssembler: public Assembler {
   // thread-local information).
 
   // Support for last Java frame (but use call_VM instead where possible):
-  // access R16_thread->last_Java_sp.
+  // access R24_thread->last_Java_sp.
   void set_last_Java_frame(Register last_java_sp, Register last_Java_pc);
   void reset_last_Java_frame(void);
   void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1);
 
-  // Read vm result from thread: oop_result = R16_thread->result;
+  // Read vm result from thread: oop_result = R24_thread->result;
   void get_vm_result  (Register oop_result);
   void get_vm_result_2(Register metadata_result);
 
@@ -915,7 +915,7 @@ class MacroAssembler: public Assembler {
     asm_assert_mems_zero(false, 8, mem_offset, mem_base, msg, id);
   }
 
-  // Verify R16_thread contents.
+  // Verify R24_thread contents.
   void verify_thread();
 
   // Emit code to verify that reg contains a valid oop if +VerifyOops is set.

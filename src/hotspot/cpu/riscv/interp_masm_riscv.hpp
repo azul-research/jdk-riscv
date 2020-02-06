@@ -42,8 +42,11 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void jump_to_entry(address entry, Register Rscratch);
 
   // Handy address generation macros.
-#define thread_(field_name) in_bytes(JavaThread::field_name ## _offset()), R16_thread
-#define method_(field_name) in_bytes(Method::field_name ## _offset()), R19_method
+#define thread_PPC(field_name) in_bytes(JavaThread::field_name ## _offset()), R24_thread
+#define method_PPC(field_name) in_bytes(Method::field_name ## _offset()), R27_method
+
+#define thread_(field_name) R24_thread, in_bytes(JavaThread::field_name ## _offset())
+#define method_(field_name) R27_method, in_bytes(Method::field_name ## _offset())
 
   virtual void check_and_handle_popframe(Register scratch_reg);
   virtual void check_and_handle_earlyret(Register scratch_reg);
@@ -87,22 +90,22 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void load_receiver(Register Rparam_count, Register Rrecv_dst);
 
   // helpers for expression stack
-  void pop_i(     Register r = R17_tos);
-  void pop_ptr(   Register r = R17_tos);
-  void pop_l(     Register r = R17_tos);
-  void pop_f(FloatRegister f = F15_ftos);
-  void pop_d(FloatRegister f = F15_ftos );
+  void pop_i(     Register r = R25_tos);
+  void pop_ptr(   Register r = R25_tos);
+  void pop_l(     Register r = R25_tos);
+  void pop_f(FloatRegister f = F23_ftos);
+  void pop_d(FloatRegister f = F23_ftos );
 
-  void push_i(     Register r = R17_tos);
-  void push_ptr(   Register r = R17_tos);
-  void push_l(     Register r = R17_tos);
-  void push_f(FloatRegister f = F15_ftos );
-  void push_d(FloatRegister f = F15_ftos);
+  void push_i(     Register r = R25_tos);
+  void push_ptr(   Register r = R25_tos);
+  void push_l(     Register r = R25_tos);
+  void push_f(FloatRegister f = F23_ftos );
+  void push_d(FloatRegister f = F23_ftos);
 
   void push_2ptrs(Register first, Register second);
 
-  void move_l_to_d(Register l = R17_tos, FloatRegister d = F15_ftos);
-  void move_d_to_l(FloatRegister d = F15_ftos, Register l = R17_tos);
+  void move_l_to_d(Register l = R25_tos, FloatRegister d = F23_ftos);
+  void move_d_to_l(FloatRegister d = F23_ftos, Register l = R25_tos);
 
   void pop (TosState state);           // transition vtos -> state
   void push(TosState state);           // transition state -> vtos

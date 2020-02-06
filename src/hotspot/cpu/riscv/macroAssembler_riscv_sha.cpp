@@ -382,10 +382,10 @@ static const uint32_t sha256_round_table[64] __attribute((aligned(16))) = {
 };
 static const uint32_t *sha256_round_consts = sha256_round_table;
 
-//   R3_ARG1   - byte[]  Input string with padding but in Big Endian
-//   R4_ARG2   - int[]   SHA.state (at first, the root of primes)
-//   R5_ARG3   - int     offset
-//   R6_ARG4   - int     limit
+//   R3_ARG1_PPC   - byte[]  Input string with padding but in Big Endian
+//   R4_ARG2_PPC   - int[]   SHA.state (at first, the root of primes)
+//   R5_ARG3_PPC   - int     offset
+//   R6_ARG4_PPC   - int     limit
 //
 //   Internal Register usage:
 //   R7        - k
@@ -409,10 +409,10 @@ void MacroAssembler::sha256(bool multi_block) {
   }
 #endif
 
-  Register buf_in = R3_ARG1;
-  Register state  = R4_ARG2;
-  Register ofs    = R5_ARG3;
-  Register limit  = R6_ARG4;
+  Register buf_in = R3_ARG1_PPC;
+  Register state  = R4_ARG2_PPC;
+  Register ofs    = R5_ARG3_PPC;
+  Register limit  = R6_ARG4_PPC;
 
   Label sha_loop, core_loop;
 
@@ -541,7 +541,7 @@ void MacroAssembler::sha256(bool multi_block) {
     ble_PPC(CCR0, sha_loop);
 
     // return ofs
-    mr_PPC(R3_RET, ofs);
+    mr_PPC(R3_RET_PPC, ofs);
   }
 
   // Restore non-volatile registers
@@ -937,10 +937,10 @@ static const uint64_t sha512_round_table[80] __attribute((aligned(16))) = {
 };
 static const uint64_t *sha512_round_consts = sha512_round_table;
 
-//   R3_ARG1   - byte[]  Input string with padding but in Big Endian
-//   R4_ARG2   - int[]   SHA.state (at first, the root of primes)
-//   R5_ARG3   - int     offset
-//   R6_ARG4   - int     limit
+//   R3_ARG1_PPC   - byte[]  Input string with padding but in Big Endian
+//   R4_ARG2_PPC   - int[]   SHA.state (at first, the root of primes)
+//   R5_ARG3_PPC   - int     offset
+//   R6_ARG4_PPC   - int     limit
 //
 //   Internal Register usage:
 //   R7 R8 R9  - volatile temporaries
@@ -964,10 +964,10 @@ void MacroAssembler::sha512(bool multi_block) {
   }
 #endif
 
-  Register buf_in = R3_ARG1;
-  Register state  = R4_ARG2;
-  Register ofs    = R5_ARG3;
-  Register limit  = R6_ARG4;
+  Register buf_in = R3_ARG1_PPC;
+  Register state  = R4_ARG2_PPC;
+  Register ofs    = R5_ARG3_PPC;
+  Register limit  = R6_ARG4_PPC;
 
   Label sha_loop, core_loop;
 
@@ -1124,7 +1124,7 @@ void MacroAssembler::sha512(bool multi_block) {
     ble_PPC(CCR0, sha_loop);
 
     // return ofs
-    mr_PPC(R3_RET, ofs);
+    mr_PPC(R3_RET_PPC, ofs);
   }
 
   // Restore non-volatile registers

@@ -123,7 +123,12 @@ class TemplateInterpreterGenerator: public AbstractInterpreterGenerator {
   void generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals);
 #endif // PPC
 
- public:
+#ifdef RISCV
+  void lock_method(Register Rflags, Register Rscratch1, Register Rscratch2, bool flags_preloaded=false);
+  void generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals);
+#endif // RISCV
+
+public:
   TemplateInterpreterGenerator(StubQueue* _code);
 };
 

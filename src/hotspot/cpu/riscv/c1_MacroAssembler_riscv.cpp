@@ -41,7 +41,7 @@
 
 
 void C1_MacroAssembler::inline_cache_check(Register receiver, Register iCache) {
-  const Register temp_reg = R12_scratch2;
+  const Register temp_reg = R6_scratch2;
   Label Lmiss;
 
   verify_oop(receiver);
@@ -79,13 +79,13 @@ void C1_MacroAssembler::build_frame(int frame_size_in_bytes, int bang_size_in_by
   assert(bang_size_in_bytes >= frame_size_in_bytes, "stack bang size incorrect");
   generate_stack_overflow_check(bang_size_in_bytes);
 
-  std_PPC(return_pc, _abi(lr), R1_SP);     // SP->lr = return_pc
+  std_PPC(return_pc, _abi(lr), R1_SP_PPC);     // SP->lr = return_pc
   push_frame(frame_size_in_bytes, R0); // SP -= frame_size_in_bytes
 }
 
 
 void C1_MacroAssembler::verified_entry() {
-  if (C1Breakpoint) illtrap_PPC();
+  if (C1Breakpoint) illtrap();
   // build frame
 }
 
@@ -136,7 +136,7 @@ void C1_MacroAssembler::lock_object(Register Rmark, Register Roop, Register Rbox
 
   bind(cas_failed);
   // We did not find an unlocked object so see if this is a recursive case.
-  sub_PPC(Rscratch, Rscratch, R1_SP);
+  sub_PPC(Rscratch, Rscratch, R1_SP_PPC);
   load_const_optimized(R0, (~(os::vm_page_size()-1) | markOopDesc::lock_mask_in_place));
   and__PPC(R0/*==0?*/, Rscratch, R0);
   std_PPC(R0/*==0, perhaps*/, BasicLock::displaced_header_offset_in_bytes(), Rbox);
@@ -390,7 +390,7 @@ void C1_MacroAssembler::allocate_array(
 #ifndef PRODUCT
 
 void C1_MacroAssembler::verify_stack_oop(int stack_offset) {
-  verify_oop_addr((RegisterOrConstant)(stack_offset + STACK_BIAS), R1_SP, "broken oop in stack slot");
+  verify_oop_addr((RegisterOrConstant)(stack_offset + STACK_BIAS), R1_SP_PPC, "broken oop in stack slot");
 }
 
 void C1_MacroAssembler::verify_not_null_oop(Register r) {

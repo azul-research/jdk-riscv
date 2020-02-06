@@ -277,24 +277,24 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
 
   // Save some registers in the last (non-vector) slots of the new frame so we
   // can use them as scratch regs or to determine the return pc.
-  __ std_PPC(R31, frame_size_in_bytes -   reg_size - vsregstosave_num * vs_reg_size, R1_SP);
-  __ std_PPC(R30, frame_size_in_bytes - 2*reg_size - vsregstosave_num * vs_reg_size, R1_SP);
+  __ std_PPC(R31, frame_size_in_bytes -   reg_size - vsregstosave_num * vs_reg_size, R1_SP_PPC);
+  __ std_PPC(R30, frame_size_in_bytes - 2*reg_size - vsregstosave_num * vs_reg_size, R1_SP_PPC);
 
   // save the flags
   // Do the save_LR_CR by hand and adjust the return pc if requested.
   __ mfcr_PPC(R30);
-  __ std_PPC(R30, frame_size_in_bytes + _abi(cr), R1_SP);
+  __ std_PPC(R30, frame_size_in_bytes + _abi(cr), R1_SP_PPC);
   switch (return_pc_location) {
     case return_pc_is_lr: __ mflr_PPC(R31); break;
     case return_pc_is_pre_saved: assert(return_pc_adjustment == 0, "unsupported"); break;
-    case return_pc_is_thread_saved_exception_pc: __ ld_PPC(R31, thread_(saved_exception_pc)); break;
+    case return_pc_is_thread_saved_exception_pc: __ ld_PPC(R31, thread_PPC(saved_exception_pc)); break;
     default: ShouldNotReachHere();
   }
   if (return_pc_location != return_pc_is_pre_saved) {
     if (return_pc_adjustment != 0) {
       __ addi_PPC(R31, R31, return_pc_adjustment);
     }
-    __ std_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP);
+    __ std_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
   }
 
   // save all registers (ints and floats)
@@ -307,18 +307,18 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
     switch (reg_type) {
       case RegisterSaver::int_reg: {
         if (reg_num < 30) { // We spilled R30-31 right at the beginning.
-          __ std_PPC(as_Register(reg_num), offset, R1_SP);
+          __ std_PPC(as_Register(reg_num), offset, R1_SP_PPC);
         }
         break;
       }
       case RegisterSaver::float_reg: {
-        __ stfd_PPC(as_FloatRegister(reg_num), offset, R1_SP);
+        __ stfd_PPC(as_FloatRegister(reg_num), offset, R1_SP_PPC);
         break;
       }
       case RegisterSaver::special_reg: {
         if (reg_num == SR_CTR_SpecialRegisterEnumValue) {
           __ mfctr_PPC(R30);
-          __ std_PPC(R30, offset, R1_SP);
+          __ std_PPC(R30, offset, R1_SP_PPC);
         } else {
           Unimplemented();
         }
@@ -342,7 +342,7 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
     int reg_type = RegisterSaver_LiveVSRegs[i].reg_type;
 
     __ li_PPC(R30, offset);
-    __ stxvd2x_PPC(as_VectorSRegister(reg_num), R30, R1_SP);
+    __ stxvd2x_PPC(as_VectorSRegister(reg_num), R30, R1_SP_PPC);
 
     if (generate_oop_map) {
       map->set_callee_saved(VMRegImpl::stack2reg(offset>>2),
@@ -387,17 +387,17 @@ void RegisterSaver::restore_live_registers_and_pop_frame(MacroAssembler* masm,
     switch (reg_type) {
       case RegisterSaver::int_reg: {
         if (reg_num != 31) // R31 restored at the end, it's the tmp reg!
-          __ ld_PPC(as_Register(reg_num), offset, R1_SP);
+          __ ld_PPC(as_Register(reg_num), offset, R1_SP_PPC);
         break;
       }
       case RegisterSaver::float_reg: {
-        __ lfd_PPC(as_FloatRegister(reg_num), offset, R1_SP);
+        __ lfd_PPC(as_FloatRegister(reg_num), offset, R1_SP_PPC);
         break;
       }
       case RegisterSaver::special_reg: {
         if (reg_num == SR_CTR_SpecialRegisterEnumValue) {
           if (restore_ctr) { // Nothing to do here if ctr already contains the next address.
-            __ ld_PPC(R31, offset, R1_SP);
+            __ ld_PPC(R31, offset, R1_SP_PPC);
             __ mtctr_PPC(R31);
           }
         } else {
@@ -416,7 +416,7 @@ void RegisterSaver::restore_live_registers_and_pop_frame(MacroAssembler* masm,
     int reg_type = RegisterSaver_LiveVSRegs[i].reg_type;
 
     __ li_PPC(R31, offset);
-    __ lxvd2x_PPC(as_VectorSRegister(reg_num), R31, R1_SP);
+    __ lxvd2x_PPC(as_VectorSRegister(reg_num), R31, R1_SP_PPC);
 
     offset += vs_reg_size;
   }
@@ -424,17 +424,17 @@ void RegisterSaver::restore_live_registers_and_pop_frame(MacroAssembler* masm,
   assert(offset == frame_size_in_bytes, "consistency check");
 
   // restore link and the flags
-  __ ld_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP);
+  __ ld_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
   __ mtlr_PPC(R31);
 
-  __ ld_PPC(R31, frame_size_in_bytes + _abi(cr), R1_SP);
+  __ ld_PPC(R31, frame_size_in_bytes + _abi(cr), R1_SP_PPC);
   __ mtcr_PPC(R31);
 
   // restore scratch register's value
-  __ ld_PPC(R31, frame_size_in_bytes - reg_size - vsregstosave_num * vs_reg_size, R1_SP);
+  __ ld_PPC(R31, frame_size_in_bytes - reg_size - vsregstosave_num * vs_reg_size, R1_SP_PPC);
 
   // pop the frame
-  __ addi_PPC(R1_SP, R1_SP, frame_size_in_bytes);
+  __ addi_PPC(R1_SP_PPC, R1_SP_PPC, frame_size_in_bytes);
 
   BLOCK_COMMENT("} restore_live_registers_and_pop_frame");
 }
@@ -453,11 +453,11 @@ void RegisterSaver::push_frame_and_save_argument_registers(MacroAssembler* masm,
     }
     if (r_1->is_Register()) {
       Register r = r_1->as_Register();
-      __ std_PPC(r, st_off, R1_SP);
+      __ std_PPC(r, st_off, R1_SP_PPC);
       st_off -= wordSize;
     } else if (r_1->is_FloatRegister()) {
       FloatRegister f = r_1->as_FloatRegister();
-      __ stfd_PPC(f, st_off, R1_SP);
+      __ stfd_PPC(f, st_off, R1_SP_PPC);
       st_off -= wordSize;
     }
   }
@@ -471,11 +471,11 @@ void RegisterSaver::push_frame_and_save_argument_registers(MacroAssembler* masm,
       }
       if (r_1->is_Register()) {
         Register r = r_1->as_Register();
-        __ std_PPC(r, st_off, R1_SP);
+        __ std_PPC(r, st_off, R1_SP_PPC);
         st_off -= wordSize;
       } else if (r_1->is_FloatRegister()) {
         FloatRegister f = r_1->as_FloatRegister();
-        __ stfd_PPC(f, st_off, R1_SP);
+        __ stfd_PPC(f, st_off, R1_SP_PPC);
         st_off -= wordSize;
       }
     }
@@ -491,11 +491,11 @@ void RegisterSaver::restore_argument_registers_and_pop_frame(MacroAssembler*masm
     VMReg r_2 = regs[i].second();
     if (r_1->is_Register()) {
       Register r = r_1->as_Register();
-      __ ld_PPC(r, st_off, R1_SP);
+      __ ld_PPC(r, st_off, R1_SP_PPC);
       st_off -= wordSize;
     } else if (r_1->is_FloatRegister()) {
       FloatRegister f = r_1->as_FloatRegister();
-      __ lfd_PPC(f, st_off, R1_SP);
+      __ lfd_PPC(f, st_off, R1_SP_PPC);
       st_off -= wordSize;
     }
   }
@@ -505,11 +505,11 @@ void RegisterSaver::restore_argument_registers_and_pop_frame(MacroAssembler*masm
       VMReg r_2 = regs2[i].second();
       if (r_1->is_Register()) {
         Register r = r_1->as_Register();
-        __ ld_PPC(r, st_off, R1_SP);
+        __ ld_PPC(r, st_off, R1_SP_PPC);
         st_off -= wordSize;
       } else if (r_1->is_FloatRegister()) {
         FloatRegister f = r_1->as_FloatRegister();
-        __ lfd_PPC(f, st_off, R1_SP);
+        __ lfd_PPC(f, st_off, R1_SP_PPC);
         st_off -= wordSize;
       }
     }
@@ -530,13 +530,13 @@ void RegisterSaver::restore_result_registers(MacroAssembler* masm, int frame_siz
     int reg_type = RegisterSaver_LiveRegs[i].reg_type;
     switch (reg_type) {
       case RegisterSaver::int_reg: {
-        if (as_Register(reg_num)==R3_RET) // int result_reg
-          __ ld_PPC(as_Register(reg_num), offset, R1_SP);
+        if (as_Register(reg_num)==R3_RET_PPC) // int result_reg
+          __ ld_PPC(as_Register(reg_num), offset, R1_SP_PPC);
         break;
       }
       case RegisterSaver::float_reg: {
-        if (as_FloatRegister(reg_num)==F1_RET) // float result_reg
-          __ lfd_PPC(as_FloatRegister(reg_num), offset, R1_SP);
+        if (as_FloatRegister(reg_num)==F1_RET_PPC) // float result_reg
+          __ lfd_PPC(as_FloatRegister(reg_num), offset, R1_SP_PPC);
         break;
       }
       case RegisterSaver::special_reg: {
@@ -935,15 +935,15 @@ static address gen_c2i_adapter(MacroAssembler *masm,
 
   address c2i_entrypoint;
 
-  const Register sender_SP = R21_sender_SP; // == R21_tmp1
-  const Register code      = R22_tmp2;
-  //const Register ientry  = R23_tmp3;
-  const Register value_regs[] = { R24_tmp4, R25_tmp5, R26_tmp6 };
+  const Register sender_SP = R21_sender_SP; // == R21_tmp1_PPC
+  const Register code      = R22_tmp2_PPC;
+  //const Register ientry  = R23_tmp3_PPC;
+  const Register value_regs[] = { R24_tmp4_PPC, R25_tmp5_PPC, R26_tmp6_PPC };
   const int num_value_regs = sizeof(value_regs) / sizeof(Register);
   int value_regs_index = 0;
 
-  const Register return_pc = R27_tmp7;
-  const Register tmp       = R28_tmp8;
+  const Register return_pc = R27_tmp7_PPC;
+  const Register tmp       = R28_tmp8_PPC;
 
   assert_different_registers(sender_SP, code, ientry, return_pc, tmp);
 
@@ -955,23 +955,23 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   c2i_entrypoint = __ pc();
 
   // Does compiled code exists? If yes, patch the caller's callsite.
-  __ ld_PPC(code, method_(code));
+  __ ld_PPC(code, method_PPC(code));
   __ cmpdi_PPC(CCR0, code, 0);
-  __ ld_PPC(ientry, method_(interpreter_entry)); // preloaded
+  __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ beq_PPC(CCR0, call_interpreter);
 
 
   // Patch caller's callsite, method_(code) was not NULL which means that
   // compiled code exists.
   __ mflr_PPC(return_pc);
-  __ std_PPC(return_pc, _abi(lr), R1_SP);
+  __ std_PPC(return_pc, _abi(lr), R1_SP_PPC);
   RegisterSaver::push_frame_and_save_argument_registers(masm, tmp, adapter_size, total_args_passed, regs);
 
-  __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::fixup_callers_callsite), R19_method, return_pc);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::fixup_callers_callsite), R27_method, return_pc);
 
   RegisterSaver::restore_argument_registers_and_pop_frame(masm, adapter_size, total_args_passed, regs);
-  __ ld_PPC(return_pc, _abi(lr), R1_SP);
-  __ ld_PPC(ientry, method_(interpreter_entry)); // preloaded
+  __ ld_PPC(return_pc, _abi(lr), R1_SP_PPC);
+  __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ mtlr_PPC(return_pc);
 
 
@@ -980,10 +980,10 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   __ mtctr_PPC(ientry);
 
   // Get a copy of the current SP for loading caller's arguments.
-  __ mr_PPC(sender_SP, R1_SP);
+  __ mr_PPC(sender_SP, R1_SP_PPC);
 
   // Add space for the adapter.
-  __ resize_frame(-adapter_size, R12_scratch2);
+  __ resize_frame(-adapter_size, R6_scratch2);
 
   int st_off = adapter_size - wordSize;
 
@@ -1013,31 +1013,31 @@ static address gen_c2i_adapter(MacroAssembler *masm,
     if (r_1->is_Register()) {
       Register r = r_1->as_Register();
       if (!r_2->is_valid()) {
-        __ stw_PPC(r, st_off, R1_SP);
+        __ stw_PPC(r, st_off, R1_SP_PPC);
         st_off-=wordSize;
       } else {
         // Longs are given 2 64-bit slots in the interpreter, but the
         // data is passed in only 1 slot.
         if (sig_bt[i] == T_LONG || sig_bt[i] == T_DOUBLE) {
-          DEBUG_ONLY( __ li_PPC(tmp, 0); __ std_PPC(tmp, st_off, R1_SP); )
+          DEBUG_ONLY( __ li_PPC(tmp, 0); __ std_PPC(tmp, st_off, R1_SP_PPC); )
           st_off-=wordSize;
         }
-        __ std_PPC(r, st_off, R1_SP);
+        __ std_PPC(r, st_off, R1_SP_PPC);
         st_off-=wordSize;
       }
     } else {
       assert(r_1->is_FloatRegister(), "");
       FloatRegister f = r_1->as_FloatRegister();
       if (!r_2->is_valid()) {
-        __ stfs_PPC(f, st_off, R1_SP);
+        __ stfs_PPC(f, st_off, R1_SP_PPC);
         st_off-=wordSize;
       } else {
         // In 64bit, doubles are given 2 64-bit slots in the interpreter, but the
         // data is passed in only 1 slot.
         // One of these should get known junk...
-        DEBUG_ONLY( __ li_PPC(tmp, 0); __ std_PPC(tmp, st_off, R1_SP); )
+        DEBUG_ONLY( __ li_PPC(tmp, 0); __ std_PPC(tmp, st_off, R1_SP_PPC); )
         st_off-=wordSize;
-        __ stfd_PPC(f, st_off, R1_SP);
+        __ stfd_PPC(f, st_off, R1_SP_PPC);
         st_off-=wordSize;
       }
     }
@@ -1045,12 +1045,12 @@ static address gen_c2i_adapter(MacroAssembler *masm,
 
   // Jump to the interpreter just as if interpreter was doing it.
 
-  __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1);
+  __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // load TOS
-  __ addi_PPC(R15_esp, R1_SP, st_off);
+  __ addi_PPC(R23_esp, R1_SP_PPC, st_off);
 
-  // Frame_manager expects initial_caller_sp (= SP without resize by c2i) in R21_tmp1.
+  // Frame_manager expects initial_caller_sp (= SP without resize by c2i) in R21_tmp1_PPC.
   assert(sender_SP == R21_sender_SP, "passing initial caller's SP in wrong register");
   __ bctr_PPC();
 
@@ -1064,8 +1064,8 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
                                     const VMRegPair *regs) {
 
   // Load method's entry-point from method.
-  __ ld_PPC(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
-  __ mtctr_PPC(R12_scratch2);
+  __ ld_PPC(R6_scratch2, in_bytes(Method::from_compiled_offset()), R27_method);
+  __ mtctr_PPC(R6_scratch2);
 
   // We will only enter here from an interpreted frame and never from after
   // passing thru a c2i. Azul allowed this but we do not. If we lose the
@@ -1082,8 +1082,8 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
   // save code can segv when fxsave instructions find improperly
   // aligned stack pointer.
 
-  const Register ld_ptr = R15_esp;
-  const Register value_regs[] = { R22_tmp2, R23_tmp3, R24_tmp4, R25_tmp5, R26_tmp6 };
+  const Register ld_ptr = R23_esp;
+  const Register value_regs[] = { R22_tmp2_PPC, R23_tmp3_PPC, R24_tmp4_PPC, R25_tmp5_PPC, R26_tmp6_PPC };
   const int num_value_regs = sizeof(value_regs) / sizeof(Register);
   int value_regs_index = 0;
 
@@ -1101,7 +1101,7 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
     comp_words_on_stack = align_up(comp_args_on_stack*VMRegImpl::stack_slot_size, wordSize)>>LogBytesPerWord;
     // Round up to miminum stack alignment, in wordSize.
     comp_words_on_stack = align_up(comp_words_on_stack, 2);
-    __ resize_frame(-comp_words_on_stack * wordSize, R11_scratch1);
+    __ resize_frame(-comp_words_on_stack * wordSize, R5_scratch1);
   }
 
   // Now generate the shuffle code.  Pick up all register args and move the
@@ -1165,9 +1165,9 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
 
         if (sig_bt[i] == T_INT   || sig_bt[i] == T_FLOAT ||sig_bt[i] == T_BOOLEAN ||
             sig_bt[i] == T_SHORT || sig_bt[i] == T_CHAR  || sig_bt[i] == T_BYTE) {
-          __ stw_PPC(r, st_off, R1_SP);
+          __ stw_PPC(r, st_off, R1_SP_PPC);
         } else {
-          __ std_PPC(r, st_off, R1_SP);
+          __ std_PPC(r, st_off, R1_SP_PPC);
         }
       }
     }
@@ -1183,7 +1183,7 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
   // code. Unfortunately if we try and find the callee by normal means
   // a safepoint is possible. So we stash the desired callee in the
   // thread and the vm will find there should this case occur.
-  __ std_PPC(R19_method, thread_(callee_target));
+  __ std_PPC(R27_method, thread_PPC(callee_target));
 
   // Jump to the compiled code just as if compiled code was doing it.
   __ bctr_PPC();
@@ -1204,11 +1204,11 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
 
   __ align(CodeEntryAlignment);
   i2c_entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   c2i_unverified_entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   c2i_entry = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   return AdapterHandlerLibrary::new_entry(fingerprint, i2c_entry, c2i_entry, c2i_unverified_entry, NULL);
   gen_i2c_adapter(masm, total_args_passed, comp_args_on_stack, sig_bt, regs);
 
@@ -1220,14 +1220,14 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
   c2i_unverified_entry = __ pc();
 
   // inline_cache contains a compiledICHolder
-  const Register ic             = R19_method;
-  const Register ic_klass       = R11_scratch1;
-  const Register receiver_klass = R12_scratch2;
-  const Register code           = R21_tmp1;
-  const Register ientry         = R23_tmp3;
+  const Register ic             = R27_method;
+  const Register ic_klass       = R5_scratch1;
+  const Register receiver_klass = R6_scratch2;
+  const Register code           = R21_tmp1_PPC;
+  const Register ientry         = R23_tmp3_PPC;
 
-  assert_different_registers(ic, ic_klass, receiver_klass, R3_ARG1, code, ientry);
-  assert(R11_scratch1 == R11, "need prologue scratch register");
+  assert_different_registers(ic, ic_klass, receiver_klass, R3_ARG1_PPC, code, ientry);
+  assert(R5_scratch1 == R11, "need prologue scratch register");
 
   Label call_interpreter;
 
@@ -1236,10 +1236,10 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
   // Check for NULL argument if we don't have implicit null checks.
   if (!ImplicitNullChecks || !os::zero_page_read_protected()) {
     if (TrapBasedNullChecks) {
-      __ trap_null_check(R3_ARG1);
+      __ trap_null_check(R3_ARG1_PPC);
     } else {
       Label valid;
-      __ cmpdi_PPC(CCR0, R3_ARG1, 0);
+      __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
       __ bne_predict_taken_PPC(CCR0, valid);
       // We have a null argument, branch to ic_miss_stub.
       __ b64_patchable((address)SharedRuntime::get_ic_miss_stub(),
@@ -1248,7 +1248,7 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
     }
   }
   // Assume argument is not NULL, load klass from receiver.
-  __ load_klass(receiver_klass, R3_ARG1);
+  __ load_klass(receiver_klass, R3_ARG1_PPC);
 
   __ ld_PPC(ic_klass, CompiledICHolder::holder_klass_offset(), ic);
 
@@ -1267,12 +1267,12 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
   // Argument is valid and klass is as expected, continue.
 
   // Extract method from inline cache, verified entry point needs it.
-  __ ld_PPC(R19_method, CompiledICHolder::holder_metadata_offset(), ic);
-  assert(R19_method == ic, "the inline cache register is dead here");
+  __ ld_PPC(R27_method, CompiledICHolder::holder_metadata_offset(), ic);
+  assert(R27_method == ic, "the inline cache register is dead here");
 
-  __ ld_PPC(code, method_(code));
+  __ ld_PPC(code, method_PPC(code));
   __ cmpdi_PPC(CCR0, code, 0);
-  __ ld_PPC(ientry, method_(interpreter_entry)); // preloaded
+  __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ beq_predict_taken_PPC(CCR0, call_interpreter);
 
   // Branch to ic_miss_stub.
@@ -1288,14 +1288,14 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
     Label L_skip_barrier;
 
     { // Bypass the barrier for non-static methods
-      __ lwz_PPC(R0, in_bytes(Method::access_flags_offset()), R19_method);
+      __ lwz_PPC(R0, in_bytes(Method::access_flags_offset()), R27_method);
       __ andi__PPC(R0, R0, JVM_ACC_STATIC);
       __ beq_PPC(CCR0, L_skip_barrier); // non-static
     }
 
-    Register klass = R11_scratch1;
-    __ load_method_holder(klass, R19_method);
-    __ clinit_barrier(klass, R16_thread, &L_skip_barrier /*L_fast_path*/);
+    Register klass = R5_scratch1;
+    __ load_method_holder(klass, R27_method);
+    __ clinit_barrier(klass, R24_thread, &L_skip_barrier /*L_fast_path*/);
 
     __ load_const_optimized(klass, SharedRuntime::get_handle_wrong_method_stub(), R0);
     __ mtctr_PPC(klass);
@@ -1343,7 +1343,7 @@ static void object_move(MacroAssembler* masm,
 
     if (dst.first()->is_stack()) {
       // stack to stack
-      __ std_PPC(r_handle, reg2offset(dst.first()), R1_SP);
+      __ std_PPC(r_handle, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // stack to reg
       // Nothing to do, r_handle is already the dst register.
@@ -1352,7 +1352,7 @@ static void object_move(MacroAssembler* masm,
     // reg to stack or reg
     const Register r_oop      = src.first()->as_Register();
     const Register r_handle   = dst.first()->is_stack() ? r_temp_1 : dst.first()->as_Register();
-    const int oop_slot        = (r_oop->encoding()-R3_ARG1->encoding()) * VMRegImpl::slots_per_word
+    const int oop_slot        = (r_oop->encoding()-R3_ARG1_PPC->encoding()) * VMRegImpl::slots_per_word
                                 + oop_handle_offset; // in slots
     const int oop_offset = oop_slot * VMRegImpl::stack_slot_size;
     Label skip;
@@ -1362,8 +1362,8 @@ static void object_move(MacroAssembler* masm,
     }
     oop_map->set_oop(VMRegImpl::stack2reg(oop_slot));
 
-    __ std_PPC( r_oop,    oop_offset, R1_SP);
-    __ addi_PPC(r_handle, R1_SP, oop_offset);
+    __ std_PPC( r_oop,    oop_offset, R1_SP_PPC);
+    __ addi_PPC(r_handle, R1_SP_PPC, oop_offset);
 
     __ cmpdi_PPC(CCR0, r_oop, 0);
     __ bne_PPC(CCR0, skip);
@@ -1373,7 +1373,7 @@ static void object_move(MacroAssembler* masm,
 
     if (dst.first()->is_stack()) {
       // reg to stack
-      __ std_PPC(r_handle, reg2offset(dst.first()), R1_SP);
+      __ std_PPC(r_handle, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // reg to reg
       // Nothing to do, r_handle is already the dst register.
@@ -1391,7 +1391,7 @@ static void int_move(MacroAssembler*masm,
     if (dst.first()->is_stack()) {
       // stack to stack
       __ lwa_PPC(r_temp, reg2offset(src.first()), r_caller_sp);
-      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP);
+      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // stack to reg
       __ lwa_PPC(dst.first()->as_Register(), reg2offset(src.first()), r_caller_sp);
@@ -1399,7 +1399,7 @@ static void int_move(MacroAssembler*masm,
   } else if (dst.first()->is_stack()) {
     // reg to stack
     __ extsw_PPC(r_temp, src.first()->as_Register());
-    __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP);
+    __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP_PPC);
   } else {
     // reg to reg
     __ extsw_PPC(dst.first()->as_Register(), src.first()->as_Register());
@@ -1416,14 +1416,14 @@ static void long_move(MacroAssembler*masm,
     if (dst.first()->is_stack()) {
       // stack to stack
       __ ld_PPC( r_temp, reg2offset(src.first()), r_caller_sp);
-      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP);
+      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // stack to reg
       __ ld_PPC(dst.first()->as_Register(), reg2offset(src.first()), r_caller_sp);
     }
   } else if (dst.first()->is_stack()) {
     // reg to stack
-    __ std_PPC(src.first()->as_Register(), reg2offset(dst.first()), R1_SP);
+    __ std_PPC(src.first()->as_Register(), reg2offset(dst.first()), R1_SP_PPC);
   } else {
     // reg to reg
     if (dst.first()->as_Register() != src.first()->as_Register())
@@ -1441,14 +1441,14 @@ static void float_move(MacroAssembler*masm,
     if (dst.first()->is_stack()) {
       // stack to stack
       __ lwz_PPC(r_temp, reg2offset(src.first()), r_caller_sp);
-      __ stw_PPC(r_temp, reg2offset(dst.first()), R1_SP);
+      __ stw_PPC(r_temp, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // stack to reg
       __ lfs_PPC(dst.first()->as_FloatRegister(), reg2offset(src.first()), r_caller_sp);
     }
   } else if (dst.first()->is_stack()) {
     // reg to stack
-    __ stfs_PPC(src.first()->as_FloatRegister(), reg2offset(dst.first()), R1_SP);
+    __ stfs_PPC(src.first()->as_FloatRegister(), reg2offset(dst.first()), R1_SP_PPC);
   } else {
     // reg to reg
     if (dst.first()->as_FloatRegister() != src.first()->as_FloatRegister())
@@ -1466,14 +1466,14 @@ static void double_move(MacroAssembler*masm,
     if (dst.first()->is_stack()) {
       // stack to stack
       __ ld_PPC( r_temp, reg2offset(src.first()), r_caller_sp);
-      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP);
+      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // stack to reg
       __ lfd_PPC(dst.first()->as_FloatRegister(), reg2offset(src.first()), r_caller_sp);
     }
   } else if (dst.first()->is_stack()) {
     // reg to stack
-    __ stfd_PPC(src.first()->as_FloatRegister(), reg2offset(dst.first()), R1_SP);
+    __ stfd_PPC(src.first()->as_FloatRegister(), reg2offset(dst.first()), R1_SP_PPC);
   } else {
     // reg to reg
     if (dst.first()->as_FloatRegister() != src.first()->as_FloatRegister())
@@ -1488,18 +1488,18 @@ void SharedRuntime::save_native_result(MacroAssembler *masm, BasicType ret_type,
     case T_BYTE:
     case T_SHORT:
     case T_INT:
-      __ stw_PPC (R3_RET,  frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ stw_PPC (R3_RET_PPC,  frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_ARRAY:
     case T_OBJECT:
     case T_LONG:
-      __ std_PPC (R3_RET,  frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ std_PPC (R3_RET_PPC,  frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_FLOAT:
-      __ stfs_PPC(F1_RET, frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ stfs_PPC(F1_RET_PPC, frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_DOUBLE:
-      __ stfd_PPC(F1_RET, frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ stfd_PPC(F1_RET_PPC, frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_VOID:
       break;
@@ -1516,18 +1516,18 @@ void SharedRuntime::restore_native_result(MacroAssembler *masm, BasicType ret_ty
     case T_BYTE:
     case T_SHORT:
     case T_INT:
-      __ lwz_PPC(R3_RET,  frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ lwz_PPC(R3_RET_PPC,  frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_ARRAY:
     case T_OBJECT:
     case T_LONG:
-      __ ld_PPC (R3_RET,  frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ ld_PPC (R3_RET_PPC,  frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_FLOAT:
-      __ lfs_PPC(F1_RET, frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ lfs_PPC(F1_RET_PPC, frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_DOUBLE:
-      __ lfd_PPC(F1_RET, frame_slots*VMRegImpl::stack_slot_size, R1_SP);
+      __ lfd_PPC(F1_RET_PPC, frame_slots*VMRegImpl::stack_slot_size, R1_SP_PPC);
       break;
     case T_VOID:
       break;
@@ -1554,20 +1554,20 @@ static void save_or_restore_arguments(MacroAssembler* masm,
       slot += VMRegImpl::slots_per_word;
       assert(slot <= stack_slots, "overflow (after DOUBLE stack slot)");
       if (map != NULL) {
-        __ stfd_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP);
+        __ stfd_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP_PPC);
       } else {
-        __ lfd_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP);
+        __ lfd_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP_PPC);
       }
     } else if (in_regs[i].first()->is_Register() &&
         (in_sig_bt[i] == T_LONG || in_sig_bt[i] == T_ARRAY)) {
       int offset = slot * VMRegImpl::stack_slot_size;
       if (map != NULL) {
-        __ std_PPC(in_regs[i].first()->as_Register(), offset, R1_SP);
+        __ std_PPC(in_regs[i].first()->as_Register(), offset, R1_SP_PPC);
         if (in_sig_bt[i] == T_ARRAY) {
           map->set_oop(VMRegImpl::stack2reg(slot));
         }
       } else {
-        __ ld_PPC(in_regs[i].first()->as_Register(), offset, R1_SP);
+        __ ld_PPC(in_regs[i].first()->as_Register(), offset, R1_SP_PPC);
       }
       slot += VMRegImpl::slots_per_word;
       assert(slot <= stack_slots, "overflow (after LONG/ARRAY stack slot)");
@@ -1585,9 +1585,9 @@ static void save_or_restore_arguments(MacroAssembler* masm,
         case T_SHORT:
         case T_INT:
           if (map != NULL) {
-            __ stw_PPC(in_regs[i].first()->as_Register(), offset, R1_SP);
+            __ stw_PPC(in_regs[i].first()->as_Register(), offset, R1_SP_PPC);
           } else {
-            __ lwa_PPC(in_regs[i].first()->as_Register(), offset, R1_SP);
+            __ lwa_PPC(in_regs[i].first()->as_Register(), offset, R1_SP_PPC);
           }
           slot++;
           assert(slot <= stack_slots, "overflow (after INT or smaller stack slot)");
@@ -1605,9 +1605,9 @@ static void save_or_restore_arguments(MacroAssembler* masm,
         slot++;
         assert(slot <= stack_slots, "overflow (after FLOAT stack slot)");
         if (map != NULL) {
-          __ stfs_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP);
+          __ stfs_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP_PPC);
         } else {
-          __ lfs_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP);
+          __ lfs_PPC(in_regs[i].first()->as_FloatRegister(), offset, R1_SP_PPC);
         }
       }
     } else if (in_regs[i].first()->is_stack()) {
@@ -1643,8 +1643,8 @@ static void check_needs_gc_for_critical_native(MacroAssembler* masm,
   save_or_restore_arguments(masm, stack_slots, total_in_args,
                             arg_save_area, map, in_regs, in_sig_bt);
 
-  __ mr_PPC(R3_ARG1, R16_thread);
-  __ set_last_Java_frame(R1_SP, noreg);
+  __ mr_PPC(R3_ARG1_PPC, R24_thread);
+  __ set_last_Java_frame(R1_SP_PPC, noreg);
 
   __ block_comment("block_for_jni_critical");
   address entry_point = CAST_FROM_FN_PTR(address, SharedRuntime::block_for_jni_critical);
@@ -1692,14 +1692,14 @@ static void move_ptr(MacroAssembler* masm, VMRegPair src, VMRegPair dst, Registe
     if (dst.first()->is_stack()) {
       // stack to stack
       __ ld_PPC(r_temp, reg2offset(src.first()), r_caller_sp);
-      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP);
+      __ std_PPC(r_temp, reg2offset(dst.first()), R1_SP_PPC);
     } else {
       // stack to reg
       __ ld_PPC(dst.first()->as_Register(), reg2offset(src.first()), r_caller_sp);
     }
   } else if (dst.first()->is_stack()) {
     // reg to stack
-    __ std_PPC(src.first()->as_Register(), reg2offset(dst.first()), R1_SP);
+    __ std_PPC(src.first()->as_Register(), reg2offset(dst.first()), R1_SP_PPC);
   } else {
     if (dst.first() != src.first()) {
       __ mr_PPC(dst.first()->as_Register(), src.first()->as_Register());
@@ -1742,7 +1742,7 @@ static void verify_oop_args(MacroAssembler* masm,
                             const methodHandle& method,
                             const BasicType* sig_bt,
                             const VMRegPair* regs) {
-  Register temp_reg = R19_method;  // not part of any compiled calling seq
+  Register temp_reg = R27_method;  // not part of any compiled calling seq
   if (VerifyOops) {
     for (int i = 0; i < method->size_of_parameters(); i++) {
       if (sig_bt[i] == T_OBJECT ||
@@ -1750,7 +1750,7 @@ static void verify_oop_args(MacroAssembler* masm,
         VMReg r = regs[i].first();
         assert(r->is_valid(), "bad oop arg");
         if (r->is_stack()) {
-          __ ld_PPC(temp_reg, reg2offset(r), R1_SP);
+          __ ld_PPC(temp_reg, reg2offset(r), R1_SP_PPC);
           __ verify_oop(temp_reg);
         } else {
           __ verify_oop(r->as_Register());
@@ -1775,7 +1775,7 @@ static void gen_special_dispatch(MacroAssembler* masm,
   int      ref_kind       = MethodHandles::signature_polymorphic_intrinsic_ref_kind(iid);
   if (ref_kind != 0) {
     member_arg_pos = method->size_of_parameters() - 1;  // trailing MemberName argument
-    member_reg = R19_method;  // known to be free at this point
+    member_reg = R27_method;  // known to be free at this point
     has_receiver = MethodHandles::ref_kind_has_receiver(ref_kind);
   } else if (iid == vmIntrinsics::_invokeBasic) {
     has_receiver = true;
@@ -1788,7 +1788,7 @@ static void gen_special_dispatch(MacroAssembler* masm,
     SharedRuntime::check_member_name_argument_is_last_argument(method, sig_bt, regs);
     VMReg r = regs[member_arg_pos].first();
     if (r->is_stack()) {
-      __ ld_PPC(member_reg, reg2offset(r), R1_SP);
+      __ ld_PPC(member_reg, reg2offset(r), R1_SP_PPC);
     } else {
       // no data motion is needed
       member_reg = r->as_Register();
@@ -1806,8 +1806,8 @@ static void gen_special_dispatch(MacroAssembler* masm,
       // pass the receiver oop in a register.  If this is not true on some
       // platform, pick a temp and load the receiver from stack.
       fatal("receiver always in a register");
-      receiver_reg = R11_scratch1;  // TODO (hs24): is R11_scratch1 really free at this point?
-      __ ld_PPC(receiver_reg, reg2offset(r), R1_SP);
+      receiver_reg = R5_scratch1;  // TODO (hs24): is R5_scratch1 really free at this point?
+      __ ld_PPC(receiver_reg, reg2offset(r), R1_SP_PPC);
     } else {
       // no data motion is needed
       receiver_reg = r->as_Register();
@@ -2003,12 +2003,12 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // Layout of the native wrapper frame:
   // (stack grows upwards, memory grows downwards)
   //
-  // NW     [ABI_REG_ARGS]             <-- 1) R1_SP
-  //        [outgoing arguments]       <-- 2) R1_SP + out_arg_slot_offset
-  //        [oopHandle area]           <-- 3) R1_SP + oop_handle_offset (save area for critical natives)
-  //        klass                      <-- 4) R1_SP + klass_offset
-  //        lock                       <-- 5) R1_SP + lock_offset
-  //        [workspace]                <-- 6) R1_SP + workspace_offset
+  // NW     [ABI_REG_ARGS]             <-- 1) R1_SP_PPC
+  //        [outgoing arguments]       <-- 2) R1_SP_PPC + out_arg_slot_offset
+  //        [oopHandle area]           <-- 3) R1_SP_PPC + oop_handle_offset (save area for critical natives)
+  //        klass                      <-- 4) R1_SP_PPC + klass_offset
+  //        lock                       <-- 5) R1_SP_PPC + lock_offset
+  //        [workspace]                <-- 6) R1_SP_PPC + workspace_offset
   //        [alignment] (optional)     <-- 7)
   // caller [JIT_TOP_ABI_48]           <-- r_callers_sp
   //
@@ -2116,10 +2116,10 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   Register ic = as_Register(Matcher::inline_cache_reg_encode());
   Register receiver_klass = r_temp_1;
 
-  __ cmpdi_PPC(CCR0, R3_ARG1, 0);
+  __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
   __ beq_PPC(CCR0, ic_miss);
-  __ verify_oop(R3_ARG1);
-  __ load_klass(receiver_klass, R3_ARG1);
+  __ verify_oop(R3_ARG1_PPC);
+  __ load_klass(receiver_klass, R3_ARG1_PPC);
 
   __ cmpd_PPC(CCR0, receiver_klass, ic);
   __ bne_PPC(CCR0, ic_miss);
@@ -2143,7 +2143,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     // Notify OOP recorder (don't need the relocation)
     AddressLiteral md = __ constant_metadata_address(method->method_holder());
     __ load_const_optimized(klass, md.value(), R0);
-    __ clinit_barrier(klass, R16_thread, &L_skip_barrier /*L_fast_path*/);
+    __ clinit_barrier(klass, R24_thread, &L_skip_barrier /*L_fast_path*/);
 
     __ load_const_optimized(klass, SharedRuntime::get_handle_wrong_method_stub(), R0);
     __ mtctr_PPC(klass);
@@ -2154,7 +2154,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
 
   __ save_LR_CR(r_temp_1);
   __ generate_stack_overflow_check(frame_size_in_bytes); // Check before creating frame.
-  __ mr_PPC(r_callers_sp, R1_SP);                            // Remember frame pointer.
+  __ mr_PPC(r_callers_sp, R1_SP_PPC);                            // Remember frame pointer.
   __ push_frame(frame_size_in_bytes, r_temp_1);          // Push the c2n adapter's frame.
   frame_done_pc = (intptr_t)__ pc();
 
@@ -2181,7 +2181,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // captured the oops from our caller and have a valid oopMap for them.
   //
   // Natives require 1 or 2 extra arguments over the normal ones: the JNIEnv*
-  // (derived from JavaThread* which is in R16_thread) and, if static,
+  // (derived from JavaThread* which is in R24_thread) and, if static,
   // the class mirror instead of a receiver. This pretty much guarantees that
   // register layout will not match. We ignore these extra arguments during
   // the shuffle. The shuffle is described by the two calling convention
@@ -2286,14 +2286,14 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
                         r_carg2_classorobject);
 
     // Now handlize the static class mirror in carg2. It's known not-null.
-    __ std_PPC(r_carg2_classorobject, klass_offset, R1_SP);
+    __ std_PPC(r_carg2_classorobject, klass_offset, R1_SP_PPC);
     oop_map->set_oop(VMRegImpl::stack2reg(klass_slot_offset));
-    __ addi_PPC(r_carg2_classorobject, R1_SP, klass_offset);
+    __ addi_PPC(r_carg2_classorobject, R1_SP_PPC, klass_offset);
   }
 
   // Get JNIEnv* which is first argument to native.
   if (!is_critical_native) {
-    __ addi_PPC(r_carg1_jnienv, R16_thread, in_bytes(JavaThread::jni_environment_offset()));
+    __ addi_PPC(r_carg1_jnienv, R24_thread, in_bytes(JavaThread::jni_environment_offset()));
   }
 
   // NOTE:
@@ -2313,7 +2313,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // to native.
 
   // Make sure that thread is non-volatile; it crosses a bunch of VM calls below.
-  assert(R16_thread->is_nonvolatile(), "thread must be in non-volatile register");
+  assert(R24_thread->is_nonvolatile(), "thread must be in non-volatile register");
 
 # if 0
   // DTrace method entry
@@ -2335,7 +2335,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     __ ld_PPC(r_oop, 0, r_carg2_classorobject);
 
     // Get the lock box slot's address.
-    __ addi_PPC(r_box, R1_SP, lock_offset);
+    __ addi_PPC(r_box, R1_SP_PPC, lock_offset);
 
 #   ifdef ASSERT
     if (UseBiasedLocking) {
@@ -2356,13 +2356,13 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
 
     // Save argument registers and leave room for C-compatible ABI_REG_ARGS.
     int frame_size = frame::abi_reg_args_ppc_size + align_up(total_c_args * wordSize, frame::alignment_in_bytes);
-    __ mr_PPC(R11_scratch1, R1_SP);
-    RegisterSaver::push_frame_and_save_argument_registers(masm, R12_scratch2, frame_size, total_c_args, out_regs, out_regs2);
+    __ mr_PPC(R5_scratch1, R1_SP_PPC);
+    RegisterSaver::push_frame_and_save_argument_registers(masm, R6_scratch2, frame_size, total_c_args, out_regs, out_regs2);
 
     // Do the call.
-    __ set_last_Java_frame(R11_scratch1, r_return_pc);
+    __ set_last_Java_frame(R5_scratch1, r_return_pc);
     assert(r_return_pc->is_nonvolatile(), "expecting return pc to be in non-volatile register");
-    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::complete_monitor_locking_C), r_oop, r_box, R16_thread);
+    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::complete_monitor_locking_C), r_oop, r_box, R24_thread);
     __ reset_last_Java_frame();
 
     RegisterSaver::restore_argument_registers_and_pop_frame(masm, frame_size, total_c_args, out_regs, out_regs2);
@@ -2378,7 +2378,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // --------------------------------------------------------------------------
 
   // Use that pc we placed in r_return_pc a while back as the current frame anchor.
-  __ set_last_Java_frame(R1_SP, r_return_pc);
+  __ set_last_Java_frame(R1_SP_PPC, r_return_pc);
 
   // Transition from _thread_in_Java to _thread_in_native.
   __ li_PPC(R0, _thread_in_native);
@@ -2404,7 +2404,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // --------------------------------------------------------------------------
 
   // For int-types, we do any needed sign-extension required.
-  // Care must be taken that the return values (R3_RET and F1_RET)
+  // Care must be taken that the return values (R3_RET_PPC and F1_RET_PPC)
   // will survive any VM calls for blocking or unlocking.
   // An OOP result (handle) is done specially in the slow-path code.
 
@@ -2419,22 +2419,22 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
 
     case T_BOOLEAN: {             // 0 -> false(0); !0 -> true(1)
       Label skip_modify;
-      __ cmpwi_PPC(CCR0, R3_RET, 0);
+      __ cmpwi_PPC(CCR0, R3_RET_PPC, 0);
       __ beq_PPC(CCR0, skip_modify);
-      __ li_PPC(R3_RET, 1);
+      __ li_PPC(R3_RET_PPC, 1);
       __ bind(skip_modify);
       break;
       }
     case T_BYTE: {                // sign extension
-      __ extsb_PPC(R3_RET, R3_RET);
+      __ extsb_PPC(R3_RET_PPC, R3_RET_PPC);
       break;
       }
     case T_CHAR: {                // unsigned result
-      __ andi(R3_RET, R3_RET, 0xffff);
+      __ andi(R3_RET_PPC, R3_RET_PPC, 0xffff);
       break;
       }
     case T_SHORT: {               // sign extension
-      __ extsh_PPC(R3_RET, R3_RET);
+      __ extsh_PPC(R3_RET_PPC, R3_RET_PPC);
       break;
       }
     case T_INT:                   // nothing to do
@@ -2503,7 +2503,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
       ? CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans_and_transition)
       : CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans);
     save_native_result(masm, ret_type, workspace_slot_offset);
-    __ call_VM_leaf(entry_point, R16_thread);
+    __ call_VM_leaf(entry_point, R24_thread);
     restore_native_result(masm, ret_type, workspace_slot_offset);
 
     if (is_critical_native) {
@@ -2554,12 +2554,12 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     // Get oop and address of lock object box.
     if (method_is_static) {
       assert(klass_offset != -1, "");
-      __ ld_PPC(r_oop, klass_offset, R1_SP);
+      __ ld_PPC(r_oop, klass_offset, R1_SP_PPC);
     } else {
       assert(receiver_offset != -1, "");
-      __ ld_PPC(r_oop, receiver_offset, R1_SP);
+      __ ld_PPC(r_oop, receiver_offset, R1_SP_PPC);
     }
-    __ addi_PPC(r_box, R1_SP, lock_offset);
+    __ addi_PPC(r_box, R1_SP_PPC, lock_offset);
 
     // Try fastpath for unlocking.
     __ compiler_fast_unlock_object(r_flag, r_oop, r_box, r_temp_1, r_temp_2, r_temp_3);
@@ -2578,7 +2578,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     // Slow case of monitor enter.
     // Inline a special case of call_VM that disallows any pending_exception.
     // Arguments are (oop obj, BasicLock* lock, JavaThread* thread).
-    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::complete_monitor_unlocking_C), r_oop, r_box, R16_thread);
+    __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::complete_monitor_unlocking_C), r_oop, r_box, R24_thread);
 
     __ asm_assert_mem8_is_zero(thread_(pending_exception),
        "no pending exception allowed on exit from SharedRuntime::complete_monitor_unlocking_C", 0);
@@ -2608,13 +2608,13 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   // --------------------------------------------------------------------------
 
   if (ret_type == T_OBJECT || ret_type == T_ARRAY) {
-    __ resolve_jobject(R3_RET, r_temp_1, r_temp_2, /* needs_frame */ false);
+    __ resolve_jobject(R3_RET_PPC, r_temp_1, r_temp_2, /* needs_frame */ false);
   }
 
   if (CheckJNICalls) {
     // clear_pending_jni_exception_check
     __ load_const_optimized(R0, 0L);
-    __ st_ptr_PPC(R0, JavaThread::pending_jni_exception_check_fn_offset(), R16_thread);
+    __ st_ptr_PPC(R0, JavaThread::pending_jni_exception_check_fn_offset(), R24_thread);
   }
 
   // Reset handle block.
@@ -2723,13 +2723,13 @@ static void push_skeleton_frame(MacroAssembler* masm, bool deopt,
 
   __ ld_PPC(pc_reg, 0, pcs_reg);
   __ ld_PPC(frame_size_reg, 0, frame_sizes_reg);
-  __ std_PPC(pc_reg, _abi(lr), R1_SP);
+  __ std_PPC(pc_reg, _abi(lr), R1_SP_PPC);
   __ push_frame(frame_size_reg, R0/*tmp*/);
 #ifdef ASSERT
   __ load_const_optimized(pc_reg, 0x5afe);
-  __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP);
+  __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP_PPC);
 #endif
-  __ std_PPC(R1_SP, _ijava_state_neg(sender_sp), R1_SP);
+  __ std_PPC(R1_SP_PPC, _ijava_state_neg(sender_sp), R1_SP_PPC);
   __ addi_PPC(number_of_frames_reg, number_of_frames_reg, -1);
   __ addi_PPC(frame_sizes_reg, frame_sizes_reg, wordSize);
   __ addi_PPC(pcs_reg, pcs_reg, wordSize);
@@ -2765,7 +2765,7 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
   // adapter here
 
   // Memorize top-frame stack-pointer.
-  __ mr_PPC(frame_size_reg/*old_sp*/, R1_SP);
+  __ mr_PPC(frame_size_reg/*old_sp*/, R1_SP_PPC);
 
   // Resize interpreter top frame OR C2I adapter.
 
@@ -2780,32 +2780,32 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
   // Additionally, we have to turn the top frame's TOP_IJAVA_FRAME_ABI
   // into a valid PARENT_IJAVA_FRAME_ABI.
 
-  __ lwa_PPC(R11_scratch1,
+  __ lwa_PPC(R5_scratch1,
              Deoptimization::UnrollBlock::caller_adjustment_offset_in_bytes(),
              unroll_block_reg);
-  __ neg_PPC(R11_scratch1, R11_scratch1);
+  __ neg_PPC(R5_scratch1, R5_scratch1);
 
-  // R11_scratch1 contains size of locals for frame resizing.
-  // R12_scratch2 contains top frame's lr.
+  // R5_scratch1 contains size of locals for frame resizing.
+  // R6_scratch2 contains top frame's lr.
 
   // Resize frame by complete frame size prevents TOC from being
   // overwritten by locals. A more stack space saving way would be
   // to copy the TOC to its location in the new abi.
-  __ addi_PPC(R11_scratch1, R11_scratch1, - frame::parent_ijava_frame_abi_size);
+  __ addi_PPC(R5_scratch1, R5_scratch1, - frame::parent_ijava_frame_abi_size);
 
   // now, resize the frame
-  __ resize_frame(R11_scratch1, pc_reg/*tmp*/);
+  __ resize_frame(R5_scratch1, pc_reg/*tmp*/);
 
   // In the case where we have resized a c2i frame above, the optional
   // alignment below the locals has size 32 (why?).
-  __ std_PPC(R12_scratch2, _abi(lr), R1_SP);
+  __ std_PPC(R6_scratch2, _abi(lr), R1_SP_PPC);
 
   // Initialize initial_caller_sp.
 #ifdef ASSERT
  __ load_const_optimized(pc_reg, 0x5afe);
- __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP);
+ __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP_PPC);
 #endif
- __ std_PPC(frame_size_reg, _ijava_state_neg(sender_sp), R1_SP);
+ __ std_PPC(frame_size_reg, _ijava_state_neg(sender_sp), R1_SP_PPC);
 
 #ifdef ASSERT
   // Make sure that there is at least one entry in the array.
@@ -2830,7 +2830,7 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
   // Get the return address pointing into the frame manager.
   __ ld_PPC(R0, 0, pcs_reg);
   // Store it in the top interpreter frame.
-  __ std_PPC(R0, _abi(lr), R1_SP);
+  __ std_PPC(R0, _abi(lr), R1_SP_PPC);
   // Initialize frame_manager_lr of interpreter top frame.
 }
 #endif
@@ -2846,12 +2846,12 @@ void SharedRuntime::generate_deopt_blob() {
   OopMap* map = NULL;
   OopMapSet *oop_maps = new OopMapSet();
 
-  // size of ABI112 plus spill slots for R3_RET and F1_RET.
+  // size of ABI112 plus spill slots for R3_RET_PPC and F1_RET_PPC.
   const int frame_size_in_bytes = frame::abi_reg_args_spill_ppc_size;
   const int frame_size_in_slots = frame_size_in_bytes / sizeof(jint);
   int first_frame_size_in_bytes = 0; // frame size of "unpack frame" for call to fetch_unroll_info.
 
-  const Register exec_mode_reg = R21_tmp1;
+  const Register exec_mode_reg = R21_tmp1_PPC;
 
   const address start = __ pc();
 
@@ -2897,8 +2897,8 @@ void SharedRuntime::generate_deopt_blob() {
   // An exception is pending.
   // We have been called with a return (interpreter) or a jump (exception blob).
   //
-  // - R3_ARG1: exception oop
-  // - R4_ARG2: exception pc
+  // - R3_ARG1_PPC: exception oop
+  // - R4_ARG2_PPC: exception pc
 
   int exception_offset = __ pc() - start;
 
@@ -2906,9 +2906,9 @@ void SharedRuntime::generate_deopt_blob() {
 
   // Store exception oop and pc in thread (location known to GC).
   // This is needed since the call to "fetch_unroll_info()" may safepoint.
-  __ std_PPC(R3_ARG1, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ std_PPC(R4_ARG2, in_bytes(JavaThread::exception_pc_offset()),  R16_thread);
-  __ std_PPC(R4_ARG2, _abi(lr), R1_SP);
+  __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
+  __ std_PPC(R4_ARG2_PPC, in_bytes(JavaThread::exception_pc_offset()),  R24_thread);
+  __ std_PPC(R4_ARG2_PPC, _abi(lr), R1_SP_PPC);
 
   // Vanilla deoptimization with an exception pending in exception_oop.
   int exception_in_tls_offset = __ pc() - start;
@@ -2945,22 +2945,22 @@ void SharedRuntime::generate_deopt_blob() {
   __ BIND(exec_mode_initialized);
 
   {
-  const Register unroll_block_reg = R22_tmp2;
+  const Register unroll_block_reg = R22_tmp2_PPC;
 
   // We need to set `last_Java_frame' because `fetch_unroll_info' will
   // call `last_Java_frame()'. The value of the pc in the frame is not
   // particularly important. It just needs to identify this blob.
-  __ set_last_Java_frame(R1_SP, noreg);
+  __ set_last_Java_frame(R1_SP_PPC, noreg);
 
   // With EscapeAnalysis turned on, this call may safepoint!
-  __ call_VM_leaf(CAST_FROM_FN_PTR(address, Deoptimization::fetch_unroll_info), R16_thread, exec_mode_reg);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, Deoptimization::fetch_unroll_info), R24_thread, exec_mode_reg);
   address calls_return_pc = __ last_calls_return_pc();
   // Set an oopmap for the call site that describes all our saved registers.
   oop_maps->add_gc_map(calls_return_pc - start, map);
 
   __ reset_last_Java_frame();
   // Save the return value.
-  __ mr_PPC(unroll_block_reg, R3_RET);
+  __ mr_PPC(unroll_block_reg, R3_RET_PPC);
 
   // Restore only the result registers that have been saved
   // by save_volatile_registers(...).
@@ -2974,11 +2974,11 @@ void SharedRuntime::generate_deopt_blob() {
   Label skip_restore_excp;
   __ cmpdi_PPC(CCR0, exec_mode_reg, Deoptimization::Unpack_exception);
   __ bne_PPC(CCR0, skip_restore_excp);
-  __ ld_PPC(R3_RET, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ ld_PPC(R4_ARG2, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
+  __ ld_PPC(R3_RET_PPC, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
+  __ ld_PPC(R4_ARG2_PPC, in_bytes(JavaThread::exception_pc_offset()), R24_thread);
   __ li_PPC(R0, 0);
-  __ std_PPC(R0, in_bytes(JavaThread::exception_pc_offset()),  R16_thread);
-  __ std_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_pc_offset()),  R24_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
   __ BIND(skip_restore_excp);
 
   __ pop_frame();
@@ -2993,11 +2993,11 @@ void SharedRuntime::generate_deopt_blob() {
   // Loop through the `UnrollBlock' info and create interpreter frames.
   push_skeleton_frames(masm, true/*deopt*/,
                        unroll_block_reg,
-                       R23_tmp3,
-                       R24_tmp4,
-                       R25_tmp5,
-                       R26_tmp6,
-                       R27_tmp7);
+                       R23_tmp3_PPC,
+                       R24_tmp4_PPC,
+                       R25_tmp5_PPC,
+                       R26_tmp6_PPC,
+                       R27_tmp7_PPC);
 
   // stack: (skeletal interpreter frame, ..., optional skeletal
   // interpreter frame, optional c2i, caller of deoptee, ...).
@@ -3011,21 +3011,21 @@ void SharedRuntime::generate_deopt_blob() {
   // ...).
 
   // Spill live volatile registers since we'll do a call.
-  __ std_PPC( R3_RET, _abi_reg_args_spill_ppc(spill_ret),  R1_SP);
-  __ stfd_PPC(F1_RET, _abi_reg_args_spill_ppc(spill_fret), R1_SP);
+  __ std_PPC( R3_RET_PPC, _abi_reg_args_spill_ppc(spill_ret),  R1_SP_PPC);
+  __ stfd_PPC(F1_RET_PPC, _abi_reg_args_spill_ppc(spill_fret), R1_SP_PPC);
 
   // Let the unpacker layout information in the skeletal frames just
   // allocated.
-  __ get_PC_trash_LR(R3_RET);
-  __ set_last_Java_frame(/*sp*/R1_SP, /*pc*/R3_RET);
+  __ get_PC_trash_LR(R3_RET_PPC);
+  __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R3_RET_PPC);
   // This is a call to a LEAF method, so no oop map is required.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, Deoptimization::unpack_frames),
-                  R16_thread/*thread*/, exec_mode_reg/*exec_mode*/);
+                  R24_thread/*thread*/, exec_mode_reg/*exec_mode*/);
   __ reset_last_Java_frame();
 
   // Restore the volatiles saved above.
-  __ ld_PPC( R3_RET, _abi_reg_args_spill_ppc(spill_ret),  R1_SP);
-  __ lfd_PPC(F1_RET, _abi_reg_args_spill_ppc(spill_fret), R1_SP);
+  __ ld_PPC( R3_RET_PPC, _abi_reg_args_spill_ppc(spill_ret),  R1_SP_PPC);
+  __ lfd_PPC(F1_RET_PPC, _abi_reg_args_spill_ppc(spill_fret), R1_SP_PPC);
 
   // Pop the unpack frame.
   __ pop_frame();
@@ -3035,8 +3035,8 @@ void SharedRuntime::generate_deopt_blob() {
   // optional c2i, caller of deoptee, ...).
 
   // Initialize R14_state.
-  __ restore_interpreter_state(R11_scratch1);
-  __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1);
+  __ restore_interpreter_state(R5_scratch1);
+  __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // Return to the interpreter entry point.
   __ blr_PPC();
@@ -3070,9 +3070,9 @@ void SharedRuntime::generate_uncommon_trap_blob() {
     __ tabort__PPC();
   }
 
-  Register unroll_block_reg = R21_tmp1;
-  Register klass_index_reg  = R22_tmp2;
-  Register unc_trap_reg     = R23_tmp3;
+  Register unroll_block_reg = R21_tmp1_PPC;
+  Register klass_index_reg  = R22_tmp2_PPC;
+  Register unc_trap_reg     = R23_tmp3_PPC;
 
   OopMapSet* oop_maps = new OopMapSet();
   int frame_size_in_bytes = frame::abi_reg_args_ppc_size;
@@ -3085,10 +3085,10 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // vframe array and return the `UnrollBlock' information.
 
   // Save LR to compiled frame.
-  __ save_LR_CR(R11_scratch1);
+  __ save_LR_CR(R5_scratch1);
 
   // Push an "uncommon_trap" frame.
-  __ push_frame_reg_args(0, R11_scratch1);
+  __ push_frame_reg_args(0, R5_scratch1);
 
   // stack: (unpack frame, deoptee, optional i2c, caller_of_deoptee, ...).
 
@@ -3096,15 +3096,15 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // `Deoptimization::uncommon_trap' expects it and considers its
   // sender frame as the deoptee frame.
   // Remember the offset of the instruction whose address will be
-  // moved to R11_scratch1.
-  address gc_map_pc = __ get_PC_trash_LR(R11_scratch1);
+  // moved to R5_scratch1.
+  address gc_map_pc = __ get_PC_trash_LR(R5_scratch1);
 
-  __ set_last_Java_frame(/*sp*/R1_SP, /*pc*/R11_scratch1);
+  __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R5_scratch1);
 
   __ mr_PPC(klass_index_reg, R3);
-  __ li_PPC(R5_ARG3, Deoptimization::Unpack_uncommon_trap);
+  __ li_PPC(R5_ARG3_PPC, Deoptimization::Unpack_uncommon_trap);
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, Deoptimization::uncommon_trap),
-                  R16_thread, klass_index_reg, R5_ARG3);
+                  R24_thread, klass_index_reg, R5_ARG3_PPC);
 
   // Set an oopmap for the call site.
   oop_maps->add_gc_map(gc_map_pc - start, map);
@@ -3117,7 +3117,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // stack: (deoptee, optional i2c, caller_of_deoptee, ...).
 
   // Save the return value.
-  __ mr_PPC(unroll_block_reg, R3_RET);
+  __ mr_PPC(unroll_block_reg, R3_RET_PPC);
 
   // Pop the uncommon_trap frame.
   __ pop_frame();
@@ -3125,8 +3125,8 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // stack: (caller_of_deoptee, ...).
 
 #ifdef ASSERT
-  __ lwz_PPC(R22_tmp2, Deoptimization::UnrollBlock::unpack_kind_offset_in_bytes(), unroll_block_reg);
-  __ cmpdi_PPC(CCR0, R22_tmp2, (unsigned)Deoptimization::Unpack_uncommon_trap);
+  __ lwz_PPC(R22_tmp2_PPC, Deoptimization::UnrollBlock::unpack_kind_offset_in_bytes(), unroll_block_reg);
+  __ cmpdi_PPC(CCR0, R22_tmp2_PPC, (unsigned)Deoptimization::Unpack_uncommon_trap);
   __ asm_assert_eq("SharedRuntime::generate_deopt_blob: expected Unpack_uncommon_trap", 0);
 #endif
 
@@ -3134,11 +3134,11 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // frame.
   push_skeleton_frames(masm, false/*deopt*/,
                        unroll_block_reg,
-                       R22_tmp2,
-                       R23_tmp3,
-                       R24_tmp4,
-                       R25_tmp5,
-                       R26_tmp6);
+                       R22_tmp2_PPC,
+                       R23_tmp3_PPC,
+                       R24_tmp4_PPC,
+                       R25_tmp5_PPC,
+                       R26_tmp6_PPC);
 
   // stack: (skeletal interpreter frame, ..., optional skeletal
   // interpreter frame, optional c2i, caller of deoptee, ...).
@@ -3148,34 +3148,34 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // interpreter frames just created.
 
   // Push a simple "unpack frame" here.
-  __ push_frame_reg_args(0, R11_scratch1);
+  __ push_frame_reg_args(0, R5_scratch1);
 
   // stack: (unpack frame, skeletal interpreter frame, ..., optional
   // skeletal interpreter frame, optional c2i, caller of deoptee,
   // ...).
 
   // Set the "unpack_frame" as last_Java_frame.
-  __ get_PC_trash_LR(R11_scratch1);
-  __ set_last_Java_frame(/*sp*/R1_SP, /*pc*/R11_scratch1);
+  __ get_PC_trash_LR(R5_scratch1);
+  __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R5_scratch1);
 
   // Indicate it is the uncommon trap case.
   __ li_PPC(unc_trap_reg, Deoptimization::Unpack_uncommon_trap);
   // Let the unpacker layout information in the skeletal frames just
   // allocated.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, Deoptimization::unpack_frames),
-                  R16_thread, unc_trap_reg);
+                  R24_thread, unc_trap_reg);
 
   __ reset_last_Java_frame();
   // Pop the `unpack frame'.
   __ pop_frame();
   // Restore LR from top interpreter frame.
-  __ restore_LR_CR(R11_scratch1);
+  __ restore_LR_CR(R5_scratch1);
 
   // stack: (top interpreter frame, ..., optional interpreter frame,
   // optional c2i, caller of deoptee, ...).
 
-  __ restore_interpreter_state(R11_scratch1);
-  __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R11_scratch1);
+  __ restore_interpreter_state(R5_scratch1);
+  __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // Return to the interpreter entry point.
   __ blr_PPC();
@@ -3200,7 +3200,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   MacroAssembler* masm = new MacroAssembler(&buffer);
 
   address start = __ pc();
-  __ illtrap_PPC();
+  __ illtrap();
   int frame_size_in_bytes = 0;
   return SafepointBlob::create(&buffer, oop_maps, frame_size_in_bytes / wordSize);
 
@@ -3234,13 +3234,13 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   // The following is basically a call_VM. However, we need the precise
   // address of the call in order to generate an oopmap. Hence, we do all the
   // work outselves.
-  __ set_last_Java_frame(/*sp=*/R1_SP, /*pc=*/noreg);
+  __ set_last_Java_frame(/*sp=*/R1_SP_PPC, /*pc=*/noreg);
 
   // The return address must always be correct so that the frame constructor
   // never sees an invalid pc.
 
   // Do the call
-  __ call_VM_leaf(call_ptr, R16_thread);
+  __ call_VM_leaf(call_ptr, R24_thread);
   address calls_return_pc = __ last_calls_return_pc();
 
   // Set an oopmap for the call site. This oopmap will map all
@@ -3256,7 +3256,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
 
   BLOCK_COMMENT("  Check pending exception.");
   const Register pending_exception = R0;
-  __ ld_PPC(pending_exception, thread_(pending_exception));
+  __ ld_PPC(pending_exception, thread_PPC(pending_exception));
   __ cmpdi_PPC(CCR0, pending_exception, 0);
   __ beq_PPC(CCR0, noException);
 
@@ -3276,13 +3276,13 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   if (SafepointMechanism::uses_thread_local_poll() && !cause_return) {
     Label no_adjust;
     // If our stashed return pc was modified by the runtime we avoid touching it
-    __ ld_PPC(R0, frame_size_in_bytes + _abi(lr), R1_SP);
+    __ ld_PPC(R0, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
     __ cmpd_PPC(CCR0, R0, R31);
     __ bne_PPC(CCR0, no_adjust);
 
     // Adjust return pc forward to step over the safepoint poll instruction
     __ addi_PPC(R31, R31, 4);
-    __ std_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP);
+    __ std_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
 
     __ bind(no_adjust);
   }
@@ -3325,7 +3325,7 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
   address start = __ pc();
   int frame_complete = __ offset();
   frame_size_in_bytes = 0;
-  __ illtrap_PPC(); // FIXME_RISCV
+  __ illtrap(); // FIXME_RISCV
   return RuntimeStub::new_runtime_stub(name, &buffer, frame_complete, frame_size_in_bytes/wordSize,
                                        oop_maps, true);
 
@@ -3338,13 +3338,13 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 
   // Use noreg as last_Java_pc, the return pc will be reconstructed
   // from the physical frame.
-  __ set_last_Java_frame(/*sp*/R1_SP, noreg);
+  __ set_last_Java_frame(/*sp*/R1_SP_PPC, noreg);
 
   int frame_complete = __ offset();
 
-  // Pass R19_method as 2nd (optional) argument, used by
+  // Pass R27_method as 2nd (optional) argument, used by
   // counter_overflow_stub.
-  __ call_VM_leaf(destination, R16_thread, R19_method);
+  __ call_VM_leaf(destination, R24_thread, R27_method);
   address calls_return_pc = __ last_calls_return_pc();
   // Set an oopmap for the call site.
   // We need this not only for callee-saved registers, but also for volatile
@@ -3352,7 +3352,7 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
   // Create the oopmap for the call's return pc.
   oop_maps->add_gc_map(calls_return_pc - start, map);
 
-  // R3_RET contains the address we are going to jump to assuming no exception got installed.
+  // R3_RET_PPC contains the address we are going to jump to assuming no exception got installed.
 
   // clear last_Java_sp
   __ reset_last_Java_frame();
@@ -3360,16 +3360,16 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
   // Check for pending exceptions.
   BLOCK_COMMENT("Check for pending exceptions.");
   Label pending;
-  __ ld_PPC(R11_scratch1, thread_(pending_exception));
-  __ cmpdi_PPC(CCR0, R11_scratch1, 0);
+  __ ld_PPC(R5_scratch1, thread_(pending_exception));
+  __ cmpdi_PPC(CCR0, R5_scratch1, 0);
   __ bne_PPC(CCR0, pending);
 
-  __ mtctr_PPC(R3_RET); // Ctr will not be touched by restore_live_registers_and_pop_frame.
+  __ mtctr_PPC(R3_RET_PPC); // Ctr will not be touched by restore_live_registers_and_pop_frame.
 
   RegisterSaver::restore_live_registers_and_pop_frame(masm, frame_size_in_bytes, /*restore_ctr*/ false);
 
   // Get the returned method.
-  __ get_vm_result_2(R19_method);
+  __ get_vm_result_2(R27_method);
 
   __ bctr_PPC();
 
@@ -3381,9 +3381,9 @@ RuntimeStub* SharedRuntime::generate_resolve_blob(address destination, const cha
 
   // exception pending => remove activation and forward to exception handler
 
-  __ li_PPC(R11_scratch1, 0);
-  __ ld_PPC(R3_ARG1, thread_(pending_exception));
-  __ std_PPC(R11_scratch1, in_bytes(JavaThread::vm_result_offset()), R16_thread);
+  __ li_PPC(R5_scratch1, 0);
+  __ ld_PPC(R3_ARG1_PPC, thread_(pending_exception));
+  __ std_PPC(R5_scratch1, in_bytes(JavaThread::vm_result_offset()), R24_thread);
   __ b64_patchable(StubRoutines::forward_exception_entry(), relocInfo::runtime_call_type);
 
   // -------------

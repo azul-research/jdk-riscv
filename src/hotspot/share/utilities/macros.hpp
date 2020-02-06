@@ -553,6 +553,26 @@
 #define NOT_PPC64(code) code
 #endif
 
+#if defined(RISCV32) || defined(RISCV64)
+#ifndef RISCV
+#define RISCV
+#endif
+#define RISCV_ONLY(code) code
+#define NOT_RISCV(code)
+#else
+#undef RISCV
+#define RISCV_ONLY(code)
+#define NOT_RISCV(code) code
+#endif
+
+#ifdef RISCV64
+#define RISCV64_ONLY(code) code
+#define NOT_RISCV64(code)
+#else
+#define RISCV64_ONLY(code)
+#define NOT_RISCV64(code) code
+#endif
+
 #ifdef E500V2
 #define E500V2_ONLY(code) code
 #define NOT_E500V2(code)

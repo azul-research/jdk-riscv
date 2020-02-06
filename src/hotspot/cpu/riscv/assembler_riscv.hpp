@@ -147,7 +147,7 @@ class Argument {
 
   Register as_register() const {
     assert(is_register(), "must be a register argument");
-    return as_Register(number() + R3_ARG1->encoding());
+    return as_Register(number() + R3_ARG1_PPC->encoding());
   }
 };
 
@@ -191,6 +191,7 @@ struct FunctionDescriptor {
 };
 #endif
 
+#define label_offset(Label) disp(intptr_t(target(Label)), intptr_t(pc()))
 
 // The RISCV Assembler: Pure assembler doing NO optimizations on the
 // instruction level; i.e., what you write is what you get. The
@@ -219,11 +220,12 @@ class Assembler : public AbstractAssembler {
   static inline int funct7(int x, bool aq, bool rl) { return (int)(((unsigned)x << 27) | (aq << 26) | (rl << 25)); }
   static inline int rs1(int x) { return x << 15; }
   static inline int rs1(Register x) { return rs1(x->encoding()); }
+  static inline int rs1(FloatRegister x) { return rs1(x->encoding()); }
   static inline int rs2(int x) { return x << 20; }
   static inline int rs2(Register x) { return rs2(x->encoding()); }
   static inline int rs2(FloatRegister x) { return rs2(x->encoding()); }
   static inline int rs3(int x) { return x << 27; }
-  static inline int rs3(Register x) { return rs3(x->encoding()); }
+  static inline int rs3(FloatRegister x) { return rs3(x->encoding()); }
   static inline int succ(int x) { return x << 20; }
   static inline int pred(int x) { return x << 24; }
   static inline int fm(int x) { return x << 28; }
@@ -239,7 +241,7 @@ class Assembler : public AbstractAssembler {
     );
   }
   static inline int immu(int x) {
-    assert((x & 0xfff) == 0, "U-immediate must be zero in bits 0:11");
+    // U-immediate must be zero in bits 0:11
     return x & 0xfffff000;
   }
   static inline int immj(int x) {
@@ -1149,7 +1151,7 @@ class Assembler : public AbstractAssembler {
   static int aa(       int         x)  { return  opp_u_field(x,             30, 30); }
   static int ba(       int         x)  { return  opp_u_field(x,             15, 11); }
   static int bb(       int         x)  { return  opp_u_field(x,             20, 16); }
-  static int bc_PPC(       int         x)  { return  opp_u_field(x,             25, 21); }
+  static int bc(       int         x)  { return  opp_u_field(x,             25, 21); }
   static int bd(       int         x)  { return  opp_s_field(x,             29, 16); }
   static int bf( ConditionRegister cr) { return  bf(cr->encoding()); }
   static int bf(       int         x)  { return  opp_u_field(x,              8,  6); }
@@ -1320,16 +1322,16 @@ class Assembler : public AbstractAssembler {
     AbstractAssembler::flush();
   }
 
-  inline void emit_int32_PPC(int);  // shadows AbstractAssembler::emit_int32
-  inline void emit_data_PPC(int);
-  inline void emit_data_PPC(int, RelocationHolder const&);
-  inline void emit_data_PPC(int, relocInfo::relocType rtype);
+  inline void emit_int32(int);  // shadows AbstractAssembler::emit_int32
+  inline void emit_data(int);
+  inline void emit_data(int, RelocationHolder const&);
+  inline void emit_data(int, relocInfo::relocType rtype);
 
   // Emit an address.
   inline address emit_addr(const address addr = NULL);
 
   /////////////////////////////////////////////////////////////////////////////////////
-  // RISCV instructions
+  // PPC instructions
   /////////////////////////////////////////////////////////////////////////////////////
 
   // Memory instructions use r0 as hard coded 0, e.g. to simulate loading
@@ -1337,11 +1339,7 @@ class Assembler : public AbstractAssembler {
   // passed to them. Use either extended mnemonics encoders or the special ra0
   // versions.
 
-  // Issue an illegal instruction.
-  inline void illtrap_PPC();
-  static inline bool is_illtrap_PPC(int x);
-
-  // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
+  // PPC 1, section 3.3.8, Fixed-Point Arithmetic Instructions
   inline void addi_PPC( Register d, Register a, int si16);
   inline void addis_PPC(Register d, Register a, int si16);
  private:
@@ -2037,7 +2035,11 @@ class Assembler : public AbstractAssembler {
   }
 
  public:
-  // RISCV instructions are suffixed with _RV temporarily
+  // RISCV instructions
+
+  // Issue an illegal instruction.
+  inline void illtrap();
+  static inline bool is_illtrap(int x);
 
   // Generic instructions
   inline void op_imm(Register d, Register s, int f, int imm);
@@ -2054,12 +2056,15 @@ class Assembler : public AbstractAssembler {
   inline void store_fp(FloatRegister s, Register base, int width, int off);
   inline void op_imm32(Register d, Register s, int f, int imm);
   inline void op32(Register d, Register s1, Register s2, int f1, int f2);
-  inline void op_fp(Register d, Register s1, Register s2, int rm, int f);
-  inline void op_fp(Register d, Register s1, int s2, int rm, int f);
-  inline void madd(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void msub(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void nmadd(Register d, Register s1, Register s2, Register s3, int rm, int f);
-  inline void nmsub(Register d, Register s1, Register s2, Register s3, int rm, int f);
+  inline void op_fp(Register d, FloatRegister s1, FloatRegister s2, int rm, int f);
+  inline void op_fp(FloatRegister d, FloatRegister s1, FloatRegister s2, int rm, int f);
+  inline void op_fp(FloatRegister d, FloatRegister s1, int s2, int rm, int f);
+  inline void op_fp(FloatRegister d, Register s1, int s2, int rm, int f);
+  inline void op_fp(Register d, FloatRegister s1, int s2, int rm, int f);
+  inline void madd(FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f);
+  inline void msub(FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f);
+  inline void nmadd(FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f);
+  inline void nmsub(FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f);
   inline void fence(int pr, int sc, int f);
 
   // Concrete instructions
@@ -2101,8 +2106,12 @@ class Assembler : public AbstractAssembler {
   inline void bgeu(    Register s1, Register s2, int off);
   inline void beqz(    Register s,               int off);
   inline void bnez(    Register s,               int off);
+  inline void blt(     Register s1, Register s2, Label& L);
+  inline void bltu(    Register s1, Register s2, Label& L);
+  inline void bge(     Register s1, Register s2, Label& L);
   inline void beq(     Register s1, Register s2, Label& L);
   inline void bne(     Register s1, Register s2, Label& L);
+  inline void bgeu(    Register s1, Register s2, Label& L);
   inline void beqz(    Register s,               Label& L);
   inline void bnez(    Register s,               Label& L);
   // load
@@ -2163,120 +2172,138 @@ class Assembler : public AbstractAssembler {
   //sp fp
   inline void flw(     FloatRegister d, Register s1, int imm);
   inline void fsw(     FloatRegister s, Register base, int imm);
-  inline void fmadds(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fmsubs(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmadds( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmsubs( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fadds(   Register d, Register s1, Register s2, int rm);
-  inline void fsubs(   Register d, Register s1, Register s2, int rm);
-  inline void fmuls(   Register d, Register s1, Register s2, int rm);
-  inline void fdivs(   Register d, Register s1, Register s2, int rm);
-  inline void fsqrts(  Register d, Register s, int rm);
-  inline void fsgnjs(  Register d, Register s1, Register s2);
-  inline void fsgnjns( Register d, Register s1, Register s2);
-  inline void fsgnjxs( Register d, Register s1, Register s2);
-  inline void fmins(   Register d, Register s1, Register s2);
-  inline void fmaxs(   Register d, Register s1, Register s2);
-  inline void fcvtws(  Register d, Register s, int rm);
-  inline void fcvtwus( Register d, Register s, int rm);
-  inline void fmvxw(   Register d, Register s);
-  inline void feqs(    Register d, Register s1, Register s2);
-  inline void flts(    Register d, Register s1, Register s2);
-  inline void fles(    Register d, Register s1, Register s2);
-  inline void fclasss( Register d, Register s);
-  inline void fcvtsw(  Register d, Register s, int rm);
-  inline void fcvtswu( Register d, Register s, int rm);
-  inline void fmvwx(   Register d, Register s);
-  inline void fcvtls(  Register d, Register s, int rm);
-  inline void fcvtlus( Register d, Register s, int rm);
-  inline void fcvtsl(  Register d, Register s, int rm);
-  inline void fcvtslu( Register d, Register s, int rm);
+  inline void fmadds(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fmsubs(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fnmadds( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fnmsubs( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fadds(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fsubs(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fmuls(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fdivs(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fsqrts(  FloatRegister d, FloatRegister s, int rm);
+  inline void fsgnjs(  FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fsgnjns( FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fsgnjxs( FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fmins(   FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fmaxs(   FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fcvtws(  Register d, FloatRegister s, int rm);
+  inline void fcvtwus( Register d, FloatRegister s, int rm);
+  inline void fmvxw(   Register d, FloatRegister s);
+  inline void feqs(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void flts(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fles(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fclasss( Register d, FloatRegister s);
+  inline void fcvtsw(  FloatRegister d, Register s, int rm);
+  inline void fcvtswu( FloatRegister d, Register s, int rm);
+  inline void fmvwx(   FloatRegister d, Register s);
+  inline void fcvtls(  Register d, FloatRegister s, int rm);
+  inline void fcvtlus( Register d, FloatRegister s, int rm);
+  inline void fcvtsl(  FloatRegister d, Register s, int rm);
+  inline void fcvtslu( FloatRegister d, Register s, int rm);
   //dp fp
   inline void fld(     FloatRegister d, Register s1, int imm);
   inline void fsd(     FloatRegister s, Register base, int imm);
-  inline void fmaddd(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fmsubd(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmaddd( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmsubd( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void faddd(   Register d, Register s1, Register s2, int rm);
-  inline void fsubd(   Register d, Register s1, Register s2, int rm);
-  inline void fmuld(   Register d, Register s1, Register s2, int rm);
-  inline void fdivd(   Register d, Register s1, Register s2, int rm);
-  inline void fsqrtd(  Register d, Register s, int rm);
-  inline void fsgnjd(  Register d, Register s1, Register s2);
-  inline void fsgnjnd( Register d, Register s1, Register s2);
-  inline void fsgnjxd( Register d, Register s1, Register s2);
-  inline void fmind(   Register d, Register s1, Register s2);
-  inline void fmaxd(   Register d, Register s1, Register s2);
-  inline void fcvtsd(  Register d, Register s, int rm);
-  inline void fcvtds(  Register d, Register s, int rm);
-  inline void feqd(    Register d, Register s1, Register s2);
-  inline void fltd(    Register d, Register s1, Register s2);
-  inline void fled(    Register d, Register s1, Register s2);
-  inline void fclassd( Register d, Register s);
-  inline void fcvtwd(  Register d, Register s, int rm);
-  inline void fcvtwud( Register d, Register s, int rm);
-  inline void fcvtdw(  Register d, Register s, int rm);
-  inline void fcvtdwu( Register d, Register s, int rm);
-  inline void fcvtld(  Register d, Register s, int rm);
-  inline void fcvtlud( Register d, Register s, int rm);
-  inline void fcvtdl(  Register d, Register s, int rm);
-  inline void fcvtdlu( Register d, Register s, int rm);
-  inline void fmvxd(   Register d, Register s);
-  inline void fmvdx(   Register d, Register s);
+  inline void fmaddd(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fmsubd(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fnmaddd( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fnmsubd( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void faddd(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fsubd(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fmuld(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fdivd(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fsqrtd(  FloatRegister d, FloatRegister s, int rm);
+  inline void fsgnjd(  FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fsgnjnd( FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fsgnjxd( FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fmind(   FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fmaxd(   FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fcvtsd(  FloatRegister d, FloatRegister s, int rm);
+  inline void fcvtds(  FloatRegister d, FloatRegister s, int rm);
+  inline void feqd(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fltd(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fled(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fclassd( Register d, FloatRegister s);
+  inline void fcvtwd(  Register d, FloatRegister s, int rm);
+  inline void fcvtwud( Register d, FloatRegister s, int rm);
+  inline void fcvtdw(  FloatRegister d, Register s, int rm);
+  inline void fcvtdwu( FloatRegister d, Register s, int rm);
+  inline void fcvtld(  Register d, FloatRegister s, int rm);
+  inline void fcvtlud( Register d, FloatRegister s, int rm);
+  inline void fcvtdl(  FloatRegister d, Register s, int rm);
+  inline void fcvtdlu( FloatRegister d, Register s, int rm);
+  inline void fmvxd(   Register d, FloatRegister s);
+  inline void fmvdx(   FloatRegister d, Register s);
   //qp fp
   inline void flq(     FloatRegister d, Register s1, int imm);
   inline void fsq(     FloatRegister s, Register base, int imm);
-  inline void fmaddq(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fmsubq(  Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmaddq( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void fnmsubq( Register d, Register s1, Register s2, Register s3, int rm);
-  inline void faddq(   Register d, Register s1, Register s2, int rm);
-  inline void fsubq(   Register d, Register s1, Register s2, int rm);
-  inline void fmulq(   Register d, Register s1, Register s2, int rm);
-  inline void fdivq(   Register d, Register s1, Register s2, int rm);
-  inline void fsqrtq(  Register d, Register s, int rm);
-  inline void fsgnjq(  Register d, Register s1, Register s2);
-  inline void fsgnjnq( Register d, Register s1, Register s2);
-  inline void fsgnjxq( Register d, Register s1, Register s2);
-  inline void fminq(   Register d, Register s1, Register s2);
-  inline void fmaxq(   Register d, Register s1, Register s2);
-  inline void fcvtsq(  Register d, Register s, int rm);
-  inline void fcvtqs(  Register d, Register s, int rm);
-  inline void fcvtdq(  Register d, Register s, int rm);
-  inline void fcvtqd(  Register d, Register s, int rm);
-  inline void feqq(    Register d, Register s1, Register s2);
-  inline void fltq(    Register d, Register s1, Register s2);
-  inline void fleq(    Register d, Register s1, Register s2);
-  inline void fclassq( Register d, Register s);
-  inline void fcvtwq(  Register d, Register s, int rm);
-  inline void fcvtwuq( Register d, Register s, int rm);
-  inline void fcvtqw(  Register d, Register s, int rm);
-  inline void fcvtqwu( Register d, Register s, int rm);
-  inline void fcvtlq(  Register d, Register s, int rm);
-  inline void fcvtluq( Register d, Register s, int rm);
-  inline void fcvtql(  Register d, Register s, int rm);
-  inline void fcvtqlu( Register d, Register s, int rm);
+  inline void fmaddq(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fmsubq(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fnmaddq( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void fnmsubq( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm);
+  inline void faddq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fsubq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fmulq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fdivq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm);
+  inline void fsqrtq(  FloatRegister d, FloatRegister s, int rm);
+  inline void fsgnjq(  FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fsgnjnq( FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fsgnjxq( FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fminq(   FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fmaxq(   FloatRegister d, FloatRegister s1, FloatRegister s2);
+  inline void fcvtsq(  FloatRegister d, FloatRegister s, int rm);
+  inline void fcvtqs(  FloatRegister d, FloatRegister s, int rm);
+  inline void fcvtdq(  FloatRegister d, FloatRegister s, int rm);
+  inline void fcvtqd(  FloatRegister d, FloatRegister s, int rm);
+  inline void feqq(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fltq(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fleq(    Register d, FloatRegister s1, FloatRegister s2);
+  inline void fclassq( Register d, FloatRegister s);
+  inline void fcvtwq(  Register d, FloatRegister s, int rm);
+  inline void fcvtwuq( Register d, FloatRegister s, int rm);
+  inline void fcvtqw(  FloatRegister d, Register s, int rm);
+  inline void fcvtqwu( FloatRegister d, Register s, int rm);
+  inline void fcvtlq(  Register d, FloatRegister s, int rm);
+  inline void fcvtluq( Register d, FloatRegister s, int rm);
+  inline void fcvtql(  FloatRegister d, Register s, int rm);
+  inline void fcvtqlu( FloatRegister d, Register s, int rm);
   //fence
   inline void fence(   int pr, int sc);
   inline void fence_tso();
   inline void fencei();
   // pseudoinstructions
-  inline void nop();
+  inline void nop();                                          // No operation
+  void li(Register d, long imm);                              // Load immediate
+  void li(Register d, void* addr);
+  inline void mv(Register d, Register s);                     // Copy register
+  inline void neg(Register d, Register s);                    // Two’s complement
+  inline void negw(Register d, Register s);                   // Two’s complement word
+  inline void sext_w(Register d, Register s);                 // Sign extend word
+  inline void seqz(Register d, Register s);                   // Set if == zero
+  inline void snez(Register d, Register s);                   // Set if != zero
+  inline void sltz(Register d, Register s);                   // Set if < zero
+  inline void sgtz(Register d, Register s);                   // Set if > zero
+
+  inline void fnegs(FloatRegister rd, FloatRegister rs);
+  inline void fnegd(FloatRegister rd, FloatRegister rs);
+
+  inline void bgt(Register s, Register t, Label& L);          // Branch if >
+  inline void ble(Register s, Register t, Label& L);          // Branch if <=
+  inline void bgtu(Register s, Register t, Label& L);         // Branch if >, unsigned
+  inline void bleu(Register s, Register t, Label& L);         // Branch if <=, unsigned
+
   inline void j(int off);
+  inline void j(Label& L);
   inline void jal(int off);
   inline void jr(Register s);
   inline void jalr(Register s);
   inline void ret();
   inline void call(int off);
   inline void tail(int off);
-  inline void neg(Register d, Register s);
-  inline void mv(Register d, Register s);
 
 private:
-  bool li_32_RV(Register d, long long imm);
+  bool li_32(Register d, long imm);
+
 public:
-  void li_RV(Register d, long long imm);
 
   // --- PPC instructions follow ---
 

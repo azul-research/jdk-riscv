@@ -340,7 +340,7 @@ void NativeJump::patch_verified_entry(address entry, address verified_entry, add
       a->trap_zombie_not_entrant();
     } else {
       // We use an illtrap for marking a method as not_entrant or zombie.
-      a->illtrap_PPC();
+      a->illtrap();
     }
   }
   ICache::riscv64_flush_icache_bytes(verified_entry, code_size);
