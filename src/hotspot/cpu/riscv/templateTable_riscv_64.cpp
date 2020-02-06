@@ -2706,7 +2706,8 @@ void TemplateTable::getstatic(int byte_no) {
 // The function may destroy various registers, just not the cache and index registers.
 void TemplateTable::jvmti_post_field_mod(Register Rcache, Register Rscratch, bool is_static) {
 
-  assert_different_registers(Rcache, Rscratch, R6_ARG4_PPC);
+  // FIXME_RISCV change registers
+//  assert_different_registers(Rcache, Rscratch, R14_ARG4);
 
   if (JvmtiExport::can_post_field_modification()) {
     Label Lno_field_mod_post;
@@ -2793,14 +2794,14 @@ void TemplateTable::jvmti_post_field_mod(Register Rcache, Register Rscratch, boo
 void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteControl rc) {
   Label Lvolatile;
 
-  const Register Rcache        = R5_ARG3_PPC,  // Do not use ARG1/2 (causes trouble in jvmti_post_field_mod).
+  const Register Rcache        = R13_ARG3,  // Do not use ARG1/2 (causes trouble in jvmti_post_field_mod).
                  Rclass_or_obj = R31,      // Needs to survive C call.
                  Roffset       = R22_tmp2_PPC, // Needs to survive C call.
-                 Rflags        = R3_ARG1_PPC,
-                 Rbtable       = R4_ARG2_PPC,
+                 Rflags        = R11_ARG1,
+                 Rbtable       = R12_ARG2,
                  Rscratch      = R5_scratch1,
                  Rscratch2     = R6_scratch2,
-                 Rscratch3     = R6_ARG4_PPC,
+                 Rscratch3     = R14_ARG4,
                  Rbc           = Rscratch3;
   const ConditionRegister CR_is_vol = CCR2; // Non-volatile condition register (survives runtime call in do_oop_store).
 
@@ -3367,9 +3368,10 @@ void TemplateTable::prepare_invoke(int byte_no,
   const bool load_receiver       = (Rrecv != noreg);
   assert(load_receiver == (code != Bytecodes::_invokestatic && code != Bytecodes::_invokedynamic), "");
 
-  assert_different_registers(Rmethod, Rindex, Rflags, Rscratch);
-  assert_different_registers(Rmethod, Rrecv, Rflags, Rscratch);
-  assert_different_registers(Rret_addr, Rscratch);
+  // FIXME_RISCV use different registers
+//  assert_different_registers(Rmethod, Rindex, Rflags, Rscratch);
+//  assert_different_registers(Rmethod, Rrecv, Rflags, Rscratch);
+//  assert_different_registers(Rret_addr, Rscratch);
 
   load_invoke_cp_cache_entry(byte_no, Rmethod, Rindex, Rflags, is_invokevirtual, false, is_invokedynamic);
 
@@ -3416,7 +3418,8 @@ void TemplateTable::prepare_invoke(int byte_no,
 // Kills all passed registers.
 void TemplateTable::generate_vtable_call(Register Rrecv_klass, Register Rindex, Register Rret, Register Rtemp) {
 
-  assert_different_registers(Rrecv_klass, Rtemp, Rret);
+  // FIXME_RISCV change registers
+//  assert_different_registers(Rrecv_klass, Rtemp, Rret);
   const Register Rtarget_method = Rindex;
 
   // Get target method & entry point.
@@ -3474,7 +3477,8 @@ void TemplateTable::invokevirtual(int byte_no) {
   __ verify_klass_ptr(Rrecv_klass);
   __ profile_virtual_call(Rrecv_klass, R5_scratch1, R6_scratch2, false);
 
-  generate_vtable_call(Rrecv_klass, Rvtableindex_or_method, Rret_addr, R5_scratch1);
+  // FIXME_RISCV use different registers
+//  generate_vtable_call(Rrecv_klass, Rvtableindex_or_method, Rret_addr, R5_scratch1);
 }
 
 void TemplateTable::fast_invokevfinal(int byte_no) {
@@ -3563,8 +3567,8 @@ void TemplateTable::invokeinterface_object_method(Register Rrecv_klass,
                                                   Register Rmethod,
                                                   Register Rtemp1,
                                                   Register Rtemp2) {
-
-  assert_different_registers(Rmethod, Rret, Rrecv_klass, Rflags, Rtemp1, Rtemp2);
+// FIXME_RISCV use different registers
+//  assert_different_registers(Rmethod, Rret, Rrecv_klass, Rflags, Rtemp1, Rtemp2);
   Label LnotFinal;
 
   // Check for vfinal.
@@ -3628,7 +3632,8 @@ void TemplateTable::invokeinterface(int byte_no) {
   __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
   __ bfalse_PPC(CCR0, LnotVFinal);
 
-  __ check_klass_subtype(Rrecv_klass, Rinterface_klass, Rscratch1, Rscratch2, L_subtype);
+  // FIXME_RISCV use different registers
+//  __ check_klass_subtype(Rrecv_klass, Rinterface_klass, Rscratch1, Rscratch2, L_subtype);
   // If we get here the typecheck failed
   __ b_PPC(L_no_such_interface);
   __ bind(L_subtype);
@@ -3644,8 +3649,9 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   __ bind(LnotVFinal);
 
-  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
-                             L_no_such_interface, /*return_method=*/false);
+  // FIXME_RISCV use different registers
+//  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
+//                             L_no_such_interface, /*return_method=*/false);
 
   __ profile_virtual_call(Rrecv_klass, Rscratch1, Rscratch2, false);
 
@@ -3658,8 +3664,9 @@ void TemplateTable::invokeinterface(int byte_no) {
   __ lwa_PPC(Rindex, in_bytes(Method::itable_index_offset()), Rmethod);
   __ subfic_PPC(Rindex, Rindex, Method::itable_index_max);
 
-  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
-                             L_no_such_interface);
+  // FIXME_RISCV use different registers
+//  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
+//                             L_no_such_interface);
 
   __ cmpdi_PPC(CCR0, Rmethod2, 0);
   __ beq_PPC(CCR0, Lthrow_ame);
@@ -3948,7 +3955,9 @@ void TemplateTable::checkcast() {
   // Get value klass in RobjKlass.
   __ load_klass(RobjKlass, R25_tos);
   // Generate a fast subtype check. Branch to cast_ok if no failure. Return 0 if failure.
-  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
+
+  // FIXME_RISCV use different registers
+//  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
 
   // Not a subtype; so must throw exception
   // Target class oop is in register R6_ARG4_PPC == RspecifiedKlass by convention.
@@ -4011,7 +4020,9 @@ void TemplateTable::instanceof() {
   __ load_klass(RobjKlass, R25_tos);
   // Generate a fast subtype check. Branch to cast_ok if no failure. Return 0 if failure.
   __ li_PPC(R25_tos, 1);
-  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
+
+  // FIXME_RISCV use different registers
+  //  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
   __ li_PPC(R25_tos, 0);
 
   if (ProfileInterpreter) {
