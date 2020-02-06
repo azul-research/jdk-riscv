@@ -962,9 +962,9 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
 // state_size: We save the current state of the interpreter to this area.
 //
 void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals) {
-  Register parent_frame_resize = R6_ARG4_PPC, // Frame will grow by this number of bytes.
-           top_frame_size      = R7_ARG5_PPC,
-           Rconst_method       = R8_ARG6_PPC;
+  Register parent_frame_resize = R14_ARG4, // Frame will grow by this number of bytes.
+           top_frame_size      = R15_ARG5,
+           Rconst_method       = R16_ARG6;
 
   assert_different_registers(Rsize_of_parameters, Rsize_of_locals, parent_frame_resize, top_frame_size);
 
