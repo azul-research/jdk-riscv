@@ -57,8 +57,8 @@ inline int MacroAssembler::get_ld_largeoffset_offset(address a) {
 
 inline void MacroAssembler::round_to(Register r, int modulus) {
   assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
-  addi_PPC(r, r, modulus-1);
-  clrrdi_PPC(r, r, log2_long((jlong)modulus));
+  addi(r, r, modulus-1);
+  andi(r, r, ~(modulus - 1));
 }
 
 // Move register if destination register and target register are different.

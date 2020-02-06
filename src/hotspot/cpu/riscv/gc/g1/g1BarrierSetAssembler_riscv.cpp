@@ -57,10 +57,10 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
 
     // Is marking active?
     if (in_bytes(SATBMarkQueue::byte_width_of_active()) == 4) {
-      __ lwz_PPC(R0, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R16_thread);
+      __ lwz_PPC(R0, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R24_thread);
     } else {
       guarantee(in_bytes(SATBMarkQueue::byte_width_of_active()) == 1, "Assumption");
-      __ lbz_PPC(R0, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R16_thread);
+      __ lbz_PPC(R0, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R24_thread);
     }
     __ cmpdi_PPC(CCR0, R0, 0);
     __ beq_PPC(CCR0, filtered);
@@ -68,11 +68,11 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
     __ save_LR_CR(R0);
     __ push_frame(frame_size, R0);
     int slot_nr = 0;
-    __ std_PPC(from,  frame_size - (++slot_nr) * wordSize, R1_SP);
-    __ std_PPC(to,    frame_size - (++slot_nr) * wordSize, R1_SP);
-    __ std_PPC(count, frame_size - (++slot_nr) * wordSize, R1_SP);
-    if (preserve1 != noreg) { __ std_PPC(preserve1, frame_size - (++slot_nr) * wordSize, R1_SP); }
-    if (preserve2 != noreg) { __ std_PPC(preserve2, frame_size - (++slot_nr) * wordSize, R1_SP); }
+    __ std_PPC(from,  frame_size - (++slot_nr) * wordSize, R1_SP_PPC);
+    __ std_PPC(to,    frame_size - (++slot_nr) * wordSize, R1_SP_PPC);
+    __ std_PPC(count, frame_size - (++slot_nr) * wordSize, R1_SP_PPC);
+    if (preserve1 != noreg) { __ std_PPC(preserve1, frame_size - (++slot_nr) * wordSize, R1_SP_PPC); }
+    if (preserve2 != noreg) { __ std_PPC(preserve2, frame_size - (++slot_nr) * wordSize, R1_SP_PPC); }
 
     if (UseCompressedOops) {
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_array_pre_narrow_oop_entry), to, count);
@@ -81,12 +81,12 @@ void G1BarrierSetAssembler::gen_write_ref_array_pre_barrier(MacroAssembler* masm
     }
 
     slot_nr = 0;
-    __ ld_PPC(from,  frame_size - (++slot_nr) * wordSize, R1_SP);
-    __ ld_PPC(to,    frame_size - (++slot_nr) * wordSize, R1_SP);
-    __ ld_PPC(count, frame_size - (++slot_nr) * wordSize, R1_SP);
-    if (preserve1 != noreg) { __ ld_PPC(preserve1, frame_size - (++slot_nr) * wordSize, R1_SP); }
-    if (preserve2 != noreg) { __ ld_PPC(preserve2, frame_size - (++slot_nr) * wordSize, R1_SP); }
-    __ addi_PPC(R1_SP, R1_SP, frame_size); // pop_frame()
+    __ ld_PPC(from,  frame_size - (++slot_nr) * wordSize, R1_SP_PPC);
+    __ ld_PPC(to,    frame_size - (++slot_nr) * wordSize, R1_SP_PPC);
+    __ ld_PPC(count, frame_size - (++slot_nr) * wordSize, R1_SP_PPC);
+    if (preserve1 != noreg) { __ ld_PPC(preserve1, frame_size - (++slot_nr) * wordSize, R1_SP_PPC); }
+    if (preserve2 != noreg) { __ ld_PPC(preserve2, frame_size - (++slot_nr) * wordSize, R1_SP_PPC); }
+    __ addi_PPC(R1_SP_PPC, R1_SP_PPC, frame_size); // pop_frame()
     __ restore_LR_CR(R0);
 
     __ bind(filtered);
@@ -100,10 +100,10 @@ void G1BarrierSetAssembler::gen_write_ref_array_post_barrier(MacroAssembler* mas
 
   __ save_LR_CR(R0);
   __ push_frame(frame_size, R0);
-  if (preserve != noreg) { __ std_PPC(preserve, frame_size - 1 * wordSize, R1_SP); }
+  if (preserve != noreg) { __ std_PPC(preserve, frame_size - 1 * wordSize, R1_SP_PPC); }
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_array_post_entry), addr, count);
-  if (preserve != noreg) { __ ld_PPC(preserve, frame_size - 1 * wordSize, R1_SP); }
-  __ addi_PPC(R1_SP, R1_SP, frame_size); // pop_frame();
+  if (preserve != noreg) { __ ld_PPC(preserve, frame_size - 1 * wordSize, R1_SP_PPC); }
+  __ addi_PPC(R1_SP_PPC, R1_SP_PPC, frame_size); // pop_frame();
   __ restore_LR_CR(R0);
 }
 
@@ -128,10 +128,10 @@ void G1BarrierSetAssembler::g1_write_barrier_pre(MacroAssembler* masm, Decorator
 
   // Is marking active?
   if (in_bytes(SATBMarkQueue::byte_width_of_active()) == 4) {
-    __ lwz_PPC(tmp1, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R16_thread);
+    __ lwz_PPC(tmp1, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R24_thread);
   } else {
     guarantee(in_bytes(SATBMarkQueue::byte_width_of_active()) == 1, "Assumption");
-    __ lbz_PPC(tmp1, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R16_thread);
+    __ lbz_PPC(tmp1, in_bytes(G1ThreadLocalData::satb_mark_queue_active_offset()), R24_thread);
   }
   __ cmpdi_PPC(CCR0, tmp1, 0);
   __ beq_PPC(CCR0, filtered);
@@ -173,13 +173,13 @@ void G1BarrierSetAssembler::g1_write_barrier_pre(MacroAssembler* masm, Decorator
   // (The index field is typed as size_t.)
   const Register Rbuffer = tmp1, Rindex = tmp2;
 
-  __ ld_PPC(Rindex, in_bytes(G1ThreadLocalData::satb_mark_queue_index_offset()), R16_thread);
+  __ ld_PPC(Rindex, in_bytes(G1ThreadLocalData::satb_mark_queue_index_offset()), R24_thread);
   __ cmpdi_PPC(CCR0, Rindex, 0);
   __ beq_PPC(CCR0, runtime); // If index == 0, goto runtime.
-  __ ld_PPC(Rbuffer, in_bytes(G1ThreadLocalData::satb_mark_queue_buffer_offset()), R16_thread);
+  __ ld_PPC(Rbuffer, in_bytes(G1ThreadLocalData::satb_mark_queue_buffer_offset()), R24_thread);
 
   __ addi_PPC(Rindex, Rindex, -wordSize); // Decrement index.
-  __ std_PPC(Rindex, in_bytes(G1ThreadLocalData::satb_mark_queue_index_offset()), R16_thread);
+  __ std_PPC(Rindex, in_bytes(G1ThreadLocalData::satb_mark_queue_index_offset()), R24_thread);
 
   // Record the previous value.
   __ stdx_PPC(pre_val, Rbuffer, Rindex);
@@ -194,7 +194,7 @@ void G1BarrierSetAssembler::g1_write_barrier_pre(MacroAssembler* masm, Decorator
   }
 
   if (pre_val->is_volatile() && preloaded) { __ mr_PPC(nv_save, pre_val); } // Save pre_val across C call if it was preloaded.
-  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_field_pre_entry), pre_val, R16_thread);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_field_pre_entry), pre_val, R24_thread);
   if (pre_val->is_volatile() && preloaded) { __ mr_PPC(pre_val, nv_save); } // restore
 
   if (needs_frame) {
@@ -258,13 +258,13 @@ void G1BarrierSetAssembler::g1_write_barrier_post(MacroAssembler* masm, Decorato
 
   const Register Rqueue_index = tmp2,
                  Rqueue_buf   = tmp3;
-  __ ld_PPC(Rqueue_index, in_bytes(G1ThreadLocalData::dirty_card_queue_index_offset()), R16_thread);
+  __ ld_PPC(Rqueue_index, in_bytes(G1ThreadLocalData::dirty_card_queue_index_offset()), R24_thread);
   __ cmpdi_PPC(CCR0, Rqueue_index, 0);
   __ beq_PPC(CCR0, runtime); // index == 0 then jump to runtime
-  __ ld_PPC(Rqueue_buf, in_bytes(G1ThreadLocalData::dirty_card_queue_buffer_offset()), R16_thread);
+  __ ld_PPC(Rqueue_buf, in_bytes(G1ThreadLocalData::dirty_card_queue_buffer_offset()), R24_thread);
 
   __ addi_PPC(Rqueue_index, Rqueue_index, -wordSize); // decrement index
-  __ std_PPC(Rqueue_index, in_bytes(G1ThreadLocalData::dirty_card_queue_index_offset()), R16_thread);
+  __ std_PPC(Rqueue_index, in_bytes(G1ThreadLocalData::dirty_card_queue_index_offset()), R24_thread);
 
   __ stdx_PPC(Rcard_addr, Rqueue_buf, Rqueue_index); // store card
   __ b_PPC(filtered);
@@ -272,7 +272,7 @@ void G1BarrierSetAssembler::g1_write_barrier_post(MacroAssembler* masm, Decorato
   __ bind(runtime);
 
   // Save the live input values.
-  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_field_post_entry), Rcard_addr, R16_thread);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_field_post_entry), Rcard_addr, R24_thread);
 
   __ bind(filtered);
 }
@@ -370,8 +370,8 @@ void G1BarrierSetAssembler::gen_pre_barrier_stub(LIR_Assembler* ce, G1PreBarrier
 
   address c_code = bs->pre_barrier_c1_runtime_code_blob()->code_begin();
   //__ load_const_optimized(R0, c_code);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(c_code));
-  __ std_PPC(pre_val_reg, -8, R1_SP); // Pass pre_val on stack.
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(c_code));
+  __ std_PPC(pre_val_reg, -8, R1_SP_PPC); // Pass pre_val on stack.
   __ mtctr_PPC(R0);
   __ bctrl_PPC();
   __ b_PPC(*stub->continuation());
@@ -391,7 +391,7 @@ void G1BarrierSetAssembler::gen_post_barrier_stub(LIR_Assembler* ce, G1PostBarri
 
   address c_code = bs->post_barrier_c1_runtime_code_blob()->code_begin();
   //__ load_const_optimized(R0, c_code);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(c_code));
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(c_code));
   __ mtctr_PPC(R0);
   __ mr_PPC(R0, addr_reg); // Pass addr in R0.
   __ bctrl_PPC();
@@ -418,15 +418,15 @@ void G1BarrierSetAssembler::generate_c1_pre_barrier_runtime_stub(StubAssembler* 
   int satb_q_buf_byte_offset = in_bytes(G1ThreadLocalData::satb_mark_queue_buffer_offset());
 
   // Spill
-  __ std_PPC(tmp, -16, R1_SP);
-  __ std_PPC(tmp2, -24, R1_SP);
+  __ std_PPC(tmp, -16, R1_SP_PPC);
+  __ std_PPC(tmp2, -24, R1_SP_PPC);
 
   // Is marking still active?
   if (in_bytes(SATBMarkQueue::byte_width_of_active()) == 4) {
-    __ lwz_PPC(tmp, satb_q_active_byte_offset, R16_thread);
+    __ lwz_PPC(tmp, satb_q_active_byte_offset, R24_thread);
   } else {
     assert(in_bytes(SATBMarkQueue::byte_width_of_active()) == 1, "Assumption");
-    __ lbz_PPC(tmp, satb_q_active_byte_offset, R16_thread);
+    __ lbz_PPC(tmp, satb_q_active_byte_offset, R24_thread);
   }
   __ cmpdi_PPC(CCR0, tmp, 0);
   __ beq_PPC(CCR0, marking_not_active);
@@ -434,36 +434,36 @@ void G1BarrierSetAssembler::generate_c1_pre_barrier_runtime_stub(StubAssembler* 
   __ bind(restart);
   // Load the index into the SATB buffer. SATBMarkQueue::_index is a
   // size_t so ld_ptr is appropriate.
-  __ ld_PPC(tmp, satb_q_index_byte_offset, R16_thread);
+  __ ld_PPC(tmp, satb_q_index_byte_offset, R24_thread);
 
   // index == 0?
   __ cmpdi_PPC(CCR0, tmp, 0);
   __ beq_PPC(CCR0, refill);
 
-  __ ld_PPC(tmp2, satb_q_buf_byte_offset, R16_thread);
-  __ ld_PPC(pre_val, -8, R1_SP); // Load from stack.
+  __ ld_PPC(tmp2, satb_q_buf_byte_offset, R24_thread);
+  __ ld_PPC(pre_val, -8, R1_SP_PPC); // Load from stack.
   __ addi_PPC(tmp, tmp, -oopSize);
 
-  __ std_PPC(tmp, satb_q_index_byte_offset, R16_thread);
+  __ std_PPC(tmp, satb_q_index_byte_offset, R24_thread);
   __ stdx_PPC(pre_val, tmp2, tmp); // [_buf + index] := <address_of_card>
 
   __ bind(marking_not_active);
   // Restore temp registers and return-from-leaf.
-  __ ld_PPC(tmp2, -24, R1_SP);
-  __ ld_PPC(tmp, -16, R1_SP);
+  __ ld_PPC(tmp2, -24, R1_SP_PPC);
+  __ ld_PPC(tmp, -16, R1_SP_PPC);
   __ blr_PPC();
 
   __ bind(refill);
   const int nbytes_save = (MacroAssembler::num_volatile_regs + stack_slots) * BytesPerWord;
-  __ save_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  __ save_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   __ mflr_PPC(R0);
-  __ std_PPC(R0, _abi(lr), R1_SP);
+  __ std_PPC(R0, _abi(lr), R1_SP_PPC);
   __ push_frame_reg_args(nbytes_save, R0); // dummy frame for C call
-  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1SATBMarkQueueSet::handle_zero_index_for_thread), R16_thread);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1SATBMarkQueueSet::handle_zero_index_for_thread), R24_thread);
   __ pop_frame();
-  __ ld_PPC(R0, _abi(lr), R1_SP);
+  __ ld_PPC(R0, _abi(lr), R1_SP_PPC);
   __ mtlr_PPC(R0);
-  __ restore_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  __ restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   __ b_PPC(restart);
 }
 
@@ -482,8 +482,8 @@ void G1BarrierSetAssembler::generate_c1_post_barrier_runtime_stub(StubAssembler*
   Label restart, refill, ret;
 
   // Spill
-  __ std_PPC(addr, -8, R1_SP);
-  __ std_PPC(tmp2, -16, R1_SP);
+  __ std_PPC(addr, -8, R1_SP_PPC);
+  __ std_PPC(tmp2, -16, R1_SP_PPC);
 
   __ srdi_PPC(addr, R0, CardTable::card_shift); // Addr is passed in R0.
   __ load_const_optimized(/*cardtable*/ tmp2, byte_map_base, tmp);
@@ -514,36 +514,36 @@ void G1BarrierSetAssembler::generate_c1_post_barrier_runtime_stub(StubAssembler*
 
   // Get the index into the update buffer. G1DirtyCardQueue::_index is
   // a size_t so ld_ptr is appropriate here.
-  __ ld_PPC(tmp2, dirty_card_q_index_byte_offset, R16_thread);
+  __ ld_PPC(tmp2, dirty_card_q_index_byte_offset, R24_thread);
 
   // index == 0?
   __ cmpdi_PPC(CCR0, tmp2, 0);
   __ beq_PPC(CCR0, refill);
 
-  __ ld_PPC(tmp, dirty_card_q_buf_byte_offset, R16_thread);
+  __ ld_PPC(tmp, dirty_card_q_buf_byte_offset, R24_thread);
   __ addi_PPC(tmp2, tmp2, -oopSize);
 
-  __ std_PPC(tmp2, dirty_card_q_index_byte_offset, R16_thread);
+  __ std_PPC(tmp2, dirty_card_q_index_byte_offset, R24_thread);
   __ add_PPC(tmp2, tmp, tmp2);
   __ std_PPC(addr, 0, tmp2); // [_buf + index] := <address_of_card>
 
   // Restore temp registers and return-from-leaf.
   __ bind(ret);
-  __ ld_PPC(tmp2, -16, R1_SP);
-  __ ld_PPC(addr, -8, R1_SP);
+  __ ld_PPC(tmp2, -16, R1_SP_PPC);
+  __ ld_PPC(addr, -8, R1_SP_PPC);
   __ blr_PPC();
 
   __ bind(refill);
   const int nbytes_save = (MacroAssembler::num_volatile_regs + stack_slots) * BytesPerWord;
-  __ save_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  __ save_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   __ mflr_PPC(R0);
-  __ std_PPC(R0, _abi(lr), R1_SP);
+  __ std_PPC(R0, _abi(lr), R1_SP_PPC);
   __ push_frame_reg_args(nbytes_save, R0); // dummy frame for C call
-  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1DirtyCardQueueSet::handle_zero_index_for_thread), R16_thread);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, G1DirtyCardQueueSet::handle_zero_index_for_thread), R24_thread);
   __ pop_frame();
-  __ ld_PPC(R0, _abi(lr), R1_SP);
+  __ ld_PPC(R0, _abi(lr), R1_SP_PPC);
   __ mtlr_PPC(R0);
-  __ restore_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  __ restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   __ b_PPC(restart);
 }
 

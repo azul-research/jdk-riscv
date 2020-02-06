@@ -90,16 +90,16 @@ class StubGenerator: public StubCodeGenerator {
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
 
-    Register r_arg_call_wrapper_addr        = R10_ARG0_RV;
-    Register r_arg_result_addr              = R11_ARG1_RV;
-    Register r_arg_result_type              = R12_ARG2_RV;
-    Register r_arg_method                   = R13_ARG3_RV;
-    Register r_arg_entry                    = R14_ARG4_RV;
-    Register r_arg_thread                   = R17_ARG7_RV;
+    Register r_arg_call_wrapper_addr        = R10_ARG0;
+    Register r_arg_result_addr              = R11_ARG1;
+    Register r_arg_result_type              = R12_ARG2;
+    Register r_arg_method                   = R13_ARG3;
+    Register r_arg_entry                    = R14_ARG4;
+    Register r_arg_thread                   = R17_ARG7;
 
-    Register r_temp                         = R5_TMP0_RV;
-    Register r_top_of_arguments_addr        = R6_TMP1_RV;
-    Register r_entryframe_fp                = R8_FP_RV;
+    Register r_temp                         = R5_TMP0;
+    Register r_top_of_arguments_addr        = R6_TMP1;
+    Register r_entryframe_fp                = R8_FP;
 
     {
       // Stack on entry to call_stub:
@@ -107,24 +107,24 @@ class StubGenerator: public StubCodeGenerator {
       //      F1      [C_FRAME]
       //              ...
 
-      Register r_arg_argument_addr          = R15_ARG5_RV;
-      Register r_arg_argument_count         = R16_ARG6_RV;
-      Register r_frame_alignment_in_bytes   = R28_TMP3_RV;
-      Register r_argument_addr              = R29_TMP4_RV;
-      Register r_argumentcopy_addr          = R30_TMP5_RV;
-      Register r_argument_size_in_bytes     = R31_TMP6_RV;
-      Register r_frame_size                 = R9_S1_RV;
+      Register r_arg_argument_addr          = R15_ARG5;
+      Register r_arg_argument_count         = R16_ARG6;
+      Register r_frame_alignment_in_bytes   = R28_TMP3;
+      Register r_argument_addr              = R29_TMP4;
+      Register r_argumentcopy_addr          = R30_TMP5;
+      Register r_argument_size_in_bytes     = R31_TMP6;
+      Register r_frame_size                 = R9_S1;
 
       Label arguments_copied;
 
       // Save fp and ra to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_fp_ra(R2_SP_RV, _fp_ra_offset_neg);
+      __ save_fp_ra(R2_SP, _fp_ra_offset_neg);
 
       // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_nonvolatile_gprs(R2_SP_RV, _spill_nonvolatiles_offset_neg);
+      __ save_nonvolatile_gprs(R2_SP, _spill_nonvolatiles_offset_neg);
 
       // Keep copy of our frame pointer (caller's SP).
-      __ mv(r_entryframe_fp, R2_SP_RV);
+      __ mv(r_entryframe_fp, R2_SP);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
       // Push ENTRY_FRAME including arguments:
@@ -175,9 +175,9 @@ class StubGenerator: public StubCodeGenerator {
       BLOCK_COMMENT("Copy Java arguments");
       // copy Java arguments
 
-      // Calculate top_of_arguments_addr which will be R17_tos (not prepushed) later.
+      // Calculate top_of_arguments_addr which will be R25_tos (not prepushed) later.
       __ add(r_top_of_arguments_addr,
-             R2_SP_RV, r_frame_alignment_in_bytes);
+             R2_SP, r_frame_alignment_in_bytes);
 
       // any arguments to copy?
       __ beqz (r_arg_argument_count, arguments_copied);
@@ -218,7 +218,7 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R9_S1_RV;
+      Register r_new_arg_entry = R9_S1;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
@@ -227,11 +227,11 @@ class StubGenerator: public StubCodeGenerator {
       // Register state on entry to frame manager / native entry:
       //
       //   tos         -  intptr_t*    sender tos (prepushed) Lesp = (SP) + copied_arguments_offset - 8
-      //   R19_method  -  Method
-      //   R16_thread  -  JavaThread*
+      //   R27_method  -  Method
+      //   R24_thread  -  JavaThread*
 
       // Tos must point to last argument - element_size.
-      const Register tos = R23_esp_RV;
+      const Register tos = R23_esp;
 
       __ addi(tos, r_top_of_arguments_addr, -Interpreter::stackElementSize);
 
@@ -240,13 +240,13 @@ class StubGenerator: public StubCodeGenerator {
       __ sd(tos, r_entryframe_fp, _top_ijava_frame_abi(arguments_tos_address));
 
       // load argument registers for call
-      __ mv(R27_method_RV, r_arg_method);
-      __ mv(R24_thread_RV, r_arg_thread);
+      __ mv(R27_method, r_arg_method);
+      __ mv(R24_thread, r_arg_thread);
       assert(tos != r_arg_method, "trashed r_arg_method");
-      assert(tos != r_arg_thread && R27_method_RV != r_arg_thread, "trashed r_arg_thread");
+      assert(tos != r_arg_thread && R27_method != r_arg_thread, "trashed r_arg_thread");
 
       // Set R15_prev_state to 0 for simplifying checks in callee.
-      __ li_RV(R19_templateTableBase_RV, (long)(unsigned long)Interpreter::dispatch_table((TosState)0));
+      __ li(R19_templateTableBase, Interpreter::dispatch_table((TosState)0));
       // Stack on entry to frame manager / native entry:
       //
       //      F0      [TOP_IJAVA_FRAME_ABI]
@@ -258,17 +258,17 @@ class StubGenerator: public StubCodeGenerator {
       //
 
       // global toc register
-      __ li_RV(R20_TOC_RV, (long)(unsigned long)MacroAssembler::global_toc());
+      __ li(R20_TOC, MacroAssembler::global_toc());
       // Remember the senderSP so we interpreter can pop c2i arguments off of the stack
       // when called via a c2i.
 
       // Pass initial_caller_sp to framemanager.
-      __ mv(R21_sender_SP_RV, R2_SP_RV);
+      __ mv(R21_sender_SP, R2_SP);
 
       // Do a light-weight C-call here, r_new_arg_entry holds the address
       // of the interpreter entry point (frame manager or native entry)
       // and save runtime-value of LR in return_address.
-      assert(r_new_arg_entry != tos && r_new_arg_entry != R27_method_RV && r_new_arg_entry != R24_thread_RV,
+      assert(r_new_arg_entry != tos && r_new_arg_entry != R27_method && r_new_arg_entry != R24_thread,
              "trashed r_new_arg_entry");
       return_address = __ call_stub(r_new_arg_entry); //TODO call_stub
     }
@@ -299,8 +299,8 @@ class StubGenerator: public StubCodeGenerator {
       // to frame manager / native entry.
       // Access all locals via frame pointer, because we know nothing about
       // the topmost frame's size.
-      __ ld_PPC(r_entryframe_fp, _abi(callers_sp), R1_SP);
-      assert_different_registers(r_entryframe_fp, R3_RET, r_arg_result_addr, r_arg_result_type, r_cr, r_lr);
+      __ ld_PPC(r_entryframe_fp, _abi(callers_sp), R1_SP_PPC);
+      assert_different_registers(r_entryframe_fp, R3_RET_PPC, r_arg_result_addr, r_arg_result_type, r_cr, r_lr);
       __ ld_PPC(r_arg_result_addr,
             _entry_frame_locals_neg(result_address), r_entryframe_fp);
       __ ld_PPC(r_arg_result_type,
@@ -309,7 +309,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ld_PPC(r_lr, _abi(lr), r_entryframe_fp);
 
       // pop frame and restore non-volatiles, LR and CR
-      __ mr_PPC(R1_SP, r_entryframe_fp);
+      __ mr_PPC(R1_SP_PPC, r_entryframe_fp);
       __ mtcr_PPC(r_cr);
       __ mtlr_PPC(r_lr);
 
@@ -321,7 +321,7 @@ class StubGenerator: public StubCodeGenerator {
       __ cmpwi_PPC(CCR6, r_arg_result_type, T_DOUBLE);
 
       // restore non-volatile registers
-      __ restore_nonvolatile_gprs(R1_SP, spill_nonvolatiles_offset);
+      __ restore_nonvolatile_gprs(R1_SP_PPC, spill_nonvolatiles_offset);
 
 
       // Stack on exit from call_stub:
@@ -332,7 +332,7 @@ class StubGenerator: public StubCodeGenerator {
       //  no call_stub frames left.
 
       // All non-volatiles have been restored at this point!!
-      assert(R3_RET == R3, "R3_RET should be R3");
+      assert(R3_RET_PPC == R3, "R3_RET_PPC should be R3");
 
       __ beq_PPC(CCR0, ret_is_object);
       __ beq_PPC(CCR1, ret_is_long);
@@ -340,27 +340,27 @@ class StubGenerator: public StubCodeGenerator {
       __ beq_PPC(CCR6, ret_is_double);
 
       // default:
-      __ stw_PPC(R3_RET, 0, r_arg_result_addr);
+      __ stw_PPC(R3_RET_PPC, 0, r_arg_result_addr);
       __ blr_PPC(); // return to caller
 
       // case T_OBJECT:
       __ bind(ret_is_object);
-      __ std_PPC(R3_RET, 0, r_arg_result_addr);
+      __ std_PPC(R3_RET_PPC, 0, r_arg_result_addr);
       __ blr_PPC(); // return to caller
 
       // case T_LONG:
       __ bind(ret_is_long);
-      __ std_PPC(R3_RET, 0, r_arg_result_addr);
+      __ std_PPC(R3_RET_PPC, 0, r_arg_result_addr);
       __ blr_PPC(); // return to caller
 
       // case T_FLOAT:
       __ bind(ret_is_float);
-      __ stfs_PPC(F1_RET, 0, r_arg_result_addr);
+      __ stfs_PPC(F1_RET_PPC, 0, r_arg_result_addr);
       __ blr_PPC(); // return to caller
 
       // case T_DOUBLE:
       __ bind(ret_is_double);
-      __ stfd_PPC(F1_RET, 0, r_arg_result_addr);
+      __ stfd_PPC(F1_RET_PPC, 0, r_arg_result_addr);
       __ blr_PPC(); // return to caller
     }
 #endif
@@ -380,26 +380,26 @@ class StubGenerator: public StubCodeGenerator {
 
     // Registers alive
     //
-    //  R16_thread
-    //  R3_ARG1 - address of pending exception
-    //  R4_ARG2 - return address in call stub
+    //  R24_thread
+    //  R3_ARG1_PPC - address of pending exception
+    //  R4_ARG2_PPC - return address in call stub
 
-    const Register exception_file = R21_tmp1;
-    const Register exception_line = R22_tmp2;
+    const Register exception_file = R21_tmp1_PPC;
+    const Register exception_line = R22_tmp2_PPC;
 
     __ load_const_PPC(exception_file, (void*)__FILE__);
     __ load_const_PPC(exception_line, (void*)__LINE__);
 
-    __ std_PPC(R3_ARG1, in_bytes(JavaThread::pending_exception_offset()), R16_thread);
+    __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
     // store into `char *'
-    __ std_PPC(exception_file, in_bytes(JavaThread::exception_file_offset()), R16_thread);
+    __ std_PPC(exception_file, in_bytes(JavaThread::exception_file_offset()), R24_thread);
     // store into `int'
-    __ stw_PPC(exception_line, in_bytes(JavaThread::exception_line_offset()), R16_thread);
+    __ stw_PPC(exception_line, in_bytes(JavaThread::exception_line_offset()), R24_thread);
 
     // complete return to VM
     assert(StubRoutines::_call_stub_return_address != NULL, "must have been generated before");
 
-    __ mtlr_PPC(R4_ARG2);
+    __ mtlr_PPC(R4_ARG2_PPC);
     // continue in call stub
     __ blr_PPC();
 
@@ -424,7 +424,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   // Update:
   //
-  //   R4_ARG2: exception
+  //   R4_ARG2_PPC: exception
   //
   // (LR is unchanged and is live out).
   //
@@ -437,52 +437,52 @@ class StubGenerator: public StubCodeGenerator {
 #if !defined(PRODUCT)
     if (VerifyOops) {
       // Get pending exception oop.
-      __ ld_PPC(R3_ARG1,
+      __ ld_PPC(R3_ARG1_PPC,
                 in_bytes(Thread::pending_exception_offset()),
-                R16_thread);
+                R24_thread);
       // Make sure that this code is only executed if there is a pending exception.
       {
         Label L;
-        __ cmpdi_PPC(CCR0, R3_ARG1, 0);
+        __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
         __ bne_PPC(CCR0, L);
         __ stop("StubRoutines::forward exception: no pending exception (1)");
         __ bind(L);
       }
-      __ verify_oop(R3_ARG1, "StubRoutines::forward exception: not an oop");
+      __ verify_oop(R3_ARG1_PPC, "StubRoutines::forward exception: not an oop");
     }
 #endif
 
-    // Save LR/CR and copy exception pc (LR) into R4_ARG2.
-    __ save_LR_CR(R4_ARG2);
+    // Save LR/CR and copy exception pc (LR) into R4_ARG2_PPC.
+    __ save_LR_CR(R4_ARG2_PPC);
     __ push_frame_reg_args(0, R0);
     // Find exception handler.
     __ call_VM_leaf(CAST_FROM_FN_PTR(address,
                      SharedRuntime::exception_handler_for_return_address),
-                    R16_thread,
-                    R4_ARG2);
+                    R24_thread,
+                    R4_ARG2_PPC);
     // Copy handler's address.
-    __ mtctr_PPC(R3_RET);
+    __ mtctr_PPC(R3_RET_PPC);
     __ pop_frame();
     __ restore_LR_CR(R0);
 
     // Set up the arguments for the exception handler:
-    //  - R3_ARG1: exception oop
-    //  - R4_ARG2: exception pc.
+    //  - R3_ARG1_PPC: exception oop
+    //  - R4_ARG2_PPC: exception pc.
 
     // Load pending exception oop.
-    __ ld_PPC(R3_ARG1,
+    __ ld_PPC(R3_ARG1_PPC,
               in_bytes(Thread::pending_exception_offset()),
-              R16_thread);
+              R24_thread);
 
     // The exception pc is the return address in the caller.
-    // Must load it into R4_ARG2.
-    __ mflr_PPC(R4_ARG2);
+    // Must load it into R4_ARG2_PPC.
+    __ mflr_PPC(R4_ARG2_PPC);
 
 #ifdef ASSERT
     // Make sure exception is set.
     {
       Label L;
-      __ cmpdi_PPC(CCR0, R3_ARG1, 0);
+      __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
       __ bne_PPC(CCR0, L);
       __ stop("StubRoutines::forward exception: no pending exception (2)");
       __ bind(L);
@@ -493,7 +493,7 @@ class StubGenerator: public StubCodeGenerator {
     __ li_PPC(R0, 0);
     __ std_PPC(R0,
                in_bytes(Thread::pending_exception_offset()),
-               R16_thread);
+               R24_thread);
     // Jump to exception handler.
     __ bctr_PPC();
 
@@ -534,10 +534,10 @@ class StubGenerator: public StubCodeGenerator {
 
     address start = __ pc();
 
-    __ save_LR_CR(R11_scratch1);
+    __ save_LR_CR(R5_scratch1);
 
     // Push a frame.
-    __ push_frame_reg_args(0, R11_scratch1);
+    __ push_frame_reg_args(0, R5_scratch1);
 
     address frame_complete_pc = __ pc();
 
@@ -547,17 +547,17 @@ class StubGenerator: public StubCodeGenerator {
 
     // Note that we always have a runtime stub frame on the top of
     // stack by this point. Remember the offset of the instruction
-    // whose address will be moved to R11_scratch1.
-    address gc_map_pc = __ get_PC_trash_LR(R11_scratch1);
+    // whose address will be moved to R5_scratch1.
+    address gc_map_pc = __ get_PC_trash_LR(R5_scratch1);
 
-    __ set_last_Java_frame(/*sp*/R1_SP, /*pc*/R11_scratch1);
+    __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R5_scratch1);
 
-    __ mr_PPC(R3_ARG1, R16_thread);
+    __ mr_PPC(R3_ARG1_PPC, R24_thread);
     if (arg1 != noreg) {
-      __ mr_PPC(R4_ARG2, arg1);
+      __ mr_PPC(R4_ARG2_PPC, arg1);
     }
     if (arg2 != noreg) {
-      __ mr_PPC(R5_ARG3, arg2);
+      __ mr_PPC(R5_ARG3_PPC, arg2);
     }
 #if defined(ABI_ELFv2)
     __ call_c(runtime_entry, relocInfo::none);
@@ -577,7 +577,7 @@ class StubGenerator: public StubCodeGenerator {
       Label L;
       __ ld_PPC(R0,
                 in_bytes(Thread::pending_exception_offset()),
-                R16_thread);
+                R24_thread);
       __ cmpdi_PPC(CCR0, R0, 0);
       __ bne_PPC(CCR0, L);
       __ stop("StubRoutines::throw_exception: no pending exception");
@@ -588,10 +588,10 @@ class StubGenerator: public StubCodeGenerator {
     // Pop frame.
     __ pop_frame();
 
-    __ restore_LR_CR(R11_scratch1);
+    __ restore_LR_CR(R5_scratch1);
 
-    __ load_const_PPC(R11_scratch1, StubRoutines::forward_exception_entry());
-    __ mtctr_PPC(R11_scratch1);
+    __ load_const_PPC(R5_scratch1, StubRoutines::forward_exception_entry());
+    __ mtctr_PPC(R5_scratch1);
     __ bctr_PPC();
 
     // Create runtime stub with OopMap.
@@ -621,11 +621,11 @@ class StubGenerator: public StubCodeGenerator {
     // Implemented as in ClearArray.
     address start = __ pc();
 
-    Register base_ptr_reg   = R3_ARG1; // tohw (needs to be 8b aligned)
-    Register cnt_dwords_reg = R4_ARG2; // count (in dwords)
-    Register tmp1_reg       = R5_ARG3;
-    Register tmp2_reg       = R6_ARG4;
-    Register zero_reg       = R7_ARG5;
+    Register base_ptr_reg   = R3_ARG1_PPC; // tohw (needs to be 8b aligned)
+    Register cnt_dwords_reg = R4_ARG2_PPC; // count (in dwords)
+    Register tmp1_reg       = R5_ARG3_PPC;
+    Register tmp2_reg       = R6_ARG4_PPC;
+    Register zero_reg       = R7_ARG5_PPC;
 
     // Procedure for large arrays (uses data cache block zero instruction).
     Label dwloop, fast, fastloop, restloop, lastdword, done;
@@ -733,18 +733,18 @@ class StubGenerator: public StubCodeGenerator {
   // "to" address is assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //   to:    R3_ARG1
-  //   value: R4_ARG2
-  //   count: R5_ARG3 treated as signed
+  //   to:    R3_ARG1_PPC
+  //   value: R4_ARG2_PPC
+  //   count: R5_ARG3_PPC treated as signed
   //
   address generate_fill(BasicType t, bool aligned, const char* name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
 
-    const Register to    = R3_ARG1;   // source array address
-    const Register value = R4_ARG2;   // fill value
-    const Register count = R5_ARG3;   // elements count
-    const Register temp  = R6_ARG4;   // temp register
+    const Register to    = R3_ARG1_PPC;   // source array address
+    const Register value = R4_ARG2_PPC;   // fill value
+    const Register count = R5_ARG3_PPC;   // elements count
+    const Register temp  = R6_ARG4_PPC;   // temp register
 
     //assert_clean_int(count, O3);    // Make sure 'count' is clean int.
 
@@ -924,19 +924,19 @@ class StubGenerator: public StubCodeGenerator {
   // Generate overlap test for array copy stubs.
   //
   // Input:
-  //   R3_ARG1    -  from
-  //   R4_ARG2    -  to
-  //   R5_ARG3    -  element count
+  //   R3_ARG1_PPC    -  from
+  //   R4_ARG2_PPC    -  to
+  //   R5_ARG3_PPC    -  element count
   //
   void array_overlap_test(address no_overlap_target, int log2_elem_size) {
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
 
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
 
-    __ subf_PPC(tmp1, R3_ARG1, R4_ARG2); // distance in bytes
-    __ sldi_PPC(tmp2, R5_ARG3, log2_elem_size); // size in bytes
-    __ cmpld_PPC(CCR0, R3_ARG1, R4_ARG2); // Use unsigned comparison!
+    __ subf_PPC(tmp1, R3_ARG1_PPC, R4_ARG2_PPC); // distance in bytes
+    __ sldi_PPC(tmp2, R5_ARG3_PPC, log2_elem_size); // size in bytes
+    __ cmpld_PPC(CCR0, R3_ARG1_PPC, R4_ARG2_PPC); // Use unsigned comparison!
     __ cmpld_PPC(CCR1, tmp1, tmp2);
     __ crnand_PPC(CCR0, Assembler::less, CCR1, Assembler::less);
     // Overlaps if Src before dst and distance smaller than size.
@@ -965,19 +965,19 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_disjoint_byte_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
 
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
-    Register tmp4 = R9_ARG7;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
+    Register tmp4 = R9_ARG7_PPC;
 
     VectorSRegister tmp_vsr1  = VSR1;
     VectorSRegister tmp_vsr2  = VSR2;
@@ -986,55 +986,55 @@ class StubGenerator: public StubCodeGenerator {
 
     // Don't try anything fancy if arrays don't have many elements.
     __ li_PPC(tmp3, 0);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 17);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 17);
     __ ble_PPC(CCR0, l_6); // copy 4 at a time
 
     if (!aligned) {
-      __ xorr_PPC(tmp1, R3_ARG1, R4_ARG2);
+      __ xorr_PPC(tmp1, R3_ARG1_PPC, R4_ARG2_PPC);
       __ andi__PPC(tmp1, tmp1, 3);
       __ bne_PPC(CCR0, l_6); // If arrays don't have the same alignment mod 4, do 4 element copy.
 
       // Copy elements if necessary to align to 4 bytes.
-      __ neg_PPC(tmp1, R3_ARG1); // Compute distance to alignment boundary.
+      __ neg_PPC(tmp1, R3_ARG1_PPC); // Compute distance to alignment boundary.
       __ andi__PPC(tmp1, tmp1, 3);
       __ beq_PPC(CCR0, l_2);
 
-      __ subf_PPC(R5_ARG3, tmp1, R5_ARG3);
+      __ subf_PPC(R5_ARG3_PPC, tmp1, R5_ARG3_PPC);
       __ bind(l_9);
-      __ lbz_PPC(tmp2, 0, R3_ARG1);
+      __ lbz_PPC(tmp2, 0, R3_ARG1_PPC);
       __ addic__PPC(tmp1, tmp1, -1);
-      __ stb_PPC(tmp2, 0, R4_ARG2);
-      __ addi_PPC(R3_ARG1, R3_ARG1, 1);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 1);
+      __ stb_PPC(tmp2, 0, R4_ARG2_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 1);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 1);
       __ bne_PPC(CCR0, l_9);
 
       __ bind(l_2);
     }
 
     // copy 8 elements at a time
-    __ xorr_PPC(tmp2, R3_ARG1, R4_ARG2); // skip if src & dest have differing alignment mod 8
+    __ xorr_PPC(tmp2, R3_ARG1_PPC, R4_ARG2_PPC); // skip if src & dest have differing alignment mod 8
     __ andi__PPC(tmp1, tmp2, 7);
     __ bne_PPC(CCR0, l_7); // not same alignment -> to or from is aligned -> copy 8
 
     // copy a 2-element word if necessary to align to 8 bytes
-    __ andi__PPC(R0, R3_ARG1, 7);
+    __ andi__PPC(R0, R3_ARG1_PPC, 7);
     __ beq_PPC(CCR0, l_7);
 
-    __ lwzx_PPC(tmp2, R3_ARG1, tmp3);
-    __ addi_PPC(R5_ARG3, R5_ARG3, -4);
-    __ stwx_PPC(tmp2, R4_ARG2, tmp3);
+    __ lwzx_PPC(tmp2, R3_ARG1_PPC, tmp3);
+    __ addi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, -4);
+    __ stwx_PPC(tmp2, R4_ARG2_PPC, tmp3);
     { // FasterArrayCopy
-      __ addi_PPC(R3_ARG1, R3_ARG1, 4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 4);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 4);
     }
     __ bind(l_7);
 
     { // FasterArrayCopy
-      __ cmpwi_PPC(CCR0, R5_ARG3, 31);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 31);
       __ ble_PPC(CCR0, l_6); // copy 2 at a time if less than 32 elements remain
 
-      __ srdi_PPC(tmp1, R5_ARG3, 5);
-      __ andi__PPC(R5_ARG3, R5_ARG3, 31);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 5);
+      __ andi__PPC(R5_ARG3_PPC, R5_ARG3_PPC, 31);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -1043,22 +1043,22 @@ class StubGenerator: public StubCodeGenerator {
       // Use unrolled version for mass copying (copy 32 elements a time)
       // Load feeding store gets zero latency on Power6, however not on Power5.
       // Therefore, the following sequence is made for the good of both.
-      __ ld_PPC(tmp1, 0, R3_ARG1);
-      __ ld_PPC(tmp2, 8, R3_ARG1);
-      __ ld_PPC(tmp3, 16, R3_ARG1);
-      __ ld_PPC(tmp4, 24, R3_ARG1);
-      __ std_PPC(tmp1, 0, R4_ARG2);
-      __ std_PPC(tmp2, 8, R4_ARG2);
-      __ std_PPC(tmp3, 16, R4_ARG2);
-      __ std_PPC(tmp4, 24, R4_ARG2);
-      __ addi_PPC(R3_ARG1, R3_ARG1, 32);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 32);
+      __ ld_PPC(tmp1, 0, R3_ARG1_PPC);
+      __ ld_PPC(tmp2, 8, R3_ARG1_PPC);
+      __ ld_PPC(tmp3, 16, R3_ARG1_PPC);
+      __ ld_PPC(tmp4, 24, R3_ARG1_PPC);
+      __ std_PPC(tmp1, 0, R4_ARG2_PPC);
+      __ std_PPC(tmp2, 8, R4_ARG2_PPC);
+      __ std_PPC(tmp3, 16, R4_ARG2_PPC);
+      __ std_PPC(tmp4, 24, R4_ARG2_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);
       __ bdnz_PPC(l_8);
 
     } else { // Processor supports VSX, so use it to mass copy.
 
       // Prefetch the data into the L2 cache.
-      __ dcbt_PPC(R3_ARG1, 0);
+      __ dcbt_PPC(R3_ARG1_PPC, 0);
 
       // If supported set DSCR pre-fetch to deepest.
       if (VM_Version::has_mfdscr()) {
@@ -1076,12 +1076,12 @@ class StubGenerator: public StubCodeGenerator {
       __ bind(l_10);
       // Use loop with VSX load/store instructions to
       // copy 32 elements a time.
-      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1);        // Load src
-      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2);       // Store to dst
-      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1);  // Load src + 16
-      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2); // Store to dst + 16
-      __ addi_PPC(R3_ARG1, R3_ARG1, 32);       // Update src+=32
-      __ addi_PPC(R4_ARG2, R4_ARG2, 32);       // Update dsc+=32
+      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1_PPC);        // Load src
+      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2_PPC);       // Store to dst
+      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1_PPC);  // Load src + 16
+      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2_PPC); // Store to dst + 16
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);       // Update src+=32
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);       // Update dsc+=32
       __ bdnz_PPC(l_10);                       // Dec CTR and loop if not zero.
 
       // Restore DSCR pre-fetch value.
@@ -1096,41 +1096,41 @@ class StubGenerator: public StubCodeGenerator {
     __ bind(l_6);
 
     // copy 4 elements at a time
-    __ cmpwi_PPC(CCR0, R5_ARG3, 4);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 4);
     __ blt_PPC(CCR0, l_1);
-    __ srdi_PPC(tmp1, R5_ARG3, 2);
+    __ srdi_PPC(tmp1, R5_ARG3_PPC, 2);
     __ mtctr_PPC(tmp1); // is > 0
-    __ andi__PPC(R5_ARG3, R5_ARG3, 3);
+    __ andi__PPC(R5_ARG3_PPC, R5_ARG3_PPC, 3);
 
     { // FasterArrayCopy
-      __ addi_PPC(R3_ARG1, R3_ARG1, -4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -4);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -4);
       __ bind(l_3);
-      __ lwzu_PPC(tmp2, 4, R3_ARG1);
-      __ stwu_PPC(tmp2, 4, R4_ARG2);
+      __ lwzu_PPC(tmp2, 4, R3_ARG1_PPC);
+      __ stwu_PPC(tmp2, 4, R4_ARG2_PPC);
       __ bdnz_PPC(l_3);
-      __ addi_PPC(R3_ARG1, R3_ARG1, 4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 4);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 4);
     }
 
     // do single element copy
     __ bind(l_1);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
     __ beq_PPC(CCR0, l_4);
 
     { // FasterArrayCopy
-      __ mtctr_PPC(R5_ARG3);
-      __ addi_PPC(R3_ARG1, R3_ARG1, -1);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -1);
+      __ mtctr_PPC(R5_ARG3_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -1);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -1);
 
       __ bind(l_5);
-      __ lbzu_PPC(tmp2, 1, R3_ARG1);
-      __ stbu_PPC(tmp2, 1, R4_ARG2);
+      __ lbzu_PPC(tmp2, 1, R3_ARG1_PPC);
+      __ stbu_PPC(tmp2, 1, R4_ARG2_PPC);
       __ bdnz_PPC(l_5);
     }
 
     __ bind(l_4);
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1140,18 +1140,18 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_conjoint_byte_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
 
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
 
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_jbyte_disjoint_arraycopy) :
@@ -1164,13 +1164,13 @@ class StubGenerator: public StubCodeGenerator {
 
     __ b_PPC(l_2);
     __ bind(l_1);
-    __ stbx_PPC(tmp1, R4_ARG2, R5_ARG3);
+    __ stbx_PPC(tmp1, R4_ARG2_PPC, R5_ARG3_PPC);
     __ bind(l_2);
-    __ addic__PPC(R5_ARG3, R5_ARG3, -1);
-    __ lbzx_PPC(tmp1, R3_ARG1, R5_ARG3);
+    __ addic__PPC(R5_ARG3_PPC, R5_ARG3_PPC, -1);
+    __ lbzx_PPC(tmp1, R3_ARG1_PPC, R5_ARG3_PPC);
     __ bge_PPC(CCR0, l_1);
 
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1180,9 +1180,9 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //  elm.count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //  elm.count: R5_ARG3_PPC treated as signed
   //
   // Strategy for aligned==true:
   //
@@ -1234,60 +1234,60 @@ class StubGenerator: public StubCodeGenerator {
   address generate_disjoint_short_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
 
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
-    Register tmp4 = R9_ARG7;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
+    Register tmp4 = R9_ARG7_PPC;
 
     VectorSRegister tmp_vsr1  = VSR1;
     VectorSRegister tmp_vsr2  = VSR2;
 
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
 
     Label l_1, l_2, l_3, l_4, l_5, l_6, l_7, l_8, l_9;
 
     // don't try anything fancy if arrays don't have many elements
     __ li_PPC(tmp3, 0);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 9);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 9);
     __ ble_PPC(CCR0, l_6); // copy 2 at a time
 
     if (!aligned) {
-      __ xorr_PPC(tmp1, R3_ARG1, R4_ARG2);
+      __ xorr_PPC(tmp1, R3_ARG1_PPC, R4_ARG2_PPC);
       __ andi__PPC(tmp1, tmp1, 3);
       __ bne_PPC(CCR0, l_6); // if arrays don't have the same alignment mod 4, do 2 element copy
 
       // At this point it is guaranteed that both, from and to have the same alignment mod 4.
 
       // Copy 1 element if necessary to align to 4 bytes.
-      __ andi__PPC(tmp1, R3_ARG1, 3);
+      __ andi__PPC(tmp1, R3_ARG1_PPC, 3);
       __ beq_PPC(CCR0, l_2);
 
-      __ lhz_PPC(tmp2, 0, R3_ARG1);
-      __ addi_PPC(R3_ARG1, R3_ARG1, 2);
-      __ sth_PPC(tmp2, 0, R4_ARG2);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 2);
-      __ addi_PPC(R5_ARG3, R5_ARG3, -1);
+      __ lhz_PPC(tmp2, 0, R3_ARG1_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 2);
+      __ sth_PPC(tmp2, 0, R4_ARG2_PPC);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 2);
+      __ addi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, -1);
       __ bind(l_2);
 
       // At this point the positions of both, from and to, are at least 4 byte aligned.
 
       // Copy 4 elements at a time.
       // Align to 8 bytes, but only if both, from and to, have same alignment mod 8.
-      __ xorr_PPC(tmp2, R3_ARG1, R4_ARG2);
+      __ xorr_PPC(tmp2, R3_ARG1_PPC, R4_ARG2_PPC);
       __ andi__PPC(tmp1, tmp2, 7);
       __ bne_PPC(CCR0, l_7); // not same alignment mod 8 -> copy 4, either from or to will be unaligned
 
       // Copy a 2-element word if necessary to align to 8 bytes.
-      __ andi__PPC(R0, R3_ARG1, 7);
+      __ andi__PPC(R0, R3_ARG1_PPC, 7);
       __ beq_PPC(CCR0, l_7);
 
-      __ lwzx_PPC(tmp2, R3_ARG1, tmp3);
-      __ addi_PPC(R5_ARG3, R5_ARG3, -2);
-      __ stwx_PPC(tmp2, R4_ARG2, tmp3);
+      __ lwzx_PPC(tmp2, R3_ARG1_PPC, tmp3);
+      __ addi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, -2);
+      __ stwx_PPC(tmp2, R4_ARG2_PPC, tmp3);
       { // FasterArrayCopy
-        __ addi_PPC(R3_ARG1, R3_ARG1, 4);
-        __ addi_PPC(R4_ARG2, R4_ARG2, 4);
+        __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 4);
+        __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 4);
       }
     }
 
@@ -1297,11 +1297,11 @@ class StubGenerator: public StubCodeGenerator {
     // be unaligned if aligned == false.
 
     { // FasterArrayCopy
-      __ cmpwi_PPC(CCR0, R5_ARG3, 15);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 15);
       __ ble_PPC(CCR0, l_6); // copy 2 at a time if less than 16 elements remain
 
-      __ srdi_PPC(tmp1, R5_ARG3, 4);
-      __ andi__PPC(R5_ARG3, R5_ARG3, 15);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 4);
+      __ andi__PPC(R5_ARG3_PPC, R5_ARG3_PPC, 15);
       __ mtctr_PPC(tmp1);
 
       if (!VM_Version::has_vsx()) {
@@ -1310,22 +1310,22 @@ class StubGenerator: public StubCodeGenerator {
         // Use unrolled version for mass copying (copy 16 elements a time).
         // Load feeding store gets zero latency on Power6, however not on Power5.
         // Therefore, the following sequence is made for the good of both.
-        __ ld_PPC(tmp1, 0, R3_ARG1);
-        __ ld_PPC(tmp2, 8, R3_ARG1);
-        __ ld_PPC(tmp3, 16, R3_ARG1);
-        __ ld_PPC(tmp4, 24, R3_ARG1);
-        __ std_PPC(tmp1, 0, R4_ARG2);
-        __ std_PPC(tmp2, 8, R4_ARG2);
-        __ std_PPC(tmp3, 16, R4_ARG2);
-        __ std_PPC(tmp4, 24, R4_ARG2);
-        __ addi_PPC(R3_ARG1, R3_ARG1, 32);
-        __ addi_PPC(R4_ARG2, R4_ARG2, 32);
+        __ ld_PPC(tmp1, 0, R3_ARG1_PPC);
+        __ ld_PPC(tmp2, 8, R3_ARG1_PPC);
+        __ ld_PPC(tmp3, 16, R3_ARG1_PPC);
+        __ ld_PPC(tmp4, 24, R3_ARG1_PPC);
+        __ std_PPC(tmp1, 0, R4_ARG2_PPC);
+        __ std_PPC(tmp2, 8, R4_ARG2_PPC);
+        __ std_PPC(tmp3, 16, R4_ARG2_PPC);
+        __ std_PPC(tmp4, 24, R4_ARG2_PPC);
+        __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);
+        __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);
         __ bdnz_PPC(l_8);
 
       } else { // Processor supports VSX, so use it to mass copy.
 
         // Prefetch src data into L2 cache.
-        __ dcbt_PPC(R3_ARG1, 0);
+        __ dcbt_PPC(R3_ARG1_PPC, 0);
 
         // If supported set DSCR pre-fetch to deepest.
         if (VM_Version::has_mfdscr()) {
@@ -1342,12 +1342,12 @@ class StubGenerator: public StubCodeGenerator {
         __ bind(l_9);
         // Use loop with VSX load/store instructions to
         // copy 16 elements a time.
-        __ lxvd2x_PPC(tmp_vsr1, R3_ARG1);        // Load from src.
-        __ stxvd2x_PPC(tmp_vsr1, R4_ARG2);       // Store to dst.
-        __ lxvd2x_PPC(tmp_vsr2, R3_ARG1, tmp1);  // Load from src + 16.
-        __ stxvd2x_PPC(tmp_vsr2, R4_ARG2, tmp1); // Store to dst + 16.
-        __ addi_PPC(R3_ARG1, R3_ARG1, 32);       // Update src+=32.
-        __ addi_PPC(R4_ARG2, R4_ARG2, 32);       // Update dsc+=32.
+        __ lxvd2x_PPC(tmp_vsr1, R3_ARG1_PPC);        // Load from src.
+        __ stxvd2x_PPC(tmp_vsr1, R4_ARG2_PPC);       // Store to dst.
+        __ lxvd2x_PPC(tmp_vsr2, R3_ARG1_PPC, tmp1);  // Load from src + 16.
+        __ stxvd2x_PPC(tmp_vsr2, R4_ARG2_PPC, tmp1); // Store to dst + 16.
+        __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);       // Update src+=32.
+        __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);       // Update dsc+=32.
         __ bdnz_PPC(l_9);                        // Dec CTR and loop if not zero.
 
         // Restore DSCR pre-fetch value.
@@ -1362,41 +1362,41 @@ class StubGenerator: public StubCodeGenerator {
 
     // copy 2 elements at a time
     { // FasterArrayCopy
-      __ cmpwi_PPC(CCR0, R5_ARG3, 2);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 2);
       __ blt_PPC(CCR0, l_1);
-      __ srdi_PPC(tmp1, R5_ARG3, 1);
-      __ andi__PPC(R5_ARG3, R5_ARG3, 1);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 1);
+      __ andi__PPC(R5_ARG3_PPC, R5_ARG3_PPC, 1);
 
-      __ addi_PPC(R3_ARG1, R3_ARG1, -4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -4);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -4);
       __ mtctr_PPC(tmp1);
 
       __ bind(l_3);
-      __ lwzu_PPC(tmp2, 4, R3_ARG1);
-      __ stwu_PPC(tmp2, 4, R4_ARG2);
+      __ lwzu_PPC(tmp2, 4, R3_ARG1_PPC);
+      __ stwu_PPC(tmp2, 4, R4_ARG2_PPC);
       __ bdnz_PPC(l_3);
 
-      __ addi_PPC(R3_ARG1, R3_ARG1, 4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 4);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 4);
     }
 
     // do single element copy
     __ bind(l_1);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
     __ beq_PPC(CCR0, l_4);
 
     { // FasterArrayCopy
-      __ mtctr_PPC(R5_ARG3);
-      __ addi_PPC(R3_ARG1, R3_ARG1, -2);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -2);
+      __ mtctr_PPC(R5_ARG3_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -2);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -2);
 
       __ bind(l_5);
-      __ lhzu_PPC(tmp2, 2, R3_ARG1);
-      __ sthu_PPC(tmp2, 2, R4_ARG2);
+      __ lhzu_PPC(tmp2, 2, R3_ARG1_PPC);
+      __ sthu_PPC(tmp2, 2, R4_ARG2_PPC);
       __ bdnz_PPC(l_5);
     }
     __ bind(l_4);
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1406,18 +1406,18 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_conjoint_short_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
 
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
 
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_jshort_disjoint_arraycopy) :
@@ -1426,16 +1426,16 @@ class StubGenerator: public StubCodeGenerator {
     array_overlap_test(nooverlap_target, 1);
 
     Label l_1, l_2;
-    __ sldi_PPC(tmp1, R5_ARG3, 1);
+    __ sldi_PPC(tmp1, R5_ARG3_PPC, 1);
     __ b_PPC(l_2);
     __ bind(l_1);
-    __ sthx_PPC(tmp2, R4_ARG2, tmp1);
+    __ sthx_PPC(tmp2, R4_ARG2_PPC, tmp1);
     __ bind(l_2);
     __ addic__PPC(tmp1, tmp1, -2);
-    __ lhzx_PPC(tmp2, R3_ARG1, tmp1);
+    __ lhzx_PPC(tmp2, R3_ARG1_PPC, tmp1);
     __ bge_PPC(CCR0, l_1);
 
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1445,14 +1445,14 @@ class StubGenerator: public StubCodeGenerator {
   // is true, the "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   void generate_disjoint_int_copy_core(bool aligned) {
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
     Register tmp4 = R0;
 
     VectorSRegister tmp_vsr1  = VSR1;
@@ -1462,36 +1462,36 @@ class StubGenerator: public StubCodeGenerator {
 
     // for short arrays, just do single element copy
     __ li_PPC(tmp3, 0);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 5);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 5);
     __ ble_PPC(CCR0, l_2);
 
     if (!aligned) {
         // check if arrays have same alignment mod 8.
-        __ xorr_PPC(tmp1, R3_ARG1, R4_ARG2);
+        __ xorr_PPC(tmp1, R3_ARG1_PPC, R4_ARG2_PPC);
         __ andi__PPC(R0, tmp1, 7);
         // Not the same alignment, but ld and std just need to be 4 byte aligned.
         __ bne_PPC(CCR0, l_4); // to OR from is 8 byte aligned -> copy 2 at a time
 
         // copy 1 element to align to and from on an 8 byte boundary
-        __ andi__PPC(R0, R3_ARG1, 7);
+        __ andi__PPC(R0, R3_ARG1_PPC, 7);
         __ beq_PPC(CCR0, l_4);
 
-        __ lwzx_PPC(tmp2, R3_ARG1, tmp3);
-        __ addi_PPC(R5_ARG3, R5_ARG3, -1);
-        __ stwx_PPC(tmp2, R4_ARG2, tmp3);
+        __ lwzx_PPC(tmp2, R3_ARG1_PPC, tmp3);
+        __ addi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, -1);
+        __ stwx_PPC(tmp2, R4_ARG2_PPC, tmp3);
         { // FasterArrayCopy
-          __ addi_PPC(R3_ARG1, R3_ARG1, 4);
-          __ addi_PPC(R4_ARG2, R4_ARG2, 4);
+          __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 4);
+          __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 4);
         }
         __ bind(l_4);
       }
 
     { // FasterArrayCopy
-      __ cmpwi_PPC(CCR0, R5_ARG3, 7);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 7);
       __ ble_PPC(CCR0, l_2); // copy 1 at a time if less than 8 elements remain
 
-      __ srdi_PPC(tmp1, R5_ARG3, 3);
-      __ andi__PPC(R5_ARG3, R5_ARG3, 7);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 3);
+      __ andi__PPC(R5_ARG3_PPC, R5_ARG3_PPC, 7);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -1500,22 +1500,22 @@ class StubGenerator: public StubCodeGenerator {
       // Use unrolled version for mass copying (copy 8 elements a time).
       // Load feeding store gets zero latency on power6, however not on power 5.
       // Therefore, the following sequence is made for the good of both.
-      __ ld_PPC(tmp1, 0, R3_ARG1);
-      __ ld_PPC(tmp2, 8, R3_ARG1);
-      __ ld_PPC(tmp3, 16, R3_ARG1);
-      __ ld_PPC(tmp4, 24, R3_ARG1);
-      __ std_PPC(tmp1, 0, R4_ARG2);
-      __ std_PPC(tmp2, 8, R4_ARG2);
-      __ std_PPC(tmp3, 16, R4_ARG2);
-      __ std_PPC(tmp4, 24, R4_ARG2);
-      __ addi_PPC(R3_ARG1, R3_ARG1, 32);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 32);
+      __ ld_PPC(tmp1, 0, R3_ARG1_PPC);
+      __ ld_PPC(tmp2, 8, R3_ARG1_PPC);
+      __ ld_PPC(tmp3, 16, R3_ARG1_PPC);
+      __ ld_PPC(tmp4, 24, R3_ARG1_PPC);
+      __ std_PPC(tmp1, 0, R4_ARG2_PPC);
+      __ std_PPC(tmp2, 8, R4_ARG2_PPC);
+      __ std_PPC(tmp3, 16, R4_ARG2_PPC);
+      __ std_PPC(tmp4, 24, R4_ARG2_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);
       __ bdnz_PPC(l_6);
 
     } else { // Processor supports VSX, so use it to mass copy.
 
       // Prefetch the data into the L2 cache.
-      __ dcbt_PPC(R3_ARG1, 0);
+      __ dcbt_PPC(R3_ARG1_PPC, 0);
 
       // If supported set DSCR pre-fetch to deepest.
       if (VM_Version::has_mfdscr()) {
@@ -1533,12 +1533,12 @@ class StubGenerator: public StubCodeGenerator {
       __ bind(l_7);
       // Use loop with VSX load/store instructions to
       // copy 8 elements a time.
-      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1);        // Load src
-      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2);       // Store to dst
-      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1);  // Load src + 16
-      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2); // Store to dst + 16
-      __ addi_PPC(R3_ARG1, R3_ARG1, 32);       // Update src+=32
-      __ addi_PPC(R4_ARG2, R4_ARG2, 32);       // Update dsc+=32
+      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1_PPC);        // Load src
+      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2_PPC);       // Store to dst
+      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1_PPC);  // Load src + 16
+      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2_PPC); // Store to dst + 16
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);       // Update src+=32
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);       // Update dsc+=32
       __ bdnz_PPC(l_7);                        // Dec CTR and loop if not zero.
 
       // Restore DSCR pre-fetch value.
@@ -1552,17 +1552,17 @@ class StubGenerator: public StubCodeGenerator {
 
     // copy 1 element at a time
     __ bind(l_2);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
     __ beq_PPC(CCR0, l_1);
 
     { // FasterArrayCopy
-      __ mtctr_PPC(R5_ARG3);
-      __ addi_PPC(R3_ARG1, R3_ARG1, -4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -4);
+      __ mtctr_PPC(R5_ARG3_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -4);
 
       __ bind(l_3);
-      __ lwzu_PPC(tmp2, 4, R3_ARG1);
-      __ stwu_PPC(tmp2, 4, R4_ARG2);
+      __ lwzu_PPC(tmp2, 4, R3_ARG1_PPC);
+      __ stwu_PPC(tmp2, 4, R4_ARG2_PPC);
       __ bdnz_PPC(l_3);
     }
 
@@ -1574,16 +1574,16 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_disjoint_int_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
     generate_disjoint_int_copy_core(aligned);
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
     return start;
   }
@@ -1593,9 +1593,9 @@ class StubGenerator: public StubCodeGenerator {
   // are assumed to be heapword aligned.
   //
   // Arguments:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   void generate_conjoint_int_copy_core(bool aligned) {
     // Do reverse copy.  We assume the case of actual overlap is rare enough
@@ -1603,47 +1603,47 @@ class StubGenerator: public StubCodeGenerator {
 
     Label l_1, l_2, l_3, l_4, l_5, l_6, l_7;
 
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
     Register tmp4 = R0;
 
     VectorSRegister tmp_vsr1  = VSR1;
     VectorSRegister tmp_vsr2  = VSR2;
 
     { // FasterArrayCopy
-      __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
       __ beq_PPC(CCR0, l_6);
 
-      __ sldi_PPC(R5_ARG3, R5_ARG3, 2);
-      __ add_PPC(R3_ARG1, R3_ARG1, R5_ARG3);
-      __ add_PPC(R4_ARG2, R4_ARG2, R5_ARG3);
-      __ srdi_PPC(R5_ARG3, R5_ARG3, 2);
+      __ sldi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 2);
+      __ add_PPC(R3_ARG1_PPC, R3_ARG1_PPC, R5_ARG3_PPC);
+      __ add_PPC(R4_ARG2_PPC, R4_ARG2_PPC, R5_ARG3_PPC);
+      __ srdi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 2);
 
       if (!aligned) {
         // check if arrays have same alignment mod 8.
-        __ xorr_PPC(tmp1, R3_ARG1, R4_ARG2);
+        __ xorr_PPC(tmp1, R3_ARG1_PPC, R4_ARG2_PPC);
         __ andi__PPC(R0, tmp1, 7);
         // Not the same alignment, but ld and std just need to be 4 byte aligned.
         __ bne_PPC(CCR0, l_7); // to OR from is 8 byte aligned -> copy 2 at a time
 
         // copy 1 element to align to and from on an 8 byte boundary
-        __ andi__PPC(R0, R3_ARG1, 7);
+        __ andi__PPC(R0, R3_ARG1_PPC, 7);
         __ beq_PPC(CCR0, l_7);
 
-        __ addi_PPC(R3_ARG1, R3_ARG1, -4);
-        __ addi_PPC(R4_ARG2, R4_ARG2, -4);
-        __ addi_PPC(R5_ARG3, R5_ARG3, -1);
-        __ lwzx_PPC(tmp2, R3_ARG1);
-        __ stwx_PPC(tmp2, R4_ARG2);
+        __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -4);
+        __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -4);
+        __ addi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, -1);
+        __ lwzx_PPC(tmp2, R3_ARG1_PPC);
+        __ stwx_PPC(tmp2, R4_ARG2_PPC);
         __ bind(l_7);
       }
 
-      __ cmpwi_PPC(CCR0, R5_ARG3, 7);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 7);
       __ ble_PPC(CCR0, l_5); // copy 1 at a time if less than 8 elements remain
 
-      __ srdi_PPC(tmp1, R5_ARG3, 3);
-      __ andi(R5_ARG3, R5_ARG3, 7);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 3);
+      __ andi(R5_ARG3_PPC, R5_ARG3_PPC, 7);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -1651,20 +1651,20 @@ class StubGenerator: public StubCodeGenerator {
       // Use unrolled version for mass copying (copy 4 elements a time).
       // Load feeding store gets zero latency on Power6, however not on Power5.
       // Therefore, the following sequence is made for the good of both.
-      __ addi_PPC(R3_ARG1, R3_ARG1, -32);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -32);
-      __ ld_PPC(tmp4, 24, R3_ARG1);
-      __ ld_PPC(tmp3, 16, R3_ARG1);
-      __ ld_PPC(tmp2, 8, R3_ARG1);
-      __ ld_PPC(tmp1, 0, R3_ARG1);
-      __ std_PPC(tmp4, 24, R4_ARG2);
-      __ std_PPC(tmp3, 16, R4_ARG2);
-      __ std_PPC(tmp2, 8, R4_ARG2);
-      __ std_PPC(tmp1, 0, R4_ARG2);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -32);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -32);
+      __ ld_PPC(tmp4, 24, R3_ARG1_PPC);
+      __ ld_PPC(tmp3, 16, R3_ARG1_PPC);
+      __ ld_PPC(tmp2, 8, R3_ARG1_PPC);
+      __ ld_PPC(tmp1, 0, R3_ARG1_PPC);
+      __ std_PPC(tmp4, 24, R4_ARG2_PPC);
+      __ std_PPC(tmp3, 16, R4_ARG2_PPC);
+      __ std_PPC(tmp2, 8, R4_ARG2_PPC);
+      __ std_PPC(tmp1, 0, R4_ARG2_PPC);
       __ bdnz_PPC(l_4);
      } else {  // Processor supports VSX, so use it to mass copy.
       // Prefetch the data into the L2 cache.
-      __ dcbt_PPC(R3_ARG1, 0);
+      __ dcbt_PPC(R3_ARG1_PPC, 0);
 
       // If supported set DSCR pre-fetch to deepest.
       if (VM_Version::has_mfdscr()) {
@@ -1682,12 +1682,12 @@ class StubGenerator: public StubCodeGenerator {
       __ bind(l_4);
       // Use loop with VSX load/store instructions to
       // copy 8 elements a time.
-      __ addi_PPC(R3_ARG1, R3_ARG1, -32);      // Update src-=32
-      __ addi_PPC(R4_ARG2, R4_ARG2, -32);      // Update dsc-=32
-      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1);  // Load src+16
-      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1);        // Load src
-      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2); // Store to dst+16
-      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2);       // Store to dst
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -32);      // Update src-=32
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -32);      // Update dsc-=32
+      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1_PPC);  // Load src+16
+      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1_PPC);        // Load src
+      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2_PPC); // Store to dst+16
+      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2_PPC);       // Store to dst
       __ bdnz_PPC(l_4);
 
       // Restore DSCR pre-fetch value.
@@ -1697,16 +1697,16 @@ class StubGenerator: public StubCodeGenerator {
       }
      }
 
-      __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
       __ beq_PPC(CCR0, l_6);
 
       __ bind(l_5);
-      __ mtctr_PPC(R5_ARG3);
+      __ mtctr_PPC(R5_ARG3_PPC);
       __ bind(l_3);
-      __ lwz_PPC(R0, -4, R3_ARG1);
-      __ stw_PPC(R0, -4, R4_ARG2);
-      __ addi_PPC(R3_ARG1, R3_ARG1, -4);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -4);
+      __ lwz_PPC(R0, -4, R3_ARG1_PPC);
+      __ stw_PPC(R0, -4, R4_ARG2_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -4);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -4);
       __ bdnz_PPC(l_3);
 
       __ bind(l_6);
@@ -1717,14 +1717,14 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_conjoint_int_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_jint_disjoint_arraycopy) :
       STUB_ENTRY(jint_disjoint_arraycopy);
@@ -1733,7 +1733,7 @@ class StubGenerator: public StubCodeGenerator {
 
     generate_conjoint_int_copy_core(aligned);
 
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1744,14 +1744,14 @@ class StubGenerator: public StubCodeGenerator {
   // are assumed to be heapword aligned.
   //
   // Arguments:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   void generate_disjoint_long_copy_core(bool aligned) {
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
     Register tmp4 = R0;
 
     Label l_1, l_2, l_3, l_4, l_5;
@@ -1760,11 +1760,11 @@ class StubGenerator: public StubCodeGenerator {
     VectorSRegister tmp_vsr2  = VSR2;
 
     { // FasterArrayCopy
-      __ cmpwi_PPC(CCR0, R5_ARG3, 3);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 3);
       __ ble_PPC(CCR0, l_3); // copy 1 at a time if less than 4 elements remain
 
-      __ srdi_PPC(tmp1, R5_ARG3, 2);
-      __ andi__PPC(R5_ARG3, R5_ARG3, 3);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 2);
+      __ andi__PPC(R5_ARG3_PPC, R5_ARG3_PPC, 3);
       __ mtctr_PPC(tmp1);
 
     if (!VM_Version::has_vsx()) {
@@ -1772,22 +1772,22 @@ class StubGenerator: public StubCodeGenerator {
       // Use unrolled version for mass copying (copy 4 elements a time).
       // Load feeding store gets zero latency on Power6, however not on Power5.
       // Therefore, the following sequence is made for the good of both.
-      __ ld_PPC(tmp1, 0, R3_ARG1);
-      __ ld_PPC(tmp2, 8, R3_ARG1);
-      __ ld_PPC(tmp3, 16, R3_ARG1);
-      __ ld_PPC(tmp4, 24, R3_ARG1);
-      __ std_PPC(tmp1, 0, R4_ARG2);
-      __ std_PPC(tmp2, 8, R4_ARG2);
-      __ std_PPC(tmp3, 16, R4_ARG2);
-      __ std_PPC(tmp4, 24, R4_ARG2);
-      __ addi_PPC(R3_ARG1, R3_ARG1, 32);
-      __ addi_PPC(R4_ARG2, R4_ARG2, 32);
+      __ ld_PPC(tmp1, 0, R3_ARG1_PPC);
+      __ ld_PPC(tmp2, 8, R3_ARG1_PPC);
+      __ ld_PPC(tmp3, 16, R3_ARG1_PPC);
+      __ ld_PPC(tmp4, 24, R3_ARG1_PPC);
+      __ std_PPC(tmp1, 0, R4_ARG2_PPC);
+      __ std_PPC(tmp2, 8, R4_ARG2_PPC);
+      __ std_PPC(tmp3, 16, R4_ARG2_PPC);
+      __ std_PPC(tmp4, 24, R4_ARG2_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);
       __ bdnz_PPC(l_4);
 
     } else { // Processor supports VSX, so use it to mass copy.
 
       // Prefetch the data into the L2 cache.
-      __ dcbt_PPC(R3_ARG1, 0);
+      __ dcbt_PPC(R3_ARG1_PPC, 0);
 
       // If supported set DSCR pre-fetch to deepest.
       if (VM_Version::has_mfdscr()) {
@@ -1805,12 +1805,12 @@ class StubGenerator: public StubCodeGenerator {
       __ bind(l_5);
       // Use loop with VSX load/store instructions to
       // copy 4 elements a time.
-      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1);        // Load src
-      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2);       // Store to dst
-      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1);  // Load src + 16
-      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2); // Store to dst + 16
-      __ addi_PPC(R3_ARG1, R3_ARG1, 32);       // Update src+=32
-      __ addi_PPC(R4_ARG2, R4_ARG2, 32);       // Update dsc+=32
+      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1_PPC);        // Load src
+      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2_PPC);       // Store to dst
+      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1_PPC);  // Load src + 16
+      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2_PPC); // Store to dst + 16
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, 32);       // Update src+=32
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, 32);       // Update dsc+=32
       __ bdnz_PPC(l_5);                        // Dec CTR and loop if not zero.
 
       // Restore DSCR pre-fetch value.
@@ -1824,17 +1824,17 @@ class StubGenerator: public StubCodeGenerator {
 
     // copy 1 element at a time
     __ bind(l_3);
-    __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
     __ beq_PPC(CCR0, l_1);
 
     { // FasterArrayCopy
-      __ mtctr_PPC(R5_ARG3);
-      __ addi_PPC(R3_ARG1, R3_ARG1, -8);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -8);
+      __ mtctr_PPC(R5_ARG3_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -8);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -8);
 
       __ bind(l_2);
-      __ ldu_PPC(R0, 8, R3_ARG1);
-      __ stdu_PPC(R0, 8, R4_ARG2);
+      __ ldu_PPC(R0, 8, R3_ARG1_PPC);
+      __ stdu_PPC(R0, 8, R4_ARG2_PPC);
       __ bdnz_PPC(l_2);
 
     }
@@ -1845,16 +1845,16 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_disjoint_long_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
     generate_disjoint_long_copy_core(aligned);
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1865,14 +1865,14 @@ class StubGenerator: public StubCodeGenerator {
   // are assumed to be heapword aligned.
   //
   // Arguments:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   void generate_conjoint_long_copy_core(bool aligned) {
-    Register tmp1 = R6_ARG4;
-    Register tmp2 = R7_ARG5;
-    Register tmp3 = R8_ARG6;
+    Register tmp1 = R6_ARG4_PPC;
+    Register tmp2 = R7_ARG5_PPC;
+    Register tmp3 = R8_ARG6_PPC;
     Register tmp4 = R0;
 
     VectorSRegister tmp_vsr1  = VSR1;
@@ -1880,20 +1880,20 @@ class StubGenerator: public StubCodeGenerator {
 
     Label l_1, l_2, l_3, l_4, l_5;
 
-    __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+    __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
     __ beq_PPC(CCR0, l_1);
 
     { // FasterArrayCopy
-      __ sldi_PPC(R5_ARG3, R5_ARG3, 3);
-      __ add_PPC(R3_ARG1, R3_ARG1, R5_ARG3);
-      __ add_PPC(R4_ARG2, R4_ARG2, R5_ARG3);
-      __ srdi_PPC(R5_ARG3, R5_ARG3, 3);
+      __ sldi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 3);
+      __ add_PPC(R3_ARG1_PPC, R3_ARG1_PPC, R5_ARG3_PPC);
+      __ add_PPC(R4_ARG2_PPC, R4_ARG2_PPC, R5_ARG3_PPC);
+      __ srdi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 3);
 
-      __ cmpwi_PPC(CCR0, R5_ARG3, 3);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 3);
       __ ble_PPC(CCR0, l_5); // copy 1 at a time if less than 4 elements remain
 
-      __ srdi_PPC(tmp1, R5_ARG3, 2);
-      __ andi(R5_ARG3, R5_ARG3, 3);
+      __ srdi_PPC(tmp1, R5_ARG3_PPC, 2);
+      __ andi(R5_ARG3_PPC, R5_ARG3_PPC, 3);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -1901,20 +1901,20 @@ class StubGenerator: public StubCodeGenerator {
       // Use unrolled version for mass copying (copy 4 elements a time).
       // Load feeding store gets zero latency on Power6, however not on Power5.
       // Therefore, the following sequence is made for the good of both.
-      __ addi_PPC(R3_ARG1, R3_ARG1, -32);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -32);
-      __ ld_PPC(tmp4, 24, R3_ARG1);
-      __ ld_PPC(tmp3, 16, R3_ARG1);
-      __ ld_PPC(tmp2, 8, R3_ARG1);
-      __ ld_PPC(tmp1, 0, R3_ARG1);
-      __ std_PPC(tmp4, 24, R4_ARG2);
-      __ std_PPC(tmp3, 16, R4_ARG2);
-      __ std_PPC(tmp2, 8, R4_ARG2);
-      __ std_PPC(tmp1, 0, R4_ARG2);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -32);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -32);
+      __ ld_PPC(tmp4, 24, R3_ARG1_PPC);
+      __ ld_PPC(tmp3, 16, R3_ARG1_PPC);
+      __ ld_PPC(tmp2, 8, R3_ARG1_PPC);
+      __ ld_PPC(tmp1, 0, R3_ARG1_PPC);
+      __ std_PPC(tmp4, 24, R4_ARG2_PPC);
+      __ std_PPC(tmp3, 16, R4_ARG2_PPC);
+      __ std_PPC(tmp2, 8, R4_ARG2_PPC);
+      __ std_PPC(tmp1, 0, R4_ARG2_PPC);
       __ bdnz_PPC(l_4);
      } else { // Processor supports VSX, so use it to mass copy.
       // Prefetch the data into the L2 cache.
-      __ dcbt_PPC(R3_ARG1, 0);
+      __ dcbt_PPC(R3_ARG1_PPC, 0);
 
       // If supported set DSCR pre-fetch to deepest.
       if (VM_Version::has_mfdscr()) {
@@ -1932,12 +1932,12 @@ class StubGenerator: public StubCodeGenerator {
       __ bind(l_4);
       // Use loop with VSX load/store instructions to
       // copy 4 elements a time.
-      __ addi_PPC(R3_ARG1, R3_ARG1, -32);      // Update src-=32
-      __ addi_PPC(R4_ARG2, R4_ARG2, -32);      // Update dsc-=32
-      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1);  // Load src+16
-      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1);        // Load src
-      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2); // Store to dst+16
-      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2);       // Store to dst
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -32);      // Update src-=32
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -32);      // Update dsc-=32
+      __ lxvd2x_PPC(tmp_vsr2, tmp1, R3_ARG1_PPC);  // Load src+16
+      __ lxvd2x_PPC(tmp_vsr1, R3_ARG1_PPC);        // Load src
+      __ stxvd2x_PPC(tmp_vsr2, tmp1, R4_ARG2_PPC); // Store to dst+16
+      __ stxvd2x_PPC(tmp_vsr1, R4_ARG2_PPC);       // Store to dst
       __ bdnz_PPC(l_4);
 
       // Restore DSCR pre-fetch value.
@@ -1947,16 +1947,16 @@ class StubGenerator: public StubCodeGenerator {
       }
      }
 
-      __ cmpwi_PPC(CCR0, R5_ARG3, 0);
+      __ cmpwi_PPC(CCR0, R5_ARG3_PPC, 0);
       __ beq_PPC(CCR0, l_1);
 
       __ bind(l_5);
-      __ mtctr_PPC(R5_ARG3);
+      __ mtctr_PPC(R5_ARG3_PPC);
       __ bind(l_3);
-      __ ld_PPC(R0, -8, R3_ARG1);
-      __ std_PPC(R0, -8, R4_ARG2);
-      __ addi_PPC(R3_ARG1, R3_ARG1, -8);
-      __ addi_PPC(R4_ARG2, R4_ARG2, -8);
+      __ ld_PPC(R0, -8, R3_ARG1_PPC);
+      __ std_PPC(R0, -8, R4_ARG2_PPC);
+      __ addi_PPC(R3_ARG1_PPC, R3_ARG1_PPC, -8);
+      __ addi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, -8);
       __ bdnz_PPC(l_3);
 
     }
@@ -1967,14 +1967,14 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //
   address generate_conjoint_long_copy(bool aligned, const char * name) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_jlong_disjoint_arraycopy) :
       STUB_ENTRY(jlong_disjoint_arraycopy);
@@ -1982,7 +1982,7 @@ class StubGenerator: public StubCodeGenerator {
     array_overlap_test(nooverlap_target, 3);
     generate_conjoint_long_copy_core(aligned);
 
-    __ li_PPC(R3_RET, 0); // return 0
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -1992,16 +1992,16 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //      dest_uninitialized: G1 support
   //
   address generate_conjoint_oop_copy(bool aligned, const char * name, bool dest_uninitialized) {
     StubCodeMark mark(this, "StubRoutines", name);
 
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
     address nooverlap_target = aligned ?
       STUB_ENTRY(arrayof_oop_disjoint_arraycopy) :
       STUB_ENTRY(oop_disjoint_arraycopy);
@@ -2015,7 +2015,7 @@ class StubGenerator: public StubCodeGenerator {
     }
 
     BarrierSetAssembler *bs = BarrierSet::barrier_set()->barrier_set_assembler();
-    bs->arraycopy_prologue(_masm, decorators, T_OBJECT, R3_ARG1, R4_ARG2, R5_ARG3, noreg, noreg);
+    bs->arraycopy_prologue(_masm, decorators, T_OBJECT, R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC, noreg, noreg);
 
     if (UseCompressedOops) {
       array_overlap_test(nooverlap_target, 2);
@@ -2025,8 +2025,8 @@ class StubGenerator: public StubCodeGenerator {
       generate_conjoint_long_copy_core(aligned);
     }
 
-    bs->arraycopy_epilogue(_masm, decorators, T_OBJECT, R4_ARG2, R5_ARG3, noreg);
-    __ li_PPC(R3_RET, 0); // return 0
+    bs->arraycopy_epilogue(_masm, decorators, T_OBJECT, R4_ARG2_PPC, R5_ARG3_PPC, noreg);
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
     return start;
   }
@@ -2035,15 +2035,15 @@ class StubGenerator: public StubCodeGenerator {
   // "from" and "to" addresses are assumed to be heapword aligned.
   //
   // Arguments for generated stub:
-  //      from:  R3_ARG1
-  //      to:    R4_ARG2
-  //      count: R5_ARG3 treated as signed
+  //      from:  R3_ARG1_PPC
+  //      to:    R4_ARG2_PPC
+  //      count: R5_ARG3_PPC treated as signed
   //      dest_uninitialized: G1 support
   //
   address generate_disjoint_oop_copy(bool aligned, const char * name, bool dest_uninitialized) {
     StubCodeMark mark(this, "StubRoutines", name);
     address start = __ pc();
-    assert_positive_int(R5_ARG3);
+    assert_positive_int(R5_ARG3_PPC);
 
     DecoratorSet decorators = IN_HEAP | IS_ARRAY | ARRAYCOPY_DISJOINT;
     if (dest_uninitialized) {
@@ -2054,7 +2054,7 @@ class StubGenerator: public StubCodeGenerator {
     }
 
     BarrierSetAssembler *bs = BarrierSet::barrier_set()->barrier_set_assembler();
-    bs->arraycopy_prologue(_masm, decorators, T_OBJECT, R3_ARG1, R4_ARG2, R5_ARG3, noreg, noreg);
+    bs->arraycopy_prologue(_masm, decorators, T_OBJECT, R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC, noreg, noreg);
 
     if (UseCompressedOops) {
       generate_disjoint_int_copy_core(aligned);
@@ -2062,8 +2062,8 @@ class StubGenerator: public StubCodeGenerator {
       generate_disjoint_long_copy_core(aligned);
     }
 
-    bs->arraycopy_epilogue(_masm, decorators, T_OBJECT, R4_ARG2, R5_ARG3, noreg);
-    __ li_PPC(R3_RET, 0); // return 0
+    bs->arraycopy_epilogue(_masm, decorators, T_OBJECT, R4_ARG2_PPC, R5_ARG3_PPC, noreg);
+    __ li_PPC(R3_RET_PPC, 0); // return 0
     __ blr_PPC();
 
     return start;
@@ -2104,17 +2104,17 @@ class StubGenerator: public StubCodeGenerator {
   //
   address generate_checkcast_copy(const char *name, bool dest_uninitialized) {
 
-    const Register R3_from   = R3_ARG1;      // source array address
-    const Register R4_to     = R4_ARG2;      // destination array address
-    const Register R5_count  = R5_ARG3;      // elements count
-    const Register R6_ckoff  = R6_ARG4;      // super_check_offset
-    const Register R7_ckval  = R7_ARG5;      // super_klass
+    const Register R3_from   = R3_ARG1_PPC;      // source array address
+    const Register R4_to     = R4_ARG2_PPC;      // destination array address
+    const Register R5_count  = R5_ARG3_PPC;      // elements count
+    const Register R6_ckoff  = R6_ARG4_PPC;      // super_check_offset
+    const Register R7_ckval  = R7_ARG5_PPC;      // super_klass
 
-    const Register R8_offset = R8_ARG6;      // loop var, with stride wordSize
-    const Register R9_remain = R9_ARG7;      // loop var, with stride -1
-    const Register R10_oop   = R10_ARG8;     // actual oop copied
-    const Register R11_klass = R11_scratch1; // oop._klass
-    const Register R12_tmp   = R12_scratch2;
+    const Register R8_offset = R8_ARG6_PPC;      // loop var, with stride wordSize
+    const Register R9_remain = R9_ARG7_PPC;      // loop var, with stride -1
+    const Register R10_oop   = R10_ARG8_PPC;     // actual oop copied
+    const Register R11_klass = R5_scratch1; // oop._klass
+    const Register R12_tmp   = R6_scratch2;
 
     const Register R2_minus1 = R2;
 
@@ -2125,12 +2125,12 @@ class StubGenerator: public StubCodeGenerator {
     // Assert that int is 64 bit sign extended and arrays are not conjoint.
 #ifdef ASSERT
     {
-    assert_positive_int(R5_ARG3);
-    const Register tmp1 = R11_scratch1, tmp2 = R12_scratch2;
+    assert_positive_int(R5_ARG3_PPC);
+    const Register tmp1 = R5_scratch1, tmp2 = R6_scratch2;
     Label no_overlap;
-    __ subf_PPC(tmp1, R3_ARG1, R4_ARG2); // distance in bytes
-    __ sldi_PPC(tmp2, R5_ARG3, LogBytesPerHeapOop); // size in bytes
-    __ cmpld_PPC(CCR0, R3_ARG1, R4_ARG2); // Use unsigned comparison!
+    __ subf_PPC(tmp1, R3_ARG1_PPC, R4_ARG2_PPC); // distance in bytes
+    __ sldi_PPC(tmp2, R5_ARG3_PPC, LogBytesPerHeapOop); // size in bytes
+    __ cmpld_PPC(CCR0, R3_ARG1_PPC, R4_ARG2_PPC); // Use unsigned comparison!
     __ cmpld_PPC(CCR1, tmp1, tmp2);
     __ crnand_PPC(CCR0, Assembler::less, CCR1, Assembler::less);
     // Overlaps if Src before dst and distance smaller than size.
@@ -2149,7 +2149,7 @@ class StubGenerator: public StubCodeGenerator {
     BarrierSetAssembler *bs = BarrierSet::barrier_set()->barrier_set_assembler();
     bs->arraycopy_prologue(_masm, decorators, T_OBJECT, R3_from, R4_to, R5_count, /* preserve: */ R6_ckoff, R7_ckval);
 
-    //inc_counter_np(SharedRuntime::_checkcast_array_copy_ctr, R12_tmp, R3_RET);
+    //inc_counter_np(SharedRuntime::_checkcast_array_copy_ctr, R12_tmp, R3_RET_PPC);
 
     Label load_element, store_element, store_null, success, do_epilogue;
     __ or__PPC(R9_remain, R5_count, R5_count); // Initialize loop index, and test it.
@@ -2158,7 +2158,7 @@ class StubGenerator: public StubCodeGenerator {
     __ bne_PPC(CCR0, load_element);
 
     // Empty array: Nothing to do.
-    __ li_PPC(R3_RET, 0);           // Return 0 on (trivial) success.
+    __ li_PPC(R3_RET_PPC, 0);           // Return 0 on (trivial) success.
     __ blr_PPC();
 
     // ======== begin loop ========
@@ -2194,15 +2194,15 @@ class StubGenerator: public StubCodeGenerator {
     // Emit GC store barriers for the oops we have copied (R5_count minus R9_remain),
     // and report their number to the caller.
     __ subf__PPC(R5_count, R9_remain, R5_count);
-    __ nand_PPC(R3_RET, R5_count, R5_count);   // report (-1^K) to caller
+    __ nand_PPC(R3_RET_PPC, R5_count, R5_count);   // report (-1^K) to caller
     __ bne_PPC(CCR0, do_epilogue);
     __ blr_PPC();
 
     __ bind(success);
-    __ li_PPC(R3_RET, 0);
+    __ li_PPC(R3_RET_PPC, 0);
 
     __ bind(do_epilogue);
-    bs->arraycopy_epilogue(_masm, decorators, T_OBJECT, R4_to, R5_count, /* preserve */ R3_RET);
+    bs->arraycopy_epilogue(_masm, decorators, T_OBJECT, R4_to, R5_count, /* preserve */ R3_RET_PPC);
 
     __ blr_PPC();
     return start;
@@ -2227,12 +2227,12 @@ class StubGenerator: public StubCodeGenerator {
                                address int_copy_entry,
                                address long_copy_entry) {
 
-    const Register R3_from   = R3_ARG1;      // source array address
-    const Register R4_to     = R4_ARG2;      // destination array address
-    const Register R5_count  = R5_ARG3;      // elements count (as long on RISCV64)
+    const Register R3_from   = R3_ARG1_PPC;      // source array address
+    const Register R4_to     = R4_ARG2_PPC;      // destination array address
+    const Register R5_count  = R5_ARG3_PPC;      // elements count (as long on RISCV64)
 
-    const Register R6_bits   = R6_ARG4;      // test copy of low bits
-    const Register R7_tmp    = R7_ARG5;
+    const Register R6_bits   = R6_ARG4_PPC;      // test copy of low bits
+    const Register R7_tmp    = R7_ARG5_PPC;
 
     //__ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", name);
@@ -2329,16 +2329,16 @@ class StubGenerator: public StubCodeGenerator {
     Label L_failed, L_objArray;
 
     // Input registers
-    const Register src       = R3_ARG1;  // source array oop
-    const Register src_pos   = R4_ARG2;  // source position
-    const Register dst       = R5_ARG3;  // destination array oop
-    const Register dst_pos   = R6_ARG4;  // destination position
-    const Register length    = R7_ARG5;  // elements count
+    const Register src       = R3_ARG1_PPC;  // source array oop
+    const Register src_pos   = R4_ARG2_PPC;  // source position
+    const Register dst       = R5_ARG3_PPC;  // destination array oop
+    const Register dst_pos   = R6_ARG4_PPC;  // destination position
+    const Register length    = R7_ARG5_PPC;  // elements count
 
     // registers used as temp
-    const Register src_klass = R8_ARG6;  // source array klass
-    const Register dst_klass = R9_ARG7;  // destination array klass
-    const Register lh        = R10_ARG8; // layout handler
+    const Register src_klass = R8_ARG6_PPC;  // source array klass
+    const Register dst_klass = R9_ARG7_PPC;  // destination array klass
+    const Register lh        = R10_ARG8_PPC; // layout handler
     const Register temp      = R2;
 
     //__ align(CodeEntryAlignment);
@@ -2434,9 +2434,9 @@ class StubGenerator: public StubCodeGenerator {
     __ add_PPC(dst, offset, dst);       // dst array offset
 
     // Next registers should be set before the jump to corresponding stub.
-    const Register from     = R3_ARG1;  // source array address
-    const Register to       = R4_ARG2;  // destination array address
-    const Register count    = R5_ARG3;  // elements count
+    const Register from     = R3_ARG1_PPC;  // source array address
+    const Register to       = R4_ARG2_PPC;  // destination array address
+    const Register count    = R5_ARG3_PPC;  // elements count
 
     // 'from', 'to', 'count' registers should be set in this order
     // since they are the same as 'src', 'src_pos', 'dst'.
@@ -2510,7 +2510,7 @@ class StubGenerator: public StubCodeGenerator {
       __ add_PPC(to, dst_pos, dst);    // dst_addr
       __ mr_PPC(count, length);        // length
 
-      Register sco_temp = R6_ARG4;             // This register is free now.
+      Register sco_temp = R6_ARG4_PPC;             // This register is free now.
       assert_different_registers(from, to, count, sco_temp,
                                  dst_klass, src_klass);
 
@@ -2524,8 +2524,8 @@ class StubGenerator: public StubCodeGenerator {
       int ek_offset = in_bytes(ObjArrayKlass::element_klass_offset());
 
       // The checkcast_copy loop needs two extra arguments:
-      __ ld_PPC(R7_ARG5, ek_offset, dst_klass);   // dest elem klass
-      __ lwz_PPC(R6_ARG4, sco_offset, R7_ARG5);   // sco of elem klass
+      __ ld_PPC(R7_ARG5_PPC, ek_offset, dst_klass);   // dest elem klass
+      __ lwz_PPC(R6_ARG4_PPC, sco_offset, R7_ARG5_PPC);   // sco of elem klass
       __ b_PPC(entry_checkcast_arraycopy);
     }
 
@@ -2533,15 +2533,15 @@ class StubGenerator: public StubCodeGenerator {
     __ b_PPC(entry_disjoint_oop_arraycopy);
 
   __ bind(L_failed);
-    __ li_PPC(R3_RET, -1); // return -1
+    __ li_PPC(R3_RET_PPC, -1); // return -1
     __ blr_PPC();
     return start;
   }
 
   // Arguments for generated stub:
-  //   R3_ARG1   - source byte array address
-  //   R4_ARG2   - destination byte array address
-  //   R5_ARG3   - round key array
+  //   R3_ARG1_PPC   - source byte array address
+  //   R4_ARG2_PPC   - destination byte array address
+  //   R5_ARG3_PPC   - round key array
   address generate_aescrypt_encryptBlock() {
     assert(UseAES, "need AES instructions and misaligned SSE support");
     StubCodeMark mark(this, "StubRoutines", "aescrypt_encryptBlock");
@@ -2550,9 +2550,9 @@ class StubGenerator: public StubCodeGenerator {
 
     Label L_doLast;
 
-    Register from           = R3_ARG1;  // source array address
-    Register to             = R4_ARG2;  // destination array address
-    Register key            = R5_ARG3;  // round key array
+    Register from           = R3_ARG1_PPC;  // source array address
+    Register to             = R4_ARG2_PPC;  // destination array address
+    Register key            = R5_ARG3_PPC;  // round key array
 
     Register keylen         = R8;
     Register temp           = R9;
@@ -2740,9 +2740,9 @@ class StubGenerator: public StubCodeGenerator {
   }
 
   // Arguments for generated stub:
-  //   R3_ARG1   - source byte array address
-  //   R4_ARG2   - destination byte array address
-  //   R5_ARG3   - K (key) in little endian int array
+  //   R3_ARG1_PPC   - source byte array address
+  //   R4_ARG2_PPC   - destination byte array address
+  //   R5_ARG3_PPC   - K (key) in little endian int array
   address generate_aescrypt_decryptBlock() {
     assert(UseAES, "need AES instructions and misaligned SSE support");
     StubCodeMark mark(this, "StubRoutines", "aescrypt_decryptBlock");
@@ -2753,9 +2753,9 @@ class StubGenerator: public StubCodeGenerator {
     Label L_do44;
     Label L_do52;
 
-    Register from           = R3_ARG1;  // source array address
-    Register to             = R4_ARG2;  // destination array address
-    Register key            = R5_ARG3;  // round key array
+    Register from           = R3_ARG1_PPC;  // source array address
+    Register to             = R4_ARG2_PPC;  // destination array address
+    Register key            = R5_ARG3_PPC;  // round key array
 
     Register keylen         = R8;
     Register temp           = R9;
@@ -3072,27 +3072,27 @@ class StubGenerator: public StubCodeGenerator {
     //   intptr_t SafeFetchN (intptr_t* adr, intptr_t errValue);
     //
     // arguments:
-    //   R3_ARG1 = adr
-    //   R4_ARG2 = errValue
+    //   R3_ARG1_PPC = adr
+    //   R4_ARG2_PPC = errValue
     //
     // result:
-    //   R3_RET  = *adr or errValue
+    //   R3_RET_PPC  = *adr or errValue
 
     StubCodeMark mark(this, "StubRoutines", name);
 
     // Entry point, pc or function descriptor.
     *entry = __ pc();
 
-    // Load *adr into R4_ARG2, may fault.
+    // Load *adr into R4_ARG2_PPC, may fault.
     *fault_pc = __ pc();
     switch (size) {
       case 4:
         // int32_t, signed extended
-        __ lwa_PPC(R4_ARG2, 0, R3_ARG1);
+        __ lwa_PPC(R4_ARG2_PPC, 0, R3_ARG1_PPC);
         break;
       case 8:
         // int64_t
-        __ ld_PPC(R4_ARG2, 0, R3_ARG1);
+        __ ld_PPC(R4_ARG2_PPC, 0, R3_ARG1_PPC);
         break;
       default:
         ShouldNotReachHere();
@@ -3100,7 +3100,7 @@ class StubGenerator: public StubCodeGenerator {
 
     // return errValue or *adr
     *continuation_pc = __ pc();
-    __ mr_PPC(R3_RET, R4_ARG2);
+    __ mr_PPC(R3_RET_PPC, R4_ARG2_PPC);
     __ blr_PPC();
   }
 
@@ -3154,28 +3154,28 @@ class StubGenerator: public StubCodeGenerator {
 
     // Save non-volatile regs (frameless).
     int current_offs = 8;
-    __ std_PPC(R24, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R25, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R26, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R27, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R28, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R29, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R30, -current_offs, R1_SP); current_offs += 8;
-    __ std_PPC(R31, -current_offs, R1_SP);
+    __ std_PPC(R24, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R25, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R26, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R27, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R28, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R29, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R30, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ std_PPC(R31, -current_offs, R1_SP_PPC);
 
     __ multiply_to_len(x, xlen, y, ylen, z, zlen, tmp1, tmp2, tmp3, tmp4, tmp5,
                        tmp6, tmp7, tmp8, tmp9, tmp10, tmp11, tmp12, tmp13);
 
     // Restore non-volatile regs.
     current_offs = 8;
-    __ ld_PPC(R24, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R25, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R26, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R27, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R28, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R29, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R30, -current_offs, R1_SP); current_offs += 8;
-    __ ld_PPC(R31, -current_offs, R1_SP);
+    __ ld_PPC(R24, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R25, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R26, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R27, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R28, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R29, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R30, -current_offs, R1_SP_PPC); current_offs += 8;
+    __ ld_PPC(R31, -current_offs, R1_SP_PPC);
 
     __ blr_PPC();  // Return to caller.
 
@@ -3186,13 +3186,13 @@ class StubGenerator: public StubCodeGenerator {
   *  Arguments:
   *
   *  Input:
-  *   R3_ARG1    - out address
-  *   R4_ARG2    - in address
-  *   R5_ARG3    - offset
-  *   R6_ARG4    - len
-  *   R7_ARG5    - k
+  *   R3_ARG1_PPC    - out address
+  *   R4_ARG2_PPC    - in address
+  *   R5_ARG3_PPC    - offset
+  *   R6_ARG4_PPC    - len
+  *   R7_ARG5_PPC    - k
   *  Output:
-  *   R3_RET     - carry
+  *   R3_RET_PPC     - carry
   */
   address generate_mulAdd() {
     __ align(CodeEntryAlignment);
@@ -3201,14 +3201,14 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // C2 does not sign extend signed parameters to full 64 bits registers:
-    __ rldic_PPC (R5_ARG3, R5_ARG3, 2, 32);  // always positive
-    __ clrldi_PPC(R6_ARG4, R6_ARG4, 32);     // force zero bits on higher word
-    __ clrldi_PPC(R7_ARG5, R7_ARG5, 32);     // force zero bits on higher word
+    __ rldic_PPC (R5_ARG3_PPC, R5_ARG3_PPC, 2, 32);  // always positive
+    __ clrldi_PPC(R6_ARG4_PPC, R6_ARG4_PPC, 32);     // force zero bits on higher word
+    __ clrldi_PPC(R7_ARG5_PPC, R7_ARG5_PPC, 32);     // force zero bits on higher word
 
-    __ muladd(R3_ARG1, R4_ARG2, R5_ARG3, R6_ARG4, R7_ARG5, R8, R9, R10);
+    __ muladd(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC, R6_ARG4_PPC, R7_ARG5_PPC, R8, R9, R10);
 
     // Moves output carry to return register
-    __ mr_PPC    (R3_RET,  R10);
+    __ mr_PPC    (R3_RET_PPC,  R10);
 
     __ blr_PPC();
 
@@ -3219,10 +3219,10 @@ class StubGenerator: public StubCodeGenerator {
   *  Arguments:
   *
   *  Input:
-  *   R3_ARG1    - in address
-  *   R4_ARG2    - in length
-  *   R5_ARG3    - out address
-  *   R6_ARG4    - out length
+  *   R3_ARG1_PPC    - in address
+  *   R4_ARG2_PPC    - in length
+  *   R5_ARG3_PPC    - out address
+  *   R6_ARG4_PPC    - out length
   */
   address generate_squareToLen() {
     __ align(CodeEntryAlignment);
@@ -3231,15 +3231,15 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // args - higher word is cleaned (unsignedly) due to int to long casting
-    const Register in        = R3_ARG1;
-    const Register in_len    = R4_ARG2;
+    const Register in        = R3_ARG1_PPC;
+    const Register in_len    = R4_ARG2_PPC;
     __ clrldi_PPC(in_len, in_len, 32);
-    const Register out       = R5_ARG3;
-    const Register out_len   = R6_ARG4;
+    const Register out       = R5_ARG3_PPC;
+    const Register out_len   = R6_ARG4_PPC;
     __ clrldi_PPC(out_len, out_len, 32);
 
     // output
-    const Register ret       = R3_RET;
+    const Register ret       = R3_RET_PPC;
 
     // temporaries
     const Register lplw_s    = R7;
@@ -3267,21 +3267,21 @@ class StubGenerator: public StubCodeGenerator {
 
     // Save non-volatile regs (frameless).
     int current_offs = -8;
-    __ std_PPC(R28, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R27, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R26, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R25, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R24, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R23, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R22, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R21, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R20, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R19, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R18, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R17, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R16, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R15, current_offs, R1_SP); current_offs -= 8;
-    __ std_PPC(R14, current_offs, R1_SP);
+    __ std_PPC(R28, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R27, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R26, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R25, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R24, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R23, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R22, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R21, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R20, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R19, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R18, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R17, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R16, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R15, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ std_PPC(R14, current_offs, R1_SP_PPC);
 
     // Store the squares, right shifted one bit (i.e., divided by 2)
     __ subi_PPC   (out_aux,   out,       8);
@@ -3422,21 +3422,21 @@ class StubGenerator: public StubCodeGenerator {
 
     // Restore non-volatile regs.
     current_offs = -8;
-    __ ld_PPC(R28, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R27, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R26, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R25, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R24, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R23, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R22, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R21, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R20, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R19, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R18, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R17, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R16, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R15, current_offs, R1_SP); current_offs -= 8;
-    __ ld_PPC(R14, current_offs, R1_SP);
+    __ ld_PPC(R28, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R27, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R26, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R25, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R24, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R23, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R22, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R21, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R20, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R19, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R18, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R17, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R16, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R15, current_offs, R1_SP_PPC); current_offs -= 8;
+    __ ld_PPC(R14, current_offs, R1_SP_PPC);
 
     __ mr_PPC(ret, out);
     __ blr_PPC();
@@ -3448,22 +3448,22 @@ class StubGenerator: public StubCodeGenerator {
    * Arguments:
    *
    * Inputs:
-   *   R3_ARG1    - int   crc
-   *   R4_ARG2    - byte* buf
-   *   R5_ARG3    - int   length (of buffer)
+   *   R3_ARG1_PPC    - int   crc
+   *   R4_ARG2_PPC    - byte* buf
+   *   R5_ARG3_PPC    - int   length (of buffer)
    *
    * scratch:
    *   R2, R6-R12
    *
    * Ouput:
-   *   R3_RET     - int   crc result
+   *   R3_RET_PPC     - int   crc result
    */
   // Compute CRC32 function.
   address generate_CRC32_updateBytes(bool is_crc32c) {
     __ align(CodeEntryAlignment);
     StubCodeMark mark(this, "StubRoutines", is_crc32c ? "CRC32C_updateBytes" : "CRC32_updateBytes");
     address start = __ pc();  // Remember stub start address (is rtn value).
-    __ crc32(R3_ARG1, R4_ARG2, R5_ARG3, R2, R6, R7, R8, R9, R10, R11, R12, is_crc32c);
+    __ crc32(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC, R2, R6, R7, R8, R9, R10, R11, R12, is_crc32c);
     __ blr_PPC();
     return start;
   }

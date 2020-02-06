@@ -343,12 +343,12 @@ void Assembler::load_const_PPC(Register d, long x, Register tmp) {
   }
 }
 
-bool Assembler::li_32_RV(Register d, long long imm) {
+bool Assembler::li_32(Register d, long imm) {
   short l12 = imm & 0x0FFF; // lowest 12 bit of immediate.
   int sign12 = (unsigned short)(l12 << 4) >> 15;
   long long rem12 = (imm >> 12) + sign12; // Compensation for sign extend.
   if (rem12 == 0) {
-  addi(d, R0_ZERO_RV, imm);
+  addi(d, R0_ZERO, imm);
   return true;
   }
 
@@ -356,31 +356,38 @@ bool Assembler::li_32_RV(Register d, long long imm) {
   int signBit = (unsigned) l32 >> 31;
   long long rem32 = (imm >> 32) + signBit; // Compensation for sign extend.
   if (rem32 == 0) {
-  lui(d, (l32 >> 12) + sign12); // Put upper 20 bits and places zero in the lowest 12 bits.
-  if (l12 != 0) addi(d, d, l12);
-  return true;
+    lui(d, (l32) + (sign12 << 12)); // Put upper 20 bits and places zero in the lowest 12 bits.
+    if (l12 != 0) addi(d, d, l12);
+    return true;
   }
   return false;
 }
 
-void Assembler::li_RV(Register d, long long imm) { // TODO optimize
-  if (li_32_RV(d, imm)) {
+void Assembler::li(Register d, void* addr) {
+  li(d, (long)(unsigned long)addr);
+}
+
+void Assembler::li(Register d, long imm) { // TODO optimize
+  unsigned long uimm = (unsigned long) imm;
+  long h32 = uimm >> 32;
+  if (h32 == 0) {
+    li_32(d, imm);
     return;
   }
 
-  li_32_RV(d, imm >> 32); // Copy upper 32 bits
+  li_32(d, h32); // Copy upper 32 bits
 
   // Accurate copying by 11 bits.
   slli(d, d, 11);
-  short part = (imm >> 21) & 0x7FF;
+  short part = (uimm >> 21) & 0x7FF;
   andi(d, d, part);
 
   slli(d, d, 11);
-  part = (imm >> 10) & 0x7FF;
+  part = (uimm >> 10) & 0x7FF;
   andi(d, d, part);
 
   slli(d, d, 10);
-  part = imm & 0x3FF;
+  part = uimm & 0x3FF;
   andi(d, d, part);
 }
 

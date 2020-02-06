@@ -96,10 +96,10 @@ address CompiledStaticCall::emit_to_interp_stub(CodeBuffer &cbuf, address mark/*
     return NULL; // CodeCache is full
   }
 
-  // For java_to_interp stubs we use R11_scratch1 as scratch register
-  // and in call trampoline stubs we use R12_scratch2. This way we
+  // For java_to_interp stubs we use R5_scratch1 as scratch register
+  // and in call trampoline stubs we use R6_scratch2. This way we
   // can distinguish them (see is_NativeCallTrampolineStub_at()).
-  Register reg_scratch = R11_scratch1;
+  Register reg_scratch = R5_scratch1;
 
   // Create a static stub relocation which relates this stub
   // with the call instruction at insts_call_instruction_offset in the
