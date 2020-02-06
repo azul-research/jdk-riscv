@@ -1658,8 +1658,8 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
   address entry = __ pc();
   // Generate the code to allocate the interpreter stack frame.
-  Register Rsize_of_parameters = R4_ARG2_PPC, // Written by generate_fixed_frame.
-           Rsize_of_locals     = R5_ARG3_PPC; // Written by generate_fixed_frame.
+  Register Rsize_of_parameters = R12_ARG2, // Written by generate_fixed_frame.
+           Rsize_of_locals     = R13_ARG3; // Written by generate_fixed_frame.
 
   // Does also a stack check to assure this frame fits on the stack.
   generate_fixed_frame(false, Rsize_of_parameters, Rsize_of_locals);
@@ -1668,25 +1668,27 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // Zero out non-parameter locals.
   // Note: *Always* zero out non-parameter locals as Sparc does. It's not
   // worth to ask the flag, just do it.
-  Register Rslot_addr = R6_ARG4_PPC,
-           Rnum       = R7_ARG5_PPC;
+  Register Rslot_addr = R14_ARG4,
+           Rnum       = R15_ARG5;
   Label Lno_locals, Lzero_loop;
 
   // Set up the zeroing loop.
-  __ subf_PPC(Rnum, Rsize_of_parameters, Rsize_of_locals);
-  __ subf_PPC(Rslot_addr, Rsize_of_parameters, R26_locals);
-  __ srdi__PPC(Rnum, Rnum, Interpreter::logStackElementSize);
-  __ beq_PPC(CCR0, Lno_locals);
-  __ li_PPC(R0, 0);
-  __ mtctr_PPC(Rnum);
+  __ sub(Rnum, Rsize_of_locals, Rsize_of_parameters);
+  __ sub(Rslot_addr, R26_locals, Rsize_of_parameters);
+  __ srli(Rnum, Rnum, Interpreter::logStackElementSize);
+  __ beqz(Rnum, Lno_locals);
+  __ addi(R5_scratch1, R0, 0);
 
   // The zero locals loop.
   __ bind(Lzero_loop);
-  __ std_PPC(R0, 0, Rslot_addr);
-  __ addi_PPC(Rslot_addr, Rslot_addr, -Interpreter::stackElementSize);
-  __ bdnz_PPC(Lzero_loop);
+  __ sd(R5_scratch1, Rslot_addr, 0);
+  __ addi(Rslot_addr, Rslot_addr, -Interpreter::stackElementSize);
+  __ addi(Rnum, Rnum, -1);
+  __ bnez(Rnum, Lzero_loop);
 
   __ bind(Lno_locals);
+
+  synchronized = false; // FIXME_RISCV
 
   // --------------------------------------------------------------------------
   // Counter increment and overflow check.
@@ -1695,6 +1697,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
         profile_method_continue;
   if (inc_counter || ProfileInterpreter) {
 
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     Register Rdo_not_unlock_if_synchronized_addr = R5_scratch1;
     if (synchronized) {
       // Since at this point in the method invocation the exception handler
@@ -1714,15 +1717,17 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
     // Increment invocation counter and check for overflow.
     if (inc_counter) {
+      report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
       generate_counter_incr(&invocation_counter_overflow, &profile_method, &profile_method_continue);
     }
 
     __ bind(profile_method_continue);
   }
 
-  bang_stack_shadow_pages(false);
+//  bang_stack_shadow_pages(false); // FIXME_RISCV, TODO check that this is unnecessary
 
   if (inc_counter || ProfileInterpreter) {
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     // Reset the _do_not_unlock_if_synchronized flag.
     if (synchronized) {
       __ li_PPC(R0, 0);
@@ -1734,23 +1739,24 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // Locking of synchronized methods. Must happen AFTER invocation_counter
   // check and stack overflow check, so method is not locked if overflows.
   if (synchronized) {
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     lock_method(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC);
   }
-#ifdef ASSERT
-  else {
-    Label Lok;
-    __ lwz_PPC(R0, in_bytes(Method::access_flags_offset()), R27_method);
-    __ andi__PPC(R0, R0, JVM_ACC_SYNCHRONIZED);
-    __ asm_assert_eq("method needs synchronization", 0x8521);
-    __ bind(Lok);
-  }
+#ifdef ASSERT // FIXME_RISCV
+//  else {
+//    Label Lok;
+//    __ lwz_PPC(R0, in_bytes(Method::access_flags_offset()), R27_method);
+//    __ andi__PPC(R0, R0, JVM_ACC_SYNCHRONIZED);
+//    __ asm_assert_eq("method needs synchronization", 0x8521);
+//    __ bind(Lok);
+//  }
 #endif // ASSERT
 
   __ verify_thread();
 
   // --------------------------------------------------------------------------
-  // JVMTI support
-  __ notify_method_entry();
+  // JVMTI support FIXME_RISCV
+//  __ notify_method_entry();
 
   // --------------------------------------------------------------------------
   // Start executing instructions.
@@ -1758,8 +1764,9 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   // --------------------------------------------------------------------------
   // Out of line counter overflow and MDO creation code.
-  if (ProfileInterpreter) {
+  if (ProfileInterpreter) { // FIXME_RISCV
     // We have decided to profile this method in the interpreter.
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     __ bind(profile_method);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::profile_method));
     __ set_method_data_pointer_for_bcp();
@@ -1767,6 +1774,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   }
 
   if (inc_counter) {
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     // Handle invocation counter overflow.
     __ bind(invocation_counter_overflow);
     generate_counter_overflow(profile_method_continue);
