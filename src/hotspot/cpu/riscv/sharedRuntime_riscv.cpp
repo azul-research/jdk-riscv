@@ -287,7 +287,7 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
   switch (return_pc_location) {
     case return_pc_is_lr: __ mflr_PPC(R31); break;
     case return_pc_is_pre_saved: assert(return_pc_adjustment == 0, "unsupported"); break;
-    case return_pc_is_thread_saved_exception_pc: __ ld_PPC(R31, thread_(saved_exception_pc)); break;
+    case return_pc_is_thread_saved_exception_pc: __ ld_PPC(R31, thread_PPC(saved_exception_pc)); break;
     default: ShouldNotReachHere();
   }
   if (return_pc_location != return_pc_is_pre_saved) {
@@ -955,9 +955,9 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   c2i_entrypoint = __ pc();
 
   // Does compiled code exists? If yes, patch the caller's callsite.
-  __ ld_PPC(code, method_(code));
+  __ ld_PPC(code, method_PPC(code));
   __ cmpdi_PPC(CCR0, code, 0);
-  __ ld_PPC(ientry, method_(interpreter_entry)); // preloaded
+  __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ beq_PPC(CCR0, call_interpreter);
 
 
@@ -971,7 +971,7 @@ static address gen_c2i_adapter(MacroAssembler *masm,
 
   RegisterSaver::restore_argument_registers_and_pop_frame(masm, adapter_size, total_args_passed, regs);
   __ ld_PPC(return_pc, _abi(lr), R1_SP_PPC);
-  __ ld_PPC(ientry, method_(interpreter_entry)); // preloaded
+  __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ mtlr_PPC(return_pc);
 
 
@@ -1183,7 +1183,7 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
   // code. Unfortunately if we try and find the callee by normal means
   // a safepoint is possible. So we stash the desired callee in the
   // thread and the vm will find there should this case occur.
-  __ std_PPC(R27_method, thread_(callee_target));
+  __ std_PPC(R27_method, thread_PPC(callee_target));
 
   // Jump to the compiled code just as if compiled code was doing it.
   __ bctr_PPC();
@@ -1270,9 +1270,9 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
   __ ld_PPC(R27_method, CompiledICHolder::holder_metadata_offset(), ic);
   assert(R27_method == ic, "the inline cache register is dead here");
 
-  __ ld_PPC(code, method_(code));
+  __ ld_PPC(code, method_PPC(code));
   __ cmpdi_PPC(CCR0, code, 0);
-  __ ld_PPC(ientry, method_(interpreter_entry)); // preloaded
+  __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ beq_predict_taken_PPC(CCR0, call_interpreter);
 
   // Branch to ic_miss_stub.
@@ -3256,7 +3256,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
 
   BLOCK_COMMENT("  Check pending exception.");
   const Register pending_exception = R0;
-  __ ld_PPC(pending_exception, thread_(pending_exception));
+  __ ld_PPC(pending_exception, thread_PPC(pending_exception));
   __ cmpdi_PPC(CCR0, pending_exception, 0);
   __ beq_PPC(CCR0, noException);
 

@@ -191,6 +191,7 @@ struct FunctionDescriptor {
 };
 #endif
 
+#define label_offset(Label) disp(intptr_t(target(Label)), intptr_t(pc()))
 
 // The RISCV Assembler: Pure assembler doing NO optimizations on the
 // instruction level; i.e., what you write is what you get. The
@@ -237,7 +238,7 @@ class Assembler : public AbstractAssembler {
     );
   }
   static inline int immu(int x) {
-    assert((x & 0xfff) == 0, "U-immediate must be zero in bits 0:11");
+    // U-immediate must be zero in bits 0:11
     return x & 0xfffff000;
   }
   static inline int immj(int x) {
@@ -2091,6 +2092,7 @@ class Assembler : public AbstractAssembler {
   inline void beqz(    Register s,               int off);
   inline void bnez(    Register s,               int off);
   inline void blt(     Register s1, Register s2, Label& L);
+  inline void bltu(    Register s1, Register s2, Label& L);
   inline void bge(     Register s1, Register s2, Label& L);
   inline void beq(     Register s1, Register s2, Label& L);
   inline void bne(     Register s1, Register s2, Label& L);
@@ -2250,27 +2252,39 @@ class Assembler : public AbstractAssembler {
   inline void fcvtql(  FloatRegister d, Register s, int rm);
   inline void fcvtqlu( FloatRegister d, Register s, int rm);
   // pseudoinstructions
-  inline void nop();
+  inline void nop();                                          // No operation
+  void li(Register d, long imm);                              // Load immediate
+  void li(Register d, void* addr);
+  inline void mv(Register d, Register s);                     // Copy register
+  inline void neg(Register d, Register s);                    // Two’s complement
+  inline void negw(Register d, Register s);                   // Two’s complement word
+  inline void sext_w(Register d, Register s);                 // Sign extend word
+  inline void seqz(Register d, Register s);                   // Set if == zero
+  inline void snez(Register d, Register s);                   // Set if != zero
+  inline void sltz(Register d, Register s);                   // Set if < zero
+  inline void sgtz(Register d, Register s);                   // Set if > zero
+
+  inline void fnegs(FloatRegister rd, FloatRegister rs);
+  inline void fnegd(FloatRegister rd, FloatRegister rs);
+
+  inline void bgt(Register s, Register t, Label& L);          // Branch if >
+  inline void ble(Register s, Register t, Label& L);          // Branch if <=
+  inline void bgtu(Register s, Register t, Label& L);         // Branch if >, unsigned
+  inline void bleu(Register s, Register t, Label& L);         // Branch if <=, unsigned
+
   inline void j(int off);
+  inline void j(Label& L);
   inline void jal(int off);
   inline void jr(Register s);
   inline void jalr(Register s);
   inline void ret();
   inline void call(int off);
   inline void tail(int off);
-  inline void neg(Register d, Register s);
-  inline void negw(Register d, Register s);
-  inline void mv(Register d, Register s);
-  inline void fnegs(FloatRegister rd, FloatRegister rs);
-  inline void fnegd(FloatRegister rd, FloatRegister rs);
-
-  inline void j(Label& L);
 
 private:
-  bool li_32_RV(Register d, long long imm);
+  bool li_32(Register d, long imm);
+
 public:
-  void li(Register d, long long imm);
-  void li(Register d, void* addr);
 
   // --- PPC instructions follow ---
 

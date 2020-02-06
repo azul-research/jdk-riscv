@@ -42,8 +42,11 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void jump_to_entry(address entry, Register Rscratch);
 
   // Handy address generation macros.
-#define thread_(field_name) in_bytes(JavaThread::field_name ## _offset()), R24_thread
-#define method_(field_name) in_bytes(Method::field_name ## _offset()), R27_method
+#define thread_PPC(field_name) in_bytes(JavaThread::field_name ## _offset()), R24_thread
+#define method_PPC(field_name) in_bytes(Method::field_name ## _offset()), R27_method
+
+#define thread_(field_name) R24_thread, in_bytes(JavaThread::field_name ## _offset())
+#define method_(field_name) R27_method, in_bytes(Method::field_name ## _offset())
 
   virtual void check_and_handle_popframe(Register scratch_reg);
   virtual void check_and_handle_earlyret(Register scratch_reg);

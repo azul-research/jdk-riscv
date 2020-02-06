@@ -2156,12 +2156,12 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
   Register Rtmp       = Rscratch2;
   Label Ldone;
   // Get pending exception oop.
-  ld_PPC(Rexception, thread_(pending_exception));
+  ld_PPC(Rexception, thread_PPC(pending_exception));
   cmpdi_PPC(CCR0, Rexception, 0);
   beq_PPC(CCR0, Ldone);
   li_PPC(Rtmp, 0);
   mr_if_needed(R3, Rexception);
-  std_PPC(Rtmp, thread_(pending_exception)); // Clear exception in thread
+  std_PPC(Rtmp, thread_PPC(pending_exception)); // Clear exception in thread
   if (Interpreter::rethrow_exception_entry() != NULL) {
     // Already got entry address.
     load_dispatch_table(Rtmp, (address*)Interpreter::rethrow_exception_entry());

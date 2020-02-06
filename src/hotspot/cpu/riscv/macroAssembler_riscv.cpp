@@ -876,18 +876,18 @@ address MacroAssembler::get_PC_trash_LR(Register result) {
 }
 
 void MacroAssembler::resize_frame(Register offset, Register tmp) {
-#ifdef ASSERT
-  assert_different_registers(offset, tmp, R1_SP_PPC);
-  andi__PPC(tmp, offset, frame::alignment_in_bytes-1);
-  asm_assert_eq("resize_frame: unaligned", 0x204);
+#ifdef ASSERT // FIXME_RISCV
+  assert_different_registers(offset, tmp, R2_SP);
+//  andi__PPC(tmp, offset, frame::alignment_in_bytes-1);
+//  asm_assert_eq("resize_frame: unaligned", 0x204);
 #endif
 
   // tmp <- *(SP)
-  ld_PPC(tmp, _abi(callers_sp), R1_SP_PPC);
-  // addr <- SP + offset;
-  // *(addr) <- tmp;
-  // SP <- addr
-  stdux_PPC(tmp, R1_SP_PPC, offset);
+  ld(tmp, R2_SP, _abi(callers_sp));
+  // SP <- SP + offset;
+  // *(SP) <- tmp;
+  add(R2_SP, R2_SP, offset);
+  sd(tmp, R2_SP, 0);
 }
 
 void MacroAssembler::resize_frame(int offset, Register tmp) {
@@ -921,8 +921,8 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
   // TODO_RISCV push frame in correct way for riscv
-  neg_PPC(tmp, bytes);
-  add_PPC(R2_SP, R2_SP, tmp);
+  neg(tmp, bytes);
+  add(R2_SP, R2_SP, tmp);
 }
 
 // Push a frame of size `bytes'.
@@ -3194,13 +3194,13 @@ void MacroAssembler::load_klass(Register dst, Register src) {
 // ((OopHandle)result).resolve();
 void MacroAssembler::resolve_oop_handle(Register result) {
   // OopHandle::resolve is an indirection.
-  ld_PPC(result, 0, result);
+  ld(result, result, 0);
 }
 
 void MacroAssembler::load_mirror_from_const_method(Register mirror, Register const_method) {
-  ld_PPC(mirror, in_bytes(ConstMethod::constants_offset()), const_method);
-  ld_PPC(mirror, ConstantPool::pool_holder_offset_in_bytes(), mirror);
-  ld_PPC(mirror, in_bytes(Klass::java_mirror_offset()), mirror);
+  ld(mirror, const_method, in_bytes(ConstMethod::constants_offset()));
+  ld(mirror, mirror, ConstantPool::pool_holder_offset_in_bytes());
+  ld(mirror, mirror, in_bytes(Klass::java_mirror_offset()));
   resolve_oop_handle(mirror);
 }
 

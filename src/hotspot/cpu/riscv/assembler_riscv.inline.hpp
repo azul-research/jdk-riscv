@@ -123,11 +123,12 @@ inline void Assembler::bgeu(   Register s1, Register s2, int off)  { branch(s1, 
 inline void Assembler::beqz(   Register s, int off)  { beq (s, R0_ZERO, off); }
 inline void Assembler::bnez(   Register s, int off)  { bne(s, R0_ZERO, off); }
 
-inline void Assembler::blt(    Register s1, Register s2, Label& L) { blt( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
-inline void Assembler::bge(    Register s1, Register s2, Label& L) { bge( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
-inline void Assembler::beq(    Register s1, Register s2, Label& L) { beq( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
-inline void Assembler::bne(    Register s1, Register s2, Label& L) { bne( s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
-inline void Assembler::bgeu(   Register s1, Register s2, Label& L) { bgeu(s1, s2, disp(intptr_t(target(L)), intptr_t(pc()))); }
+inline void Assembler::blt(    Register s1, Register s2, Label& L) { blt( s1, s2, label_offset(L)); }
+inline void Assembler::bge(    Register s1, Register s2, Label& L) { bge( s1, s2, label_offset(L)); }
+inline void Assembler::beq(    Register s1, Register s2, Label& L) { beq( s1, s2, label_offset(L)); }
+inline void Assembler::bne(    Register s1, Register s2, Label& L) { bne( s1, s2, label_offset(L)); }
+inline void Assembler::bltu(   Register s1, Register s2, Label& L) { bltu(s1, s2, label_offset(L)); }
+inline void Assembler::bgeu(   Register s1, Register s2, Label& L) { bgeu(s1, s2, label_offset(L)); }
 
 inline void Assembler::beqz(   Register s, Label& L) { beq(s, R0_ZERO, L); }
 inline void Assembler::bnez(   Register s, Label& L) { bne(s, R0_ZERO, L); }
@@ -288,21 +289,33 @@ inline void Assembler::fcvtluq( Register d, FloatRegister s, int rm) { op_fp(d, 
 inline void Assembler::fcvtql(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x6b); }
 inline void Assembler::fcvtqlu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x6b); }
 // pseudoinstructions
+
 inline void Assembler::nop() { addi(R0, R0, 0); }
+inline void Assembler::mv(Register d, Register s) { addi(d, s, 0); }
+inline void Assembler::neg(Register d, Register s) { sub(d, R0, s); }
+inline void Assembler::negw(Register d, Register s) { subw(d, R0, s); }
+inline void Assembler::sext_w(Register d, Register s) { addiw(d, s, 0); }
+inline void Assembler::seqz(Register d, Register s) { sltiu(d, s, 1); }
+inline void Assembler::snez(Register d, Register s) { sltu(d, R0, s); }
+inline void Assembler::sltz(Register d, Register s) { slt(d, s, R0); }
+inline void Assembler::sgtz(Register d, Register s) { slt(d, R0, s); }
+
+inline void Assembler::fnegs(FloatRegister rd, FloatRegister rs) { fsgnjns(rd, rs, rs); }
+inline void Assembler::fnegd(FloatRegister rd, FloatRegister rs) { fsgnjnd(rd, rs, rs); }
+
+inline void Assembler::bgt(Register s, Register t, Label& L) { blt(t, s, L); }
+inline void Assembler::ble(Register s, Register t, Label& L) { bge(t, s, L); }
+inline void Assembler::bgtu(Register s, Register t, Label& L) { bltu(t, s, L); }
+inline void Assembler::bleu(Register s, Register t, Label& L) { bgeu(t, s, L); }
+
 inline void Assembler::j(int off) { jal(R0, off); }
+inline void Assembler::j(Label& L) { j(label_offset(L)); }
 inline void Assembler::jal(int off) { jal(R1, off); }
 inline void Assembler::jr(Register s) { jalr(R0, s, 0); }
 inline void Assembler::jalr(Register s) { jalr(R1, s, 0); }
 inline void Assembler::ret() { jr(R1); }
 inline void Assembler::call(int off) { auipc(R1, off & 0xfffff000); jalr(R1, R1, off & 0xfff); }
 inline void Assembler::tail(int off) { auipc(R6, off & 0xfffff000); jalr(R0, R6, off & 0xfff); }
-inline void Assembler::neg(Register d, Register s) { sub(d, R0, s); }
-inline void Assembler::negw(Register d, Register s) { subw(d, R0, s); }
-inline void Assembler::mv(Register d, Register s) { addi(d, s, 0); }
-inline void Assembler::fnegs(FloatRegister rd, FloatRegister rs) { fsgnjns(rd, rs, rs); }
-inline void Assembler::fnegd(FloatRegister rd, FloatRegister rs) { fsgnjnd(rd, rs, rs); }
-
-inline void Assembler::j(Label& L) { j(disp(intptr_t(target(L)), intptr_t(pc()))); }
 
 // --- PPC instructions follow ---
 
@@ -490,6 +503,7 @@ inline void Assembler::srawi_PPC(   Register a, Register s, int sh5)     { illtr
 inline void Assembler::srawi__PPC(  Register a, Register s, int sh5)     { illtrap(); } // This is a PPC instruction and should be removed
 
 // extended mnemonics for Shift Instructions
+// sldi_PPC a s i = slli a s i when i < 32
 inline void Assembler::sldi_PPC(    Register a, Register s, int sh6)     { illtrap(); } // This is a PPC instruction and should be removed
 inline void Assembler::sldi__PPC(   Register a, Register s, int sh6)     { illtrap(); } // This is a PPC instruction and should be removed
 inline void Assembler::slwi_PPC(    Register a, Register s, int sh5)     { illtrap(); } // This is a PPC instruction and should be removed
@@ -540,6 +554,7 @@ inline void Assembler::lwa_PPC(  Register d, int si16,    Register s1) { illtrap
 inline void Assembler::lwbrx_PPC( Register d, Register s1, Register s2) { illtrap(); } // This is a PPC instruction and should be removed
 
 inline void Assembler::lhzx_PPC( Register d, Register s1, Register s2) { illtrap(); } // This is a PPC instruction and should be removed
+// lhz_PPC d i s = ldu d s i
 inline void Assembler::lhz_PPC(  Register d, int si16,    Register s1) { illtrap(); } // This is a PPC instruction and should be removed
 inline void Assembler::lhzu_PPC( Register d, int si16,    Register s1) { illtrap(); } // This is a PPC instruction and should be removed
 
