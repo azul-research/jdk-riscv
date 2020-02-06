@@ -58,8 +58,10 @@ int Assembler::patched_branch(int dest_pos, int inst, int inst_pos) {
 
   int inv_op = get_opcode(inst);
   switch (inv_op) {
-    case BRANCH_RV_OPCODE:  m = immb(-2); v = immb(disp(dest_pos, inst_pos)); break;
-    default: ShouldNotReachHere(); // FIXME_RISCV add cases for other types of commands
+    case BRANCH_RV_OPCODE: m = immb(-2); v = immb(disp(dest_pos, inst_pos)); break;
+    case   JALR_RV_OPCODE: m = immi(-1); v = immi(disp(dest_pos, inst_pos)); break;
+    case    JAL_RV_OPCODE: m = immj(-2); v = immj(disp(dest_pos, inst_pos)); break;
+    default: ShouldNotReachHere();
   }
   return inst & ~m | v;
 }
