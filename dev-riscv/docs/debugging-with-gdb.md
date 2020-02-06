@@ -23,3 +23,17 @@ Launch gdb client with the path to the same file as on server:
 Connect to gdb server (note that `:12345` is the same port as server uses):
 
 `target remote :12345`
+
+## Scripts for main gdb scenario
+
+To start gdb server in qemu run the following script:
+
+`dev-riscv/scripts/gdb_server.sh`
+
+To allow use `.gdbinit` file in toolchain docker run the following script:
+
+`dev-riscv/scripts/patch_gdbinit.sh` 
+
+To start gdb client in toolchain docker run the following script:
+
+`dev-riscv/scripts/gdb_client.sh`
