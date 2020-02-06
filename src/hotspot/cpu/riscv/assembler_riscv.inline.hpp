@@ -55,28 +55,34 @@ inline address Assembler::emit_addr(const address addr) {
   return start;
 }
 
-inline void Assembler::op_imm(Register d, Register s, int f, int imm) { emit_int32(OP_IMM_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
-inline void Assembler::lui(Register d, int imm) { emit_int32(LUI_RV_OPCODE | rd(d) | immu(imm)); }
-inline void Assembler::auipc(Register d, int imm) { emit_int32(AUIPC_RV_OPCODE | rd(d) | immu(imm)); }
-inline void Assembler::op(Register d, Register s1, Register s2, int f1, int f2) { emit_int32(OP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
-inline void Assembler::amo(Register d, Register s1, Register s2, int f1, int f2, bool aq, bool rl) { emit_int32(AMO_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2, aq, rl)); }
-inline void Assembler::jal(Register d, int off) { emit_int32(JAL_RV_OPCODE | rd(d) | immj(off)); }
-inline void Assembler::jalr(Register d, Register base, int off) { emit_int32(JALR_RV_OPCODE | rd(d) | rs1(base) | immi(off)); }
-inline void Assembler::branch(Register s1, Register s2, int f, int off) { emit_int32(BRANCH_RV_OPCODE | rs1(s1) | rs2(s2) | funct3(f) | immb(off)); }
-inline void Assembler::load(Register d, Register s, int width, int off) { emit_int32(LOAD_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
-inline void Assembler::load_fp(FloatRegister d, Register s, int width, int off) { emit_int32(LOAD_FP_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
-inline void Assembler::store(Register s, Register base, int width, int off) { emit_int32(STORE_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
-inline void Assembler::store_fp(FloatRegister s, Register base, int width, int off) { emit_int32(STORE_FP_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
-inline void Assembler::op_imm32(Register d, Register s, int f, int imm) { emit_int32(OP_IMM32_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
-inline void Assembler::op32(Register d, Register s1, Register s2, int f1, int f2) { emit_int32(OP32_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
-inline void Assembler::op_fp(Register d, Register s1, Register s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
-inline void Assembler::op_fp(Register d, Register s1, int s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
-inline void Assembler::op_fp(FloatRegister d, Register s1, int s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
-inline void Assembler::op_fp(Register d, FloatRegister s1, int s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
-inline void Assembler::madd(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(MADD_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
-inline void Assembler::msub(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(MSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
-inline void Assembler::nmadd(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(NMSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
-inline void Assembler::nmsub(Register d, Register s1, Register s2, Register s3, int rm, int f) { emit_int32(NMADD_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
+inline void Assembler::op_imm(   Register d,  Register s, int f, int imm) { emit_int32(OP_IMM_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
+inline void Assembler::lui(      Register d,  int imm)                    { emit_int32(LUI_RV_OPCODE | rd(d) | immu(imm)); }
+inline void Assembler::auipc(    Register d,  int imm)                    { emit_int32(AUIPC_RV_OPCODE | rd(d) | immu(imm)); }
+
+inline void Assembler::op(       Register d,  Register s1, Register s2, int f1, int f2)                   { emit_int32(OP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
+inline void Assembler::amo(      Register d,  Register s1, Register s2, int f1, int f2, bool aq, bool rl) { emit_int32(AMO_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2, aq, rl)); }
+
+inline void Assembler::jal(      Register d,  int off)                                    { emit_int32(JAL_RV_OPCODE | rd(d) | immj(off)); }
+inline void Assembler::jalr(     Register d,  Register base, int off)                     { emit_int32(JALR_RV_OPCODE | rd(d) | rs1(base) | immi(off)); }
+inline void Assembler::branch(   Register s1, Register s2,   int f,       int off)        { emit_int32(BRANCH_RV_OPCODE | rs1(s1) | rs2(s2) | funct3(f) | immb(off)); }
+inline void Assembler::load(     Register d,  Register s,    int width,   int off)        { emit_int32(LOAD_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
+inline void Assembler::store(    Register s,  Register base, int width,   int off)        { emit_int32(STORE_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
+inline void Assembler::op_imm32( Register d,  Register s,    int f,       int imm)        { emit_int32(OP_IMM32_RV_OPCODE | rd(d) | rs1(s) | funct3(f) | immi(imm)); }
+inline void Assembler::op32(     Register d,  Register s1,   Register s2, int f1, int f2) { emit_int32(OP32_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(f1) | funct7(f2)); }
+
+inline void Assembler::load_fp(  FloatRegister d, Register s,    int width, int off) { emit_int32(LOAD_FP_RV_OPCODE | rd(d) | rs1(s) | funct3(width) | immi(off)); }
+inline void Assembler::store_fp( FloatRegister s, Register base, int width, int off) { emit_int32(STORE_FP_RV_OPCODE | rs1(base) | rs2(s) | funct3(width) | imms(off)); }
+
+inline void Assembler::op_fp( Register d,      FloatRegister s1, FloatRegister s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+inline void Assembler::op_fp( FloatRegister d, FloatRegister s1, FloatRegister s2, int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+inline void Assembler::op_fp( FloatRegister d, FloatRegister s1, int s2,           int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+inline void Assembler::op_fp( FloatRegister d, Register s1,      int s2,           int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+inline void Assembler::op_fp( Register d,      FloatRegister s1, int s2,           int rm, int f) { emit_int32(OP_FP_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | funct3(rm) | funct7(f)); }
+
+inline void Assembler::madd(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(MADD_RV_OPCODE  | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
+inline void Assembler::msub(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(MSUB_RV_OPCODE  | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
+inline void Assembler::nmadd( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(NMSUB_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
+inline void Assembler::nmsub( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm, int f) { emit_int32(NMADD_RV_OPCODE | rd(d) | rs1(s1) | rs2(s2) | rs3(s3) | funct3(rm) | funct2(f)); }
 
 inline void Assembler::addi(   Register d, Register s, int imm)   { op_imm(d, s, 0x0, imm          ); }
 inline void Assembler::slti(   Register d, Register s, int imm)   { op_imm(d, s, 0x2, imm          ); }
@@ -185,102 +191,102 @@ inline void Assembler::amomaxud(Register d, Register s1, Register s2, bool aq, b
 inline void Assembler::flw(     FloatRegister d,    Register s, int imm) { load_fp( d,    s, 0x2, imm); }
 inline void Assembler::fsw(     FloatRegister s, Register base, int imm) { store_fp(s, base, 0x2, imm); }
 
-inline void Assembler::fmadds(  Register d, Register s1, Register s2, Register s3, int rm) { madd(d, s1, s2, s3, rm, 0x0); }
-inline void Assembler::fmsubs(  Register d, Register s1, Register s2, Register s3, int rm) { msub(d, s1, s2, s3, rm, 0x0); }
-inline void Assembler::fnmadds( Register d, Register s1, Register s2, Register s3, int rm) { nmadd(d, s1, s2, s3, rm, 0x0); }
-inline void Assembler::fnmsubs( Register d, Register s1, Register s2, Register s3, int rm) { nmsub(d, s1, s2, s3, rm, 0x0); }
-inline void Assembler::fadds(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x0); }
-inline void Assembler::fsubs(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x4); }
-inline void Assembler::fmuls(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x8); }
-inline void Assembler::fdivs(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0xc); }
-inline void Assembler::fsqrts(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x2c); }
-inline void Assembler::fsgnjs(  Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x10); }
-inline void Assembler::fsgnjns( Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x10); }
-inline void Assembler::fsgnjxs( Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x2, 0x10); }
-inline void Assembler::fmins(   Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x14); }
-inline void Assembler::fmaxs(   Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x14); }
-inline void Assembler::fcvtws(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x60); }
-inline void Assembler::fcvtwus( Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x60); }
-inline void Assembler::fmvxw(   Register d, Register s) { op_fp(d, s, 0x0, 0x0, 0x70); }
-inline void Assembler::feqs(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x2, 0x50); }
-inline void Assembler::flts(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x50); }
-inline void Assembler::fles(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x50); }
-inline void Assembler::fclasss( Register d, Register s) { op_fp(d, s, 0x0, 0x1, 0x70); }
-inline void Assembler::fcvtsw(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x68); }
-inline void Assembler::fcvtswu( Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x68); }
-inline void Assembler::fmvwx(   Register d, Register s) { op_fp(d, s, 0x0, 0x0, 0x78); }
-inline void Assembler::fcvtls(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x60); }
-inline void Assembler::fcvtlus( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x60); }
-inline void Assembler::fcvtsl(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x68); }
-inline void Assembler::fcvtslu( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x68); }
+inline void Assembler::fmadds(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { madd(d, s1, s2, s3, rm, 0x0); }
+inline void Assembler::fmsubs(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { msub(d, s1, s2, s3, rm, 0x0); }
+inline void Assembler::fnmadds( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { nmadd(d, s1, s2, s3, rm, 0x0); }
+inline void Assembler::fnmsubs( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { nmsub(d, s1, s2, s3, rm, 0x0); }
+inline void Assembler::fadds(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x0); }
+inline void Assembler::fsubs(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x4); }
+inline void Assembler::fmuls(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x8); }
+inline void Assembler::fdivs(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0xc); }
+inline void Assembler::fsqrts(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x2c); }
+inline void Assembler::fsgnjs(  FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x10); }
+inline void Assembler::fsgnjns( FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x10); }
+inline void Assembler::fsgnjxs( FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x2, 0x10); }
+inline void Assembler::fmins(   FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x14); }
+inline void Assembler::fmaxs(   FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x14); }
+inline void Assembler::fcvtws(  Register d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x60); }
+inline void Assembler::fcvtwus( Register d, FloatRegister s, int rm) { op_fp(d, s, 0x1, rm, 0x60); }
+inline void Assembler::fmvxw(   Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x0, 0x70); }
+inline void Assembler::feqs(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x2, 0x50); }
+inline void Assembler::flts(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x50); }
+inline void Assembler::fles(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x50); }
+inline void Assembler::fclasss( Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x1, 0x70); }
+inline void Assembler::fcvtsw(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x68); }
+inline void Assembler::fcvtswu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x68); }
+inline void Assembler::fmvwx(   FloatRegister d, Register s) { op_fp(d, s, 0x0, 0x0, 0x78); }
+inline void Assembler::fcvtls(  Register d, FloatRegister s, int rm) { op_fp(d, s, 0x2, rm, 0x60); }
+inline void Assembler::fcvtlus( Register d, FloatRegister s, int rm) { op_fp(d, s, 0x3, rm, 0x60); }
+inline void Assembler::fcvtsl(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x68); }
+inline void Assembler::fcvtslu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x68); }
 
 inline void Assembler::fld(     FloatRegister d,    Register s, int imm) { load_fp( d,    s, 0x3, imm); }
 inline void Assembler::fsd(     FloatRegister s, Register base, int imm) { store_fp(s, base, 0x3, imm); }
 
-inline void Assembler::fmaddd(  Register d, Register s1, Register s2, Register s3, int rm) { madd(d, s1, s2, s3, rm, 0x1); }
-inline void Assembler::fmsubd(  Register d, Register s1, Register s2, Register s3, int rm) { msub(d, s1, s2, s3, rm, 0x1); }
-inline void Assembler::fnmaddd( Register d, Register s1, Register s2, Register s3, int rm) { nmadd(d, s1, s2, s3, rm, 0x1); }
-inline void Assembler::fnmsubd( Register d, Register s1, Register s2, Register s3, int rm) { nmsub(d, s1, s2, s3, rm, 0x1); }
-inline void Assembler::faddd(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x1); }
-inline void Assembler::fsubd(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x5); }
-inline void Assembler::fmuld(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x9); }
-inline void Assembler::fdivd(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0xd); }
-inline void Assembler::fsqrtd(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x2d); }
-inline void Assembler::fsgnjd(  Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x11); }
-inline void Assembler::fsgnjnd( Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x11); }
-inline void Assembler::fsgnjxd( Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x2, 0x11); }
-inline void Assembler::fmind(   Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x15); }
-inline void Assembler::fmaxd(   Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x15); }
-inline void Assembler::fcvtsd(  Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x20); }
-inline void Assembler::fcvtds(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x21); }
-inline void Assembler::feqd(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x2, 0x51); }
-inline void Assembler::fltd(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x51); }
-inline void Assembler::fled(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x51); }
-inline void Assembler::fclassd( Register d, Register s) { op_fp(d, s, 0x0, 0x1, 0x71); }
-inline void Assembler::fcvtwd(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x61); }
-inline void Assembler::fcvtwud( Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x61); }
-inline void Assembler::fcvtdw(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x69); }
-inline void Assembler::fcvtdwu( Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x69); }
-inline void Assembler::fcvtld(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x61); }
-inline void Assembler::fcvtlud( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x61); }
-inline void Assembler::fcvtdl(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x69); }
-inline void Assembler::fcvtdlu( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x69); }
+inline void Assembler::fmaddd(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { madd(d, s1, s2, s3, rm, 0x1); }
+inline void Assembler::fmsubd(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { msub(d, s1, s2, s3, rm, 0x1); }
+inline void Assembler::fnmaddd( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { nmadd(d, s1, s2, s3, rm, 0x1); }
+inline void Assembler::fnmsubd( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { nmsub(d, s1, s2, s3, rm, 0x1); }
+inline void Assembler::faddd(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x1); }
+inline void Assembler::fsubd(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x5); }
+inline void Assembler::fmuld(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x9); }
+inline void Assembler::fdivd(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0xd); }
+inline void Assembler::fsqrtd(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x2d); }
+inline void Assembler::fsgnjd(  FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x11); }
+inline void Assembler::fsgnjnd( FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x11); }
+inline void Assembler::fsgnjxd( FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x2, 0x11); }
+inline void Assembler::fmind(   FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x15); }
+inline void Assembler::fmaxd(   FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x15); }
+inline void Assembler::fcvtsd(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x1, rm, 0x20); }
+inline void Assembler::fcvtds(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x21); }
+inline void Assembler::feqd(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x2, 0x51); }
+inline void Assembler::fltd(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x51); }
+inline void Assembler::fled(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x51); }
+inline void Assembler::fclassd( Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x1, 0x71); }
+inline void Assembler::fcvtwd(  Register d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x61); }
+inline void Assembler::fcvtwud( Register d, FloatRegister s, int rm) { op_fp(d, s, 0x1, rm, 0x61); }
+inline void Assembler::fcvtdw(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x69); }
+inline void Assembler::fcvtdwu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x69); }
+inline void Assembler::fcvtld(  Register d, FloatRegister s, int rm) { op_fp(d, s, 0x2, rm, 0x61); }
+inline void Assembler::fcvtlud( Register d, FloatRegister s, int rm) { op_fp(d, s, 0x3, rm, 0x61); }
+inline void Assembler::fcvtdl(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x69); }
+inline void Assembler::fcvtdlu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x69); }
 inline void Assembler::fmvxd(   Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x0, 0x71); }
 inline void Assembler::fmvdx(   FloatRegister d, Register s) { op_fp(d, s, 0x0, 0x0, 0x79); }
 
 inline void Assembler::flq(     FloatRegister d,    Register s, int imm) { load_fp( d,    s, 0x4, imm); }
 inline void Assembler::fsq(     FloatRegister s, Register base, int imm) { store_fp(s, base, 0x4, imm); }
 
-inline void Assembler::fmaddq(  Register d, Register s1, Register s2, Register s3, int rm) { madd(d, s1, s2, s3, rm, 0x3); }
-inline void Assembler::fmsubq(  Register d, Register s1, Register s2, Register s3, int rm) { msub(d, s1, s2, s3, rm, 0x3); }
-inline void Assembler::fnmaddq( Register d, Register s1, Register s2, Register s3, int rm) { nmadd(d, s1, s2, s3, rm, 0x3); }
-inline void Assembler::fnmsubq( Register d, Register s1, Register s2, Register s3, int rm) { nmsub(d, s1, s2, s3, rm, 0x3); }
-inline void Assembler::faddq(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x3); }
-inline void Assembler::fsubq(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0x7); }
-inline void Assembler::fmulq(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0xb); }
-inline void Assembler::fdivq(   Register d, Register s1, Register s2, int rm) { op_fp(d, s1, s2, rm, 0xf); }
-inline void Assembler::fsqrtq(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x2f); }
-inline void Assembler::fsgnjq(  Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x13); }
-inline void Assembler::fsgnjnq( Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x13); }
-inline void Assembler::fsgnjxq( Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x2, 0x13); }
-inline void Assembler::fminq(   Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x17); }
-inline void Assembler::fmaxq(   Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x17); }
-inline void Assembler::fcvtsq(  Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x20); }
-inline void Assembler::fcvtqs(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x23); }
-inline void Assembler::fcvtdq(  Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x21); }
-inline void Assembler::fcvtqd(  Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x23); }
-inline void Assembler::feqq(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x2, 0x53); }
-inline void Assembler::fltq(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x1, 0x53); }
-inline void Assembler::fleq(    Register d, Register s1, Register s2) { op_fp(d, s1, s2, 0x0, 0x53); }
-inline void Assembler::fclassq( Register d, Register s) { op_fp(d, s, 0x0, 0x1, 0x73); }
-inline void Assembler::fcvtwq(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x63); }
-inline void Assembler::fcvtwuq( Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x63); }
-inline void Assembler::fcvtqw(  Register d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x6b); }
-inline void Assembler::fcvtqwu( Register d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x6b); }
-inline void Assembler::fcvtlq(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x63); }
-inline void Assembler::fcvtluq( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x63); }
-inline void Assembler::fcvtql(  Register d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x6b); }
-inline void Assembler::fcvtqlu( Register d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x6b); }
+inline void Assembler::fmaddq(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { madd(d, s1, s2, s3, rm, 0x3); }
+inline void Assembler::fmsubq(  FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { msub(d, s1, s2, s3, rm, 0x3); }
+inline void Assembler::fnmaddq( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { nmadd(d, s1, s2, s3, rm, 0x3); }
+inline void Assembler::fnmsubq( FloatRegister d, FloatRegister s1, FloatRegister s2, FloatRegister s3, int rm) { nmsub(d, s1, s2, s3, rm, 0x3); }
+inline void Assembler::faddq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x3); }
+inline void Assembler::fsubq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0x7); }
+inline void Assembler::fmulq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0xb); }
+inline void Assembler::fdivq(   FloatRegister d, FloatRegister s1, FloatRegister s2, int rm) { op_fp(d, s1, s2, rm, 0xf); }
+inline void Assembler::fsqrtq(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x2f); }
+inline void Assembler::fsgnjq(  FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x13); }
+inline void Assembler::fsgnjnq( FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x13); }
+inline void Assembler::fsgnjxq( FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x2, 0x13); }
+inline void Assembler::fminq(   FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x17); }
+inline void Assembler::fmaxq(   FloatRegister d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x17); }
+inline void Assembler::fcvtsq(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x3, rm, 0x20); }
+inline void Assembler::fcvtqs(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x23); }
+inline void Assembler::fcvtdq(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x3, rm, 0x21); }
+inline void Assembler::fcvtqd(  FloatRegister d, FloatRegister s, int rm) { op_fp(d, s, 0x1, rm, 0x23); }
+inline void Assembler::feqq(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x2, 0x53); }
+inline void Assembler::fltq(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x1, 0x53); }
+inline void Assembler::fleq(    Register d, FloatRegister s1, FloatRegister s2) { op_fp(d, s1, s2, 0x0, 0x53); }
+inline void Assembler::fclassq( Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x1, 0x73); }
+inline void Assembler::fcvtwq(  Register d, FloatRegister s, int rm) { op_fp(d, s, 0x0, rm, 0x63); }
+inline void Assembler::fcvtwuq( Register d, FloatRegister s, int rm) { op_fp(d, s, 0x1, rm, 0x63); }
+inline void Assembler::fcvtqw(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x0, rm, 0x6b); }
+inline void Assembler::fcvtqwu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x1, rm, 0x6b); }
+inline void Assembler::fcvtlq(  Register d, FloatRegister s, int rm) { op_fp(d, s, 0x2, rm, 0x63); }
+inline void Assembler::fcvtluq( Register d, FloatRegister s, int rm) { op_fp(d, s, 0x3, rm, 0x63); }
+inline void Assembler::fcvtql(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x6b); }
+inline void Assembler::fcvtqlu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x6b); }
 // pseudoinstructions
 inline void Assembler::nop() { addi(R0, R0, 0); }
 inline void Assembler::j(int off) { jal(R0, off); }
@@ -293,6 +299,8 @@ inline void Assembler::tail(int off) { auipc(R6, off & 0xfffff000); jalr(R0, R6,
 inline void Assembler::neg(Register d, Register s) { sub(d, R0, s); }
 inline void Assembler::negw(Register d, Register s) { subw(d, R0, s); }
 inline void Assembler::mv(Register d, Register s) { addi(d, s, 0); }
+inline void Assembler::fnegs(FloatRegister rd, FloatRegister rs) { fsgnjns(rd, rs, rs); }
+inline void Assembler::fnegd(FloatRegister rd, FloatRegister rs) { fsgnjnd(rd, rs, rs); }
 
 inline void Assembler::j(Label& L) { j(disp(intptr_t(target(L)), intptr_t(pc()))); }
 
