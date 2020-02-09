@@ -63,11 +63,9 @@ void InterpreterMacroAssembler::jump_to_entry(address entry, Register Rscratch) 
 
 void InterpreterMacroAssembler::dispatch_next(TosState state, int bcp_incr, bool generate_poll) {
   Register bytecode = R6_scratch2;
-  if (bcp_incr != 0) {
-    lbzu_PPC(bytecode, bcp_incr, R22_bcp);
-  } else {
-    lbz_PPC(bytecode, 0, R22_bcp);
-  }
+
+  lbu(bytecode, R22_bcp, bcp_incr);
+  if (bcp_incr != 0) addi(R22_bcp, R22_bcp, bcp_incr);
 
   dispatch_Lbyte_code(state, bytecode, Interpreter::dispatch_table(state), generate_poll);
 }
@@ -218,25 +216,28 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   load_dispatch_table(R5_scratch1, table);
 
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
-    address *sfpt_tbl = Interpreter::safept_table(state);
-    if (table != sfpt_tbl) {
-      Label dispatch;
-      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R24_thread);
-      // Armed page has poll_bit set, if poll bit is cleared just continue.
-      andi__PPC(R0, R0, SafepointMechanism::poll_bit());
-      beq_PPC(CCR0, dispatch);
-      load_dispatch_table(R5_scratch1, sfpt_tbl);
-      align(32, 16);
-      bind(dispatch);
-    }
+    unimplemented("generate_poll in dispatch_next is true", -1);
+//    address *sfpt_tbl = Interpreter::safept_table(state);
+//    if (table != sfpt_tbl) {
+//      Label dispatch;
+//      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R24_thread);
+//      // Armed page has poll_bit set, if poll bit is cleared just continue.
+//      andi__PPC(R0, R0, SafepointMechanism::poll_bit());
+//      beq_PPC(CCR0, dispatch);
+//      load_dispatch_table(R5_scratch1, sfpt_tbl);
+//      align(32, 16);
+//      bind(dispatch);
+//    }
   }
 
-  sldi_PPC(R6_scratch2, bytecode, LogBytesPerWord);
-  ldx_PPC(R5_scratch1, R5_scratch1, R6_scratch2);
+  slli(R6_scratch2, bytecode, LogBytesPerWord);
+  add(R6_scratch2, R6_scratch2, R5_scratch1);
+  ld(R5_scratch1, R6_scratch2, 0);
 
   // Jump off!
-  mtctr_PPC(R5_scratch1);
-  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
+//  mtctr_PPC(R5_scratch1); FIXME_RISCV understand this
+//  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
+  jr(R5_scratch1);
 }
 
 void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rrecv_dst) {
