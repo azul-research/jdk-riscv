@@ -412,18 +412,19 @@ void InterpreterMacroAssembler::get_cache_index_at_bcp(Register Rdst, int bcp_of
   assert(bcp_offset > 0, "bcp is still pointing to start of bytecode");
   // Cache index is always in the native format, courtesy of Rewriter.
   if (index_size == sizeof(u2)) {
-    lhz_PPC(Rdst, bcp_offset, R22_bcp);
+    lhu(Rdst, R22_bcp,  bcp_offset);
   } else if (index_size == sizeof(u4)) {
-    if (bcp_offset & 3) {
+    /*if (bcp_offset & 3) {
       load_const_optimized(Rdst, bcp_offset);
       lwax_PPC(Rdst, R22_bcp, Rdst);
     } else {
       lwa_PPC(Rdst, bcp_offset, R22_bcp);
-    }
+    }*/
+    lw(Rdst, R22_bcp, bcp_offset);
     assert(ConstantPool::decode_invokedynamic_index(~123) == 123, "else change next line");
-    nand_PPC(Rdst, Rdst, Rdst); // convert to plain index
+    xori(Rdst, Rdst, -1); // convert to plain index
   } else if (index_size == sizeof(u1)) {
-    lbz_PPC(Rdst, bcp_offset, R22_bcp);
+    lbu(Rdst, R22_bcp, bcp_offset);
   } else {
     ShouldNotReachHere();
   }
@@ -433,8 +434,8 @@ void InterpreterMacroAssembler::get_cache_index_at_bcp(Register Rdst, int bcp_of
 void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int bcp_offset,
                                                            size_t index_size) {
   get_cache_index_at_bcp(cache, bcp_offset, index_size);
-  sldi_PPC(cache, cache, exact_log2(in_words(ConstantPoolCacheEntry::size()) * BytesPerWord));
-  add_PPC(cache, R27_constPoolCache_PPC, cache);
+  slli(cache, cache, exact_log2(in_words(ConstantPoolCacheEntry::size()) * BytesPerWord));
+  add(cache, R30_constPoolCache, cache);
 }
 
 // Load 4-byte signed or unsigned integer in Java format (that is, big-endian format)
@@ -515,7 +516,7 @@ void InterpreterMacroAssembler::load_resolved_method_at_index(int byte_no,
        ? ConstantPoolCacheEntry::f2_offset()
        : ConstantPoolCacheEntry::f1_offset()));
 
-  ld_PPC(method, method_offset, cache); // get f1 Method*
+  ld(method, cache, method_offset); // get f1 Method*
 }
 
 // Generate a subtype check: branch to ok_is_subtype if sub_klass is
@@ -2196,7 +2197,7 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point,
                                         Register arg_1, bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mr_if_needed(R12_ARG2, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2223,26 +2224,26 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 }
 
 void InterpreterMacroAssembler::save_interpreter_state(Register scratch) {
-  ld_PPC(scratch, 0, R1_SP_PPC);
-  std_PPC(R23_esp, _ijava_state_neg(esp), scratch);
-  std_PPC(R22_bcp, _ijava_state_neg(bcp), scratch);
-  std_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), scratch);
-  if (ProfileInterpreter) { std_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), scratch); }
+  ld(scratch, R2_SP, 0);
+  sd(R23_esp, scratch, _ijava_state_neg(esp));
+  sd(R22_bcp, scratch, _ijava_state_neg(bcp));
+  sd(R28_monitor, scratch, _ijava_state_neg(monitors));
+  if (ProfileInterpreter) { sd(R29_mdx, scratch, _ijava_state_neg(mdx)); }
   // Other entries should be unchanged.
 }
 
 void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool bcp_and_mdx_only) {
-  ld_PPC(scratch, 0, R1_SP_PPC);
-  ld_PPC(R22_bcp, _ijava_state_neg(bcp), scratch); // Changed by VM code (exception).
-  if (ProfileInterpreter) { ld_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), scratch); } // Changed by VM code.
+  ld(scratch, R2_SP, 0);
+  ld(R22_bcp, scratch, _ijava_state_neg(bcp)); // Changed by VM code (exception).
+  if (ProfileInterpreter) { ld(R29_mdx, scratch, _ijava_state_neg(mdx)); } // Changed by VM code.
   if (!bcp_and_mdx_only) {
     // Following ones are Metadata.
-    ld_PPC(R27_method, _ijava_state_neg(method), scratch);
-    ld_PPC(R27_constPoolCache_PPC, _ijava_state_neg(cpoolCache), scratch);
+    ld(R27_method, scratch, _ijava_state_neg(method));
+    ld(R30_constPoolCache, scratch, _ijava_state_neg(cpoolCache));
     // Following ones are stack addresses and don't require reload.
-    ld_PPC(R23_esp, _ijava_state_neg(esp), scratch);
-    ld_PPC(R26_locals, _ijava_state_neg(locals), scratch);
-    ld_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), scratch);
+    ld(R23_esp, scratch, _ijava_state_neg(esp));
+    ld(R26_locals, scratch, _ijava_state_neg(locals));
+    ld(R28_monitor, scratch, _ijava_state_neg(monitors));
   }
 #ifdef ASSERT
   {

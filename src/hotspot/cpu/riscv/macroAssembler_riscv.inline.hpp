@@ -63,7 +63,7 @@ inline void MacroAssembler::round_to(Register r, int modulus) {
 
 // Move register if destination register and target register are different.
 inline void MacroAssembler::mr_if_needed(Register rd, Register rs) {
-  if (rs != rd) mr_PPC(rd, rs);
+  if (rs != rd) mv(rd, rs);
 }
 inline void MacroAssembler::fmr_if_needed(FloatRegister rd, FloatRegister rs) {
   if (rs != rd) fmr_PPC(rd, rs);

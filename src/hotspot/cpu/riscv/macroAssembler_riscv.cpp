@@ -792,32 +792,43 @@ void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
 
 // For verify_oops.
 void MacroAssembler::save_volatile_gprs(Register dst, int offset) {
-  std_PPC(R2,  offset, dst);   offset += 8;
-  std_PPC(R3,  offset, dst);   offset += 8;
-  std_PPC(R4,  offset, dst);   offset += 8;
-  std_PPC(R5,  offset, dst);   offset += 8;
-  std_PPC(R6,  offset, dst);   offset += 8;
-  std_PPC(R7,  offset, dst);   offset += 8;
-  std_PPC(R8,  offset, dst);   offset += 8;
-  std_PPC(R9,  offset, dst);   offset += 8;
-  std_PPC(R10, offset, dst);   offset += 8;
-  std_PPC(R11, offset, dst);   offset += 8;
-  std_PPC(R12, offset, dst);   offset += 8;
+  sd(R1,  dst, offset);   offset += 8;
+  sd(R5,  dst, offset);   offset += 8;
+  sd(R6,  dst, offset);   offset += 8;
+  sd(R7,  dst, offset);   offset += 8;
+  sd(R10, dst, offset);   offset += 8;
+  sd(R11, dst, offset);   offset += 8;
+  sd(R12, dst, offset);   offset += 8;
+  sd(R13, dst, offset);   offset += 8;
+  sd(R14, dst, offset);   offset += 8;
+  sd(R15, dst, offset);   offset += 8;
+  sd(R16, dst, offset);   offset += 8;
+  sd(R17, dst, offset);   offset += 8;
+  sd(R28, dst, offset);   offset += 8;
+  sd(R29, dst, offset);   offset += 8;
+  sd(R30, dst, offset);   offset += 8;
+  sd(R31, dst, offset);   offset += 8;
 
-  stfd_PPC(F0, offset, dst);   offset += 8;
-  stfd_PPC(F1, offset, dst);   offset += 8;
-  stfd_PPC(F2, offset, dst);   offset += 8;
-  stfd_PPC(F3, offset, dst);   offset += 8;
-  stfd_PPC(F4, offset, dst);   offset += 8;
-  stfd_PPC(F5, offset, dst);   offset += 8;
-  stfd_PPC(F6, offset, dst);   offset += 8;
-  stfd_PPC(F7, offset, dst);   offset += 8;
-  stfd_PPC(F8, offset, dst);   offset += 8;
-  stfd_PPC(F9, offset, dst);   offset += 8;
-  stfd_PPC(F10, offset, dst);  offset += 8;
-  stfd_PPC(F11, offset, dst);  offset += 8;
-  stfd_PPC(F12, offset, dst);  offset += 8;
-  stfd_PPC(F13, offset, dst);
+  fsd(F0,  dst, offset);   offset += 8;
+  fsd(F1,  dst, offset);   offset += 8;
+  fsd(F2,  dst, offset);   offset += 8;
+  fsd(F3,  dst, offset);   offset += 8;
+  fsd(F4,  dst, offset);   offset += 8;
+  fsd(F5,  dst, offset);   offset += 8;
+  fsd(F6,  dst, offset);   offset += 8;
+  fsd(F7,  dst, offset);   offset += 8;
+  fsd(F10, dst, offset);   offset += 8;
+  fsd(F11, dst, offset);   offset += 8;
+  fsd(F12, dst, offset);   offset += 8;
+  fsd(F13, dst, offset);   offset += 8;
+  fsd(F14, dst, offset);   offset += 8;
+  fsd(F15, dst, offset);   offset += 8;
+  fsd(F16, dst, offset);   offset += 8;
+  fsd(F17, dst, offset);   offset += 8;
+  fsd(F28, dst, offset);   offset += 8;
+  fsd(F29, dst, offset);   offset += 8;
+  fsd(F30, dst, offset);   offset += 8;
+  fsd(F31, dst, offset);
 }
 
 // For verify_oops.
@@ -1147,12 +1158,12 @@ void MacroAssembler::call_VM_base(Register oop_result,
   BLOCK_COMMENT("call_VM {");
   // Determine last_java_sp register.
   if (!last_java_sp->is_valid()) {
-    last_java_sp = R1_SP_PPC;
+    last_java_sp = R2_SP;
   }
   set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R5_scratch1);
 
   // ARG1 must hold thread address.
-  mr_PPC(R3_ARG1_PPC, R24_thread);
+  mv(R11_ARG1, R24_thread);
 #if defined(ABI_ELFv2)
   address return_pc = call_c(entry_point, relocInfo::none);
 #else
@@ -3205,9 +3216,9 @@ void MacroAssembler::load_mirror_from_const_method(Register mirror, Register con
 }
 
 void MacroAssembler::load_method_holder(Register holder, Register method) {
-  ld_PPC(holder, in_bytes(Method::const_offset()), method);
-  ld_PPC(holder, in_bytes(ConstMethod::constants_offset()), holder);
-  ld_PPC(holder, ConstantPool::pool_holder_offset_in_bytes(), holder);
+  ld(holder, method, in_bytes(Method::const_offset()));
+  ld(holder, holder, in_bytes(ConstMethod::constants_offset()));
+  ld(holder, holder, ConstantPool::pool_holder_offset_in_bytes());
 }
 
 // Clear Array
@@ -4914,12 +4925,11 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   }
 
   address/* FunctionDescriptor** */fd = StubRoutines::verify_oop_subroutine_entry_address();
-  const Register tmp = R11; // Will be preserved.
+  const Register tmp = R5_TMP0; // Will be preserved.
   const int nbytes_save = MacroAssembler::num_volatile_regs * 8;
-  save_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
+  save_volatile_gprs(R2_SP, -nbytes_save);
 
-  mr_if_needed(R4_ARG2_PPC, oop);
-  save_LR_CR(tmp); // save in old frame
+  mr_if_needed(R12_ARG2, oop);
   push_frame_reg_args(nbytes_save, tmp);
   // load FunctionDescriptor** / entry_address *
   load_const_optimized(tmp, fd, R0);

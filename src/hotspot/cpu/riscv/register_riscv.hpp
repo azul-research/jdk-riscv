@@ -833,6 +833,15 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 #define R27_method        AS_REGISTER(Register, R27)
 #endif
 
+#ifndef DONT_USE_REGISTER_DEFINES
+//    Lmonitors  : monitor pointer
+//    LcpoolCache: constant pool cache
+//    mdx: method data index
+#define R28_monitor           AS_REGISTER(Register, R28)
+#define R30_constPoolCache    AS_REGISTER(Register, R30)
+#define R29_mdx               AS_REGISTER(Register, R29)
+#endif
+
 // Common register declarations used in assembler code.
 REGISTER_DECLARATION(Register, R0_ZERO,  R0);  // saver: n/a
 REGISTER_DECLARATION(Register, R1_RA,    R1);  // saver: caller

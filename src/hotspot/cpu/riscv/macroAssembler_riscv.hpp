@@ -265,7 +265,7 @@ class MacroAssembler: public Assembler {
   void restore_fp_ra(Register dst_base, int offset);
   void save_nonvolatile_gprs(   Register dst_base, int offset);
   void restore_nonvolatile_gprs(Register src_base, int offset);
-  enum { num_volatile_regs = 11 + 14 }; // GPR + FPR
+  enum { num_volatile_regs = 16 + 20 }; // GPR + FPR
   void save_volatile_gprs(   Register dst_base, int offset);
   void restore_volatile_gprs(Register src_base, int offset);
   void save_LR_CR(   Register tmp);     // tmp contains LR on return.

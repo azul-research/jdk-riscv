@@ -2233,6 +2233,7 @@ void TemplateTable::_return(TosState state) {
 //
 // Kills:
 //   - Rscratch
+//   - R31_TMP6
 void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Register Rscratch, size_t index_size) {
 
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
@@ -2249,27 +2250,28 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
   assert(byte_no == f1_byte || byte_no == f2_byte, "byte_no out of range");
   // We are resolved if the indices offset contains the current bytecode.
 #if defined(VM_LITTLE_ENDIAN)
-  __ lbz_PPC(Rscratch, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + byte_no + 1, Rcache);
+  __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + byte_no + 1);
 #else
-  __ lbz_PPC(Rscratch, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1), Rcache);
+  __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
   // Acquire by cmp-br-isync (see below).
-  __ cmpdi_PPC(CCR0, Rscratch, (int)code);
-  __ beq_PPC(CCR0, Lresolved);
+  __ addi(R12_ARG2, R0, (int)code);
+  __ beq(Rscratch, R12_ARG2, Lresolved);
 
   // Class initialization barrier slow path lands here as well.
   __ bind(L_clinit_barrier_slow);
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_from_cache);
-  __ li_PPC(R4_ARG2_PPC, code);
-  __ call_VM(noreg, entry, R4_ARG2_PPC, true);
+  __ addi(R12_ARG2, R0, (int)code);
+  __ call_VM(noreg, entry, R12_ARG2, true);
 
   // Update registers with resolved info.
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
-  __ b_PPC(Ldone);
+  __ j(Ldone);
 
   __ bind(Lresolved);
-  __ isync_PPC(); // Order load wrt. succeeding loads.
+  __ fencei(); // Order load wrt. succeeding loads.
+  __ Assembler::fence(Assembler::R_OP, Assembler::R_OP);
 
   // Class initialization barrier for static methods
   if (VM_Version::supports_fast_class_init_checks() && bytecode() == Bytecodes::_invokestatic) {
@@ -2450,7 +2452,7 @@ void TemplateTable::pop_and_check_object(Register Roop) {
   __ pop_ptr(Roop);
   // For field access must check obj.
   __ null_check_throw(Roop, -1, Rtmp);
-  __ verify_oop(Roop);
+  //__ verify_oop(Roop); FIXME_RISCV
 }
 
 // RISCV64: implement volatile loads as fence-store-acquire.
@@ -2459,12 +2461,12 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   Label Lacquire, Lisync;
 
-  const Register Rcache        = R3_ARG1_PPC,
-                 Rclass_or_obj = R22_tmp2_PPC,
-                 Roffset       = R23_tmp3_PPC,
+  const Register Rcache        = R11_ARG1,
+                 Rclass_or_obj = R7_TMP2,
+                 Roffset       = R28_TMP3,
                  Rflags        = R31,
-                 Rbtable       = R5_ARG3_PPC,
-                 Rbc           = R6_ARG4_PPC,
+                 Rbtable       = R13_ARG3,
+                 Rbc           = R14_ARG4,
                  Rscratch      = R6_scratch2;
 
   static address field_branch_table[number_of_states],
@@ -2476,7 +2478,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   resolve_cache_and_index(byte_no, Rcache, Rscratch, sizeof(u2));
 
   // JVMTI support
-  jvmti_post_field_access(Rcache, Rscratch, is_static, false);
+  //jvmti_post_field_access(Rcache, Rscratch, is_static, false); FIXME_RISCV
 
   // Load after possible GC.
   load_field_cp_cache_entry(Rclass_or_obj, Rcache, noreg, Roffset, Rflags, is_static);
