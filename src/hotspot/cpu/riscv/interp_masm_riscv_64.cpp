@@ -415,13 +415,9 @@ void InterpreterMacroAssembler::get_cache_index_at_bcp(Register Rdst, int bcp_of
   if (index_size == sizeof(u2)) {
     lhu(Rdst, R22_bcp,  bcp_offset);
   } else if (index_size == sizeof(u4)) {
-    /*if (bcp_offset & 3) {
-      load_const_optimized(Rdst, bcp_offset);
-      lwax_PPC(Rdst, R22_bcp, Rdst);
-    } else {
-      lwa_PPC(Rdst, bcp_offset, R22_bcp);
-    }*/
-    lw(Rdst, R22_bcp, bcp_offset);
+    li(Rdst, bcp_offset);
+    add(Rdst, Rdst, R22_bcp);
+    lw(Rdst, Rdst, 0);
     assert(ConstantPool::decode_invokedynamic_index(~123) == 123, "else change next line");
     xori(Rdst, Rdst, -1); // convert to plain index
   } else if (index_size == sizeof(u1)) {

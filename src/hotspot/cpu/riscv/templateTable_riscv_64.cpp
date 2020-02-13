@@ -2233,7 +2233,6 @@ void TemplateTable::_return(TosState state) {
 //
 // Kills:
 //   - Rscratch
-//   - R31_TMP6
 void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Register Rscratch, size_t index_size) {
 
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
@@ -2255,14 +2254,14 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
   // Acquire by cmp-br-isync (see below).
-  __ addi(R12_ARG2, R0, (int)code);
+  __ li(R12_ARG2, (int)code);
   __ beq(Rscratch, R12_ARG2, Lresolved);
 
   // Class initialization barrier slow path lands here as well.
   __ bind(L_clinit_barrier_slow);
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_from_cache);
-  __ addi(R12_ARG2, R0, (int)code);
+  __ li(R12_ARG2, (int)code);
   __ call_VM(noreg, entry, R12_ARG2, true);
 
   // Update registers with resolved info.
@@ -2302,11 +2301,11 @@ void TemplateTable::load_field_cp_cache_entry(Register Robj,
   // assert(Rindex == noreg, "parameter not used on RISCV64");
 
   ByteSize cp_base_offset = ConstantPoolCache::base_offset();
-  __ ld_PPC(Rflags, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::flags_offset()), Rcache);
-  __ ld_PPC(Roffset, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::f2_offset()), Rcache);
+  __ ld(Rflags, Rcache, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::flags_offset()));
+  __ ld(Roffset, Rcache, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::f2_offset()));
   if (is_static) {
-    __ ld_PPC(Robj, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::f1_offset()), Rcache);
-    __ ld_PPC(Robj, in_bytes(Klass::java_mirror_offset()), Robj);
+    __ ld(Robj, Rcache, in_bytes(cp_base_offset) + in_bytes(ConstantPoolCacheEntry::f1_offset()));
+    __ ld(Robj, Robj, in_bytes(Klass::java_mirror_offset()));
     __ resolve_oop_handle(Robj);
     // Acquire not needed here. Following access has an address dependency on this value.
   }
@@ -2451,7 +2450,7 @@ void TemplateTable::pop_and_check_object(Register Roop) {
   assert_different_registers(Rtmp, Roop);
   __ pop_ptr(Roop);
   // For field access must check obj.
-  __ null_check_throw(Roop, -1, Rtmp);
+  //__ null_check_throw(Roop, -1, Rtmp); FIXME_RISCV
   //__ verify_oop(Roop); FIXME_RISCV
 }
 
@@ -2484,14 +2483,16 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   load_field_cp_cache_entry(Rclass_or_obj, Rcache, noreg, Roffset, Rflags, is_static);
 
   // Load pointer to branch table.
-  __ load_const_optimized(Rbtable, (address)branch_table, Rscratch);
+  __ li(Rbtable, (long)(unsigned long)(address)branch_table);
 
   // Get volatile flag.
-  __ rldicl_PPC(Rscratch, Rflags, 64-ConstantPoolCacheEntry::is_volatile_shift, 63); // Extract volatile bit.
+  __ srli(Rscratch, Rflags, ConstantPoolCacheEntry::is_volatile_shift);
+  __ andi(Rscratch, Rscratch, 1); // Extract volatile bit.
   // Note: sync is needed before volatile load on RISCV64.
 
   // Check field type.
-  __ rldicl_PPC(Rflags, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
+  __ srli(Rflags, Rflags, ConstantPoolCacheEntry::tos_state_shift);
+  __ andi(Rflags, Rflags, (1 << ConstantPoolCacheEntry::tos_state_bits) - 1);
 
 #ifdef ASSERT
   Label LFlagInvalid;
@@ -2500,7 +2501,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).
-  __ sldi_PPC(Rflags, Rflags, LogBytesPerWord);
+  __ slli(Rflags, Rflags, LogBytesPerWord);
   __ cmpwi_PPC(CCR6, Rscratch, 1); // Volatile?
   if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
     __ sldi_PPC(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.

@@ -2014,17 +2014,16 @@ void MacroAssembler::clinit_barrier(Register klass, Register thread, Label* L_fa
   }
 
   // Fast path check: class is fully initialized
-  lbz_PPC(R0, in_bytes(InstanceKlass::init_state_offset()), klass);
-  cmpwi_PPC(CCR0, R0, InstanceKlass::fully_initialized);
-  beq_PPC(CCR0, *L_fast_path);
+  lbu(R29_TMP4, klass, in_bytes(InstanceKlass::init_state_offset()));
+  li(R30_TMP5, InstanceKlass::fully_initialized);
+  beq(R30_TMP5, R29_TMP4, *L_fast_path);
 
   // Fast path check: current thread is initializer thread
-  ld_PPC(R0, in_bytes(InstanceKlass::init_thread_offset()), klass);
-  cmpd_PPC(CCR0, thread, R0);
+  ld(R29_TMP4, klass, in_bytes(InstanceKlass::init_thread_offset()));
   if (L_slow_path == &L_fallthrough) {
-    beq_PPC(CCR0, *L_fast_path);
+    beq(R29_TMP4, thread, *L_fast_path);
   } else if (L_fast_path == &L_fallthrough) {
-    bne_PPC(CCR0, *L_slow_path);
+    bne(R29_TMP4, thread, *L_slow_path);
   } else {
     Unimplemented();
   }

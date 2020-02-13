@@ -784,15 +784,6 @@ REGISTER_DECLARATION(Register, R19_inline_cache_reg_PPC, R19);
 #define R28_mdx_PPC               AS_REGISTER(Register, R28)
 #endif
 
-// Scratch registers are volatile.
-REGISTER_DECLARATION(Register, R11_scratch1, R11);
-REGISTER_DECLARATION(Register, R12_scratch2, R12);
-#ifndef DONT_USE_REGISTER_DEFINES
-#define R11_scratch1   AS_REGISTER(Register, R11)
-#define R12_scratch2   AS_REGISTER(Register, R12)
-#endif
-
-
 // Temporary registers to be used within frame manager. We can use
 // the non-volatiles because the call stub has saved them.
 // Use only non-volatile registers in order to keep values across C-calls.
@@ -838,8 +829,8 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 //    LcpoolCache: constant pool cache
 //    mdx: method data index
 #define R28_monitor           AS_REGISTER(Register, R28)
-#define R30_constPoolCache    AS_REGISTER(Register, R30)
 #define R29_mdx               AS_REGISTER(Register, R29)
+#define R30_constPoolCache    AS_REGISTER(Register, R30)
 #endif
 
 // Common register declarations used in assembler code.
