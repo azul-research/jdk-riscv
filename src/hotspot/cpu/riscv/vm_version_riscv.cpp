@@ -789,6 +789,7 @@ void VM_Version::determine_features() {
   a->ld(R8, R2, 8);       // ld	  s0,8(sp)
   a->addi(R2, R2, 16);    // addi  sp,sp,16
   a->ret();               // jr	  ra
+  uint32_t *code_end = (uint32_t *)a->pc();
 
   a->flush();
   _features = VM_Version::unknown_m;
