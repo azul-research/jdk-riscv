@@ -67,7 +67,9 @@ void InterpreterMacroAssembler::dispatch_next(TosState state, int bcp_incr, bool
   lbu(bytecode, R22_bcp, bcp_incr);
   if (bcp_incr != 0) addi(R22_bcp, R22_bcp, bcp_incr);
 
-  dispatch_Lbyte_code(state, bytecode, Interpreter::dispatch_table(state), generate_poll);
+  address* add0 = Interpreter::dispatch_table(state);
+
+  dispatch_Lbyte_code(state, bytecode, add0, generate_poll);
 }
 
 void InterpreterMacroAssembler::dispatch_via(TosState state, address* table) {
@@ -80,22 +82,28 @@ void InterpreterMacroAssembler::dispatch_via(TosState state, address* table) {
 // Dispatch code executed in the prolog of a bytecode which does not do it's
 // own dispatch. The dispatch address is computed and placed in R24_dispatch_addr_PPC.
 void InterpreterMacroAssembler::dispatch_prolog(TosState state, int bcp_incr) {
-  Register bytecode = R6_scratch2;
-  lbz_PPC(bytecode, bcp_incr, R22_bcp);
+  lbu(R6_scratch2, R22_bcp, bcp_incr);
 
-  load_dispatch_table(R24_dispatch_addr_PPC, Interpreter::dispatch_table(state));
+  //lbz_PPC(bytecode, bcp_incr, R22_bcp);
 
-  sldi_PPC(bytecode, bytecode, LogBytesPerWord);
-  ldx_PPC(R24_dispatch_addr_PPC, R24_dispatch_addr_PPC, bytecode);
+  load_dispatch_table(R5_scratch1, Interpreter::dispatch_table(state));
+
+  slli(R6_scratch2, R6_scratch2, LogBytesPerWord);
+  add(R6_scratch2, R6_scratch2, R5_scratch1);
+  ld(R5_scratch1, R6_scratch2, 0);
+
+//  sldi_PPC(bytecode, bytecode, LogBytesPerWord);
+//  ldx_PPC(R24_dispatch_addr_PPC, R24_dispatch_addr_PPC, bytecode);
 }
 
 // Dispatch code executed in the epilog of a bytecode which does not do it's
 // own dispatch. The dispatch address in R24_dispatch_addr_PPC is used for the
 // dispatch.
 void InterpreterMacroAssembler::dispatch_epilog(TosState state, int bcp_incr) {
-  if (bcp_incr) { addi_PPC(R22_bcp, R22_bcp, bcp_incr); }
-  mtctr_PPC(R24_dispatch_addr_PPC);
-  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
+  if (bcp_incr) { addi(R22_bcp, R22_bcp, bcp_incr); }
+  //mtctr_PPC(R24_dispatch_addr_PPC);
+  //bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
+  jr(R5_scratch1);
 }
 
 void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg) {
