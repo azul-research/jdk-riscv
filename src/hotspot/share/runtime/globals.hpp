@@ -2332,6 +2332,12 @@ const size_t minimumSymbolTableSize = 1024;
   diagnostic(bool, CallTestMethod, false,                                   \
           "")                                                               \
                                                                             \
+  diagnostic(ccstr, TestMethodClass, NULL,                                  \
+          "Class of test method ")                                          \
+                                                                            \
+  diagnostic(ccstr, TestMethodName, NULL,                                   \
+          "Name of test method ")                                           \
+                                                                            \
   diagnostic(ccstr, PauseAtStartupFile, NULL,                               \
           "The file to create and for whose removal to await when pausing " \
           "at startup. (default: ./vm.paused.<pid>)")                       \

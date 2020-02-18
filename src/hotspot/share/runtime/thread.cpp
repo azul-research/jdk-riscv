@@ -3616,6 +3616,21 @@ static void call_initPhase1(TRAPS) {
                                          vmSymbols::void_method_signature(), CHECK);
 }
 
+Method* findTestMethod(InstanceKlass *klass, const char* methodName) {
+    int n_methods = klass->methods()->length();
+    for (int i = 0; i < n_methods; ++i) {
+        Symbol *name = klass->methods()->at(i)->name();
+        char cname[100];
+        name->as_C_string(cname, 100);
+
+	
+	if (strcmp(cname, methodName) == 0) {
+	    return klass->methods()->at(i);
+	} 
+    }
+    return 0;
+}
+
 // Phase 2. Module system initialization
 //     This will initialize the module system.  Only java.base classes
 //     can be loaded until phase 2 completes.
@@ -3666,15 +3681,37 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   }
 
   if (CallTestMethod) {
-      initialize_class(vmSymbols::java_lang_Object(), CHECK);
-      Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
-      Method *method = InstanceKlass::cast(klass)->methods()->at(14);
+	  if (TestMethodClass && TestMethodName) {
+	      // intentional dirty hack - no need for perfectionism in temporary code
+	      for (char *p = (char *)TestMethodClass; *p; ++p) {
+		      if (*p == '.') *p = '/';
+              }
 
-      JavaCallArguments args;
-      JavaValue result(T_INT);
-      JavaCalls::call(&result, method, &args, CHECK);
-      fprintf(stderr, "Test method call result: %d\n", result.get_jint());
+              Symbol *classNameSymbol = vmSymbols::symbol_at(vmSymbols::find_sid(TestMethodClass));
+
+              Klass *testKlass = SystemDictionary::resolve_or_fail(classNameSymbol, true, CHECK);
+
+	      InstanceKlass *instanceKlass = InstanceKlass::cast(testKlass);
+	      instanceKlass->link_class(CHECK);
+
+	      Method *testMethod = findTestMethod(InstanceKlass::cast(testKlass), TestMethodName);
+
+              JavaCallArguments args;
+              JavaValue result(T_INT);
+              JavaCalls::call(&result, testMethod, &args, CHECK);
+              fprintf(stderr, "Custom method call result: %d\n", result.get_jint());
+	  } else {
+              Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
+              Method *method = InstanceKlass::cast(klass)->methods()->at(14);
+
+              JavaCallArguments args;
+              JavaValue result(T_INT);
+              JavaCalls::call(&result, method, &args, CHECK);
+              fprintf(stderr, "Default est method call result: %d\n", result.get_jint());
+          }
+
   }
+  initialize_class(vmSymbols::java_lang_Object(), CHECK);
 
   initialize_class(vmSymbols::java_lang_String(), CHECK);
 
