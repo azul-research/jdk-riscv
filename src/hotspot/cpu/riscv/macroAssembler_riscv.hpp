@@ -302,40 +302,21 @@ class MacroAssembler: public Assembler {
  private:
   address _last_calls_return_pc;
 
-#if defined(ABI_ELFv2)
   // Generic version of a call to C function.
   // Updates and returns _last_calls_return_pc.
   address branch_to(Register function_entry, bool and_link);
-#else
-  // Generic version of a call to C function via a function descriptor
-  // with variable support for C calling conventions (TOC, ENV, etc.).
-  // updates and returns _last_calls_return_pc.
-  address branch_to(Register function_descriptor, bool and_link, bool save_toc_before_call,
-                    bool restore_toc_after_call, bool load_toc_of_callee, bool load_env_of_callee);
-#endif
 
  public:
 
   // Get the pc where the last call will return to. returns _last_calls_return_pc.
   inline address last_calls_return_pc();
 
-#if defined(ABI_ELFv2)
   // Call a C function via a function descriptor and use full C
   // calling conventions. Updates and returns _last_calls_return_pc.
   address call_c(Register function_entry);
   // For tail calls: only branch, don't link, so callee returns to caller of this function.
   address call_c_and_return_to_caller(Register function_entry);
   address call_c(address function_entry, relocInfo::relocType rt);
-#else
-  // Call a C function via a function descriptor and use full C
-  // calling conventions. Updates and returns _last_calls_return_pc.
-  address call_c(Register function_descriptor);
-  // For tail calls: only branch, don't link, so callee returns to caller of this function.
-  address call_c_and_return_to_caller(Register function_descriptor);
-  address call_c(const FunctionDescriptor* function_descriptor, relocInfo::relocType rt);
-  address call_c_using_toc(const FunctionDescriptor* function_descriptor, relocInfo::relocType rt,
-                           Register toc);
-#endif
 
  protected:
 

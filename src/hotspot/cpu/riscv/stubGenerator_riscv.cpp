@@ -54,11 +54,7 @@
 #define BLOCK_COMMENT(str) __ block_comment(str)
 #endif
 
-#if defined(ABI_ELFv2)
 #define STUB_ENTRY(name) StubRoutines::name()
-#else
-#define STUB_ENTRY(name) ((FunctionDescriptor*)StubRoutines::name())->entry()
-#endif
 
 class StubGenerator: public StubCodeGenerator {
  private:
@@ -559,11 +555,7 @@ class StubGenerator: public StubCodeGenerator {
     if (arg2 != noreg) {
       __ mr_PPC(R5_ARG3_PPC, arg2);
     }
-#if defined(ABI_ELFv2)
     __ call_c(runtime_entry, relocInfo::none);
-#else
-    __ call_c(CAST_FROM_FN_PTR(FunctionDescriptor*, runtime_entry), relocInfo::none);
-#endif
 
     // Set an oopmap for the call site.
     oop_maps->add_gc_map((int)(gc_map_pc - start), map);

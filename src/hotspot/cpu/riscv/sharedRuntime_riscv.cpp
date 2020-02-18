@@ -795,13 +795,8 @@ int SharedRuntime::c_calling_convention(const BasicType *sig_bt,
   int freg = 0;
 
   // Avoid passing C arguments in the wrong stack slots.
-#if defined(ABI_ELFv2)
   assert((SharedRuntime::out_preserve_stack_slots() + stk) * VMRegImpl::stack_slot_size == 96,
          "passing C arguments in wrong stack slots");
-#else
-  assert((SharedRuntime::out_preserve_stack_slots() + stk) * VMRegImpl::stack_slot_size == 112,
-         "passing C arguments in wrong stack slots");
-#endif
   // We fill-out regs AND regs2 if an argument must be passed in a
   // register AND in a stack slot. If regs2 is NULL in such a
   // situation, we bail-out with a fatal error.
@@ -1648,11 +1643,7 @@ static void check_needs_gc_for_critical_native(MacroAssembler* masm,
 
   __ block_comment("block_for_jni_critical");
   address entry_point = CAST_FROM_FN_PTR(address, SharedRuntime::block_for_jni_critical);
-#if defined(ABI_ELFv2)
   __ call_c(entry_point, relocInfo::runtime_call_type);
-#else
-  __ call_c(CAST_FROM_FN_PTR(FunctionDescriptor*, entry_point), relocInfo::runtime_call_type);
-#endif
   address start           = __ pc() - __ offset(),
           calls_return_pc = __ last_calls_return_pc();
   oop_maps->add_gc_map(calls_return_pc - start, map);
@@ -2389,12 +2380,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
 
   // The JNI call
   // --------------------------------------------------------------------------
-#if defined(ABI_ELFv2)
   __ call_c(native_func, relocInfo::runtime_call_type);
-#else
-  FunctionDescriptor* fd_native_method = (FunctionDescriptor*) native_func;
-  __ call_c(fd_native_method, relocInfo::runtime_call_type);
-#endif
 
 
   // Now, we are back from the native code.

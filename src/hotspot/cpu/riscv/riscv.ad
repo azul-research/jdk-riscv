@@ -1099,11 +1099,7 @@ int MachCallDynamicJavaNode::ret_addr_offset() {
 }
 
 int MachCallRuntimeNode::ret_addr_offset() {
-#if defined(ABI_ELFv2)
   return 28;
-#else
-  return 40;
-#endif
 }
 
 //=============================================================================
@@ -3925,25 +3921,8 @@ encode %{
     MacroAssembler _masm(&cbuf);
     const address start_pc = __ pc();
 
-#if defined(ABI_ELFv2)
     address entry= !($meth$$method) ? NULL : (address)$meth$$method;
     __ call_c(entry, relocInfo::runtime_call_type);
-#else
-    // The function we're going to call.
-    FunctionDescriptor fdtemp;
-    const FunctionDescriptor* fd = !($meth$$method) ? &fdtemp : (FunctionDescriptor*)$meth$$method;
-
-    Register Rtoc = R6_scratch2;
-    // Calculate the method's TOC.
-    __ calculate_address_from_global_toc(Rtoc, __ method_toc());
-    // Put entry, env, toc into the constant pool, this needs up to 3 constant
-    // pool entries; call_c_using_toc will optimize the call.
-    bool success = __ call_c_using_toc(fd, relocInfo::runtime_call_type, Rtoc);
-    if (!success) {
-      ciEnv::current()->record_out_of_memory_failure();
-      return;
-    }
-#endif
 
     // Check the ret_addr_offset.
     assert(((MachCallRuntimeNode*)this)->ret_addr_offset() ==  __ last_calls_return_pc() - start_pc,
@@ -3962,43 +3941,10 @@ encode %{
   // Postalloc expand emitter for runtime leaf calls.
   enc_class postalloc_expand_java_to_runtime_call(method meth, iRegLdst toc) %{
     loadConLNodesTuple loadConLNodes_Entry;
-#if defined(ABI_ELFv2)
     jlong entry_address = (jlong) this->entry_point();
     assert(entry_address, "need address here");
     loadConLNodes_Entry = loadConLNodesTuple_create(ra_, n_toc, new immLOper(entry_address),
                                                     OptoReg::Name(R12_H_num), OptoReg::Name(R12_num));
-#else
-    // Get the struct that describes the function we are about to call.
-    FunctionDescriptor* fd = (FunctionDescriptor*) this->entry_point();
-    assert(fd, "need fd here");
-    jlong entry_address = (jlong) fd->entry();
-    // new nodes
-    loadConLNodesTuple loadConLNodes_Env;
-    loadConLNodesTuple loadConLNodes_Toc;
-
-    // Create nodes and operands for loading the entry point.
-    loadConLNodes_Entry = loadConLNodesTuple_create(ra_, n_toc, new immLOper(entry_address),
-                                                    OptoReg::Name(R12_H_num), OptoReg::Name(R12_num));
-
-
-    // Create nodes and operands for loading the env pointer.
-    if (fd->env() != NULL) {
-      loadConLNodes_Env = loadConLNodesTuple_create(ra_, n_toc, new immLOper((jlong) fd->env()),
-                                                    OptoReg::Name(R11_H_num), OptoReg::Name(R11_num));
-    } else {
-      loadConLNodes_Env._large_hi = NULL;
-      loadConLNodes_Env._large_lo = NULL;
-      loadConLNodes_Env._small    = NULL;
-      loadConLNodes_Env._last = new loadConL16Node();
-      loadConLNodes_Env._last->_opnds[0] = new iRegLdstOper();
-      loadConLNodes_Env._last->_opnds[1] = new immL16Oper(0);
-      ra_->set_pair(loadConLNodes_Env._last->_idx, OptoReg::Name(R11_H_num), OptoReg::Name(R11_num));
-    }
-
-    // Create nodes and operands for loading the Toc point.
-    loadConLNodes_Toc = loadConLNodesTuple_create(ra_, n_toc, new immLOper((jlong) fd->toc()),
-                                                  OptoReg::Name(R2_H_num), OptoReg::Name(R2_num));
-#endif // ABI_ELFv2
     // mtctr node
     MachNode *mtctr = new CallLeafDirect_mtctrNode();
 

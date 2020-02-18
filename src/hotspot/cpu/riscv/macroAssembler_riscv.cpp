@@ -964,7 +964,6 @@ void MacroAssembler::pop_frame() {
   ld_PPC(R1_SP_PPC, _abi(callers_sp), R1_SP_PPC);
 }
 
-#if defined(ABI_ELFv2)
 address MacroAssembler::branch_to(Register r_function_entry, bool and_link) {
   // TODO(asmundak): make sure the caller uses R12 as function descriptor
   // most of the times.
@@ -999,158 +998,6 @@ address MacroAssembler::call_c(address function_entry, relocInfo::relocType rt) 
   return branch_to(R12,  /*and_link=*/true);
 }
 
-#else
-// Generic version of a call to C function via a function descriptor
-// with variable support for C calling conventions (TOC, ENV, etc.).
-// Updates and returns _last_calls_return_pc.
-address MacroAssembler::branch_to(Register function_descriptor, bool and_link, bool save_toc_before_call,
-                                  bool restore_toc_after_call, bool load_toc_of_callee, bool load_env_of_callee) {
-  // we emit standard ptrgl glue code here
-  assert((function_descriptor != R0), "function_descriptor cannot be R0");
-
-  // retrieve necessary entries from the function descriptor
-  ld_PPC(R0, in_bytes(FunctionDescriptor::entry_offset()), function_descriptor);
-  mtctr_PPC(R0);
-
-  if (load_toc_of_callee) {
-    ld_PPC(R2_TOC_PPC, in_bytes(FunctionDescriptor::toc_offset()), function_descriptor);
-  }
-  if (load_env_of_callee) {
-    ld_PPC(R11, in_bytes(FunctionDescriptor::env_offset()), function_descriptor);
-  } else if (load_toc_of_callee) {
-    li_PPC(R11, 0);
-  }
-
-  // do a call or a branch
-  if (and_link) {
-    bctrl_PPC();
-  } else {
-    bctr_PPC();
-  }
-  _last_calls_return_pc = pc();
-
-  return _last_calls_return_pc;
-}
-
-// Call a C function via a function descriptor and use full C calling
-// conventions.
-// We don't use the TOC in generated code, so there is no need to save
-// and restore its value.
-address MacroAssembler::call_c(Register fd) {
-  return branch_to(fd, /*and_link=*/true,
-                       /*save toc=*/false,
-                       /*restore toc=*/false,
-                       /*load toc=*/true,
-                       /*load env=*/true);
-}
-
-address MacroAssembler::call_c_and_return_to_caller(Register fd) {
-  return branch_to(fd, /*and_link=*/false,
-                       /*save toc=*/false,
-                       /*restore toc=*/false,
-                       /*load toc=*/true,
-                       /*load env=*/true);
-}
-
-address MacroAssembler::call_c(const FunctionDescriptor* fd, relocInfo::relocType rt) {
-  if (rt != relocInfo::none) {
-    // this call needs to be relocatable
-    if (!ReoptimizeCallSequences
-        || (rt != relocInfo::runtime_call_type && rt != relocInfo::none)
-        || fd == NULL   // support code-size estimation
-        || !fd->is_friend_function()
-        || fd->entry() == NULL) {
-      // it's not a friend function as defined by class FunctionDescriptor,
-      // so do a full call-c here.
-      load_const_PPC(R11, (address)fd, R0);
-
-      bool has_env = (fd != NULL && fd->env() != NULL);
-      return branch_to(R11, /*and_link=*/true,
-                            /*save toc=*/false,
-                            /*restore toc=*/false,
-                            /*load toc=*/true,
-                            /*load env=*/has_env);
-    } else {
-      // It's a friend function. Load the entry point and don't care about
-      // toc and env. Use an optimizable call instruction, but ensure the
-      // same code-size as in the case of a non-friend function.
-      nop_PPC();
-      nop_PPC();
-      nop_PPC();
-      bl64_patchable(fd->entry(), rt);
-      _last_calls_return_pc = pc();
-      return _last_calls_return_pc;
-    }
-  } else {
-    // This call does not need to be relocatable, do more aggressive
-    // optimizations.
-    if (!ReoptimizeCallSequences
-      || !fd->is_friend_function()) {
-      // It's not a friend function as defined by class FunctionDescriptor,
-      // so do a full call-c here.
-      load_const_PPC(R11, (address)fd, R0);
-      return branch_to(R11, /*and_link=*/true,
-                            /*save toc=*/false,
-                            /*restore toc=*/false,
-                            /*load toc=*/true,
-                            /*load env=*/true);
-    } else {
-      // it's a friend function, load the entry point and don't care about
-      // toc and env.
-      address dest = fd->entry();
-      if (is_within_range_of_b(dest, pc())) {
-        bl_PPC(dest);
-      } else {
-        bl64_patchable(dest, rt);
-      }
-      _last_calls_return_pc = pc();
-      return _last_calls_return_pc;
-    }
-  }
-}
-
-// Call a C function.  All constants needed reside in TOC.
-//
-// Read the address to call from the TOC.
-// Read env from TOC, if fd specifies an env.
-// Read new TOC from TOC.
-address MacroAssembler::call_c_using_toc(const FunctionDescriptor* fd,
-                                         relocInfo::relocType rt, Register toc) {
-  if (!ReoptimizeCallSequences
-    || (rt != relocInfo::runtime_call_type && rt != relocInfo::none)
-    || !fd->is_friend_function()) {
-    // It's not a friend function as defined by class FunctionDescriptor,
-    // so do a full call-c here.
-    assert(fd->entry() != NULL, "function must be linked");
-
-    AddressLiteral fd_entry(fd->entry());
-    bool success = load_const_from_method_toc(R11, fd_entry, toc, /*fixed_size*/ true);
-    mtctr_PPC(R11);
-    if (fd->env() == NULL) {
-      li_PPC(R11, 0);
-      nop_PPC();
-    } else {
-      AddressLiteral fd_env(fd->env());
-      success = success && load_const_from_method_toc(R11, fd_env, toc, /*fixed_size*/ true);
-    }
-    AddressLiteral fd_toc(fd->toc());
-    // Set R2_TOC_PPC (load from toc)
-    success = success && load_const_from_method_toc(R2_TOC_PPC, fd_toc, toc, /*fixed_size*/ true);
-    bctrl_PPC();
-    _last_calls_return_pc = pc();
-    if (!success) { return NULL; }
-  } else {
-    // It's a friend function, load the entry point and don't care about
-    // toc and env. Use an optimizable call instruction, but ensure the
-    // same code-size as in the case of a non-friend function.
-    nop_PPC();
-    bl64_patchable(fd->entry(), rt);
-    _last_calls_return_pc = pc();
-  }
-  return _last_calls_return_pc;
-}
-#endif // ABI_ELFv2
-
 void MacroAssembler::call_VM_base(Register oop_result,
                                   Register last_java_sp,
                                   address  entry_point,
@@ -1164,11 +1011,7 @@ void MacroAssembler::call_VM_base(Register oop_result,
 
   // ARG1 must hold thread address.
   mv(R11_ARG1, R24_thread);
-#if defined(ABI_ELFv2)
   address return_pc = call_c(entry_point, relocInfo::none);
-#else
-  address return_pc = call_c((FunctionDescriptor*)entry_point, relocInfo::none);
-#endif
 
   reset_last_Java_frame();
 
@@ -1189,11 +1032,7 @@ void MacroAssembler::call_VM_base(Register oop_result,
 
 void MacroAssembler::call_VM_leaf_base(address entry_point) {
   BLOCK_COMMENT("call_VM_leaf {");
-#if defined(ABI_ELFv2)
   call_c(entry_point, relocInfo::none);
-#else
-  call_c(CAST_FROM_FN_PTR(FunctionDescriptor*, entry_point), relocInfo::none);
-#endif
   BLOCK_COMMENT("} call_VM_leaf");
 }
 
