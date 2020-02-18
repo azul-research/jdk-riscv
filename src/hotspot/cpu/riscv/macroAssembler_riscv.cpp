@@ -100,9 +100,10 @@ void MacroAssembler::store_sized_value(Register dst, RegisterOrConstant offs, Re
 }
 
 void MacroAssembler::align(int modulus, int max, int rem) {
-  int padding = (rem + modulus - (offset() % modulus)) % modulus;
+  // FIXME_RISCV:
+  /*int padding = (rem + modulus - (offset() % modulus)) % modulus;
   if (padding > max) return;
-  for (int c = (padding >> 2); c > 0; --c) { nop(); }
+  for (int c = (padding >> 2); c > 0; --c) { nop(); }*/
 }
 
 // Issue instructions that calculate given TOC from global TOC.

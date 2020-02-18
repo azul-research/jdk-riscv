@@ -2502,24 +2502,23 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).
   __ slli(Rflags, Rflags, LogBytesPerWord);
-  __ cmpwi_PPC(CCR6, Rscratch, 1); // Volatile?
   if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ sldi_PPC(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.
+    __ slli(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.
   }
-  __ ldx_PPC(Rbtable, Rbtable, Rflags);
+  __ add(Rbtable, Rbtable, Rflags);
+  __ ld(Rbtable, Rbtable, 0);
 
   // Get the obj from stack.
   if (!is_static) {
     pop_and_check_object(Rclass_or_obj); // Kills R5_scratch1.
   } else {
-    __ verify_oop(Rclass_or_obj);
+    //__ verify_oop(Rclass_or_obj); FIXME_RISCV
   }
 
   if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ subf_PPC(Rbtable, Rscratch, Rbtable); // Point to volatile/non-volatile entry point.
+    __ sub(Rbtable, Rbtable, Rscratch); // Point to volatile/non-volatile entry point.
   }
-  __ mtctr_PPC(Rbtable);
-  __ bctr_PPC();
+  __ jr(Rbtable);
 
 #ifdef ASSERT
   __ bind(LFlagInvalid);
@@ -2543,17 +2542,18 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Ldtos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[dtos] == 0, "can't compute twice");
   branch_table[dtos] = __ pc(); // non-volatile_entry point
-  __ lfdx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ fld(F23_ftos, R30_TMP5, 0);
   __ push(dtos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_dgetfield, Rbc, Rscratch);
   }
   {
     Label acquire_double;
-    __ beq_PPC(CCR6, acquire_double); // Volatile?
+    __ bnez(Rscratch, acquire_double); // Volatile?
     __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
     __ bind(acquire_double);
