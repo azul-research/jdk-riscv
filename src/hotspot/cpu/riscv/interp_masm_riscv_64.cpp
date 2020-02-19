@@ -100,10 +100,19 @@ void InterpreterMacroAssembler::dispatch_prolog(TosState state, int bcp_incr) {
 // own dispatch. The dispatch address in R24_dispatch_addr_PPC is used for the
 // dispatch.
 void InterpreterMacroAssembler::dispatch_epilog(TosState state, int bcp_incr) {
+  /*if (bcp_incr) { addi_PPC(R22_bcp, R22_bcp, bcp_incr); }
+  mtctr_PPC(R24_dispatch_addr_PPC);
+  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);*/
+
+  Register bytecode = R29_TMP4;
+  lbu(bytecode, R22_bcp, bcp_incr);
+  load_dispatch_table(R30_TMP5, Interpreter::dispatch_table(state));
+  slli(bytecode, bytecode, LogBytesPerWord);
+  add(R30_TMP5, R30_TMP5, bytecode);
+  ld(R30_TMP5, R30_TMP5, 0);
+
   if (bcp_incr) { addi(R22_bcp, R22_bcp, bcp_incr); }
-  //mtctr_PPC(R24_dispatch_addr_PPC);
-  //bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
-  jr(R5_scratch1);
+  jr(R30_TMP5);
 }
 
 void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg) {
