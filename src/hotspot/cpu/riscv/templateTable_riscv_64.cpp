@@ -1359,15 +1359,15 @@ void TemplateTable::fop2(Operation op) {
   transition(ftos, ftos);
 
   switch (op) {
-    case add: __ pop_f(F0_SCRATCH_PPC); __ fadds_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
-    case sub: __ pop_f(F0_SCRATCH_PPC); __ fsubs_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
-    case mul: __ pop_f(F0_SCRATCH_PPC); __ fmuls_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
-    case div: __ pop_f(F0_SCRATCH_PPC); __ fdivs_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
+    case add: __ pop_f(F0_TMP0); __ fadds(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
+    case sub: __ pop_f(F0_TMP0); __ fsubs(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
+    case mul: __ pop_f(F0_TMP0); __ fmuls(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
+    case div: __ pop_f(F0_TMP0); __ fdivs(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
     case rem:
-      __ pop_f(F1_ARG1_PPC);
-      __ fmr_PPC(F2_ARG2_PPC, F23_ftos);
+      __ pop_f(F10_ARG0);
+      __ fmvs(F11_ARG1, F23_ftos);
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::frem));
-      __ fmr_PPC(F23_ftos, F1_RET_PPC);
+      __ fmvs(F23_ftos, F10_RET);
       break;
 
     default: ShouldNotReachHere();
@@ -1378,15 +1378,15 @@ void TemplateTable::dop2(Operation op) {
   transition(dtos, dtos);
 
   switch (op) {
-    case add: __ pop_d(F0_SCRATCH_PPC); __ fadd_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
-    case sub: __ pop_d(F0_SCRATCH_PPC); __ fsub_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
-    case mul: __ pop_d(F0_SCRATCH_PPC); __ fmul_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
-    case div: __ pop_d(F0_SCRATCH_PPC); __ fdiv_PPC(F23_ftos, F0_SCRATCH_PPC, F23_ftos); break;
+    case add: __ pop_d(F0_TMP0); __ faddd(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
+    case sub: __ pop_d(F0_TMP0); __ fsubd(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
+    case mul: __ pop_d(F0_TMP0); __ fmuld(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
+    case div: __ pop_d(F0_TMP0); __ fdivd(F23_ftos, F0_TMP0, F23_ftos, Assembler::RNE); break;
     case rem:
-      __ pop_d(F1_ARG1_PPC);
-      __ fmr_PPC(F2_ARG2_PPC, F23_ftos);
+      __ pop_d(F10_ARG0);
+      __ fmvs(F11_ARG1, F23_ftos);
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::drem));
-      __ fmr_PPC(F23_ftos, F1_RET_PPC);
+      __ fmvs(F23_ftos, F10_RET);
       break;
 
     default: ShouldNotReachHere();
@@ -1410,13 +1410,13 @@ void TemplateTable::lneg() {
 void TemplateTable::fneg() {
   transition(ftos, ftos);
 
-  __ fneg_PPC(F23_ftos, F23_ftos);
+  __ fnegs(F23_ftos, F23_ftos);
 }
 
 void TemplateTable::dneg() {
   transition(dtos, dtos);
 
-  __ fneg_PPC(F23_ftos, F23_ftos);
+  __ fnegd(F23_ftos, F23_ftos);
 }
 
 // Increments a local variable in place.
@@ -1607,9 +1607,10 @@ void TemplateTable::lcmp() {
 // unordered_result == -1 => fcmpl or dcmpl
 // unordered_result ==  1 => fcmpg or dcmpg
 void TemplateTable::float_cmp(bool is_float, int unordered_result) {
-  const FloatRegister Rfirst  = F0_SCRATCH_PPC,
+  const FloatRegister Rfirst  = F0_TMP0,
                       Rsecond = F23_ftos;
-  const Register Rscratch = R5_scratch1;
+  const Register Rscratch1 = R5_scratch1;
+  const Register Rscratch2 = R6_scratch2;
 
   if (is_float) {
     __ pop_f(Rfirst);
@@ -1618,18 +1619,31 @@ void TemplateTable::float_cmp(bool is_float, int unordered_result) {
   }
 
   Label Lunordered, Ldone;
-  __ fcmpu_PPC(CCR0, Rfirst, Rsecond); // compare
   if (unordered_result) {
-    __ bso_PPC(CCR0, Lunordered);
+    if (is_float) {
+        __ fclasss(Rscratch1, Rfirst);  // set bit 8 or 9 if NaN
+        __ fclasss(Rscratch1, Rsecond); // set bit 8 or 9 if NaN
+    } else {
+        __ fclassd(Rscratch1, Rfirst);  // set bit 8 or 9 if NaN
+        __ fclassd(Rscratch1, Rsecond); // set bit 8 or 9 if NaN
+    }
+    __ orr(Rscratch1, Rscratch1, Rscratch2);
+    __ srli(Rscratch1, Rscratch1, 8);
+    __ beqz(Rscratch1, Lunordered);
   }
-  __ mfcr_PPC(R25_tos); // set bit 32..33 as follows: <: 0b10, =: 0b00, >: 0b01
-  __ srwi_PPC(Rscratch, R25_tos, 30);
-  __ srawi_PPC(R25_tos, R25_tos, 31);
-  __ orr_PPC(R25_tos, Rscratch, R25_tos); // set result as follows: <: -1, =: 0, >: 1
+  if (is_float) {
+      __ flts(Rscratch1, Rfirst, Rsecond);
+      __ flts(Rscratch2, Rsecond, Rfirst);
+  } else {
+      __ fltd(Rscratch1, Rfirst, Rsecond);
+      __ fltd(Rscratch2, Rsecond, Rfirst);
+  }
+  __ sub(Rscratch1, R0_ZERO, Rscratch1);
+  __ orr(R25_tos, Rscratch1, Rscratch2); // set result as follows: <: -1, =: 0, >: 1
   if (unordered_result) {
-    __ b_PPC(Ldone);
+    __ j(Ldone);
     __ bind(Lunordered);
-    __ load_const_optimized(R25_tos, unordered_result);
+    __ addi(R25_tos, R0_ZERO, unordered_result);
   }
   __ bind(Ldone);
 }

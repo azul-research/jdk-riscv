@@ -965,17 +965,10 @@ void MacroAssembler::pop_frame() {
 }
 
 address MacroAssembler::branch_to(Register r_function_entry, bool and_link) {
-  // TODO(asmundak): make sure the caller uses R12 as function descriptor
-  // most of the times.
-  if (R12 != r_function_entry) {
-    mr_PPC(R12, r_function_entry);
-  }
-  mtctr_PPC(R12);
-  // Do a call or a branch.
   if (and_link) {
-    bctrl_PPC();
+    jalr(r_function_entry);
   } else {
-    bctr_PPC();
+    jr(r_function_entry);
   }
   _last_calls_return_pc = pc();
 
@@ -994,8 +987,8 @@ address MacroAssembler::call_c_and_return_to_caller(Register r_function_entry) {
 }
 
 address MacroAssembler::call_c(address function_entry, relocInfo::relocType rt) {
-  load_const_PPC(R12, function_entry, R0);
-  return branch_to(R12,  /*and_link=*/true);
+  li(R6_scratch2, function_entry);
+  return branch_to(R6_scratch2,  /*and_link=*/true);
 }
 
 void MacroAssembler::call_VM_base(Register oop_result,
