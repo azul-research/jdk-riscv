@@ -1,0 +1,37 @@
+package  java/lang;
+
+super public class T1
+	version 57:0
+{
+static Field a:I;
+
+public Method "<init>":"()V"
+	stack 1 locals 1
+{
+		aload_0;
+		invokespecial	Method Object."<init>":"()V";
+		return;
+	
+}
+
+public static Method bipush_pos:"()I"
+	stack 1 locals 0
+{
+		bipush	14;
+                putstatic       Field a:"I";
+                iconst_0;
+		ireturn;
+}
+
+public static Method bipush_neg:"()I"
+	stack 1 locals 0
+{
+                bipush  -14;
+                putstatic    Field a:"I";
+                iconst_1;
+                ireturn;
+}
+
+
+
+} // end Class T1
