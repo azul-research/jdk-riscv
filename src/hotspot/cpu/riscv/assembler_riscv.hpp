@@ -2200,6 +2200,7 @@ class Assembler : public AbstractAssembler {
   inline void fcvtlus( Register d, FloatRegister s, int rm);
   inline void fcvtsl(  FloatRegister d, Register s, int rm);
   inline void fcvtslu( FloatRegister d, Register s, int rm);
+  inline void fmvs(    FloatRegister d, FloatRegister s);
   //dp fp
   inline void fld(     FloatRegister d, Register s1, int imm);
   inline void fsd(     FloatRegister s, Register base, int imm);
@@ -2233,6 +2234,7 @@ class Assembler : public AbstractAssembler {
   inline void fcvtdlu( FloatRegister d, Register s, int rm);
   inline void fmvxd(   Register d, FloatRegister s);
   inline void fmvdx(   FloatRegister d, Register s);
+  inline void fmvd(    FloatRegister d, FloatRegister s);
   //qp fp
   inline void flq(     FloatRegister d, Register s1, int imm);
   inline void fsq(     FloatRegister s, Register base, int imm);

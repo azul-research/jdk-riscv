@@ -222,6 +222,8 @@ inline void Assembler::fcvtlus( Register d, FloatRegister s, int rm) { op_fp(d, 
 inline void Assembler::fcvtsl(  FloatRegister d, Register s, int rm) { op_fp(d, s, 0x2, rm, 0x68); }
 inline void Assembler::fcvtslu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x68); }
 
+inline void Assembler::fmvs(    FloatRegister d, FloatRegister s) { fsgnjs(d, s, s); }
+
 inline void Assembler::fld(     FloatRegister d,    Register s, int imm) { load_fp( d,    s, 0x3, imm); }
 inline void Assembler::fsd(     FloatRegister s, Register base, int imm) { store_fp(s, base, 0x3, imm); }
 
@@ -255,6 +257,8 @@ inline void Assembler::fcvtdl(  FloatRegister d, Register s, int rm) { op_fp(d, 
 inline void Assembler::fcvtdlu( FloatRegister d, Register s, int rm) { op_fp(d, s, 0x3, rm, 0x69); }
 inline void Assembler::fmvxd(   Register d, FloatRegister s) { op_fp(d, s, 0x0, 0x0, 0x71); }
 inline void Assembler::fmvdx(   FloatRegister d, Register s) { op_fp(d, s, 0x0, 0x0, 0x79); }
+
+inline void Assembler::fmvd(    FloatRegister d, FloatRegister s) { fsgnjd(d, s, s); }
 
 inline void Assembler::flq(     FloatRegister d,    Register s, int imm) { load_fp( d,    s, 0x4, imm); }
 inline void Assembler::fsq(     FloatRegister s, Register base, int imm) { store_fp(s, base, 0x4, imm); }

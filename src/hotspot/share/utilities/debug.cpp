@@ -600,7 +600,7 @@ extern "C" void hsfind(intptr_t x) {
   os::print_location(tty, x, false);
 }
 
-static intptr_t find_arg = 0;
+intptr_t find_arg = 0;
 
 // This is temporary way to avoid gdb bug with find(x) call
 // to use it write:
