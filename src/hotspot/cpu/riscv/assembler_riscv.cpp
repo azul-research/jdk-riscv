@@ -360,12 +360,12 @@ void Assembler::li(Register d, long imm) { // TODO optimize
 
   for (remBit -= 11; remBit > 0; remBit -= 11) {
     part = (uimm >> remBit) & 0x7FF;
-    addi(d, d, part);
+    if (part != 0) addi(d, d, part);
     slli(d, d, remBit >= 11 ? 11 : remBit);
   }
 
   part = uimm & ((1 << (remBit + 11)) - 1);
-  addi(d, d, part);
+  if (part != 0) addi(d, d, part);
 }
 
 // Load a 64 bit constant, optimized, not identifyable.
