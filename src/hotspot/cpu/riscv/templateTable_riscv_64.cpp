@@ -2463,7 +2463,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   const Register Rcache        = R11_ARG1,
                  Rclass_or_obj = R7_TMP2,
                  Roffset       = R28_TMP3,
-                 Rflags        = R31,
+                 Rflags        = R31_TMP6,
                  Rbtable       = R13_ARG3,
                  Rbc           = R14_ARG4,
                  Rscratch      = R6_scratch2;
@@ -2553,7 +2553,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   }
   {
     Label acquire_double;
-    __ bnez(Rscratch, acquire_double); // Volatile?
+    __ bnez(Rscratch, Lisync); // Volatile?
     __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
     __ bind(acquire_double);
@@ -2564,17 +2564,18 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Lftos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[ftos] == 0, "can't compute twice");
   branch_table[ftos] = __ pc(); // non-volatile_entry point
-  __ lfsx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ flw(F23_ftos, R30_TMP5, 0);
   __ push(ftos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_fgetfield, Rbc, Rscratch);
   }
   {
     Label acquire_float;
-    __ beq_PPC(CCR6, acquire_float); // Volatile?
+    __ bnez(Rscratch, Lisync); // Volatile?
     __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
     __ bind(acquire_float);
@@ -2585,105 +2586,111 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Litos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[itos] == 0, "can't compute twice");
   branch_table[itos] = __ pc(); // non-volatile_entry point
-  __ lwax_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ lwu(R25_tos, R30_TMP5, 0);
   __ push(itos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_igetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ bnez(Rscratch, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Lltos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[ltos] == 0, "can't compute twice");
   branch_table[ltos] = __ pc(); // non-volatile_entry point
-  __ ldx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ ld(R25_tos, R30_TMP5, 0);
   __ push(ltos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_lgetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ beq_PPC(CCR6, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Lbtos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[btos] == 0, "can't compute twice");
   branch_table[btos] = __ pc(); // non-volatile_entry point
-  __ lbzx_PPC(R25_tos, Rclass_or_obj, Roffset);
-  __ extsb_PPC(R25_tos, R25_tos);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ lb(R25_tos, R30_TMP5, 0);
   __ push(btos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_bgetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ bnez(Rscratch, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Lztos); (same code as btos)
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[ztos] == 0, "can't compute twice");
   branch_table[ztos] = __ pc(); // non-volatile_entry point
-  __ lbzx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ lbu(R25_tos, R30_TMP5, 0);
   __ push(ztos);
   if (!is_static && rc == may_rewrite) {
     // use btos rewriting, no truncating to t/f bit is needed for getfield.
     patch_bytecode(Bytecodes::_fast_bgetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ bnez(Rscratch, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Lctos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[ctos] == 0, "can't compute twice");
   branch_table[ctos] = __ pc(); // non-volatile_entry point
-  __ lhzx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ lhu(R25_tos, R30_TMP5, 0);
   __ push(ctos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_cgetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ bnez(Rscratch, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Lstos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[stos] == 0, "can't compute twice");
   branch_table[stos] = __ pc(); // non-volatile_entry point
-  __ lhax_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(R30_TMP5, Rclass_or_obj, Roffset);
+  __ lh(R25_tos, R30_TMP5, 0);
   __ push(stos);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_sgetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ bnez(Rscratch, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align load.
   // __ bind(Latos);
-  __ fence(); // Volatile entry point (one instruction before non-volatile_entry point).
+  __ Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); // Volatile entry point (one instruction before non-volatile_entry point).
   assert(branch_table[atos] == 0, "can't compute twice");
   branch_table[atos] = __ pc(); // non-volatile_entry point
-  do_oop_load(_masm, Rclass_or_obj, Roffset, R25_tos, Rscratch, /* nv temp */ Rflags, IN_HEAP);
-  __ verify_oop(R25_tos);
+  do_oop_load(_masm, Rclass_or_obj, Roffset, R25_tos, R5_scratch1, /* nv temp */ Rflags, IN_HEAP);
+  //__ verify_oop(R25_tos); FIXME_RISCV
   __ push(atos);
   //__ dcbt_PPC(R25_tos); // prefetch
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_agetfield, Rbc, Rscratch);
   }
-  __ beq_PPC(CCR6, Lacquire); // Volatile?
+  __ bnez(Rscratch, Lisync); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 12);
   __ bind(Lacquire);
   __ twi_0_PPC(R25_tos);
-  __ bind(Lisync);
-  __ isync_PPC(); // acquire
 
+  __ bind(Lisync);
+  __ fencei(); // acquire
+  __ Assembler::fence(Assembler::R_OP, Assembler::R_OP);
 #ifdef ASSERT
   for (int i = 0; i<number_of_states; ++i) {
     assert(branch_table[i], "get initialization");
@@ -2798,8 +2805,8 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   Label Lvolatile;
 
   const Register Rcache        = R13_ARG3,  // Do not use ARG1/2 (causes trouble in jvmti_post_field_mod).
-                 Rclass_or_obj = R31,      // Needs to survive C call.
-                 Roffset       = R22_tmp2_PPC, // Needs to survive C call.
+                 Rclass_or_obj = R31_TMP6,  // Needs to survive C call.
+                 Roffset       = R7_TMP2,   // Needs to survive C call.
                  Rflags        = R11_ARG1,
                  Rbtable       = R12_ARG2,
                  Rscratch      = R5_scratch1,
@@ -2821,11 +2828,11 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
 
   // Load the field offset.
   resolve_cache_and_index(byte_no, Rcache, Rscratch, sizeof(u2));
-  jvmti_post_field_mod(Rcache, Rscratch, is_static);
+  //jvmti_post_field_mod(Rcache, Rscratch, is_static); //FIXME_RISCV
   load_field_cp_cache_entry(Rclass_or_obj, Rcache, noreg, Roffset, Rflags, is_static);
 
   // Load pointer to branch table.
-  __ load_const_optimized(Rbtable, (address)branch_table, Rscratch);
+  __ li(Rbtable, (address)branch_table);
 
   // Get volatile flag.
   __ rldicl_PPC(Rscratch, Rflags, 64-ConstantPoolCacheEntry::is_volatile_shift, 63); // Extract volatile bit.
