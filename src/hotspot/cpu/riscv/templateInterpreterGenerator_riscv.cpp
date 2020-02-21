@@ -150,7 +150,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     // dereference it as in case of ints, floats, etc.
     __ mr_PPC(R4_ARG2_PPC, arg_java);
     __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-    __ std_PPC(R4_ARG2_PPC, _abi(carg_2), target_sp);
+    __ std_PPC(R4_ARG2_PPC, _abi_PPC(carg_2), target_sp);
     __ bind(L);
   }
 
@@ -158,7 +158,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   // corresponds to 3rd C argument.
   __ li_PPC(argcnt, -1);
   // arg_c points to 3rd C argument
-  __ addi_PPC(arg_c, target_sp, _abi(carg_3));
+  __ addi_PPC(arg_c, target_sp, _abi_PPC(carg_3));
   // no floating-point args parsed so far
   __ li_PPC(fpcnt, 0);
 
@@ -882,7 +882,7 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
 
     __ bind(Lstatic); // Static case: Lock the java mirror
     // Load mirror from interpreter frame.
-    __ ld_PPC(Robj_to_lock, _abi(callers_sp), R1_SP_PPC);
+    __ ld_PPC(Robj_to_lock, _abi_PPC(callers_sp), R1_SP_PPC);
     __ ld_PPC(Robj_to_lock, _ijava_state_neg(mirror), Robj_to_lock);
 
     __ bind(Ldone);
@@ -1044,7 +1044,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // Resize parent frame.
   __ neg(parent_frame_resize, parent_frame_resize);
   __ resize_frame(parent_frame_resize, R5_scratch1);
-  __ sd(R1_RA, R2_SP, _abi(lr));
+  __ sd(R1_RA, R2_SP, _abi_PPC(lr));
 
   // Get mirror and store it in the frame as GC root for this Method*.
   __ load_mirror_from_const_method(R6_scratch2, Rconst_method);
@@ -1402,7 +1402,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     __ testbitdi_PPC(CCR0, R0, access_flags, JVM_ACC_STATIC_BIT);
     __ bfalse_PPC(CCR0, method_is_not_static);
 
-    __ ld_PPC(R5_scratch1, _abi(callers_sp), R1_SP_PPC);
+    __ ld_PPC(R5_scratch1, _abi_PPC(callers_sp), R1_SP_PPC);
     // Load mirror from interpreter frame.
     __ ld_PPC(R6_scratch2, _ijava_state_neg(mirror), R5_scratch1);
     // R4_ARG2_PPC = &state->_oop_temp;
@@ -1612,7 +1612,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   const Register return_pc = R31;
 
   __ ld_PPC(return_pc, 0, R1_SP_PPC);
-  __ ld_PPC(return_pc, _abi(lr), return_pc);
+  __ ld_PPC(return_pc, _abi_PPC(lr), return_pc);
 
   // Get the address of the exception handler.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address),
@@ -2068,7 +2068,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     Label Lcaller_not_deoptimized;
     Register return_pc = R3_ARG1_PPC;
     __ ld_PPC(return_pc, 0, R1_SP_PPC);
-    __ ld_PPC(return_pc, _abi(lr), return_pc);
+    __ ld_PPC(return_pc, _abi_PPC(lr), return_pc);
     __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::interpreter_contains), return_pc);
     __ cmpdi_PPC(CCR0, R3_RET_PPC, 0);
     __ bne_PPC(CCR0, Lcaller_not_deoptimized);
@@ -2161,7 +2161,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     Register return_pc = R31; // Needs to survive the runtime call.
     __ ld_PPC(return_pc, 0, R1_SP_PPC);
-    __ ld_PPC(return_pc, _abi(lr), return_pc);
+    __ ld_PPC(return_pc, _abi_PPC(lr), return_pc);
     __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address), R24_thread, return_pc);
 
     // Remove the current activation.

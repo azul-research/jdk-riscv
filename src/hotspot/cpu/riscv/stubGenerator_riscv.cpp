@@ -295,14 +295,14 @@ class StubGenerator: public StubCodeGenerator {
       // to frame manager / native entry.
       // Access all locals via frame pointer, because we know nothing about
       // the topmost frame's size.
-      __ ld_PPC(r_entryframe_fp, _abi(callers_sp), R1_SP_PPC);
+      __ ld_PPC(r_entryframe_fp, _abi_PPC(callers_sp), R1_SP_PPC);
       assert_different_registers(r_entryframe_fp, R3_RET_PPC, r_arg_result_addr, r_arg_result_type, r_cr, r_lr);
       __ ld_PPC(r_arg_result_addr,
             _entry_frame_locals_neg(result_address), r_entryframe_fp);
       __ ld_PPC(r_arg_result_type,
             _entry_frame_locals_neg(result_type), r_entryframe_fp);
-      __ ld_PPC(r_cr, _abi(cr), r_entryframe_fp);
-      __ ld_PPC(r_lr, _abi(lr), r_entryframe_fp);
+      __ ld_PPC(r_cr, _abi_PPC(cr), r_entryframe_fp);
+      __ ld_PPC(r_lr, _abi_PPC(lr), r_entryframe_fp);
 
       // pop frame and restore non-volatiles, LR and CR
       __ mr_PPC(R1_SP_PPC, r_entryframe_fp);

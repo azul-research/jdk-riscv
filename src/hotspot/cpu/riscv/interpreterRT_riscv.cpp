@@ -42,7 +42,7 @@
 // The first Java argument is at index -1.
 #define locals_j_arg_at(index)    (Interpreter::local_offset_in_bytes(index)), R26_locals
 // The first C argument is at index 0.
-#define sp_c_arg_at(index)        ((index)*wordSize + _abi(carg_1)), R1_SP_PPC
+#define sp_c_arg_at(index)        ((index)*wordSize + _abi_PPC(carg_1)), R1_SP_PPC
 
 // Implementation of SignatureHandlerGenerator
 

@@ -283,7 +283,7 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
   // save the flags
   // Do the save_LR_CR by hand and adjust the return pc if requested.
   __ mfcr_PPC(R30);
-  __ std_PPC(R30, frame_size_in_bytes + _abi(cr), R1_SP_PPC);
+  __ std_PPC(R30, frame_size_in_bytes + _abi_PPC(cr), R1_SP_PPC);
   switch (return_pc_location) {
     case return_pc_is_lr: __ mflr_PPC(R31); break;
     case return_pc_is_pre_saved: assert(return_pc_adjustment == 0, "unsupported"); break;
@@ -294,7 +294,7 @@ OopMap* RegisterSaver::push_frame_reg_args_and_save_live_registers(MacroAssemble
     if (return_pc_adjustment != 0) {
       __ addi_PPC(R31, R31, return_pc_adjustment);
     }
-    __ std_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
+    __ std_PPC(R31, frame_size_in_bytes + _abi_PPC(lr), R1_SP_PPC);
   }
 
   // save all registers (ints and floats)
@@ -424,10 +424,10 @@ void RegisterSaver::restore_live_registers_and_pop_frame(MacroAssembler* masm,
   assert(offset == frame_size_in_bytes, "consistency check");
 
   // restore link and the flags
-  __ ld_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
+  __ ld_PPC(R31, frame_size_in_bytes + _abi_PPC(lr), R1_SP_PPC);
   __ mtlr_PPC(R31);
 
-  __ ld_PPC(R31, frame_size_in_bytes + _abi(cr), R1_SP_PPC);
+  __ ld_PPC(R31, frame_size_in_bytes + _abi_PPC(cr), R1_SP_PPC);
   __ mtcr_PPC(R31);
 
   // restore scratch register's value
@@ -959,13 +959,13 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   // Patch caller's callsite, method_(code) was not NULL which means that
   // compiled code exists.
   __ mflr_PPC(return_pc);
-  __ std_PPC(return_pc, _abi(lr), R1_SP_PPC);
+  __ std_PPC(return_pc, _abi_PPC(lr), R1_SP_PPC);
   RegisterSaver::push_frame_and_save_argument_registers(masm, tmp, adapter_size, total_args_passed, regs);
 
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::fixup_callers_callsite), R27_method, return_pc);
 
   RegisterSaver::restore_argument_registers_and_pop_frame(masm, adapter_size, total_args_passed, regs);
-  __ ld_PPC(return_pc, _abi(lr), R1_SP_PPC);
+  __ ld_PPC(return_pc, _abi_PPC(lr), R1_SP_PPC);
   __ ld_PPC(ientry, method_PPC(interpreter_entry)); // preloaded
   __ mtlr_PPC(return_pc);
 
@@ -2709,7 +2709,7 @@ static void push_skeleton_frame(MacroAssembler* masm, bool deopt,
 
   __ ld_PPC(pc_reg, 0, pcs_reg);
   __ ld_PPC(frame_size_reg, 0, frame_sizes_reg);
-  __ std_PPC(pc_reg, _abi(lr), R1_SP_PPC);
+  __ std_PPC(pc_reg, _abi_PPC(lr), R1_SP_PPC);
   __ push_frame(frame_size_reg, R0/*tmp*/);
 #ifdef ASSERT
   __ load_const_optimized(pc_reg, 0x5afe);
@@ -2784,7 +2784,7 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
 
   // In the case where we have resized a c2i frame above, the optional
   // alignment below the locals has size 32 (why?).
-  __ std_PPC(R6_scratch2, _abi(lr), R1_SP_PPC);
+  __ std_PPC(R6_scratch2, _abi_PPC(lr), R1_SP_PPC);
 
   // Initialize initial_caller_sp.
 #ifdef ASSERT
@@ -2816,7 +2816,7 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
   // Get the return address pointing into the frame manager.
   __ ld_PPC(R0, 0, pcs_reg);
   // Store it in the top interpreter frame.
-  __ std_PPC(R0, _abi(lr), R1_SP_PPC);
+  __ std_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
   // Initialize frame_manager_lr of interpreter top frame.
 }
 #endif
@@ -2894,7 +2894,7 @@ void SharedRuntime::generate_deopt_blob() {
   // This is needed since the call to "fetch_unroll_info()" may safepoint.
   __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
   __ std_PPC(R4_ARG2_PPC, in_bytes(JavaThread::exception_pc_offset()),  R24_thread);
-  __ std_PPC(R4_ARG2_PPC, _abi(lr), R1_SP_PPC);
+  __ std_PPC(R4_ARG2_PPC, _abi_PPC(lr), R1_SP_PPC);
 
   // Vanilla deoptimization with an exception pending in exception_oop.
   int exception_in_tls_offset = __ pc() - start;
@@ -3262,13 +3262,13 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   if (SafepointMechanism::uses_thread_local_poll() && !cause_return) {
     Label no_adjust;
     // If our stashed return pc was modified by the runtime we avoid touching it
-    __ ld_PPC(R0, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
+    __ ld_PPC(R0, frame_size_in_bytes + _abi_PPC(lr), R1_SP_PPC);
     __ cmpd_PPC(CCR0, R0, R31);
     __ bne_PPC(CCR0, no_adjust);
 
     // Adjust return pc forward to step over the safepoint poll instruction
     __ addi_PPC(R31, R31, 4);
-    __ std_PPC(R31, frame_size_in_bytes + _abi(lr), R1_SP_PPC);
+    __ std_PPC(R31, frame_size_in_bytes + _abi_PPC(lr), R1_SP_PPC);
 
     __ bind(no_adjust);
   }

@@ -94,7 +94,7 @@
   };
 
   // FIXME_RISCV this define must be removed
-  #define _abi(_component) \
+  #define _abi_PPC(_component) \
           (offset_of(frame::abi_reg_args_ppc, _component))
 
   struct abi_reg_args_spill_ppc : abi_reg_args_ppc { // FIXME_RISCV this structure must be removed

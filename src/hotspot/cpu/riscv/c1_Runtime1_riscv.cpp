@@ -91,7 +91,7 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result,
     if (frame_size() == no_frame_size) {
       ShouldNotReachHere(); // We always have a frame size.
       //pop_frame(); // pop the stub frame
-      //ld(R0, _abi(lr), R1_SP_PPC);
+      //ld(R0, _abi_PPC(lr), R1_SP_PPC);
       //mtlr(R0);
       //load_const_optimized(R0, StubRoutines::forward_exception_entry());
       //mtctr(R0);
@@ -184,7 +184,7 @@ static OopMap* save_live_registers(StubAssembler* sasm, bool save_fpu_registers 
     ret_pc = R0;
     __ mflr_PPC(ret_pc);
   }
-  __ std_PPC(ret_pc, _abi(lr), R1_SP_PPC); // C code needs pc in C1 method.
+  __ std_PPC(ret_pc, _abi_PPC(lr), R1_SP_PPC); // C code needs pc in C1 method.
   __ push_frame(frame_size_in_bytes + stack_preserve, R0);
 
   // Record volatile registers as callee-save values in an OopMap so
@@ -232,7 +232,7 @@ static void restore_live_registers(StubAssembler* sasm, Register result1, Regist
   }
 
   __ pop_frame();
-  __ ld_PPC(R0, _abi(lr), R1_SP_PPC);
+  __ ld_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
   __ mtlr_PPC(R0);
 }
 
@@ -484,7 +484,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         __ bclr_PPC(Assembler::bcondCRbiIs1, Assembler::bi0(CCR0, Assembler::equal), Assembler::bhintbhBCLRisReturn);
 
         __ mflr_PPC(R0);
-        __ std_PPC(R0, _abi(lr), R1_SP_PPC);
+        __ std_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
         __ push_frame(frame::abi_reg_args_ppc_size, R0); // Empty dummy frame (no callee-save regs).
         sasm->set_frame_size(frame::abi_reg_args_ppc_size / BytesPerWord);
         OopMap* oop_map = new OopMap(frame::abi_reg_args_ppc_size / sizeof(jint), 0);
@@ -494,7 +494,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         oop_maps->add_gc_map(call_offset, oop_map);
 
         __ pop_frame();
-        __ ld_PPC(R0, _abi(lr), R1_SP_PPC);
+        __ ld_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
         __ mtlr_PPC(R0);
         __ blr_PPC();
       }
@@ -553,11 +553,11 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         __ ld_PPC(Rcaller_sp, 0, R1_SP_PPC);
         __ push_frame_reg_args(0, R0); // dummy frame for C call
         __ mr_PPC(Rexception_save, Rexception); // save over C call
-        __ ld_PPC(Rexception_pc, _abi(lr), Rcaller_sp); // return pc
+        __ ld_PPC(Rexception_pc, _abi_PPC(lr), Rcaller_sp); // return pc
         __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address), R24_thread, Rexception_pc);
         __ verify_not_null_oop(Rexception_save);
         __ mtctr_PPC(R3_RET_PPC);
-        __ ld_PPC(Rexception_pc, _abi(lr), Rcaller_sp); // return pc
+        __ ld_PPC(Rexception_pc, _abi_PPC(lr), Rcaller_sp); // return pc
         __ mr_PPC(R1_SP_PPC, Rcaller_sp); // Pop both frames at once.
         __ mr_PPC(Rexception, Rexception_save); // restore
         __ mtlr_PPC(Rexception_pc);
@@ -729,7 +729,7 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
       {
         __ set_info("unimplemented entry", dont_gc_arguments);
         __ mflr_PPC(R0);
-        __ std_PPC(R0, _abi(lr), R1_SP_PPC);
+        __ std_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
         __ push_frame(frame::abi_reg_args_ppc_size, R0); // empty dummy frame
         sasm->set_frame_size(frame::abi_reg_args_ppc_size / BytesPerWord);
         OopMap* oop_map = new OopMap(frame::abi_reg_args_ppc_size / sizeof(jint), 0);
@@ -765,12 +765,12 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     // exception handler.
     oop_map = generate_oop_map(sasm, true);
     // Transfer the pending exception to the exception_oop.
-    // Also load the PC which is typically at SP + frame_size_in_bytes + _abi(lr),
+    // Also load the PC which is typically at SP + frame_size_in_bytes + _abi_PPC(lr),
     // but we support additional slots in the frame for parameter passing.
     __ ld_PPC(Rexception_pc, 0, R1_SP_PPC);
     __ ld_PPC(Rexception, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
     __ li_PPC(R0, 0);
-    __ ld_PPC(Rexception_pc, _abi(lr), Rexception_pc);
+    __ ld_PPC(Rexception_pc, _abi_PPC(lr), Rexception_pc);
     __ std_PPC(R0, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
     break;
   case handle_exception_nofpu_id:
@@ -782,7 +782,7 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     // At this point all registers except exception oop and exception pc are dead.
     oop_map = new OopMap(frame_size_in_bytes / sizeof(jint), 0);
     sasm->set_frame_size(frame_size_in_bytes / BytesPerWord);
-    __ std_PPC(Rexception_pc, _abi(lr), R1_SP_PPC);
+    __ std_PPC(Rexception_pc, _abi_PPC(lr), R1_SP_PPC);
     __ push_frame(frame_size_in_bytes, R0);
     break;
   default:  ShouldNotReachHere();
@@ -825,7 +825,7 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     break;
   case handle_exception_from_callee_id: {
     __ pop_frame();
-    __ ld_PPC(Rexception_pc, _abi(lr), R1_SP_PPC);
+    __ ld_PPC(Rexception_pc, _abi_PPC(lr), R1_SP_PPC);
     __ mtlr_PPC(Rexception_pc);
     __ bctr_PPC();
     break;

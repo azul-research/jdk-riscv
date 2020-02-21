@@ -1341,7 +1341,7 @@ void LIR_Assembler::return_op(LIR_Opr result) {
   }
 
   // Restore return pc relative to callers' sp.
-  __ ld_PPC(return_pc, _abi(lr), R1_SP_PPC);
+  __ ld_PPC(return_pc, _abi_PPC(lr), R1_SP_PPC);
   // Move return pc to LR.
   __ mtlr_PPC(return_pc);
 
