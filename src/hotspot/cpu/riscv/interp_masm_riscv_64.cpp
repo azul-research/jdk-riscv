@@ -82,28 +82,12 @@ void InterpreterMacroAssembler::dispatch_via(TosState state, address* table) {
 // Dispatch code executed in the prolog of a bytecode which does not do it's
 // own dispatch. The dispatch address is computed and placed in R24_dispatch_addr_PPC.
 void InterpreterMacroAssembler::dispatch_prolog(TosState state, int bcp_incr) {
-  lbu(R6_scratch2, R22_bcp, bcp_incr);
-
-  //lbz_PPC(bytecode, bcp_incr, R22_bcp);
-
-  load_dispatch_table(R5_scratch1, Interpreter::dispatch_table(state));
-
-  slli(R6_scratch2, R6_scratch2, LogBytesPerWord);
-  add(R6_scratch2, R6_scratch2, R5_scratch1);
-  ld(R5_scratch1, R6_scratch2, 0);
-
-//  sldi_PPC(bytecode, bytecode, LogBytesPerWord);
-//  ldx_PPC(R24_dispatch_addr_PPC, R24_dispatch_addr_PPC, bytecode);
 }
 
 // Dispatch code executed in the epilog of a bytecode which does not do it's
 // own dispatch. The dispatch address in R24_dispatch_addr_PPC is used for the
 // dispatch.
 void InterpreterMacroAssembler::dispatch_epilog(TosState state, int bcp_incr) {
-  /*if (bcp_incr) { addi_PPC(R22_bcp, R22_bcp, bcp_incr); }
-  mtctr_PPC(R24_dispatch_addr_PPC);
-  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);*/
-
   Register bytecode = R29_TMP4;
   lbu(bytecode, R22_bcp, bcp_incr);
   load_dispatch_table(R30_TMP5, Interpreter::dispatch_table(state));
