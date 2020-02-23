@@ -6,7 +6,7 @@ variant=core
 level=release
 testfile=T1
 
-while getopts "hv:l:" opt; do
+while getopts "hv:l:t:" opt; do
     case "$opt" in
     h)
         echo "usage: $0 [-h] [-v variant] [-l debug-level]"
@@ -24,4 +24,4 @@ while getopts "hv:l:" opt; do
     esac
 done
 
-java -jar dev-riscv/tests/asmtools.jar jasm dev-riscv/tests/${testfile}.jasm -d build/linux-riscv64-$variant-$level/jdk/modules/java.base/java/lang
+java -jar dev-riscv/tests/asmtools.jar jasm dev-riscv/tests/${testfile}.jasm -d build/linux-riscv64-$variant-$level/jdk/modules/java.base
