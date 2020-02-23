@@ -229,8 +229,7 @@ void TemplateTable::dconst(int value) {
 
 void TemplateTable::bipush() {
   transition(vtos, itos);
-  __ lbz_PPC(R25_tos, 1, R22_bcp);
-  __ extsb_PPC(R25_tos, R25_tos);
+  __ lb(R25_tos, R22_bcp, 1);
 }
 
 void TemplateTable::sipush() {

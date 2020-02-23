@@ -2231,10 +2231,10 @@ void TemplateInterpreterGenerator::set_vtos_entry_points(Template* t,
   assert(t->is_valid() && t->tos_in() == vtos, "illegal template");
   Label L;
 
-  aep = __ pc();  __ push_ptr();  __ b_PPC(L);
-  fep = __ pc();  __ push_f();    __ b_PPC(L);
-  dep = __ pc();  __ push_d();    __ b_PPC(L);
-  lep = __ pc();  __ push_l();    __ b_PPC(L);
+  aep = __ pc();  __ push_ptr();  __ j(L);
+  fep = __ pc();  __ push_f();    __ j(L);
+  dep = __ pc();  __ push_d();    __ j(L);
+  lep = __ pc();  __ push_l();    __ j(L);
   __ align(32, 12, 24); // align L
   bep = cep = sep =
   iep = __ pc();  __ push_i();
