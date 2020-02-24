@@ -151,46 +151,6 @@ class Argument {
   }
 };
 
-#if !defined(ABI_ELFv2)
-// A riscv64 function descriptor.
-struct FunctionDescriptor {
- private:
-  address _entry;
-  address _toc;
-  address _env;
-
- public:
-  inline address entry() const { return _entry; }
-  inline address toc()   const { return _toc; }
-  inline address env()   const { return _env; }
-
-  inline void set_entry(address entry) { _entry = entry; }
-  inline void set_toc(  address toc)   { _toc   = toc; }
-  inline void set_env(  address env)   { _env   = env; }
-
-  inline static ByteSize entry_offset() { return byte_offset_of(FunctionDescriptor, _entry); }
-  inline static ByteSize toc_offset()   { return byte_offset_of(FunctionDescriptor, _toc); }
-  inline static ByteSize env_offset()   { return byte_offset_of(FunctionDescriptor, _env); }
-
-  // Friend functions can be called without loading toc and env.
-  enum {
-    friend_toc = 0xcafe,
-    friend_env = 0xc0de
-  };
-
-  inline bool is_friend_function() const {
-    return (toc() == (address) friend_toc) && (env() == (address) friend_env);
-  }
-
-  // Constructor for stack-allocated instances.
-  FunctionDescriptor() {
-    _entry = (address) 0xbad;
-    _toc   = (address) 0xbad;
-    _env   = (address) 0xbad;
-  }
-};
-#endif
-
 #define label_offset(Label) disp(intptr_t(target(Label)), intptr_t(pc()))
 
 // The RISCV Assembler: Pure assembler doing NO optimizations on the

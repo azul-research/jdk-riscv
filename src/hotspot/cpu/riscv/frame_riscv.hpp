@@ -64,10 +64,6 @@
     uint64_t callers_sp;
     uint64_t cr;                                  //_16
     uint64_t lr;
-#if !defined(ABI_ELFv2)
-    uint64_t reserved1;                           //_16
-    uint64_t reserved2;
-#endif
     uint64_t toc;                                 //_16
     // nothing to add here!
     // aligned to frame::alignment_in_bytes (16)

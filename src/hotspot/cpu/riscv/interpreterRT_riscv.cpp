@@ -131,13 +131,6 @@ void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprin
 // Implementation of SignatureHandlerLibrary
 
 void SignatureHandlerLibrary::pd_set_handler(address handler) {
-#if !defined(ABI_ELFv2)
-  // patch fd here.
-  FunctionDescriptor* fd = (FunctionDescriptor*) handler;
-
-  fd->set_entry(handler + (int)sizeof(FunctionDescriptor));
-  assert(fd->toc() == (address)0xcafe, "need to adjust TOC here");
-#endif
 }
 
 

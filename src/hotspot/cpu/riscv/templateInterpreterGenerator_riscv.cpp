@@ -1373,9 +1373,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Our signature handlers copy required arguments to the C stack
   // (outgoing C args), R3_ARG1_PPC to R10_ARG8_PPC, and FARG1 to FARG13.
   __ mr_PPC(R3_ARG1_PPC, R26_locals);
-#if !defined(ABI_ELFv2)
-  __ ld_PPC(signature_handler_fd, 0, signature_handler_fd);
-#endif
 
   __ call_stub(signature_handler_fd);
 
