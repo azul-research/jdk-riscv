@@ -349,23 +349,66 @@ void Assembler::li(Register d, void* addr) {
   li(d, (long)(unsigned long)addr);
 }
 
+void Assembler::li_0(Register d) {
+    xorr(d, d, d);
+}
+
+void Assembler::li_small(Register d, int value) {
+    assert(value < 2048 && value >= 0, "out of range");
+    addi(d, R0_ZERO, value);
+}
+
 void Assembler::li(Register d, long imm) { // TODO optimize
   unsigned long uimm = imm;
+
+  if (imm == 0) {
+      li_0(d);
+      return;
+  }
+
+  if (imm < 2048 && imm >= 0) {
+      li_small(d, static_cast<int>(imm));
+      return;
+  }
+
 
   // Accurate copying by 11 bits.
   int remBit = ((uimm & 0xffffffff00000000) != 0) ? 53 : 21;
   short part = (uimm >> remBit) & 0x7FF;
-  addi(d, R0_ZERO, part);
-  slli(d, d, 11);
+  int accumulated_shift = 0;
+  bool is_zero = true;
+
+  if (part != 0) {
+    addi(d, R0_ZERO, part);
+    is_zero = false;
+  }
+  accumulated_shift = 11;
 
   for (remBit -= 11; remBit > 0; remBit -= 11) {
     part = (uimm >> remBit) & 0x7FF;
-    if (part != 0) addi(d, d, part);
-    slli(d, d, remBit >= 11 ? 11 : remBit);
+    if (part != 0) {
+      if (is_zero) {
+          is_zero = false;
+          addi(d, R0_ZERO, part);
+      } else {
+          slli(d, d, accumulated_shift);
+	  addi(d, d, part);
+      }
+      accumulated_shift = 0;
+    }
+    accumulated_shift += (remBit >= 11 ? 11 : remBit);
+  }
+
+  if (accumulated_shift > 0) {
+    slli(d, d, accumulated_shift);
   }
 
   part = uimm & ((1 << (remBit + 11)) - 1);
-  if (part != 0) addi(d, d, part);
+  if (part != 0) {
+    is_zero = false;
+    addi(d, d, part);
+  }
+  assert(!is_zero, "zero must go to separate branch - looks like bug");
 }
 
 // Load a 64 bit constant, optimized, not identifyable.

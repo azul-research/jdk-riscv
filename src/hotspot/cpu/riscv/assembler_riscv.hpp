@@ -2234,6 +2234,8 @@ class Assembler : public AbstractAssembler {
   inline void fencei();
   // pseudoinstructions
   inline void nop();                                          // No operation
+  void li_0(Register d);                                        // Load zero
+  void li_small(Register d, int value);
   void li(Register d, long imm);                              // Load immediate
   void li(Register d, void* addr);
   inline void mv(Register d, Register s);                     // Copy register
