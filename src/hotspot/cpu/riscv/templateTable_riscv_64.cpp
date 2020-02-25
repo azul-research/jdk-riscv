@@ -168,7 +168,6 @@ void TemplateTable::shouldnotreachhere() {
 
 void TemplateTable::aconst_null() {
   transition(vtos, atos);
-  printf("aconst_null: %p\n", __ pc());
   __ lui(R25_tos, 0);
 }
 
@@ -184,8 +183,12 @@ void TemplateTable::iconst(int value) {
 
 void TemplateTable::lconst(int value) {
   transition(vtos, ltos);
-  assert(value >= -1 && value <= 5, "");
-  __ li_PPC(R25_tos, value);
+  assert(value == 0 || value == 1, "");
+  if (value == 0) {
+    __ li_0(R25_tos);
+  } else {
+    __ li_small(R25_tos, value);
+  }
 }
 
 void TemplateTable::fconst(int value) {
@@ -193,21 +196,23 @@ void TemplateTable::fconst(int value) {
   static float zero = 0.0;
   static float one  = 1.0;
   static float two  = 2.0;
+
   switch (value) {
     default: ShouldNotReachHere();
     case 0: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&zero, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      __ fmvwx(F23_ftos, R0_ZERO);
       break;
     }
     case 1: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&one, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      __ li(R5_scratch1, 0x3f8);
+      __ slli(R5_scratch1, R5_scratch1, 20);
+      __ fmvwx(F23_ftos, R5_scratch1);
       break;
     }
     case 2: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&two, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      __ li(R5_scratch1, 0x400);
+      __ slli(R5_scratch1, R5_scratch1, 20);
+      __ fmvwx(F23_ftos, R5_scratch1);
       break;
     }
   }
