@@ -168,13 +168,18 @@ void TemplateTable::shouldnotreachhere() {
 
 void TemplateTable::aconst_null() {
   transition(vtos, atos);
-  __ li_PPC(R25_tos, 0);
+  printf("aconst_null: %p\n", __ pc());
+  __ lui(R25_tos, 0);
 }
 
 void TemplateTable::iconst(int value) {
   transition(vtos, itos);
   assert(value >= -1 && value <= 5, "");
-  __ li_PPC(R25_tos, value);
+  if (value >= 0) {
+    __ li_small(R25_tos, value);
+  } else {
+    __ addi(R25_tos, R0_ZERO, -1);
+  }
 }
 
 void TemplateTable::lconst(int value) {

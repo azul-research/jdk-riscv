@@ -350,7 +350,7 @@ void Assembler::li(Register d, void* addr) {
 }
 
 void Assembler::li_0(Register d) {
-    xorr(d, d, d);
+    mv(d, R0_ZERO);
 }
 
 void Assembler::li_small(Register d, int value) {
