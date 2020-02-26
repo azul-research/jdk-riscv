@@ -169,6 +169,7 @@
         (int) (-frame::top_ijava_frame_abi_size + offset_of(frame::top_ijava_frame_abi, _component))
 
   #define _fp_ra_offset_neg _top_ijava_frame_abi_neg(fp)
+  #define _spill_nonvolatiles_offset _top_ijava_frame_abi(r2)
   #define _spill_nonvolatiles_offset_neg _top_ijava_frame_abi_neg(r2)
   #define _entry_frame_locals_offset_neg _top_ijava_frame_abi_neg(call_wrapper_address)
 
