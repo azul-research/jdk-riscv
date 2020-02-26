@@ -322,10 +322,14 @@ class StubGenerator: public StubCodeGenerator {
 
       // All non-volatiles have been restored at this point!!
 
-      __ beq(r_arg_result_type, T_OBJECT, ret_is_object);
-      __ beq(r_arg_result_type, T_LONG, ret_is_long);
-      __ beq(r_arg_result_type, T_FLOAT, ret_is_float);
-      __ beq(r_arg_result_type, T_DOUBLE, ret_is_double);
+      __ li(r_temp, T_OBJECT);
+      __ beq(r_arg_result_type, r_temp, ret_is_object);
+      __ li(r_temp, T_LONG);
+      __ beq(r_arg_result_type, r_temp, ret_is_long);
+      __ li(r_temp, T_FLOAT);
+      __ beq(r_arg_result_type, r_temp, ret_is_float);
+      __ li(r_temp, T_DOUBLE);
+      __ beq(r_arg_result_type, r_temp, ret_is_double);
 
       __ sw(R10_RET1, r_arg_result_addr, 0);
       __ ret(); // return to caller
