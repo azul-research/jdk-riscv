@@ -214,13 +214,13 @@ void TemplateTable::dconst(int value) {
   static double one  = 1.0;
   switch (value) {
     case 0: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&zero, R0, true);
-      __ lfd_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      __ fmvwx(F23_ftos, R0_ZERO);
       break;
     }
     case 1: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&one, R0, true);
-      __ lfd_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      __ li(R5_scratch1, 0x3ff);
+      __ slli(R5_scratch1, R5_scratch1, 52);
+      __ fmvwx(F23_ftos, R5_scratch1);
       break;
     }
     default: ShouldNotReachHere();
@@ -229,12 +229,24 @@ void TemplateTable::dconst(int value) {
 
 void TemplateTable::bipush() {
   transition(vtos, itos);
-  __ lb(R25_tos, R22_bcp, 1);
+  __ lbu(R25_tos, R22_bcp, 1);
 }
 
 void TemplateTable::sipush() {
   transition(vtos, itos);
-  __ get_2_byte_integer_at_bcp(1, R25_tos, InterpreterMacroAssembler::Signed);
+  // we have to deal with JVM endianess
+  // 1. load 2 bytes as unsigned value
+  __ lhu(R25_tos, R22_bcp, 1);
+  // 2. swap lower bytes
+  __ srli(R5_scratch1, R25_tos, 8);
+  __ slli(R25_tos, R25_tos, 56);
+  __ srli(R25_tos, R25_tos, 48);
+  __ orr(R25_tos, R25_tos, R5_scratch1);
+  // 3. extend sign bit
+  __ srli(R5_scratch1, R25_tos, 15);
+  __ sub(R5_scratch1, R0_ZERO, R5_scratch1);
+  __ slli(R5_scratch1, R5_scratch1, 16);
+  __ orr(R25_tos, R25_tos, R5_scratch1);
 }
 
 void TemplateTable::ldc(bool wide) {
