@@ -173,9 +173,10 @@ void TemplateTable::aconst_null() {
 
 void TemplateTable::iconst(int value) {
   transition(vtos, itos);
+  printf("iconst %d: %p\n", value, __ pc());
   assert(value >= -1 && value <= 5, "");
   if (value >= 0) {
-    __ li_small(R25_tos, value);
+    __ li(R25_tos, value);
   } else {
     __ addi(R25_tos, R0_ZERO, -1);
   }
@@ -184,11 +185,7 @@ void TemplateTable::iconst(int value) {
 void TemplateTable::lconst(int value) {
   transition(vtos, ltos);
   assert(value == 0 || value == 1, "");
-  if (value == 0) {
-    __ li_0(R25_tos);
-  } else {
-    __ li_small(R25_tos, value);
-  }
+  __ li(R25_tos, value);
 }
 
 void TemplateTable::fconst(int value) {
