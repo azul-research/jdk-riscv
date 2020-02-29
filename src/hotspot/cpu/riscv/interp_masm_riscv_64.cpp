@@ -1997,7 +1997,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
          "size of a monitor must respect alignment of SP");
 
   resize_frame(-monitor_size, /*temp*/esp); // Allocate space for new monitor
-  std_PPC(R1_SP_PPC, _ijava_state_neg(top_frame_sp), esp); // esp contains fp
+  sd(R2_SP, esp, _ijava_state_neg(top_frame_sp)); // esp contains fp
 
   // Shuffle expression stack down. Recall that stack_base points
   // just above the new expression stack bottom. Old_tos and new_tos
@@ -2006,26 +2006,27 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
     Label copy_slot, copy_slot_finished;
     const Register n_slots = slot;
 
-    addi_PPC(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
-    subf_PPC(n_slots, esp, R26_monitor_PPC);
-    srdi__PPC(n_slots, n_slots, LogBytesPerWord);          // Compute number of slots to copy.
+    addi(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
+    sub(n_slots, R26_monitor_PPC, esp);
+    srli(n_slots, n_slots, LogBytesPerWord); // Compute number of slots to copy.
     assert(LogBytesPerWord == 3, "conflicts assembler instructions");
-    beq_PPC(CCR0, copy_slot_finished);                     // Nothing to copy.
+    beqz(n_slots, copy_slot_finished); // Nothing to copy.
 
-    mtctr_PPC(n_slots);
+    mv(R29_TMP4, n_slots);
 
     // loop
     bind(copy_slot);
-    ld_PPC(slot, 0, esp);              // Move expression stack down.
-    std_PPC(slot, -monitor_size, esp); // distance = monitor_size
-    addi_PPC(esp, esp, BytesPerWord);
-    bdnz_PPC(copy_slot);
+    ld(slot, esp, 0); // Move expression stack down.
+    sd(slot, esp, -monitor_size); // distance = monitor_size
+    addi(esp, esp, BytesPerWord);
+    addi(R29_TMP4, R29_TMP4, -1);
+    bnez(R29_TMP4, copy_slot);
 
     bind(copy_slot_finished);
   }
 
-  addi_PPC(R23_esp, R23_esp, -monitor_size);
-  addi_PPC(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
+  addi(R23_esp, R23_esp, -monitor_size);
+  addi(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
 
   // Restart interpreter
 }

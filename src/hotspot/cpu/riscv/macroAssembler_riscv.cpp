@@ -904,14 +904,15 @@ void MacroAssembler::resize_frame(Register offset, Register tmp) {
 
 void MacroAssembler::resize_frame(int offset, Register tmp) {
   assert(is_simm(offset, 16), "too big an offset");
-  assert_different_registers(tmp, R1_SP_PPC);
+  assert_different_registers(tmp, R2_SP);
   assert((offset & (frame::alignment_in_bytes-1))==0, "resize_frame: unaligned");
   // tmp <- *(SP)
-  ld_PPC(tmp, _abi_PPC(callers_sp), R1_SP_PPC);
+  ld(tmp, R2_SP, _abi_PPC(callers_sp));
   // addr <- SP + offset;
   // *(addr) <- tmp;
   // SP <- addr
-  stdu_PPC(tmp, offset, R1_SP_PPC);
+  sd(tmp, R2_SP, offset);
+  addi(R2_SP, R2_SP, offset);
 }
 
 void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Register tmp2) {

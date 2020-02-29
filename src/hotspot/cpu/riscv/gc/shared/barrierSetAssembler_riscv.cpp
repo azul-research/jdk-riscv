@@ -47,17 +47,17 @@ void BarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators
     if (UseCompressedOops && in_heap) {
       Register co = tmp1;
       if (val == noreg) {
-        __ li_PPC(co, 0);
+        __ addi(co, R0, 0);
       } else {
         co = not_null ? __ encode_heap_oop_not_null(tmp1, val) : __ encode_heap_oop(tmp1, val);
       }
-      __ stw_PPC(co, ind_or_offs, base, tmp2);
+      __ sw(co, ind_or_offs, base, tmp2);
     } else {
       if (val == noreg) {
         val = tmp1;
-        __ li_PPC(val, 0);
+        __ mv(val, R0);
       }
-      __ std_PPC(val, ind_or_offs, base, tmp2);
+      __ sd(val, ind_or_offs, base, tmp2);
     }
     break;
   }
@@ -79,23 +79,21 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
   case T_OBJECT: {
     if (UseCompressedOops && in_heap) {
       if (L_handle_null != NULL) { // Label provided.
-        __ lwz_PPC(dst, ind_or_offs, base);
-        __ cmpwi_PPC(CCR0, dst, 0);
-        __ beq_PPC(CCR0, *L_handle_null);
+        __ lwu(dst, ind_or_offs, base);
+        __ beqz(dst, *L_handle_null);
         __ decode_heap_oop_not_null(dst);
       } else if (not_null) { // Guaranteed to be not null.
         Register narrowOop = (tmp1 != noreg && CompressedOops::base_disjoint()) ? tmp1 : dst;
-        __ lwz_PPC(narrowOop, ind_or_offs, base);
+        __ lwu(narrowOop, ind_or_offs, base);
         __ decode_heap_oop_not_null(dst, narrowOop);
       } else { // Any oop.
-        __ lwz_PPC(dst, ind_or_offs, base);
+        __ lwu(dst, ind_or_offs, base);
         __ decode_heap_oop(dst);
       }
     } else {
-      __ ld_PPC(dst, ind_or_offs, base);
+      __ ld(dst, ind_or_offs, base);
       if (L_handle_null != NULL) {
-        __ cmpdi_PPC(CCR0, dst, 0);
-        __ beq_PPC(CCR0, *L_handle_null);
+        __ beqz(dst, *L_handle_null);
       }
     }
     break;

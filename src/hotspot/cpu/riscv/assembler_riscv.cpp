@@ -115,6 +115,32 @@ void Assembler::ld_PPC(Register d, RegisterOrConstant roc, Register s1) {
   }
 }
 
+// RegisterOrConstant version.
+void Assembler::ld(Register d, RegisterOrConstant roc, Register s1) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      li(d, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      ld(d, d, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      ld(d, s1, roc.as_constant());
+    } else {
+      li(d, roc.as_constant());
+      add(d, d, s1);
+      ld(d, d, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      ld(d, roc.as_register(), 0);
+    else {
+      add(d, roc.as_register(), s1);
+      ld(d, d, 0);
+    }
+  }
+}
+
 void Assembler::lwa_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
@@ -150,6 +176,31 @@ void Assembler::lwz_PPC(Register d, RegisterOrConstant roc, Register s1) {
       Assembler::lwz_PPC(d, 0, roc.as_register());
     else
       Assembler::lwzx_PPC(d, roc.as_register(), s1);
+  }
+}
+
+void Assembler::lwu(Register d, RegisterOrConstant roc, Register s1) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      li(d, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      lwu(d, d, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      lwu(d, s1, roc.as_constant());
+    } else {
+      li(d, roc.as_constant());
+      add(d, d, s1);
+      lwu(d, d, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      lwu(d, roc.as_register(), 0);
+    else {
+      add(d, roc.as_register(), s1);
+      lwu(d, d, 0);
+    }
   }
 }
 
@@ -231,6 +282,33 @@ void Assembler::std_PPC(Register d, RegisterOrConstant roc, Register s1, Registe
   }
 }
 
+void Assembler::sd(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      sd(d, tmp, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      sd(d, s1, roc.as_constant());
+    } else {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      add(tmp, tmp, s1);
+      sd(d, tmp, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      sd(d, roc.as_register(), 0);
+    else {
+      add(tmp, roc.as_register(), s1);
+      sd(d, tmp, 0);
+    }
+  }
+}
+
 void Assembler::stw_PPC(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
@@ -249,6 +327,33 @@ void Assembler::stw_PPC(Register d, RegisterOrConstant roc, Register s1, Registe
       Assembler::stw_PPC(d, 0, roc.as_register());
     else
       Assembler::stwx_PPC(d, roc.as_register(), s1);
+  }
+}
+
+void Assembler::sw(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      sw(d, tmp, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      sw(d, s1, roc.as_constant());
+    } else {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      add(tmp, tmp, s1);
+      sw(d, tmp, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      sw(d, roc.as_register(), 0);
+    else {
+      add(tmp, roc.as_register(), s1);
+      sw(d, tmp, 0);
+    }
   }
 }
 
@@ -301,6 +406,15 @@ void Assembler::add_PPC(Register d, RegisterOrConstant roc, Register s1) {
     addi_PPC(d, s1, (int)c);
   }
   else add_PPC(d, roc.as_register(), s1);
+}
+
+void Assembler::add(Register d, RegisterOrConstant roc, Register s1) {
+  if (roc.is_constant()) {
+    intptr_t c = roc.as_constant();
+    assert(is_simm(c, 16), "too big");
+    addi(d, s1, (int)c);
+  }
+  else add(d, roc.as_register(), s1);
 }
 
 void Assembler::subf_PPC(Register d, RegisterOrConstant roc, Register s1) {
