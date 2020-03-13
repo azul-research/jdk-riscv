@@ -2332,6 +2332,12 @@ const size_t minimumSymbolTableSize = 1024;
   diagnostic(bool, CallTestMethod, false,                                   \
           "")                                                               \
                                                                             \
+  diagnostic(int, TestThreadsNumber, 0,                                     \
+          "")                                                               \
+                                                                            \
+  diagnostic(int, TestRepetitionsNumber, 0,                                 \
+          "")                                                               \
+                                                                            \
   diagnostic(ccstr, TestMethodClass, NULL,                                  \
           "Class of test method ")                                          \
                                                                             \
