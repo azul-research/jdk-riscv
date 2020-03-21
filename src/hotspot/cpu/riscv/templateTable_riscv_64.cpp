@@ -1220,6 +1220,10 @@ void TemplateTable::swap() {
 void TemplateTable::iop2(Operation op) {
   transition(itos, itos);
 
+  if (op == add) {
+    tty->print_cr("iadd: %p", __ pc());
+  }
+
   Register Rscratch = R5_scratch1;
 
   __ pop_i(Rscratch);
@@ -1781,7 +1785,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // Save nmethod.
       const Register osr_nmethod = R31;
       __ mr_PPC(osr_nmethod, R3_RET_PPC);
-      __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R5_scratch1);
+      __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, noreg, R5_scratch1);
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::OSR_migration_begin), R24_thread);
       __ reset_last_Java_frame();
       // OSR buffer is in ARG1.
@@ -2165,6 +2169,10 @@ void TemplateTable::fast_binaryswitch() {
 
 void TemplateTable::_return(TosState state) {
   transition(state, state);
+  if (state == itos) {
+      tty->print_cr("ireturn: %p", __ pc());
+      __ pc();
+  }
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
 
@@ -2722,7 +2730,8 @@ void TemplateTable::nofast_getfield(int byte_no) {
 }
 
 void TemplateTable::getstatic(int byte_no) {
-  getfield_or_static(byte_no, true);
+  tty->print_cr("getstatic #%i: %p", byte_no, __ pc());
+//  getfield_or_static(byte_no, true);
 }
 
 // The registers cache and index expected to be set before call.
@@ -3047,7 +3056,12 @@ void TemplateTable::nofast_putfield(int byte_no) {
 }
 
 void TemplateTable::putstatic(int byte_no) {
-  putfield_or_static(byte_no, true);
+  tty->print_cr("putstatic #%i: %p", byte_no, __ pc());
+  __ li(R25_tos, 42);
+  __ push_i();
+  __ li(R25_tos, 43);
+  __ push_i();
+  //  putfield_or_static(byte_no, true);
 }
 
 // See SPARC. On RISCV64, we have a different jvmti_post_field_mod which does the job.

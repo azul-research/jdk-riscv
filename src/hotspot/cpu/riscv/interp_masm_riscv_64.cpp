@@ -99,23 +99,23 @@ void InterpreterMacroAssembler::dispatch_epilog(TosState state, int bcp_incr) {
   jr(R30_TMP5);
 }
 
-void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg) {
+void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg, Register scratch_reg2) {
   assert(scratch_reg != R0, "can't use R0 as scratch_reg here");
   if (JvmtiExport::can_pop_frame()) {
     Label L;
 
     // Check the "pending popframe condition" flag in the current thread.
-    lwz_PPC(scratch_reg, in_bytes(JavaThread::popframe_condition_offset()), R24_thread);
+    lwu(scratch_reg, R24_thread, in_bytes(JavaThread::popframe_condition_offset()));
 
     // Initiate popframe handling only if it is not already being
     // processed. If the flag has the popframe_processing bit set, it
     // means that this code is called *during* popframe handling - we
     // don't want to reenter.
-    andi__PPC(R0, scratch_reg, JavaThread::popframe_pending_bit);
-    beq_PPC(CCR0, L);
+    andi(scratch_reg2, scratch_reg, JavaThread::popframe_pending_bit);
+    beqz(scratch_reg2, L);
 
-    andi__PPC(R0, scratch_reg, JavaThread::popframe_processing_bit);
-    bne_PPC(CCR0, L);
+    andi(scratch_reg2, scratch_reg, JavaThread::popframe_processing_bit);
+    bnez(scratch_reg2, L);
 
     // Call the Interpreter::remove_activation_preserving_args_entry()
     // func to get the address of the same-named entrypoint in the
@@ -125,8 +125,7 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg) 
            relocInfo::none);
 
     // Jump to Interpreter::_remove_activation_preserving_args_entry.
-    mtctr_PPC(R3_RET_PPC);
-    bctr_PPC();
+    jr(R10_RET1);
 
     align(32, 12);
     bind(L);
@@ -1131,7 +1130,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   mtctr_PPC(Rtarget_addr);
   mtlr_PPC(Rret_addr);
 
-  save_interpreter_state(Rscratch2);
+  save_interpreter_state();
 #ifdef ASSERT
   ld_PPC(Rscratch1, _ijava_state_neg(top_frame_sp), Rscratch2); // Rscratch2 contains fp
   cmpd_PPC(CCR0, R21_sender_SP, Rscratch1);
@@ -1252,7 +1251,7 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
   // Save nmethod.
   const Register osr_nmethod = R31;
   mr_PPC(osr_nmethod, R3_RET_PPC);
-  set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R5_scratch1);
+  set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R8_FP, R5_scratch1);
   call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::OSR_migration_begin), R24_thread);
   reset_last_Java_frame();
   // OSR buffer is in ARG1
@@ -2165,7 +2164,7 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
     ld_PPC(Rtmp, simm16_rest, Rtmp);
   }
   mtctr_PPC(Rtmp);
-  save_interpreter_state(Rtmp);
+  save_interpreter_state();
   bctr_PPC();
 
   align(32, 12);
@@ -2173,18 +2172,22 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
 }
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point, bool check_exceptions) {
-  save_interpreter_state(R5_scratch1);
+//  tty->print_cr("before call_VM: %p", pc());
+  save_interpreter_state();
+
+  nop();
 
   MacroAssembler::call_VM(oop_result, entry_point, false);
 
-  restore_interpreter_state(R5_scratch1, /*bcp_and_mdx_only*/ true);
+  restore_interpreter_state(/*bcp_and_mdx_only*/ true);
+//  tty->print_cr("after call_VM: %p", pc());
 
-  check_and_handle_popframe(R5_scratch1);
-  check_and_handle_earlyret(R5_scratch1);
+  check_and_handle_popframe(R5_scratch1, R6_scratch2);
+// check_and_handle_earlyret(R5_scratch1);
   // Now check exceptions manually.
-  if (check_exceptions) {
-    check_and_forward_exception(R5_scratch1, R6_scratch2);
-  }
+//  if (check_exceptions) {
+//    check_and_forward_exception(R5_scratch1, R6_scratch2);
+//  }
 }
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point,
@@ -2207,51 +2210,50 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point,
                                         Register arg_1, Register arg_2, Register arg_3,
                                         bool check_exceptions) {
-  // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
-  assert(arg_3 != R4_ARG2_PPC && arg_3 != R5_ARG3_PPC, "smashed argument");
-  mr_if_needed(R6_ARG4_PPC, arg_3);
+  // ARG0 is reserved for the thread.
+  mr_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1, "smashed argument");
+  mr_if_needed(R12_ARG2, arg_2);
+  assert(arg_3 != R12_ARG2 && arg_3 != R11_ARG1, "smashed argument");
+  mr_if_needed(R13_ARG3, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
-void InterpreterMacroAssembler::save_interpreter_state(Register scratch) {
-  ld(scratch, R2_SP, 0);
-  sd(R23_esp, scratch, _ijava_state_neg(esp));
-  sd(R22_bcp, scratch, _ijava_state_neg(bcp));
-  sd(R28_monitor, scratch, _ijava_state_neg(monitors));
-  if (ProfileInterpreter) { sd(R29_mdx, scratch, _ijava_state_neg(mdx)); }
+void InterpreterMacroAssembler::save_interpreter_state() {
+  // FIXME_RISCV
+  sd(R23_esp, R8_FP, _ijava_state_neg(esp));
+  sd(R22_bcp, R8_FP, _ijava_state_neg(bcp));
+  sd(R28_monitor, R8_FP, _ijava_state_neg(monitors));
+  if (ProfileInterpreter) { sd(R29_mdx, R8_FP, _ijava_state_neg(mdx)); }
   // Other entries should be unchanged.
 }
 
-void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool bcp_and_mdx_only) {
-  ld(scratch, R2_SP, 0);
-  ld(R22_bcp, scratch, _ijava_state_neg(bcp)); // Changed by VM code (exception).
-  if (ProfileInterpreter) { ld(R29_mdx, scratch, _ijava_state_neg(mdx)); } // Changed by VM code.
+void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only) {
+  ld(R22_bcp, R8_FP, _ijava_state_neg(bcp)); // Changed by VM code (exception).
+  if (ProfileInterpreter) { ld(R29_mdx, R8_FP, _ijava_state_neg(mdx)); } // Changed by VM code.
   if (!bcp_and_mdx_only) {
     // Following ones are Metadata.
-    ld(R27_method, scratch, _ijava_state_neg(method));
-    ld(R30_constPoolCache, scratch, _ijava_state_neg(cpoolCache));
+    ld(R27_method, R8_FP, _ijava_state_neg(method));
+    ld(R30_constPoolCache, R8_FP, _ijava_state_neg(cpoolCache));
     // Following ones are stack addresses and don't require reload.
-    ld(R23_esp, scratch, _ijava_state_neg(esp));
-    ld(R26_locals, scratch, _ijava_state_neg(locals));
-    ld(R28_monitor, scratch, _ijava_state_neg(monitors));
+    ld(R23_esp, R8_FP, _ijava_state_neg(esp));
+    ld(R26_locals, R8_FP, _ijava_state_neg(locals));
+    ld(R28_monitor, R8_FP, _ijava_state_neg(monitors));
   }
 #ifdef ASSERT
   {
     Label Lok;
-    subf_PPC(R0, R1_SP_PPC, scratch);
-    cmpdi_PPC(CCR0, R0, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
-    bge_PPC(CCR0, Lok);
+    sub(R5_scratch1, R8_FP, R2_SP);
+    slti(R5_scratch1, R5_scratch1, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
+    beqz(R5_scratch1, Lok);
     stop("frame too small (restore istate)", 0x5432);
     bind(Lok);
   }
   {
     Label Lok;
-    ld_PPC(R0, _ijava_state_neg(ijava_reserved), scratch);
-    cmpdi_PPC(CCR0, R0, 0x5afe);
-    beq_PPC(CCR0, Lok);
+    ld(R5_scratch1, R8_FP, _ijava_state_neg(ijava_reserved));
+    addi(R5_scratch1, R5_scratch1, -0x5afe);
+    beqz(R5_scratch1, Lok);
     stop("frame corrupted (restore istate)", 0x5afe);
     bind(Lok);
   }

@@ -621,7 +621,7 @@ class DeoptimizationBlob: public SingletonBlob {
   // model exception paths in a way that keeps these registers free so
   // there may be live values in those registers during deopt.
   void set_unpack_with_exception_in_tls_offset(int offset) {
-    _unpack_with_exception_in_tls = offset;
+    _unpack_with_exception_in_tls = offset - 4;
     assert(code_contains(code_begin() + _unpack_with_exception_in_tls), "must be PC inside codeblob");
   }
   address unpack_with_exception_in_tls() const   { return code_begin() + _unpack_with_exception_in_tls; }

@@ -249,6 +249,7 @@
     ijava_state_size = sizeof(ijava_state)
   };
 
+// FIXME_RISCV check where fp points
 #define _ijava_state_neg(_component) \
         (int) (-frame::ijava_state_size + offset_of(frame::ijava_state, _component))
 
@@ -341,9 +342,9 @@
  public:
 
   // Constructors
-  inline frame(intptr_t* sp);
-  inline frame(intptr_t* sp, address pc);
-  inline frame(intptr_t* sp, address pc, intptr_t* unextended_sp);
+  inline frame(intptr_t* sp, intptr_t* fp);
+  inline frame(intptr_t* sp, intptr_t* fp, address pc);
+  inline frame(intptr_t* sp, intptr_t* fp, address pc, intptr_t* unextended_sp);
 
  private:
 

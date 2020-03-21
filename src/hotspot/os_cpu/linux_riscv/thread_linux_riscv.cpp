@@ -38,7 +38,8 @@ frame JavaThread::pd_last_frame() {
     pc = (address) *(sp + 2);
   }
 
-  return frame(sp, pc);
+  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
+  return frame(sp, NULL /* FIXME_RISCV fp */, pc);
 }
 
 bool JavaThread::pd_get_top_frame_for_profiling(frame* fr_addr, void* ucontext, bool isInJava) {

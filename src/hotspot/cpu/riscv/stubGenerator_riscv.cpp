@@ -546,7 +546,7 @@ class StubGenerator: public StubCodeGenerator {
     // whose address will be moved to R5_scratch1.
     address gc_map_pc = __ get_PC_trash_LR(R5_scratch1);
 
-    __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R5_scratch1);
+    __ set_last_Java_frame(/*sp*/R1_SP_PPC, noreg, /*pc*/R5_scratch1);
 
     __ mr_PPC(R3_ARG1_PPC, R24_thread);
     if (arg1 != noreg) {
