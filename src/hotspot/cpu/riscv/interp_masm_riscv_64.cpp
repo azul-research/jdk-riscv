@@ -772,35 +772,48 @@ void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register retur
 
 void InterpreterMacroAssembler::narrow(Register result) {
   Register ret_type = R5_scratch1;
-  ld_PPC(R5_scratch1, in_bytes(Method::const_offset()), R27_method);
-  lbz_PPC(ret_type, in_bytes(ConstMethod::result_type_offset()), R5_scratch1);
+  Register scratch = R6_scratch2;
+  ld(R5_scratch1, R27_method, in_bytes(Method::const_offset()));
+  lbu(ret_type, R5_scratch1, in_bytes(ConstMethod::result_type_offset()));
 
-  Label notBool, notByte, notChar, done;
+  Label notBool, notByte, notChar, byteOne, shortOne, done;
 
   // common case first
-  cmpwi_PPC(CCR0, ret_type, T_INT);
-  beq_PPC(CCR0, done);
+  addi(scratch, R0, T_INT);
+  beq(scratch, ret_type, done);
 
-  cmpwi_PPC(CCR0, ret_type, T_BOOLEAN);
-  bne_PPC(CCR0, notBool);
+  addi(scratch, R0, T_BOOLEAN);
+  bne(scratch, ret_type, notBool);
   andi(result, result, 0x1);
-  b_PPC(done);
+  j(done);
 
   bind(notBool);
-  cmpwi_PPC(CCR0, ret_type, T_BYTE);
-  bne_PPC(CCR0, notByte);
-  extsb_PPC(result, result);
-  b_PPC(done);
+  addi(scratch, R0, T_BYTE);
+  bne(scratch, ret_type, notByte);
+  // sign-extend lower 8 bits
+  addi(scratch, R0, 0x80);
+  bge(result, scratch, byteOne);
+  andi(result, result, 0xff);
+  j(done);
+  bind(byteOne);
+  ori(result, result, 0xffffff00);
+  j(done);
 
   bind(notByte);
-  cmpwi_PPC(CCR0, ret_type, T_CHAR);
-  bne_PPC(CCR0, notChar);
+  addi(scratch, R0, T_CHAR);
+  bne(scratch, ret_type, notChar);
   andi(result, result, 0xffff);
-  b_PPC(done);
+  j(done);
 
   bind(notChar);
-  // cmpwi_PPC(CCR0, ret_type, T_SHORT);  // all that's left
-  // bne_PPC(CCR0, done);
+  // sign-extend lower 16 bits
+  addi(scratch, R0, 0x8000);
+  bge(result, scratch, shortOne);
+  andi(result, result, 0xffff);
+  j(done);
+  bind(shortOne);
+  ori(result, result, 0xffff0000);
+  j(done);
   extsh_PPC(result, result);
 
   // Nothing to do for T_INT
@@ -2065,9 +2078,9 @@ void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rd
 void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
                                                Register Rdst_address,
                                                Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  ld_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  ld(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.

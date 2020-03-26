@@ -75,11 +75,12 @@ inline void MacroAssembler::endgroup_if_needed(bool needed) {
 }
 
 inline void MacroAssembler::membar(int bits) {
-  // Comment: Usage of elemental_membar_PPC(bits) is not recommended for Power 8.
-  // If elemental_membar_PPC(bits) is used, disable optimization of acquire-release
-  // (Matcher::post_membar_release where we use RISCV64_ONLY(xop == Op_MemBarRelease ||))!
+  // TODO_RISCV: more fine-grained memory barrier
+  fence();
+#if 0
   if (bits & StoreLoad) { sync_PPC(); }
   else if (bits) { lwsync_PPC(); }
+#endif
 }
 inline void MacroAssembler::release() { membar(LoadStore | StoreStore); }
 inline void MacroAssembler::acquire() { membar(LoadLoad | LoadStore); }
