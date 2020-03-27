@@ -802,17 +802,22 @@ void InterpreterMacroAssembler::narrow(Register result) {
   bind(notByte);
   addi(scratch, R0, T_CHAR);
   bne(scratch, ret_type, notChar);
-  andi(result, result, 0xffff);
+  addi(scratch, R0, 0xfff);
+  lui(scratch, 0xf);
+  and_(result, result, scratch);
   j(done);
 
   bind(notChar);
   // sign-extend lower 16 bits
-  addi(scratch, R0, 0x8000);
+  lui(scratch, 0x8);
   bge(result, scratch, shortOne);
-  andi(result, result, 0xffff);
+  addi(scratch, R0, 0xfff);
+  lui(scratch, 0xf);
+  and_(result, result, scratch);
   j(done);
   bind(shortOne);
-  ori(result, result, 0xffff0000);
+  lui(scratch, 0xffff0);
+  or_(result, result, scratch);
   j(done);
   extsh_PPC(result, result);
 
