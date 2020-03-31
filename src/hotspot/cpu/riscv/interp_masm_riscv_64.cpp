@@ -2252,8 +2252,8 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
   {
     Label Lok;
     ld(R5_scratch1, R8_FP, _ijava_state_neg(ijava_reserved));
-    addi(R5_scratch1, R5_scratch1, -0x5afe);
-    beqz(R5_scratch1, Lok);
+    li(R6_scratch2, 0x5afe);
+    beq(R5_scratch1, R6_scratch2, Lok);
     stop("frame corrupted (restore istate)", 0x5afe);
     bind(Lok);
   }
