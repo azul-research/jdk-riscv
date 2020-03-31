@@ -26,6 +26,11 @@
 #ifndef CPU_RISCV_JAVAFRAMEANCHOR_RISCV_HPP
 #define CPU_RISCV_JAVAFRAMEANCHOR_RISCV_HPP
 
+private:
+
+  // FP value associated with _last_Java_sp:
+  intptr_t* volatile        _last_Java_fp;           // pointer is volatile not what it points to
+
 public:
   // Each arch must define reset, save, restore
   // These are used by objects that only care about:
@@ -37,12 +42,14 @@ public:
     // clearing _last_Java_sp must be first
     _last_Java_sp = NULL;
     // fence?
+    _last_Java_fp = NULL;
     OrderAccess::release();
     _last_Java_pc = NULL;
   }
 
-  inline void set(intptr_t* sp, address pc) {
+  inline void set(intptr_t* sp, intptr_t* fp, address pc) {
     _last_Java_pc = pc;
+    _last_Java_fp = fp;
     OrderAccess::release();
     _last_Java_sp = sp;
   }
@@ -58,6 +65,8 @@ public:
       _last_Java_sp = NULL;
       OrderAccess::release();
     }
+
+    _last_Java_fp = src->_last_Java_fp;
     _last_Java_pc = src->_last_Java_pc;
     // Must be last so profiler will always see valid frame if has_last_frame() is true.
     OrderAccess::release();
@@ -69,10 +78,20 @@ public:
   // Never any thing to do since we are always walkable and can find address of return addresses.
   void make_walkable(JavaThread* thread) { }
 
+private:
+
+  static ByteSize last_Java_fp_offset()          { return byte_offset_of(JavaFrameAnchor, _last_Java_fp); }
+
+public:
+
   intptr_t* last_Java_sp(void) const  { return _last_Java_sp; }
 
   address last_Java_pc(void)          { return _last_Java_pc; }
 
   void set_last_Java_sp(intptr_t* sp) { OrderAccess::release(); _last_Java_sp = sp; }
+
+  intptr_t*   last_Java_fp(void)                     { return _last_Java_fp; }
+
+  void set_last_Java_fp(intptr_t* fp)                { _last_Java_fp = fp; }
 
 #endif // CPU_RISCV_JAVAFRAMEANCHOR_RISCV_HPP

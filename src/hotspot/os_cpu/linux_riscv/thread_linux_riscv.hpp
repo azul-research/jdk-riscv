@@ -36,6 +36,13 @@
   frame pd_last_frame();
 
  public:
+  // Mutators are highly dangerous....
+  intptr_t* last_Java_fp()                       { return _anchor.last_Java_fp(); }
+  void  set_last_Java_fp(intptr_t* fp)           { _anchor.set_last_Java_fp(fp);   }
+
+  static ByteSize last_Java_fp_offset()          {
+   return byte_offset_of(JavaThread, _anchor) + JavaFrameAnchor::last_Java_fp_offset();
+  }
 
   void set_base_of_stack_pointer(intptr_t* base_sp) {}
   intptr_t* base_of_stack_pointer() { return NULL; }

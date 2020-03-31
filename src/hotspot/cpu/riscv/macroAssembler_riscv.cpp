@@ -1003,8 +1003,7 @@ void MacroAssembler::call_VM_base(Register oop_result,
   if (!last_java_sp->is_valid()) {
     last_java_sp = R2_SP;
   }
-  Register last_java_fp = R8_FP;
-  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, last_java_fp, R5_scratch1);
+  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R8_FP, R5_scratch1);
 
   // ARG0 must hold thread address.
   mv(R10_ARG0, R24_thread);
@@ -2910,6 +2909,9 @@ void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Ja
   if (last_Java_pc != noreg)
     sd(last_Java_pc, R24_thread, in_bytes(JavaThread::last_Java_pc_offset()));
 
+  if (last_Java_fp != noreg)
+    sd(last_Java_fp, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
+
 //  sd(last_Java_fp, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
 
   // Set last_Java_sp last.
@@ -2923,6 +2925,9 @@ void MacroAssembler::reset_last_Java_frame() {
   BLOCK_COMMENT("reset_last_Java_frame {");
   // _last_Java_sp = 0
   sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_sp_offset()));
+
+  // _last_Java_sp = 0
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
 
   // _last_Java_pc = 0
   sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_pc_offset()));
