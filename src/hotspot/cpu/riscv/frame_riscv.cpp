@@ -133,7 +133,6 @@ bool frame::safe_for_sender(JavaThread *thread) {
 
     // It should be safe to construct the sender though it might not be valid.
 
-      tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
       frame sender(sender_sp, NULL /* FIXME_RISCV sender_fp */, sender_pc);
 
     // Do we have a valid fp?
@@ -198,20 +197,17 @@ frame frame::sender_for_entry_frame(RegisterMap *map) const {
   assert(map->include_argument_oops(), "should be set by clear");
 
   if (jfa->last_Java_pc() != NULL) {
-      tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
       frame fr(jfa->last_Java_sp(), NULL /* FIXME_RISCV last_Java_fp() */, jfa->last_Java_pc());
     return fr;
   }
   // Last_java_pc is not set, if we come here from compiled code. The
   // constructor retrieves the PC from the stack.
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   frame fr(jfa->last_Java_sp(), NULL /* FIXME_RISCV last_Java_fp() */);
   return fr;
 }
 
 frame frame::sender_for_interpreter_frame(RegisterMap *map) const {
   // Pass callers initial_caller_sp as unextended_sp.
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   return frame(sender_sp(), NULL /* FIXME_RISCV sender_fp() */, sender_pc(), (intptr_t*)get_ijava_state()->sender_sp);
 }
 
@@ -220,7 +216,6 @@ frame frame::sender_for_compiled_frame(RegisterMap *map) const {
 
   // Frame owned by compiler.
   address pc = *compiled_sender_pc_addr(_cb);
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   frame caller(compiled_sender_sp(_cb), NULL /* FIXME_RISCV fp */, pc);
 
   // Now adjust the map.
@@ -259,7 +254,6 @@ frame frame::sender(RegisterMap* map) const {
   }
   // Must be native-compiled frame, i.e. the marshaling code for native
   // methods that exists in the core system.
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   return frame(sender_sp(), NULL /* FIXME_RISCV sender_fp() */, sender_pc());
 }
 

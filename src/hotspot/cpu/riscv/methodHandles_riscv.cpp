@@ -525,7 +525,6 @@ void trace_method_handle_stub(const char* adaptername,
       // Safely create a frame and call frame::describe.
       intptr_t *dump_sp = trace_calling_frame.sender_sp();
 
-      tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
       frame dump_frame = frame(dump_sp, NULL /* FIXME_RISCV fp */);
       dump_frame.describe(values, 1);
 

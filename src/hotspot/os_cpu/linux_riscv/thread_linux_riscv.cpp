@@ -39,7 +39,6 @@ frame JavaThread::pd_last_frame() {
     pc = (address) *(sp + 2);
   }
 
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   return frame(sp, fp, pc);
 }
 

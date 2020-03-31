@@ -2172,7 +2172,6 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
 }
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point, bool check_exceptions) {
-//  tty->print_cr("before call_VM: %p", pc());
   save_interpreter_state();
 
   nop();
@@ -2180,7 +2179,6 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
   MacroAssembler::call_VM(oop_result, entry_point, false);
 
   restore_interpreter_state(/*bcp_and_mdx_only*/ true);
-//  tty->print_cr("after call_VM: %p", pc());
 
   check_and_handle_popframe(R5_scratch1, R6_scratch2);
 // check_and_handle_earlyret(R5_scratch1);

@@ -210,7 +210,6 @@ frame os::get_sender_for_C_frame(frame* fr) {
     // fr is the last C frame
     return frame(NULL, NULL, (address) NULL);
   }
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   return frame(fr->sender_sp(), NULL /* FIXME_RISCV fr->sender_sp() */, fr->sender_pc());
 }
 
@@ -218,7 +217,6 @@ frame os::get_sender_for_C_frame(frame* fr) {
 frame os::current_frame() {
   intptr_t* csp = (intptr_t*) *((intptr_t*) os::current_stack_pointer());
   // hack.
-  tty->print_cr("call to frame constructor at %s:%i", __FILE__, __LINE__);
   frame topframe(csp, NULL /* FIXME_RISCV current fp */ , (address)0x8);
   // Return sender of sender of current topframe which hopefully
   // both have pc != NULL.
