@@ -426,7 +426,7 @@ void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int b
                                                            size_t index_size) {
   get_cache_index_at_bcp(cache, bcp_offset, index_size);
   slli(cache, cache, exact_log2(in_words(ConstantPoolCacheEntry::size()) * BytesPerWord));
-  add(cache, R30_constPoolCache, cache);
+  add(cache, R9_constPoolCache, cache);
 }
 
 // Load 4-byte signed or unsigned integer in Java format (that is, big-endian format)
@@ -2192,8 +2192,8 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point,
                                         Register arg_1, bool check_exceptions) {
-  // ARG1 is reserved for the thread.
-  mr_if_needed(R12_ARG2, arg_1);
+  // ARG0 is reserved for the thread.
+  mr_if_needed(R11_ARG1, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2234,7 +2234,7 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
   if (!bcp_and_mdx_only) {
     // Following ones are Metadata.
     ld(R27_method, R8_FP, _ijava_state_neg(method));
-    ld(R30_constPoolCache, R8_FP, _ijava_state_neg(cpoolCache));
+    ld(R9_constPoolCache, R8_FP, _ijava_state_neg(cpoolCache));
     // Following ones are stack addresses and don't require reload.
     ld(R23_esp, R8_FP, _ijava_state_neg(esp));
     ld(R26_locals, R8_FP, _ijava_state_neg(locals));

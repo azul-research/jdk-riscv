@@ -679,7 +679,7 @@ address TemplateInterpreterGenerator::generate_deopt_entry_for(TosState state, i
   }
 
   // Load LcpoolCache @@@ should be already set!
-  __ get_constant_pool_cache(R27_constPoolCache_PPC);
+  __ get_constant_pool_cache(R9_constPoolCache);
 
   // Handle a pending exception, fall through if none.
   __ check_and_forward_exception(R5_scratch1, R6_scratch2);
@@ -1021,8 +1021,8 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // Set up interpreter state registers.
 
   __ add(R26_locals, R23_esp, Rsize_of_parameters);
-  __ ld(R27_constPoolCache_PPC, Rconst_method, in_bytes(ConstMethod::constants_offset())); //TODO change register
-  __ ld(R27_constPoolCache_PPC, R27_constPoolCache_PPC, ConstantPool::cache_offset_in_bytes());
+  __ ld(R9_constPoolCache, Rconst_method, in_bytes(ConstMethod::constants_offset())); //TODO change register
+  __ ld(R9_constPoolCache, R9_constPoolCache, ConstantPool::cache_offset_in_bytes());
 
   // Set method data pointer.
   if (ProfileInterpreter) { // FIXME_RISCV
@@ -1058,7 +1058,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   __ sd(R27_method, R2_SP, _ijava_state_neg(method));
   __ sd(R6_scratch2, R2_SP, _ijava_state_neg(mirror));
   __ sd(R21_sender_SP, R2_SP, _ijava_state_neg(sender_sp));
-  __ sd(R27_constPoolCache_PPC, R2_SP, _ijava_state_neg(cpoolCache));
+  __ sd(R9_constPoolCache, R2_SP, _ijava_state_neg(cpoolCache));
   __ sd(R26_locals, R2_SP, _ijava_state_neg(locals));
 
   // Note: esp, bcp, monitor, mdx live in registers. Hence, the correct version can only

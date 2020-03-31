@@ -109,7 +109,7 @@ class StubGenerator: public StubCodeGenerator {
       Register r_argument_addr              = R29_TMP4;
       Register r_argumentcopy_addr          = R30_TMP5;
       Register r_argument_size_in_bytes     = R31_TMP6;
-      Register r_frame_size                 = R9_S1;
+      Register r_frame_size                 = R7_TMP2;
 
       Label arguments_copied;
 
@@ -214,7 +214,7 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R9_S1;
+      Register r_new_arg_entry = R7_TMP2;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
