@@ -40,7 +40,6 @@ TemplateInterpreterGenerator::TemplateInterpreterGenerator(StubQueue* _code): Ab
   _unimplemented_bytecode    = NULL;
   _illegal_bytecode_sequence = NULL;
   generate_all();
-  tty->print_cr("generator done");
 }
 
 static const BasicType types[Interpreter::number_of_result_handlers] = {

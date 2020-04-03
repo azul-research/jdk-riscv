@@ -250,7 +250,7 @@
   };
 
 // FIXME_RISCV check where fp points
-#define _ijava_state_neg(_component) \
+#define _ijava_state(_component) \
         (int) (-frame::ijava_state_size + offset_of(frame::ijava_state, _component))
 
 
