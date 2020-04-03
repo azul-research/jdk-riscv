@@ -583,7 +583,7 @@ address TemplateInterpreterGenerator::generate_ClassCastException_handler() {
 
 address TemplateInterpreterGenerator::generate_exception_handler_common(const char* name, const char* message, bool pass_oop) {
   address entry = __ pc();
-  //__ untested("generate_exception_handler_common");
+  __ untested("generate_exception_handler_common");
   Register Rexception = R25_tos;
 
   // Expression stack must be empty before entering the VM if an exception happened.

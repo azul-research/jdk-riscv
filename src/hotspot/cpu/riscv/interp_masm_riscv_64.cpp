@@ -348,13 +348,13 @@ void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
   if (is_signed == Signed) {
-    lb(R7_TMP2, R22_bcp, bcp_offset + 1);
+    lb(R7_TMP2, R22_bcp, bcp_offset);
   } else {
-    lbu(R7_TMP2, R22_bcp, bcp_offset + 1);
+    lbu(R7_TMP2, R22_bcp, bcp_offset);
   }
   slli(R7_TMP2, R7_TMP2, 8);
-  lbu(Rdst, R22_bcp, bcp_offset);
-  andr(Rdst, R7_TMP2, Rdst);
+  lbu(Rdst, R22_bcp, bcp_offset + 1);
+  orr(Rdst, R7_TMP2, Rdst);
 #else
   // Read Java big endian format.
   if (is_signed == Signed) {
@@ -2174,8 +2174,6 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point, bool check_exceptions) {
   save_interpreter_state();
 
-  nop();
-
   MacroAssembler::call_VM(oop_result, entry_point, false);
 
   restore_interpreter_state(/*bcp_and_mdx_only*/ true);
@@ -2218,7 +2216,6 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 }
 
 void InterpreterMacroAssembler::save_interpreter_state() {
-  // FIXME_RISCV
   sd(R23_esp, R8_FP, _ijava_state(esp));
   sd(R22_bcp, R8_FP, _ijava_state(bcp));
   sd(R28_monitor, R8_FP, _ijava_state(monitors));
