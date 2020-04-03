@@ -749,12 +749,12 @@ void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register retur
                                              Register Rscratch1, Register Rscratch2) {
   // Pop interpreter frame.
   ld_PPC(Rscratch1, 0, R1_SP_PPC); // *SP
-  ld_PPC(Rsender_sp, _ijava_state_neg(sender_sp), Rscratch1); // top_frame_sp
+  ld_PPC(Rsender_sp, _ijava_state(sender_sp), Rscratch1); // top_frame_sp
   ld_PPC(Rscratch2, 0, Rscratch1); // **SP
 #ifdef ASSERT
   {
     Label Lok;
-    ld_PPC(R0, _ijava_state_neg(ijava_reserved), Rscratch1);
+    ld_PPC(R0, _ijava_state(ijava_reserved), Rscratch1);
     cmpdi_PPC(CCR0, R0, 0x5afe);
     beq_PPC(CCR0, Lok);
     stop("frame corrupted (remove activation)", 0x5afe);
@@ -1133,7 +1133,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
 
   save_interpreter_state(Rscratch2);
 #ifdef ASSERT
-  ld_PPC(Rscratch1, _ijava_state_neg(top_frame_sp), Rscratch2); // Rscratch2 contains fp
+  ld_PPC(Rscratch1, _ijava_state(top_frame_sp), Rscratch2); // Rscratch2 contains fp
   cmpd_PPC(CCR0, R21_sender_SP, Rscratch1);
   asm_assert_eq("top_frame_sp incorrect", 0x951);
 #endif
@@ -1997,7 +1997,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
          "size of a monitor must respect alignment of SP");
 
   resize_frame(-monitor_size, /*temp*/esp); // Allocate space for new monitor
-  sd(R2_SP, esp, _ijava_state_neg(top_frame_sp)); // esp contains fp
+  sd(R2_SP, esp, _ijava_state(top_frame_sp)); // esp contains fp
 
   // Shuffle expression stack down. Recall that stack_base points
   // just above the new expression stack bottom. Old_tos and new_tos
@@ -2218,25 +2218,25 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 
 void InterpreterMacroAssembler::save_interpreter_state(Register scratch) {
   ld(scratch, R2_SP, 0);
-  sd(R23_esp, scratch, _ijava_state_neg(esp));
-  sd(R22_bcp, scratch, _ijava_state_neg(bcp));
-  sd(R28_monitor, scratch, _ijava_state_neg(monitors));
-  if (ProfileInterpreter) { sd(R29_mdx, scratch, _ijava_state_neg(mdx)); }
+  sd(R23_esp, scratch, _ijava_state(esp));
+  sd(R22_bcp, scratch, _ijava_state(bcp));
+  sd(R28_monitor, scratch, _ijava_state(monitors));
+  if (ProfileInterpreter) { sd(R29_mdx, scratch, _ijava_state(mdx)); }
   // Other entries should be unchanged.
 }
 
 void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool bcp_and_mdx_only) {
   ld(scratch, R2_SP, 0);
-  ld(R22_bcp, scratch, _ijava_state_neg(bcp)); // Changed by VM code (exception).
-  if (ProfileInterpreter) { ld(R29_mdx, scratch, _ijava_state_neg(mdx)); } // Changed by VM code.
+  ld(R22_bcp, scratch, _ijava_state(bcp)); // Changed by VM code (exception).
+  if (ProfileInterpreter) { ld(R29_mdx, scratch, _ijava_state(mdx)); } // Changed by VM code.
   if (!bcp_and_mdx_only) {
     // Following ones are Metadata.
-    ld(R27_method, scratch, _ijava_state_neg(method));
-    ld(R30_constPoolCache, scratch, _ijava_state_neg(cpoolCache));
+    ld(R27_method, scratch, _ijava_state(method));
+    ld(R30_constPoolCache, scratch, _ijava_state(cpoolCache));
     // Following ones are stack addresses and don't require reload.
-    ld(R23_esp, scratch, _ijava_state_neg(esp));
-    ld(R26_locals, scratch, _ijava_state_neg(locals));
-    ld(R28_monitor, scratch, _ijava_state_neg(monitors));
+    ld(R23_esp, scratch, _ijava_state(esp));
+    ld(R26_locals, scratch, _ijava_state(locals));
+    ld(R28_monitor, scratch, _ijava_state(monitors));
   }
 #ifdef ASSERT
   {
@@ -2249,7 +2249,7 @@ void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool
   }
   {
     Label Lok;
-    ld_PPC(R0, _ijava_state_neg(ijava_reserved), scratch);
+    ld_PPC(R0, _ijava_state(ijava_reserved), scratch);
     cmpdi_PPC(CCR0, R0, 0x5afe);
     beq_PPC(CCR0, Lok);
     stop("frame corrupted (restore istate)", 0x5afe);

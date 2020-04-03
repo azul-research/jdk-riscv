@@ -55,9 +55,14 @@ inline int MacroAssembler::get_ld_largeoffset_offset(address a) {
   }
 }
 
-inline void MacroAssembler::round_to(Register r, int modulus) {
+inline void MacroAssembler::round_up_to(Register r, int modulus) {
   assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
   addi(r, r, modulus-1);
+  andi(r, r, ~(modulus - 1));
+}
+
+inline void MacroAssembler::round_down_to(Register r, int modulus) {
+  assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
   andi(r, r, ~(modulus - 1));
 }
 
@@ -247,7 +252,7 @@ inline void MacroAssembler::bne_far(ConditionRegister crx, Label& L, int optimiz
 inline void MacroAssembler::bns_far(ConditionRegister crx, Label& L, int optimize) { MacroAssembler::bc_far(bcondCRbiIs0, bi0(crx, summary_overflow), L, optimize); }
 
 inline address MacroAssembler::call_stub(Register function_entry) {
-  jr(function_entry);
+  jalr(function_entry);
   return pc();
 }
 
