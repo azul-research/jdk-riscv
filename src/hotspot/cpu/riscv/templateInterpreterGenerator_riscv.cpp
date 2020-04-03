@@ -628,7 +628,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   }
 
   __ restore_interpreter_state();
-  __ ld_PPC(R6_scratch2, _ijava_state_neg(top_frame_sp), R8_FP);
+  __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
   __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
 
   // Compiled code destroys templateTableBase, reload.
@@ -883,7 +883,7 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
     __ bind(Lstatic); // Static case: Lock the java mirror
     // Load mirror from interpreter frame.
     __ ld_PPC(Robj_to_lock, _abi_PPC(callers_sp), R1_SP_PPC);
-    __ ld_PPC(Robj_to_lock, _ijava_state_neg(mirror), Robj_to_lock);
+    __ ld_PPC(Robj_to_lock, _ijava_state(mirror), Robj_to_lock);
 
     __ bind(Ldone);
     __ verify_oop(Robj_to_lock);
@@ -1055,11 +1055,11 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // Store values.
   // R23_esp, R22_bcp, R26_monitor_PPC, R28_mdx_PPC are saved at java calls
   // in InterpreterMacroAssembler::call_from_interpreter.
-  __ sd(R27_method, R2_SP, _ijava_state_neg(method));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(mirror));
-  __ sd(R21_sender_SP, R2_SP, _ijava_state_neg(sender_sp));
-  __ sd(R9_constPoolCache, R2_SP, _ijava_state_neg(cpoolCache));
-  __ sd(R26_locals, R2_SP, _ijava_state_neg(locals));
+  __ sd(R27_method, R2_SP, _ijava_state(method));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(mirror));
+  __ sd(R21_sender_SP, R2_SP, _ijava_state(sender_sp));
+  __ sd(R9_constPoolCache, R2_SP, _ijava_state(cpoolCache));
+  __ sd(R26_locals, R2_SP, _ijava_state(locals));
 
   // Note: esp, bcp, monitor, mdx live in registers. Hence, the correct version can only
   // be found in the frame after save_interpreter_state is done. This is always true
@@ -1075,24 +1075,24 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 #endif
   // We have to initialize some frame slots for native calls (accessed by GC).
   if (native_call) {
-    __ std_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), R2_SP);
-    __ std_PPC(R22_bcp, _ijava_state_neg(bcp), R2_SP);
-    if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), R2_SP); }
+    __ std_PPC(R26_monitor_PPC, _ijava_state(monitors), R2_SP);
+    __ std_PPC(R22_bcp, _ijava_state(bcp), R2_SP);
+    if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R2_SP); }
   }
 #ifdef ASSERT
   else {
-    __ sd(R6_scratch2, R2_SP, _ijava_state_neg(monitors));
-    __ sd(R6_scratch2, R2_SP, _ijava_state_neg(bcp));
-    __ sd(R6_scratch2, R2_SP, _ijava_state_neg(mdx));
+    __ sd(R6_scratch2, R2_SP, _ijava_state(monitors));
+    __ sd(R6_scratch2, R2_SP, _ijava_state(bcp));
+    __ sd(R6_scratch2, R2_SP, _ijava_state(mdx));
   }
-  __ sd(R5_scratch1, R2_SP, _ijava_state_neg(ijava_reserved));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(esp));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(lresult));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(fresult));
+  __ sd(R5_scratch1, R2_SP, _ijava_state(ijava_reserved));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(esp));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(lresult));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(fresult));
 #endif
   __ sub(R6_scratch2, R2_SP, top_frame_size);
-  __ sd(R0, R2_SP, _ijava_state_neg(oop_tmp));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(top_frame_sp));
+  __ sd(R0, R2_SP, _ijava_state(oop_tmp));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(top_frame_sp));
 
   // Push top frame.
   __ push_frame(top_frame_size, R5_scratch1);
@@ -1318,7 +1318,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
     // Update monitor in state.
     __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-    __ std_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), R5_scratch1);
+    __ std_PPC(R26_monitor_PPC, _ijava_state(monitors), R5_scratch1);
   }
 
   // jvmti/jvmpi support
@@ -1401,10 +1401,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
     __ ld_PPC(R5_scratch1, _abi_PPC(callers_sp), R1_SP_PPC);
     // Load mirror from interpreter frame.
-    __ ld_PPC(R6_scratch2, _ijava_state_neg(mirror), R5_scratch1);
+    __ ld_PPC(R6_scratch2, _ijava_state(mirror), R5_scratch1);
     // R4_ARG2_PPC = &state->_oop_temp;
-    __ addi_PPC(R4_ARG2_PPC, R5_scratch1, _ijava_state_neg(oop_tmp));
-    __ std_PPC(R6_scratch2/*mirror*/, _ijava_state_neg(oop_tmp), R5_scratch1);
+    __ addi_PPC(R4_ARG2_PPC, R5_scratch1, _ijava_state(oop_tmp));
+    __ std_PPC(R6_scratch2/*mirror*/, _ijava_state(oop_tmp), R5_scratch1);
     BIND(method_is_not_static);
   }
 
@@ -1442,9 +1442,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   __ li_PPC(R0, 0);
   __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ std_PPC(R3_RET_PPC, _ijava_state_neg(lresult), R5_scratch1);
-  __ stfd_PPC(F1_RET_PPC, _ijava_state_neg(fresult), R5_scratch1);
-  __ std_PPC(R0/*mirror*/, _ijava_state_neg(oop_tmp), R5_scratch1); // reset
+  __ std_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
+  __ stfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
+  __ std_PPC(R0/*mirror*/, _ijava_state(oop_tmp), R5_scratch1); // reset
 
   // Note: C++ interpreter needs the following here:
   // The frame_manager_lr field, which we use for setting the last
@@ -1580,8 +1580,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Move native method result back into proper registers and return.
   // Invoke result handler (may unbox/promote).
   __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ ld_PPC(R3_RET_PPC, _ijava_state_neg(lresult), R5_scratch1);
-  __ lfd_PPC(F1_RET_PPC, _ijava_state_neg(fresult), R5_scratch1);
+  __ ld_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
+  __ lfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
   __ call_stub(result_handler_addr);
 
   __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
@@ -1999,7 +1999,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   Interpreter::_rethrow_exception_entry = __ pc();
   {
     __ restore_interpreter_state();
-    __ ld_PPC(R6_scratch2, _ijava_state_neg(top_frame_sp), R8_FP);
+    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
     __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
 
     // Compiled code destroys templateTableBase, reload.
@@ -2103,12 +2103,12 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     // Get out of the current method and re-execute the call that called us.
     __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ noreg, R5_scratch1, R6_scratch2);
     __ restore_interpreter_state();
-    __ ld_PPC(R6_scratch2, _ijava_state_neg(top_frame_sp), R8_FP);
+    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
     __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
     if (ProfileInterpreter) {
       __ set_method_data_pointer_for_bcp();
       __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-      __ std_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), R5_scratch1);
+      __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R5_scratch1);
     }
 #if INCLUDE_JVMTI
     Label L_done;
