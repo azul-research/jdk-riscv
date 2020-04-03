@@ -1666,16 +1666,15 @@ void TemplateTable::branch_conditional(ConditionRegister crx, TemplateTable::Con
 }
 
 void TemplateTable::branch(bool is_jsr, bool is_wide) {
-
   // Note: on SPARC, we use InterpreterMacroAssembler::if_cmp also.
   __ verify_thread();
 
   const Register Rscratch1    = R5_scratch1,
                  Rscratch2    = R6_scratch2,
-                 Rscratch3    = R3_ARG1_PPC,
-                 R4_counters  = R4_ARG2_PPC,
-                 bumped_count = R31,
-                 Rdisp        = R22_tmp2_PPC;
+                 Rscratch3    = R10_ARG0,
+                 Rcounters    = R11_ARG1,
+                 bumped_count = R31_TMP6,
+                 Rdisp        = R30_TMP5;
 
   __ profile_taken_branch(Rscratch1, bumped_count);
 
@@ -1691,6 +1690,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
   // It's much shorter and cleaner than intermingling with the
   // non-JSR normal-branch stuff occurring below.
   if (is_jsr) {
+    __ unimplemented("JSR branch is not implemented");
     // Compute return address as bci in Otos_i.
     __ ld_PPC(Rscratch1, in_bytes(Method::const_offset()), R27_method);
     __ addi_PPC(Rscratch2, R22_bcp, -in_bytes(ConstMethod::codes_offset()) + (is_wide ? 5 : 3));
@@ -1709,17 +1709,18 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
   // Normal (non-jsr) branch handling
 
   // Bump bytecode pointer by displacement (take the branch).
-  __ add_PPC(R22_bcp, Rdisp, R22_bcp); // Add to bc addr.
+  __ add(R22_bcp, Rdisp, R22_bcp); // Add to bc addr.
 
   const bool increment_invocation_counter_for_backward_branches = UseCompiler && UseLoopCounter;
   if (increment_invocation_counter_for_backward_branches) {
+    __ unimplemented("Increment invocation counter for backward branches is not implemented");
     Label Lforward;
 
     // Check branch direction.
     __ cmpdi_PPC(CCR0, Rdisp, 0);
     __ bgt_PPC(CCR0, Lforward);
 
-    __ get_method_counters(R27_method, R4_counters, Lforward);
+    __ get_method_counters(R27_method, Rcounters, Lforward);
 
     if (TieredCompilation) {
       Label Lno_mdo, Loverflow;
@@ -1750,10 +1751,10 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // If there's no MDO, increment counter in method.
       const int mo_bc_offs = in_bytes(MethodCounters::backedge_counter_offset()) + in_bytes(InvocationCounter::counter_offset());
       __ bind(Lno_mdo);
-      __ lwz_PPC(Rscratch2, mo_bc_offs, R4_counters);
-      __ lwz_PPC(Rscratch3, in_bytes(MethodCounters::backedge_mask_offset()), R4_counters);
+      __ lwz_PPC(Rscratch2, mo_bc_offs, Rcounters);
+      __ lwz_PPC(Rscratch3, in_bytes(MethodCounters::backedge_mask_offset()), Rcounters);
       __ addi_PPC(Rscratch2, Rscratch2, increment);
-      __ stw_PPC(Rscratch2, mo_bc_offs, R4_counters);
+      __ stw_PPC(Rscratch2, mo_bc_offs, Rcounters);
       if (UseOnStackReplacement) {
         __ and__PPC(Rscratch3, Rscratch2, Rscratch3);
         __ bne_PPC(CCR0, Lforward);
@@ -1799,16 +1800,16 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
 
       const Register invoke_ctr = Rscratch1;
       // Update Backedge branch separately from invocations.
-      __ increment_backedge_counter(R4_counters, invoke_ctr, Rscratch2, Rscratch3);
+      __ increment_backedge_counter(Rcounters, invoke_ctr, Rscratch2, Rscratch3);
 
       if (ProfileInterpreter) {
-        __ test_invocation_counter_for_mdp(invoke_ctr, R4_counters, Rscratch2, Lforward);
+        __ test_invocation_counter_for_mdp(invoke_ctr, Rcounters, Rscratch2, Lforward);
         if (UseOnStackReplacement) {
-          __ test_backedge_count_for_osr(bumped_count, R4_counters, R22_bcp, Rdisp, Rscratch2);
+          __ test_backedge_count_for_osr(bumped_count, Rcounters, R22_bcp, Rdisp, Rscratch2);
         }
       } else {
         if (UseOnStackReplacement) {
-          __ test_backedge_count_for_osr(invoke_ctr, R4_counters, R22_bcp, Rdisp, Rscratch2);
+          __ test_backedge_count_for_osr(invoke_ctr, Rcounters, R22_bcp, Rdisp, Rscratch2);
         }
       }
     }
@@ -1820,40 +1821,28 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
 
 // Helper function for if_cmp* methods below.
 // Factored out common compare and branch code.
-void TemplateTable::if_cmp_common(Register Rfirst, Register Rsecond, Register Rscratch1, Register Rscratch2, Condition cc, bool is_jint, bool cmp0) {
-  Label Lnot_taken;
-  // Note: The condition code we get is the condition under which we
-  // *fall through*! So we have to inverse the CC here.
-
-  if (is_jint) {
-    if (cmp0) {
-      __ cmpwi_PPC(CCR0, Rfirst, 0);
-    } else {
-      __ cmpw_PPC(CCR0, Rfirst, Rsecond);
-    }
-  } else {
-    if (cmp0) {
-      __ cmpdi_PPC(CCR0, Rfirst, 0);
-    } else {
-      __ cmpd_PPC(CCR0, Rfirst, Rsecond);
-    }
+void TemplateTable::if_cmp_common(Condition cc, Register Rfirst, Register Rsecond, Register Rscratch1, Register Rscratch2) {
+  // assume branch is more often taken than not (loops use backward branches)
+  Label not_taken;
+  switch (cc) {
+    case equal:         __ bne(Rfirst, Rsecond, not_taken); break;
+    case not_equal:     __ beq(Rfirst, Rsecond, not_taken); break;
+    case less:          __ bge(Rfirst, Rsecond, not_taken); break;
+    case less_equal:    __ bgt(Rfirst, Rsecond, not_taken); break;
+    case greater:       __ ble(Rfirst, Rsecond, not_taken); break;
+    case greater_equal: __ blt(Rfirst, Rsecond, not_taken); break;
   }
-  branch_conditional(CCR0, cc, Lnot_taken, /*invert*/ true);
 
-  // Conition is false => Jump!
   branch(false, false);
-
-  // Condition is not true => Continue.
-  __ align(32, 12);
-  __ bind(Lnot_taken);
+  __ bind(not_taken);
   __ profile_not_taken_branch(Rscratch1, Rscratch2);
 }
 
 // Compare integer values with zero and fall through if CC holds, branch away otherwise.
 void TemplateTable::if_0cmp(Condition cc) {
   transition(itos, vtos);
-
-  if_cmp_common(R25_tos, noreg, R5_scratch1, R6_scratch2, cc, true, true);
+  tty->print_cr("ifeq: %p, cc: %i", __ pc(), cc);
+  if_cmp_common(cc, R25_tos, R0_ZERO, R5_scratch1, R6_scratch2);
 }
 
 // Compare integer values and fall through if CC holds, branch away otherwise.
@@ -1868,23 +1857,23 @@ void TemplateTable::if_icmp(Condition cc) {
                  Rsecond = R25_tos;
 
   __ pop_i(Rfirst);
-  if_cmp_common(Rfirst, Rsecond, R5_scratch1, R6_scratch2, cc, true, false);
+  if_cmp_common(cc, Rfirst, Rsecond, R5_scratch1, R6_scratch2);
 }
 
 void TemplateTable::if_nullcmp(Condition cc) {
   transition(atos, vtos);
 
-  if_cmp_common(R25_tos, noreg, R5_scratch1, R6_scratch2, cc, false, true);
+  if_cmp_common(cc, R25_tos, R0_ZERO, R5_scratch1, R6_scratch2);
 }
 
 void TemplateTable::if_acmp(Condition cc) {
   transition(atos, vtos);
 
-  const Register Rfirst  = R0,
+  const Register Rfirst  = R30_TMP5,
                  Rsecond = R25_tos;
 
   __ pop_ptr(Rfirst);
-  if_cmp_common(Rfirst, Rsecond, R5_scratch1, R6_scratch2, cc, false, false);
+  if_cmp_common(cc, Rfirst, Rsecond, R5_scratch1, R6_scratch2);
 }
 
 void TemplateTable::ret() {
@@ -2164,6 +2153,7 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
+  tty->print_cr("_return: %p, state: %i", __ pc(), state);
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
@@ -2473,7 +2463,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
   Label Lacquire, Lisync;
 
-  const Register Rcache        = R11_ARG1,
+  const Register Rcache        = R12_ARG2,
                  Rclass_or_obj = R7_TMP2,
                  Roffset       = R28_TMP3,
                  Rflags        = R31_TMP6,
@@ -2509,8 +2499,8 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 
 #ifdef ASSERT
   Label LFlagInvalid;
-  __ cmpldi_PPC(CCR0, Rflags, number_of_states);
-  __ bge_PPC(CCR0, LFlagInvalid);
+  __ addi(Rcache, R0_ZERO, number_of_states);
+  __ bge(Rflags, Rcache, LFlagInvalid);
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).
@@ -2859,8 +2849,8 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
 
 #ifdef ASSERT
   Label LFlagInvalid;
-  __ cmpldi_PPC(CCR0, Rflags, number_of_states);
-  __ bge_PPC(CCR0, LFlagInvalid);
+  __ addi(Rscratch2, R0_ZERO, number_of_states);
+  __ bge(Rflags, Rscratch2, LFlagInvalid);
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).

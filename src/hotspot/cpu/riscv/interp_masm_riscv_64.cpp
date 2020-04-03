@@ -380,19 +380,12 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
   }
 #else
   // Read Java big endian format.
-  if (bcp_offset & 3) { // Offset unaligned?
-    load_const_optimized(Rdst, bcp_offset);
-    if (is_signed == Signed) {
-      lwax_PPC(Rdst, R22_bcp, Rdst);
-    } else {
-      lwzx_PPC(Rdst, R22_bcp, Rdst);
-    }
+  li(Rdst, bcp_offset);
+  add(Rdst, Rdst, R22_bcp);
+  if (is_signed == Signed) {
+    lw(Rdst, Rdst, 0);
   } else {
-    if (is_signed == Signed) {
-      lwa_PPC(Rdst, bcp_offset, R22_bcp);
-    } else {
-      lwz_PPC(Rdst, bcp_offset, R22_bcp);
-    }
+    lwu(Rdst, Rdst, 0);
   }
 #endif
 }
@@ -1421,7 +1414,8 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
 
 // Count a taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register bumped_count) {
-  if (ProfileInterpreter) {
+  //FIXME RISCV
+  /*if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1433,12 +1427,13 @@ void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register 
     // The method data pointer needs to be updated to reflect the new target.
     update_mdp_by_offset(in_bytes(JumpData::displacement_offset()), scratch);
     bind (profile_continue);
-  }
+  }*/
 }
 
 // Count a not-taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Register scratch2) {
-  if (ProfileInterpreter) {
+  //FIXME RISCV
+  /*if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1451,7 +1446,7 @@ void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Regi
     // next bytecode.
     update_mdp_by_constant(in_bytes(BranchData::branch_data_size()));
     bind (profile_continue);
-  }
+  }*/
 }
 
 // Count a non-virtual call in the bytecodes.
