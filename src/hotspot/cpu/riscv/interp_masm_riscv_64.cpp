@@ -747,27 +747,36 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
 // Support function for remove_activation & Co.
 void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register return_pc,
                                              Register Rscratch1, Register Rscratch2) {
+  // TODO_RISCV: this is rewritten word-for-word as in ppc
+
   // Pop interpreter frame.
-  ld_PPC(Rscratch1, 0, R1_SP_PPC); // *SP
-  ld_PPC(Rsender_sp, _ijava_state_neg(sender_sp), Rscratch1); // top_frame_sp
-  ld_PPC(Rscratch2, 0, Rscratch1); // **SP
+  ld(Rscratch1, R2_SP, 0); // *SP
+  ld(Rsender_sp, Rscratch1, _ijava_state_neg(sender_sp)); // top_frame_sp
+  ld(Rscratch2, Rscratch1, 0); // **SP
 #ifdef ASSERT
   {
     Label Lok;
-    ld_PPC(R0, _ijava_state_neg(ijava_reserved), Rscratch1);
-    cmpdi_PPC(CCR0, R0, 0x5afe);
-    beq_PPC(CCR0, Lok);
+    ld(Rscratch1, Rscratch1, _ijava_state_neg(ijava_reserved));
+    li(Rscratch2, 0x5afe);
+    beq(Rscratch1, Rscratch2, Lok);
     stop("frame corrupted (remove activation)", 0x5afe);
     bind(Lok);
+    ld(Rscratch1, R2_SP, 0); // *SP
+    ld(Rscratch2, Rscratch1, 0); // **SP
   }
 #endif
   if (return_pc!=noreg) {
-    ld_PPC(return_pc, _abi_PPC(lr), Rscratch1); // LR
+    ld(return_pc, Rscratch1, _abi_PPC(lr));
   }
 
   // Merge top frames.
-  subf_PPC(Rscratch1, R1_SP_PPC, Rsender_sp); // top_frame_sp - SP
-  stdux_PPC(Rscratch2, R1_SP_PPC, Rscratch1); // atomically set *(SP = top_frame_sp) = **SP
+  sub(Rscratch1, Rsender_sp, R2_SP); // top_frame_sp - SP
+
+  // TODO_RISCV: this seems to be supposed to be atomic
+
+  // set *(SP = top_frame_sp) = **SP
+  mv(R2_SP, Rsender_sp);
+  sd(Rscratch2, R2_SP, 0);
 }
 
 void InterpreterMacroAssembler::narrow(Register result) {
@@ -875,8 +884,7 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
   verify_oop(R25_tos, state);
   verify_thread();
 
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
-  mtlr_PPC(R0);
+  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R1_RA, R5_scratch1, R6_scratch2);
   BLOCK_COMMENT("} remove_activation");
 }
 

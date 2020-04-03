@@ -4747,6 +4747,7 @@ void MacroAssembler::verify_thread() {
 
 // READ: oop. KILL: R0. Volatile floats perhaps.
 void MacroAssembler::verify_oop(Register oop, const char* msg) {
+  assert(!VerifyOops, "TODO_RISCV: Macroasm::verify_oop unsupported");
   if (!VerifyOops) {
     return;
   }
@@ -4818,9 +4819,9 @@ void MacroAssembler::stop(int type, const char* msg, int id) {
 #endif
 
   // setup arguments
-  load_const_optimized(R3_ARG1_PPC, type);
-  load_const_optimized(R4_ARG2_PPC, (void *)msg, /*tmp=*/R0);
-  call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R3_ARG1_PPC, R4_ARG2_PPC);
+  li(R11_ARG1, type);
+  li(R12_ARG2, (void *)msg);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R11_ARG1, R12_ARG2);
   illtrap();
   emit_int32(id);
   block_comment("} stop;");
