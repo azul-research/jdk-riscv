@@ -806,14 +806,14 @@ void InterpreterMacroAssembler::narrow(Register result) {
   j(done);
   bind(byteOne);
   li(scratch, 0xffffff00);
-  or_(result, result, scratch);
+  orr(result, result, scratch);
   j(done);
 
   bind(notByte);
   addi(scratch, R0, T_CHAR);
   bne(scratch, ret_type, notChar);
   li(scratch, 0xffff);
-  and_(result, result, scratch);
+  andr(result, result, scratch);
   j(done);
 
   bind(notChar);
@@ -821,11 +821,11 @@ void InterpreterMacroAssembler::narrow(Register result) {
   li(scratch, 0x8000);
   bge(result, scratch, shortOne);
   li(scratch, 0xffff);
-  and_(result, result, scratch);
+  andr(result, result, scratch);
   j(done);
   bind(shortOne);
   li(scratch, 0xffff0000);
-  or_(result, result, scratch);
+  orr(result, result, scratch);
   j(done);
 
   // Nothing to do for T_INT
