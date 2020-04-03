@@ -28,32 +28,123 @@
 
 #include "runtime/synchronizer.hpp"
 
-// RISC-V Stack layout
-//                   .
-//                   .
-//      +->          .
-//      |   +-----------------+   |
-//      |   | return address  |   |
-//      |   |   previous fp ------+
-//      |   | saved registers |
-//      |   | local variables |
-//      |   |       ...       | <-+
-//      |   +-----------------+   |
-//      |   | return address  |   |
-//      +------ previous fp   |   |
-//          | saved registers |   |
-//          | local variables |   |
-//  $fp --> |       ...       |   |
-//          +-----------------+   |
-//          | return address  |   |
-//          |   previous fp ------+
-//          | saved registers |
-//  $sp --> | local variables |
-//          +-----------------+
-//              stack grows
-//                  down
-//                   |
-//                   V
+/* RISC-V C stack frames layout:
+
+      +->          .
+      |   +=================+   |
+      |   | return address  |   |
+      |   |   previous fp ------+
+      |   | saved registers |
+      |   | local variables |
+      |   |       ...       | <-+
+      |   +=================+   |
+      |   | return address  |   |
+      +------ previous fp   |   |
+          | saved registers |   |
+          | local variables |   |
+  $fp --> |       ...       |   |
+          +=================+   |
+          | return address  |   |
+          |   previous fp ------+
+          | saved registers |
+  $sp --> | local variables |
+          +-----------------+
+              stack grows
+                  down
+                   |
+                   V
+
+
+  Java entry frame layout:
+
+   fp --> |       ...       |   |
+          +=================+   |
+          | return address  |   |   }
+          |   previous fp ------+   }  frame_abi
+          +-----------------+
+          |                 |       }
+          | saved registers |       }  spill_nonvolatiles
+          |                 |       }
+          +-----------------+
+          |                 |       }
+          |  frame locals   |       }  entry_frame_locals
+          |                 |       }
+          +-----------------+
+          |   argument 0    |
+          |       ...       |
+   sp --> |   argument n    |
+          +=================+ <-- esp (it's equals to SP or SP + 8, depends on )
+                   |
+                   V
+
+
+  Parent Java frame layout:
+
+          |       ...       |   |
+          +=================+   |
+          | return address  |   |   }
+          |   previous fp ------+   }  frame_abi
+          +-----------------+
+          |                 |       }
+          |   ijava state   |       }  ijava_state
+          |                 |       }
+          +-----------------+
+          |                 |       }
+          |    monitors     |       }  (optional)
+          |                 |       }
+          +-----------------+
+          |                 |
+          |   used part of  |
+          |  operand stack  |
+          |                 |
+          +-----------------+
+locals--> |   argument 0    |       }
+          |       ...       |       }
+          |   argument n    |       }  arguments and locals of
+          +-----------------+       }     the next method
+          |                 |       }
+          |      locals     |       }
+          |                 |       }
+          +=================+
+                   |
+                   V
+
+
+  Top Java frame layout:
+
+locals--> |   argument 0    |
+          |       ...       |
+          |   argument n    |
+          |-----------------|
+          |                 |
+          |     locals      |
+  fp -->  |                 |   |
+          +=================+   |
+          | return address  |   |   }
+          |   previous fp ------+   }  frame_abi
+          +-----------------+
+          |                 |       }
+          |   ijava state   |       }  ijava_state
+          |                 |       }
+          +-----------------+
+          |                 |       }
+          |    monitors     |       }  (optional)
+monitor-> |                 |       }
+          +-----------------+
+          |                 |
+          |   used part of  |
+          |  operand stack  |
+          |                 |
+          +-----------------+
+  esp --> |       ___       |
+          |                 |
+          |                 |
+   sp --> +=================+
+                   |
+                   V
+
+*/
+
  public:
 
   // C frame layout

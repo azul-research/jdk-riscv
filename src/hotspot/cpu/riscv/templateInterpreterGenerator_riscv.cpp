@@ -894,59 +894,55 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
   __ lock_object(R26_monitor_PPC, Robj_to_lock);
 }
 
-// Generate a fixed interpreter frame for pure interpreter
-// and I2N native transition frames.
-//
-// Before:                                     After:
-//
-//    fp --> |       ...       |   |                   |   |       ...       | <-+
-//           +=================+   |                   |   +=================+   |
-//           | return address  |   |                   |   | return address  |   |
-//           |   previous fp ------+                   +------ previous fp   |   |
-//           |       ...       |                           |       ...       |   |
-//           |   argument 0    |                 locals--> |   argument 0    |   |
-//           |       ...       |                           |       ...       |   |
-//           |   argument n    |                           |   argument n    |   |
-//   esp --> |       ___       |                           |-----------------|   |
-//           |                 |                           |                 |   |
-//           |                 |                           |     locals      |   |
-//           |                 |                   fp -->  |                 |   |
-//    sp --> |                 |                           +=================+   |
-//           +=================+                           | return address  |   |
-//             stack grows down                            |   previous fp ------+
-//                    |                                    |-----------------|
-//                    v                                    |                 |
-//                                                         |   ijava state   |
-//                                               monitor-> |                 |
-//                                                         |-----------------|
-//                                                 esp --> |       ___       |
-//                                                         |                 |
-//                                                         |                 |
-//                                                  sp --> |       ...       |
-//                                                         +=================+
-//                                                           stack grows down
-//                                                                  |
-//                                                                  v
-//
-//frame needs an abi space of 112 bytes. This space is needed,
-// since we call to c. The c function may spill their arguments to the caller
-// frame. When we call to java, we don't need these spill slots. In order to save
-// space on the stack, we resize the caller. However, java locals reside in
-// the caller frame and the frame has to be increased. The frame_size for the
-// current frame was calculated based on max_stack as size for the expression
-// stack. At the call, just a part of the expression stack might be used.
-// We don't want to waste this space and cut the frame back accordingly.
-// The resulting amount for resizing is calculated as follows:
-// resize =   (number_of_locals - number_of_arguments) * slot_size
-//          + (R1_SP_PPC - R23_esp) + 48
-//
-// The size for the callee frame is calculated:
-// framesize = 112 + max_stack + monitor + state_size
-//
-// maxstack:   Max number of slots on the expression stack, loaded from the method.
-// monitor:    We statically reserve room for one monitor object.
-// state_size: We save the current state of the interpreter to this area.
-//
+/* Generate a fixed interpreter frame for pure interpreter
+   and I2N native transition frames.
+
+   Before:                                     After:
+
+      fp --> |       ...       |   |                   |   |       ...       | <-+
+             +=================+   |                   |   +=================+   |
+             | return address  |   |                   |   | return address  |   |
+             |   previous fp ------+                   +------ previous fp   |   |
+             |       ...       |                           |       ...       |   |
+             |   argument 0    |                 locals--> |   argument 0    |   |
+             |       ...       |                           |       ...       |   |
+             |   argument n    |                           |   argument n    |   |
+     esp --> |       ___       |                           |-----------------|   |
+             |                 |                           |                 |   |
+             |                 |                           |     locals      |   |
+             |                 |                   fp -->  |                 |   |
+      sp --> |                 |                           +=================+   |
+             +=================+                           | return address  |   |
+               stack grows down                            |   previous fp ------+
+                      |                                    |-----------------|
+                      v                                    |                 |
+                                                           |   ijava state   |
+                                                 monitor-> |                 |
+                                                           |-----------------|
+                                                   esp --> |       ___       |
+                                                           |                 |
+                                                           |                 |
+                                                    sp --> |       ...       |
+                                                           +=================+
+                                                             stack grows down
+                                                                    |
+                                                                    v
+
+ However, java locals reside in the caller frame and the frame has to be increased.
+ The frame_size for the current frame was calculated based on max_stack as size for
+ the expression stack. At the call, just a part of the expression stack might be used.
+ We don't want to waste this space and cut the frame back accordingly.
+
+ The resulting amount for resizing is calculated as follows:
+ resize = (number_of_locals - number_of_arguments) * slot_size + (R2_SP - R23_esp - stackElementSize)
+
+ The size for the callee frame is calculated:
+ size = max_stack + frame_abi_size + ijava_state_size
+
+ Monitors will be pushed on the stack later, it needs the stack resizing.
+
+ */
+
 void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals) {
   Register new_FP          = R14_ARG4,
            new_frame_size  = R15_ARG5,
