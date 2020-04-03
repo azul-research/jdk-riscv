@@ -779,47 +779,45 @@ void InterpreterMacroAssembler::narrow(Register result) {
   Label notBool, notByte, notChar, byteOne, shortOne, done;
 
   // common case first
-  addi(scratch, R0, T_INT);
+  li(scratch, T_INT);
   beq(scratch, ret_type, done);
 
-  addi(scratch, R0, T_BOOLEAN);
+  li(scratch, T_BOOLEAN);
   bne(scratch, ret_type, notBool);
   andi(result, result, 0x1);
   j(done);
 
   bind(notBool);
-  addi(scratch, R0, T_BYTE);
+  li(scratch, T_BYTE);
   bne(scratch, ret_type, notByte);
   // sign-extend lower 8 bits
-  addi(scratch, R0, 0x80);
+  li(scratch, 0x80);
   bge(result, scratch, byteOne);
   andi(result, result, 0xff);
   j(done);
   bind(byteOne);
-  ori(result, result, 0xffffff00);
+  li(scratch, 0xffffff00);
+  or_(result, result, scratch);
   j(done);
 
   bind(notByte);
   addi(scratch, R0, T_CHAR);
   bne(scratch, ret_type, notChar);
-  addi(scratch, R0, 0xfff);
-  lui(scratch, 0xf);
+  li(scratch, 0xffff);
   and_(result, result, scratch);
   j(done);
 
   bind(notChar);
   // sign-extend lower 16 bits
-  lui(scratch, 0x8);
+  li(scratch, 0x8000);
   bge(result, scratch, shortOne);
-  addi(scratch, R0, 0xfff);
-  lui(scratch, 0xf);
+  li(scratch, 0xffff);
   and_(result, result, scratch);
   j(done);
   bind(shortOne);
-  lui(scratch, 0xffff0);
+  li(scratch, 0xffff0000);
   or_(result, result, scratch);
   j(done);
-  extsh_PPC(result, result);
 
   // Nothing to do for T_INT
   bind(done);
@@ -842,11 +840,14 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
                                                   bool throw_monitor_exception,
                                                   bool install_monitor_exception) {
   BLOCK_COMMENT("remove_activation {");
+#if 0 // TODO_RISCV
   unlock_if_synchronized_method(state, throw_monitor_exception, install_monitor_exception);
+#endif
 
   // Save result (push state before jvmti call and pop it afterwards) and notify jvmti.
   notify_method_exit(false, state, NotifyJVMTI, true);
 
+#if 0 // TODO_RISCV
   BLOCK_COMMENT("reserved_stack_check:");
   if (StackReservedPages > 0) {
     // Test if reserved zone needs to be enabled.
@@ -869,6 +870,7 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
 
     bind(no_reserved_zone_enabling);
   }
+#endif
 
   verify_oop(R25_tos, state);
   verify_thread();
@@ -2409,10 +2411,10 @@ void InterpreterMacroAssembler::notify_method_entry() {
   // the code to check if the event should be sent.
   if (JvmtiExport::can_post_interpreter_events()) {
     Label jvmti_post_done;
+    Register Rscratch = R5_scratch1;
 
-    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
-    cmpwi_PPC(CCR0, R0, 0);
-    beq_PPC(CCR0, jvmti_post_done);
+    lwu(Rscratch, R24_thread, in_bytes(JavaThread::interp_only_mode_offset()));
+    beqz(Rscratch, jvmti_post_done);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::post_method_entry),
             /*check_exceptions=*/true);
 
@@ -2444,10 +2446,10 @@ void InterpreterMacroAssembler::notify_method_exit(bool is_native_method, TosSta
   // the code to check if the event should be sent.
   if (mode == NotifyJVMTI && JvmtiExport::can_post_interpreter_events()) {
     Label jvmti_post_done;
+    Register Rscratch = R5_scratch1;
 
-    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
-    cmpwi_PPC(CCR0, R0, 0);
-    beq_PPC(CCR0, jvmti_post_done);
+    lwu(Rscratch, R24_thread, in_bytes(JavaThread::interp_only_mode_offset()));
+    beqz(Rscratch, jvmti_post_done);
     if (!is_native_method) { push(state); } // Expose tos to GC.
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::post_method_exit),
             /*check_exceptions=*/check_exceptions);
