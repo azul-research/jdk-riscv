@@ -2267,14 +2267,14 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
   // Acquire by cmp-br-isync (see below).
-  __ addi(R11_ARG1, R0, (int) code);
+  __ li(R11_ARG1, (int) code);
   __ beq(Rscratch, R11_ARG1, Lresolved);
 
   // Class initialization barrier slow path lands here as well.
   __ bind(L_clinit_barrier_slow);
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_from_cache);
-  __ addi(R11_ARG1, R0, (int) code);
+  __ li(R11_ARG1, (int) code);
   __ call_VM(noreg, entry, R11_ARG1, true);
 
   // Update registers with resolved info.
@@ -2866,6 +2866,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   // Load from branch table and dispatch (volatile case: one instruction ahead).
   __ slli(Rflags, Rflags, LogBytesPerWord);
   if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
+    // FIXME_RISCV
     //__ cmpwi_PPC(CR_is_vol, Rscratch, 1);  // Volatile?
   }
   __ slli(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.

@@ -99,23 +99,23 @@ void InterpreterMacroAssembler::dispatch_epilog(TosState state, int bcp_incr) {
   jr(R30_TMP5);
 }
 
-void InterpreterMacroAssembler::check_and_handle_popframe(Register scratch_reg, Register scratch_reg2) {
-  assert(scratch_reg != R0, "can't use R0 as scratch_reg here");
+void InterpreterMacroAssembler::check_and_handle_popframe(Register Rscratch1, Register Rscratch2) {
+  assert(Rscratch1 != R0, "can't use R0 as scratch_reg here");
   if (JvmtiExport::can_pop_frame()) {
     Label L;
 
     // Check the "pending popframe condition" flag in the current thread.
-    lwu(scratch_reg, R24_thread, in_bytes(JavaThread::popframe_condition_offset()));
+    lwu(Rscratch1, R24_thread, in_bytes(JavaThread::popframe_condition_offset()));
 
     // Initiate popframe handling only if it is not already being
     // processed. If the flag has the popframe_processing bit set, it
     // means that this code is called *during* popframe handling - we
     // don't want to reenter.
-    andi(scratch_reg2, scratch_reg, JavaThread::popframe_pending_bit);
-    beqz(scratch_reg2, L);
+    andi(Rscratch2, Rscratch1, JavaThread::popframe_pending_bit);
+    beqz(Rscratch2, L);
 
-    andi(scratch_reg2, scratch_reg, JavaThread::popframe_processing_bit);
-    bnez(scratch_reg2, L);
+    andi(Rscratch2, Rscratch1, JavaThread::popframe_processing_bit);
+    bnez(Rscratch2, L);
 
     // Call the Interpreter::remove_activation_preserving_args_entry()
     // func to get the address of the same-named entrypoint in the
@@ -560,8 +560,8 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   sldi_PPC(RsxtIndex, RsxtIndex, index_shift);
   blt_PPC(CCR0, LnotOOR);
   // Index should be in R25_tos, array should be in R4_ARG2_PPC.
-  mr_if_needed(R25_tos, Rindex);
-  mr_if_needed(R4_ARG2_PPC, Rarray);
+  mv_if_needed(R25_tos, Rindex);
+  mv_if_needed(R4_ARG2_PPC, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
   mtctr_PPC(Rtmp);
   bctr_PPC();
@@ -1126,7 +1126,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   clrrdi_PPC(Rscratch2, Rscratch2, exact_log2(frame::alignment_in_bytes)); // round towards smaller address
   resize_frame_absolute(Rscratch2, Rscratch2, R0);
 
-  mr_if_needed(R27_method, Rtarget_method);
+  mv_if_needed(R27_method, Rtarget_method);
   mtctr_PPC(Rtarget_addr);
   mtlr_PPC(Rret_addr);
 
@@ -2153,7 +2153,7 @@ void InterpreterMacroAssembler::check_and_forward_exception(Register Rscratch1, 
   cmpdi_PPC(CCR0, Rexception, 0);
   beq_PPC(CCR0, Ldone);
   li_PPC(Rtmp, 0);
-  mr_if_needed(R3, Rexception);
+  mv_if_needed(R3, Rexception);
   std_PPC(Rtmp, thread_PPC(pending_exception)); // Clear exception in thread
   if (Interpreter::rethrow_exception_entry() != NULL) {
     // Already got entry address.
@@ -2179,17 +2179,20 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
   restore_interpreter_state(/*bcp_and_mdx_only*/ true);
 
   check_and_handle_popframe(R5_scratch1, R6_scratch2);
-// check_and_handle_earlyret(R5_scratch1);
+
+  // FIXME_RISCV begin
+  // check_and_handle_earlyret(R5_scratch1);
   // Now check exceptions manually.
-//  if (check_exceptions) {
-//    check_and_forward_exception(R5_scratch1, R6_scratch2);
-//  }
+  //  if (check_exceptions) {
+  //    check_and_forward_exception(R5_scratch1, R6_scratch2);
+  //  }
+  // FIXME_RISCV end
 }
 
 void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point,
                                         Register arg_1, bool check_exceptions) {
   // ARG0 is reserved for the thread.
-  mr_if_needed(R11_ARG1, arg_1);
+  mv_if_needed(R11_ARG1, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2197,9 +2200,9 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         Register arg_1, Register arg_2,
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2207,11 +2210,11 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         Register arg_1, Register arg_2, Register arg_3,
                                         bool check_exceptions) {
   // ARG0 is reserved for the thread.
-  mr_if_needed(R11_ARG1, arg_1);
+  mv_if_needed(R11_ARG1, arg_1);
   assert(arg_2 != R11_ARG1, "smashed argument");
-  mr_if_needed(R12_ARG2, arg_2);
+  mv_if_needed(R12_ARG2, arg_2);
   assert(arg_3 != R12_ARG2 && arg_3 != R11_ARG1, "smashed argument");
-  mr_if_needed(R13_ARG3, arg_3);
+  mv_if_needed(R13_ARG3, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2356,7 +2359,7 @@ void InterpreterMacroAssembler::verify_oop_or_return_address(Register reg, Regis
   push_frame_reg_args(nbytes_save, Rtmp);
 
   load_const_optimized(Rtmp, fd, R0);
-  mr_if_needed(R4_ARG2_PPC, reg);
+  mv_if_needed(R4_ARG2_PPC, reg);
   mr_PPC(R3_ARG1_PPC, R27_method);
   call_c(Rtmp); // call C
 

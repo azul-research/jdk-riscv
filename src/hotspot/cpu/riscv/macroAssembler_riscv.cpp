@@ -1039,26 +1039,26 @@ void MacroAssembler::call_VM(Register oop_result, address entry_point, bool chec
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg_3,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
-  mr_if_needed(R6_ARG4_PPC, arg_3);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R6_ARG4_PPC, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -1067,23 +1067,23 @@ void MacroAssembler::call_VM_leaf(address entry_point) {
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
+  mv_if_needed(R3_ARG1_PPC, arg_1);
   call_VM_leaf(entry_point);
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register arg_1) {
-  mr_if_needed(R10_ARG0, arg_0);
+  mv_if_needed(R10_ARG0, arg_0);
   assert(arg_1 != R10_ARG0, "smashed argument");
-  mr_if_needed(R11_ARG1, arg_1);
+  mv_if_needed(R11_ARG1, arg_1);
   call_VM_leaf(entry_point);
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
+  mv_if_needed(R3_ARG1_PPC, arg_1);
   assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mr_if_needed(R4_ARG2_PPC, arg_2);
+  mv_if_needed(R4_ARG2_PPC, arg_2);
   assert(arg_3 != R3_ARG1_PPC && arg_3 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_3);
+  mv_if_needed(R5_ARG3_PPC, arg_3);
   call_VM_leaf(entry_point);
 }
 
@@ -4386,7 +4386,7 @@ void MacroAssembler::multiply_64_x_64_loop(Register x, Register xstart,
 #endif
   sldi_PPC(tmp, kdx, LogBytesPerInt);
   stdx_PPC(product, z, tmp);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
   b_PPC(L_first_loop);
 
 
@@ -4479,10 +4479,10 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
   addi_PPC(idx, idx, -4);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry, product_high, product, tmp, 8);
-  mr_if_needed(carry2, product_high);
+  mv_if_needed(carry2, product_high);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry2, product_high, product, tmp, 0);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
   bdnz_PPC(L_third_loop);
 
   bind(L_third_loop_exit);  // Handle any left-over operand parts.
@@ -4496,7 +4496,7 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
   blt_PPC(CCR0, L_check_1);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry, product_high, product, tmp, 0);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
 
   bind(L_check_1);
 
@@ -4518,7 +4518,7 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
 
   sldi_PPC(product_high, product_high, 32);
   orr_PPC(product, product, product_high);
-  mr_if_needed(carry, product);
+  mv_if_needed(carry, product);
 
   bind(L_post_third_loop_done);
 }   // multiply_128_x_128_loop
@@ -4601,8 +4601,8 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen,
   //  }
   //  z[xstart] = (int)carry;
 
-  mr_if_needed(idx, ylen);        // idx = ylen
-  mr_if_needed(kdx, zlen);        // kdx = xlen + ylen
+  mv_if_needed(idx, ylen);        // idx = ylen
+  mv_if_needed(kdx, zlen);        // kdx = xlen + ylen
   li_PPC(carry, 0);                   // carry = 0
 
   Label L_done;
@@ -4775,7 +4775,7 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   const int nbytes_save = MacroAssembler::num_volatile_regs * 8;
   save_volatile_gprs(R2_SP, -nbytes_save);
 
-  mr_if_needed(R12_ARG2, oop);
+  mv_if_needed(R12_ARG2, oop);
   push_frame_reg_args(nbytes_save, tmp);
   // load FunctionDescriptor** / entry_address *
   load_const_optimized(tmp, fd, R0);

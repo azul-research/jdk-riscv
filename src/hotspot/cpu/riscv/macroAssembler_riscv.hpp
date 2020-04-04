@@ -60,8 +60,8 @@ class MacroAssembler: public Assembler {
   void store_sized_value(Register dst, RegisterOrConstant offs, Register base, size_t size_in_bytes);
 
   // Move register if destination register and target register are different
-  inline void mr_if_needed(Register rd, Register rs);
-  inline void fmr_if_needed(FloatRegister rd, FloatRegister rs);
+  inline void mv_if_needed(Register rd, Register rs);
+  inline void fmv_if_needed(FloatRegister rd, FloatRegister rs);
   // This is dedicated for emitting scheduled mach nodes. For better
   // readability of the ad file I put it here.
   // Endgroups are not needed if
