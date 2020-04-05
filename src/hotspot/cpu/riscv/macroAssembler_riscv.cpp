@@ -3025,8 +3025,16 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src) {
 
 void MacroAssembler::load_klass(Register dst, Register src) {
   // TODO_RISCV: add support for compressed class pointers
-  assert(!UseCompressedClassPointers, "RISCV port: compressed class pointers not supported");
-  ld(dst, src, oopDesc::klass_offset_in_bytes());
+  if (UseCompressedClassPointers) {
+    assert(!UseCompressedClassPointers, "RISCV port: compressed class pointers not supported");
+#if 0
+    lwz_PPC(dst, oopDesc::klass_offset_in_bytes(), src);
+    // Attention: no null check here!
+    decode_klass_not_null(dst, dst);
+#endif
+  } else {
+    ld(dst, src, oopDesc::klass_offset_in_bytes());
+  }
 }
 
 // ((OopHandle)result).resolve();
