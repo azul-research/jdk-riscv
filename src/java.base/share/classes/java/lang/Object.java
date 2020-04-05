@@ -38,17 +38,19 @@ import jdk.internal.HotSpotIntrinsicCandidate;
  */
 public class Object {
 	/**
-	 */
-	public static int[] ar;
+     */
+    public static class TestData {
+    	/**
+    	 */
+        public volatile int a, b;
+    }
+
 	/**
 	 */
-	public static volatile boolean start0;
+	public static TestData[] testData;
 	/**
 	 */
-	public static int ra1, ra2, ra3, rb1, rb2, rb3;
-	/**
-	 */
-	public static volatile int a1, a2, a3, b1, b2, b3;
+	public static int i0;
 
     private static native void registerNatives();
     static {
@@ -57,67 +59,29 @@ public class Object {
 
 	/**
 	 * A test method to call in VM.
-	 * @return 42
 	 */
     public static void testMethod() {
-        ar = new int[2];
-        while (start0) {}
-        ar[0] = 1;
-        int u = ar[1];
-    }
+        testData = new TestData[1];
+        testData[0].a = 1;
+        i0 = testData[0].b;
 
-    /**
-     * Resets test fields
-     */
-    public static void reset0() {
+        /*ar = new int[3];
+        ar[0] = 645;
+        ra1 = ar[0];
+
         start0 = false;
 
-        ra1 = 0;
-        ra2 = 0;
-        ra3 = 0;
-        rb1 = 0;
-        rb2 = 0;
-        rb3 = 0;
+        while(start0) {}
 
-        a1 = 0;
-        a2 = 0;
-        a3 = 0;
-        b1 = 0;
-        b2 = 0;
-        b3 = 0;
-    }
+        if (start0) {
+            ra1 = 1;
+        } else {
+            ra1 = 2;
+        }
 
-    /**
-     * actor3
-     */
-    public static void actor0() {
-        start0 = true;
-    }
-
-	/**
-	 * actor1
-	 */
-    public static void actor1() {
-        while(!start0) {}
-        a1 = 1;
-        ra1 = b1;
-        a2 = 1;
-        ra2 = b2;
-        a3 = 1;
-        ra3 = b3;
-    }
-
-	/**
-	 * actor2
-	 */
-    public static void actor2() {
-        while(!start0) {}
-        b1 = 1;
-        rb1 = a1;
-        b2 = 1;
-        rb2 = a2;
-        b3 = 1;
-        rb3 = a3;
+        for(ra2 = 0; ra2 < 10; ra2 = ra2 + 1) {
+            ra1 = ra2;
+        }*/
     }
 
     /**

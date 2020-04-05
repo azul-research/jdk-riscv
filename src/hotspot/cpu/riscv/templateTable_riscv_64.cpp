@@ -639,11 +639,12 @@ void TemplateTable::wide_aload() {
 void TemplateTable::iaload() {
   transition(itos, itos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R10_ARG0,
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
+
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerInt, Rtemp, Rload_addr);
-  __ lwa_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_INT), Rload_addr);
+  __ lw(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_INT));
 }
 
 void TemplateTable::laload() {
@@ -677,17 +678,17 @@ void TemplateTable::daload() {
 }
 
 void TemplateTable::aaload() {
+  tty->print_cr("aaload: %p", __ pc());
   transition(itos, atos);
 
   // tos: index
   // result tos: array
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC,
-                 Rtemp2     = R31;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3,
+                 Rtemp2     = R31_TMP6;
   __ index_check(Rarray, R25_tos /* index */, UseCompressedOops ? 2 : LogBytesPerWord, Rtemp, Rload_addr);
-  do_oop_load(_masm, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_OBJECT), R25_tos, Rtemp, Rtemp2,
-              IS_ARRAY);
+  do_oop_load(_masm, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_OBJECT), R25_tos, Rtemp, Rtemp2, IS_ARRAY);
   __ verify_oop(R25_tos);
   //__ dcbt_PPC(R25_tos); // prefetch
 }
@@ -926,14 +927,14 @@ void TemplateTable::wide_astore() {
 void TemplateTable::iastore() {
   transition(itos, vtos);
 
-  const Register Rindex      = R3_ARG1_PPC,
-                 Rstore_addr = R4_ARG2_PPC,
-                 Rarray      = R5_ARG3_PPC,
-                 Rtemp       = R6_ARG4_PPC;
+  const Register Rindex      = R10_ARG0,
+                 Rstore_addr = R11_ARG1,
+                 Rarray      = R12_ARG2,
+                 Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
-  __ stw_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_INT), Rstore_addr);
-  }
+  __ sw(R25_tos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_INT));
+}
 
 void TemplateTable::lastore() {
   transition(ltos, vtos);
@@ -1841,7 +1842,6 @@ void TemplateTable::if_cmp_common(Condition cc, Register Rfirst, Register Rsecon
 // Compare integer values with zero and fall through if CC holds, branch away otherwise.
 void TemplateTable::if_0cmp(Condition cc) {
   transition(itos, vtos);
-  tty->print_cr("ifeq: %p, cc: %i", __ pc(), cc);
   if_cmp_common(cc, R25_tos, R0_ZERO, R5_scratch1, R6_scratch2);
 }
 
@@ -1853,7 +1853,7 @@ void TemplateTable::if_0cmp(Condition cc) {
 void TemplateTable::if_icmp(Condition cc) {
   transition(itos, vtos);
 
-  const Register Rfirst  = R0,
+  const Register Rfirst  = R30_TMP5,
                  Rsecond = R25_tos;
 
   __ pop_i(Rfirst);
@@ -2153,7 +2153,9 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
-  tty->print_cr("_return: %p, state: %i", __ pc(), state);
+  if (state == vtos) {
+    tty->print_cr("_return: %p, state: %i", __ pc(), state);
+  }
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
@@ -2485,6 +2487,7 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   // Load after possible GC.
   load_field_cp_cache_entry(Rclass_or_obj, Rcache, noreg, Roffset, Rflags, is_static);
 
+  tty->print_cr("putfield cache resolved: %p", __ pc());
   // Load pointer to branch table.
   __ li(Rbtable, (long)(unsigned long)(address)branch_table);
 
@@ -2839,6 +2842,7 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   // Load pointer to branch table.
   __ li(Rbtable, (address)branch_table);
 
+  tty->print_cr("putfield cache resolved: %p", __ pc());
   // Get volatile flag.
   __ srli(Rscratch, Rflags, ConstantPoolCacheEntry::is_volatile_shift);
   __ andi(Rscratch, Rscratch, 1); // Extract volatile bit.
@@ -3885,13 +3889,13 @@ void TemplateTable::newarray() {
 void TemplateTable::anewarray() {
   transition(itos, atos);
 
-  __ get_constant_pool(R4);
-  __ get_2_byte_integer_at_bcp(1, R5, InterpreterMacroAssembler::Unsigned);
-  __ extsw_PPC(R6, R25_tos); // size
-  call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::anewarray), R4 /* pool */, R5 /* index */, R6 /* size */);
+  __ get_constant_pool(R11_ARG1);
+  __ get_2_byte_integer_at_bcp(1, R12_ARG2, InterpreterMacroAssembler::Unsigned);
+  __ addw(R13_ARG3, R0_ZERO, R25_tos); // size
+  call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::anewarray), R11_ARG1 /* pool */, R12_ARG2 /* index */, R13_ARG3 /* size */);
 
   // Must prevent reordering of stores for object initialization with stores that publish the new object.
-  __ membar(Assembler::StoreStore);
+  __ Assembler::fence(Assembler::W_OP, Assembler::W_OP);
 }
 
 // Allocate a multi dimensional array

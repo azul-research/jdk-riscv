@@ -205,24 +205,24 @@ void InterpreterMacroAssembler::load_dispatch_table(Register dst, address* table
 void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register bytecode,
                                                     address* table, bool generate_poll) {
   assert_different_registers(bytecode, R5_scratch1);
-
-  // Calc dispatch table address.
-  load_dispatch_table(R5_scratch1, table);
+  Label dispatch, skip;
 
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
-    unimplemented("generate_poll in dispatch_next is true", -1);
-//    address *sfpt_tbl = Interpreter::safept_table(state);
-//    if (table != sfpt_tbl) {
-//      Label dispatch;
-//      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R24_thread);
-//      // Armed page has poll_bit set, if poll bit is cleared just continue.
-//      andi__PPC(R0, R0, SafepointMechanism::poll_bit());
-//      beq_PPC(CCR0, dispatch);
-//      load_dispatch_table(R5_scratch1, sfpt_tbl);
-//      align(32, 16);
-//      bind(dispatch);
-//    }
+    address *sfpt_tbl = Interpreter::safept_table(state);
+    if (table != sfpt_tbl) {
+      ld(R5_scratch1, R24_thread, in_bytes(Thread::polling_page_offset()));
+      // Armed page has poll_bit qset, if poll bit is cleared just continue.
+      andi(R5_scratch1, R5_scratch1, (int) SafepointMechanism::poll_bit());
+      beqz(R5_scratch1, dispatch);
+      load_dispatch_table(R5_scratch1, sfpt_tbl);
+      j(skip);
+    }
   }
+
+  // Calc dispatch table address.
+  bind(dispatch);
+  load_dispatch_table(R5_scratch1, table);
+  bind(skip);
 
   slli(R6_scratch2, bytecode, LogBytesPerWord);
   add(R6_scratch2, R6_scratch2, R5_scratch1);
@@ -530,47 +530,44 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   // Writes:
   //   - Rres: Address that corresponds to the array index if check was successful.
   verify_oop(Rarray);
-  const Register Rlength   = R0;
+  const Register Rlength   = R5_scratch1;
   const Register RsxtIndex = Rtmp;
   Label LisNull, LnotOOR;
 
   // Array nullcheck
   if (!ImplicitNullChecks) {
-    cmpdi_PPC(CCR0, Rarray, 0);
-    beq_PPC(CCR0, LisNull);
+    beqz(Rarray, LisNull);
   } else {
-    null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex);
+    //null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex); FIXME_RISCV
   }
 
   // Rindex might contain garbage in upper bits (remember that we don't sign extend
   // during integer arithmetic operations). So kill them and put value into same register
   // where ArrayIndexOutOfBounds would expect the index in.
-  rldicl_PPC(RsxtIndex, Rindex, 0, 32); // zero extend 32 bit -> 64 bit
+  slli(RsxtIndex, Rindex, 32);
+  srli(RsxtIndex, RsxtIndex, 32); // zero extend 32 bit -> 64 bit
 
   // Index check
-  lwz_PPC(Rlength, arrayOopDesc::length_offset_in_bytes(), Rarray);
-  cmplw_PPC(CCR0, Rindex, Rlength);
-  sldi_PPC(RsxtIndex, RsxtIndex, index_shift);
-  blt_PPC(CCR0, LnotOOR);
+  lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
+
+  blt(RsxtIndex, Rlength, LnotOOR);
   // Index should be in R25_tos, array should be in R4_ARG2_PPC.
   mr_if_needed(R25_tos, Rindex);
-  mr_if_needed(R4_ARG2_PPC, Rarray);
+  mr_if_needed(R11_ARG1, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
-  mtctr_PPC(Rtmp);
-  bctr_PPC();
+  jalr(Rtmp);
 
   if (!ImplicitNullChecks) {
     bind(LisNull);
     load_dispatch_table(Rtmp, (address*)Interpreter::_throw_NullPointerException_entry);
-    mtctr_PPC(Rtmp);
-    bctr_PPC();
+    jalr(Rtmp);
   }
 
   align(32, 16);
   bind(LnotOOR);
-
+  slli(RsxtIndex, RsxtIndex, index_shift);
   // Calc address
-  add_PPC(Rres, RsxtIndex, Rarray);
+  add(Rres, RsxtIndex, Rarray);
 }
 
 void InterpreterMacroAssembler::index_check(Register array, Register index,
@@ -583,12 +580,12 @@ void InterpreterMacroAssembler::index_check(Register array, Register index,
 }
 
 void InterpreterMacroAssembler::get_const(Register Rdst) {
-  ld_PPC(Rdst, in_bytes(Method::const_offset()), R27_method);
+  ld(Rdst, R27_method, in_bytes(Method::const_offset()));
 }
 
 void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
   get_const(Rdst);
-  ld_PPC(Rdst, in_bytes(ConstMethod::constants_offset()), Rdst);
+  ld(Rdst, Rdst, in_bytes(ConstMethod::constants_offset()));
 }
 
 void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
@@ -2192,9 +2189,9 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         Register arg_1, Register arg_2,
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mr_if_needed(R11_ARG1, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
+  mr_if_needed(R12_ARG2, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 

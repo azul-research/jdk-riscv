@@ -3623,7 +3623,7 @@ Method* findTestMethod(InstanceKlass *klass, const char* methodName) {
         char cname[100];
         name->as_C_string(cname, 100);
 
-	
+
 	if (strcmp(cname, methodName) == 0) {
 	    return klass->methods()->at(i);
 	}
@@ -3696,22 +3696,41 @@ int get_int_field(const InstanceKlass* klass, const char* field_name) {
   return -1;
 }
 
+Method* find_test_method(InstanceKlass* klass, const char* method_name) {
+  int n_methods = klass->methods()->length();
+  for (int i = 0; i < n_methods; ++i) {
+    Symbol *name = klass->methods()->at(i)->name();
+    char cname[100];
+    name->as_C_string(cname, 100);
+
+    if (strcmp(cname, method_name) == 0) {
+      return klass->methods()->at(i);
+    }
+  }
+  return 0;
+}
+
+JavaValue call_method(const char *name, BasicType return_type, TRAPS) {
+  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+  Method *method = find_test_method(InstanceKlass::cast(klass), name);
+  JavaValue result(return_type);
+  JavaCallArguments args;
+  JavaCalls::call(&result, method, &args, THREAD);
+  return result;
+}
+
 void empty(TRAPS) {
-  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, THREAD);
-  int a1 = get_int_field(InstanceKlass::cast(klass), "ra1");
-  int a2 = get_int_field(InstanceKlass::cast(klass), "ra2");
-  int a3 = get_int_field(InstanceKlass::cast(klass), "ra3");
-  int b1 = get_int_field(InstanceKlass::cast(klass), "rb1");
-  int b2 = get_int_field(InstanceKlass::cast(klass), "rb2");
-  int b3 = get_int_field(InstanceKlass::cast(klass), "rb3");
+  call_method("calcResults", T_VOID, CHECK);
+  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+  int errors = get_int_field(InstanceKlass::cast(klass), "errors");
+  int side_by_side = get_int_field(InstanceKlass::cast(klass), "sideBySide");
+  int a_outruns_b = get_int_field(InstanceKlass::cast(klass), "aOutrunsB");
+  int b_outruns_a = get_int_field(InstanceKlass::cast(klass), "bOutrunsA");
 
-  fprintf(stderr, "%i %i\n", a1, b1);
-  fprintf(stderr, "%i %i\n", a2, b2);
-  fprintf(stderr, "%i %i\n", a3, b3);
-
-  if (a1 == 0 && b1 == 0) fprintf(stderr, "FAIL\n");
-  if (a2 == 0 && b2 == 0) fprintf(stderr, "FAIL\n");
-  if (a3 == 0 && b3 == 0) fprintf(stderr, "FAIL\n");
+  fprintf(stderr, "errors: %i\n", errors);
+  fprintf(stderr, "side_by_side: %i\n", side_by_side);
+  fprintf(stderr, "a_outruns_b: %i\n", a_outruns_b);
+  fprintf(stderr, "b_outruns_a: %i\n", b_outruns_a);
 }
 
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
@@ -3750,6 +3769,11 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   }
 
   if (TestRepetitionsNumber != 0) {
+    initialize_class(vmSymbols::java_lang_Object(), CHECK);
+    initialize_class(vmSymbols::java_lang_jmmtest_ResultData(), CHECK);
+    initialize_class(vmSymbols::java_lang_jmmtest_TestData(), CHECK);
+    initialize_class(vmSymbols::java_lang_jmmtest_JmmTest(), CHECK);
+
     char *actors_methods[] = { "actor0", "actor1", "actor2" };
     JmmTest tests[1] = {
         JmmTest("reset0", actors_methods, 3, &empty)
@@ -5389,29 +5413,6 @@ void TestJavaThread::exit(bool destroy_vm, JavaThread::ExitType exit_type) {
         _timer_exit_phase3.milliseconds(),
         _timer_exit_phase4.milliseconds());
   }
-}
-
-Method* find_test_method(InstanceKlass* klass, const char* method_name) {
-  int n_methods = klass->methods()->length();
-  for (int i = 0; i < n_methods; ++i) {
-    Symbol *name = klass->methods()->at(i)->name();
-    char cname[100];
-    name->as_C_string(cname, 100);
-
-    if (strcmp(cname, method_name) == 0) {
-      return klass->methods()->at(i);
-    }
-  }
-  return 0;
-}
-
-JavaValue call_method(const char *name, BasicType return_type, TRAPS) {
-  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, THREAD);
-  Method *method = find_test_method(InstanceKlass::cast(klass), name);
-  JavaValue result(return_type);
-  JavaCallArguments args;
-  JavaCalls::call(&result, method, &args, THREAD);
-  return result;
 }
 
 void thread_entry_point(JavaThread* thread, TRAPS) {
