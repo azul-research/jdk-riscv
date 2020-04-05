@@ -830,7 +830,7 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 //    mdx: method data index
 #define R28_monitor           AS_REGISTER(Register, R28)
 #define R29_mdx               AS_REGISTER(Register, R29)
-#define R30_constPoolCache    AS_REGISTER(Register, R30)
+#define R9_constPoolCache     AS_REGISTER(Register, R9)
 #endif
 
 // Common register declarations used in assembler code.
@@ -841,7 +841,6 @@ REGISTER_DECLARATION(Register, R5_TMP0,  R5);  // saver: caller
 REGISTER_DECLARATION(Register, R6_TMP1,  R6);  // saver: caller
 REGISTER_DECLARATION(Register, R7_TMP2,  R7);  // saver: caller
 REGISTER_DECLARATION(Register, R8_FP,    R8);  // saver: callee
-REGISTER_DECLARATION(Register, R9_S1,    R9);  // saver: callee
 REGISTER_DECLARATION(Register, R10_RET1, R10); // saver: caller
 REGISTER_DECLARATION(Register, R10_ARG0, R10); // saver: caller
 REGISTER_DECLARATION(Register, R11_RET2, R11); // saver: caller

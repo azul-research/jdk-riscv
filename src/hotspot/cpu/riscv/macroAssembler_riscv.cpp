@@ -100,9 +100,10 @@ void MacroAssembler::store_sized_value(Register dst, RegisterOrConstant offs, Re
 }
 
 void MacroAssembler::align(int modulus, int max, int rem) {
-  int padding = (rem + modulus - (offset() % modulus)) % modulus;
+  // FIXME_RISCV:
+  /*int padding = (rem + modulus - (offset() % modulus)) % modulus;
   if (padding > max) return;
-  for (int c = (padding >> 2); c > 0; --c) { nop(); }
+  for (int c = (padding >> 2); c > 0; --c) { nop(); }*/
 }
 
 // Issue instructions that calculate given TOC from global TOC.
@@ -724,140 +725,144 @@ address MacroAssembler::get_dest_of_bxx64_patchable_at(address instruction_addr,
   }
 }
 
-void MacroAssembler::save_fp_ra(Register dst, int offset) {
-  sd(R8_FP,  dst, offset);   offset += 8;
+void MacroAssembler::save_abi_frame(Register dst, int offset) {
+  offset -= 8;
   sd(R1_RA,  dst, offset);
+  offset -= 8;
+  sd(R8_FP,  dst, offset);
 }
 
-void MacroAssembler::restore_fp_ra(Register dst, int offset) {
-  ld(R8_FP,  dst, offset);   offset += 8;
+void MacroAssembler::restore_abi_frame(Register dst, int offset) {
+  offset -= 8;
   ld(R1_RA,  dst, offset);
+  offset -= 8;
+  ld(R8_FP,  dst, offset);
 }
 
 void MacroAssembler::save_nonvolatile_gprs(Register dst, int offset) {
-  sd(R2,  dst, offset);   offset += 8;
-  sd(R9,  dst, offset);   offset += 8;
-  sd(R18, dst, offset);   offset += 8;
-  sd(R19, dst, offset);   offset += 8;
-  sd(R20, dst, offset);   offset += 8;
-  sd(R21, dst, offset);   offset += 8;
-  sd(R22, dst, offset);   offset += 8;
-  sd(R23, dst, offset);   offset += 8;
-  sd(R24, dst, offset);   offset += 8;
-  sd(R25, dst, offset);   offset += 8;
-  sd(R26, dst, offset);   offset += 8;
-  sd(R27, dst, offset);   offset += 8;
+  sd(R2,  dst, offset);   offset -= 8;
+  sd(R9,  dst, offset);   offset -= 8;
+  sd(R18, dst, offset);   offset -= 8;
+  sd(R19, dst, offset);   offset -= 8;
+  sd(R20, dst, offset);   offset -= 8;
+  sd(R21, dst, offset);   offset -= 8;
+  sd(R22, dst, offset);   offset -= 8;
+  sd(R23, dst, offset);   offset -= 8;
+  sd(R24, dst, offset);   offset -= 8;
+  sd(R25, dst, offset);   offset -= 8;
+  sd(R26, dst, offset);   offset -= 8;
+  sd(R27, dst, offset);   offset -= 8;
 
-  fsd(F8,  dst, offset);   offset += 8;
-  fsd(F9,  dst, offset);   offset += 8;
-  fsd(F18, dst, offset);   offset += 8;
-  fsd(F19, dst, offset);   offset += 8;
-  fsd(F20, dst, offset);   offset += 8;
-  fsd(F21, dst, offset);   offset += 8;
-  fsd(F22, dst, offset);   offset += 8;
-  fsd(F23, dst, offset);   offset += 8;
-  fsd(F24, dst, offset);   offset += 8;
-  fsd(F25, dst, offset);   offset += 8;
-  fsd(F26, dst, offset);   offset += 8;
+  fsd(F8,  dst, offset);   offset -= 8;
+  fsd(F9,  dst, offset);   offset -= 8;
+  fsd(F18, dst, offset);   offset -= 8;
+  fsd(F19, dst, offset);   offset -= 8;
+  fsd(F20, dst, offset);   offset -= 8;
+  fsd(F21, dst, offset);   offset -= 8;
+  fsd(F22, dst, offset);   offset -= 8;
+  fsd(F23, dst, offset);   offset -= 8;
+  fsd(F24, dst, offset);   offset -= 8;
+  fsd(F25, dst, offset);   offset -= 8;
+  fsd(F26, dst, offset);   offset -= 8;
   fsd(F27, dst, offset);
 }
 
 void MacroAssembler::restore_nonvolatile_gprs(Register src, int offset) {
-  ld(R2,  src, offset);   offset += 8;
-  ld(R9,  src, offset);   offset += 8;
-  ld(R18, src, offset);   offset += 8;
-  ld(R19, src, offset);   offset += 8;
-  ld(R20, src, offset);   offset += 8;
-  ld(R21, src, offset);   offset += 8;
-  ld(R22, src, offset);   offset += 8;
-  ld(R23, src, offset);   offset += 8;
-  ld(R24, src, offset);   offset += 8;
-  ld(R25, src, offset);   offset += 8;
-  ld(R26, src, offset);   offset += 8;
-  ld(R27, src, offset);   offset += 8;
+  ld(R2,  src, offset);   offset -= 8;
+  ld(R9,  src, offset);   offset -= 8;
+  ld(R18, src, offset);   offset -= 8;
+  ld(R19, src, offset);   offset -= 8;
+  ld(R20, src, offset);   offset -= 8;
+  ld(R21, src, offset);   offset -= 8;
+  ld(R22, src, offset);   offset -= 8;
+  ld(R23, src, offset);   offset -= 8;
+  ld(R24, src, offset);   offset -= 8;
+  ld(R25, src, offset);   offset -= 8;
+  ld(R26, src, offset);   offset -= 8;
+  ld(R27, src, offset);   offset -= 8;
 
-  fld(F8,  src, offset);   offset += 8;
-  fld(F9,  src, offset);   offset += 8;
-  fld(F18, src, offset);   offset += 8;
-  fld(F19, src, offset);   offset += 8;
-  fld(F20, src, offset);   offset += 8;
-  fld(F21, src, offset);   offset += 8;
-  fld(F22, src, offset);   offset += 8;
-  fld(F23, src, offset);   offset += 8;
-  fld(F24, src, offset);   offset += 8;
-  fld(F25, src, offset);   offset += 8;
-  fld(F26, src, offset);   offset += 8;
+  fld(F8,  src, offset);   offset -= 8;
+  fld(F9,  src, offset);   offset -= 8;
+  fld(F18, src, offset);   offset -= 8;
+  fld(F19, src, offset);   offset -= 8;
+  fld(F20, src, offset);   offset -= 8;
+  fld(F21, src, offset);   offset -= 8;
+  fld(F22, src, offset);   offset -= 8;
+  fld(F23, src, offset);   offset -= 8;
+  fld(F24, src, offset);   offset -= 8;
+  fld(F25, src, offset);   offset -= 8;
+  fld(F26, src, offset);   offset -= 8;
   fld(F27, src, offset);
 }
 
 // For verify_oops.
 void MacroAssembler::save_volatile_gprs(Register dst, int offset) {
-  sd(R1,  dst, offset);   offset += 8;
-  sd(R5,  dst, offset);   offset += 8;
-  sd(R6,  dst, offset);   offset += 8;
-  sd(R7,  dst, offset);   offset += 8;
-  sd(R10, dst, offset);   offset += 8;
-  sd(R11, dst, offset);   offset += 8;
-  sd(R12, dst, offset);   offset += 8;
-  sd(R13, dst, offset);   offset += 8;
-  sd(R14, dst, offset);   offset += 8;
-  sd(R15, dst, offset);   offset += 8;
-  sd(R16, dst, offset);   offset += 8;
-  sd(R17, dst, offset);   offset += 8;
-  sd(R28, dst, offset);   offset += 8;
-  sd(R29, dst, offset);   offset += 8;
-  sd(R30, dst, offset);   offset += 8;
-  sd(R31, dst, offset);   offset += 8;
+  sd(R1,  dst, offset);   offset -= 8;
+  sd(R5,  dst, offset);   offset -= 8;
+  sd(R6,  dst, offset);   offset -= 8;
+  sd(R7,  dst, offset);   offset -= 8;
+  sd(R10, dst, offset);   offset -= 8;
+  sd(R11, dst, offset);   offset -= 8;
+  sd(R12, dst, offset);   offset -= 8;
+  sd(R13, dst, offset);   offset -= 8;
+  sd(R14, dst, offset);   offset -= 8;
+  sd(R15, dst, offset);   offset -= 8;
+  sd(R16, dst, offset);   offset -= 8;
+  sd(R17, dst, offset);   offset -= 8;
+  sd(R28, dst, offset);   offset -= 8;
+  sd(R29, dst, offset);   offset -= 8;
+  sd(R30, dst, offset);   offset -= 8;
+  sd(R31, dst, offset);   offset -= 8;
 
-  fsd(F0,  dst, offset);   offset += 8;
-  fsd(F1,  dst, offset);   offset += 8;
-  fsd(F2,  dst, offset);   offset += 8;
-  fsd(F3,  dst, offset);   offset += 8;
-  fsd(F4,  dst, offset);   offset += 8;
-  fsd(F5,  dst, offset);   offset += 8;
-  fsd(F6,  dst, offset);   offset += 8;
-  fsd(F7,  dst, offset);   offset += 8;
-  fsd(F10, dst, offset);   offset += 8;
-  fsd(F11, dst, offset);   offset += 8;
-  fsd(F12, dst, offset);   offset += 8;
-  fsd(F13, dst, offset);   offset += 8;
-  fsd(F14, dst, offset);   offset += 8;
-  fsd(F15, dst, offset);   offset += 8;
-  fsd(F16, dst, offset);   offset += 8;
-  fsd(F17, dst, offset);   offset += 8;
-  fsd(F28, dst, offset);   offset += 8;
-  fsd(F29, dst, offset);   offset += 8;
-  fsd(F30, dst, offset);   offset += 8;
+  fsd(F0,  dst, offset);   offset -= 8;
+  fsd(F1,  dst, offset);   offset -= 8;
+  fsd(F2,  dst, offset);   offset -= 8;
+  fsd(F3,  dst, offset);   offset -= 8;
+  fsd(F4,  dst, offset);   offset -= 8;
+  fsd(F5,  dst, offset);   offset -= 8;
+  fsd(F6,  dst, offset);   offset -= 8;
+  fsd(F7,  dst, offset);   offset -= 8;
+  fsd(F10, dst, offset);   offset -= 8;
+  fsd(F11, dst, offset);   offset -= 8;
+  fsd(F12, dst, offset);   offset -= 8;
+  fsd(F13, dst, offset);   offset -= 8;
+  fsd(F14, dst, offset);   offset -= 8;
+  fsd(F15, dst, offset);   offset -= 8;
+  fsd(F16, dst, offset);   offset -= 8;
+  fsd(F17, dst, offset);   offset -= 8;
+  fsd(F28, dst, offset);   offset -= 8;
+  fsd(F29, dst, offset);   offset -= 8;
+  fsd(F30, dst, offset);   offset -= 8;
   fsd(F31, dst, offset);
 }
 
 // For verify_oops.
 void MacroAssembler::restore_volatile_gprs(Register src, int offset) {
-  ld_PPC(R2,  offset, src);   offset += 8;
-  ld_PPC(R3,  offset, src);   offset += 8;
-  ld_PPC(R4,  offset, src);   offset += 8;
-  ld_PPC(R5,  offset, src);   offset += 8;
-  ld_PPC(R6,  offset, src);   offset += 8;
-  ld_PPC(R7,  offset, src);   offset += 8;
-  ld_PPC(R8,  offset, src);   offset += 8;
-  ld_PPC(R9,  offset, src);   offset += 8;
-  ld_PPC(R10, offset, src);   offset += 8;
-  ld_PPC(R11, offset, src);   offset += 8;
-  ld_PPC(R12, offset, src);   offset += 8;
+  ld_PPC(R2,  offset, src);   offset -= 8;
+  ld_PPC(R3,  offset, src);   offset -= 8;
+  ld_PPC(R4,  offset, src);   offset -= 8;
+  ld_PPC(R5,  offset, src);   offset -= 8;
+  ld_PPC(R6,  offset, src);   offset -= 8;
+  ld_PPC(R7,  offset, src);   offset -= 8;
+  ld_PPC(R8,  offset, src);   offset -= 8;
+  ld_PPC(R9,  offset, src);   offset -= 8;
+  ld_PPC(R10, offset, src);   offset -= 8;
+  ld_PPC(R11, offset, src);   offset -= 8;
+  ld_PPC(R12, offset, src);   offset -= 8;
 
-  lfd_PPC(F0, offset, src);   offset += 8;
-  lfd_PPC(F1, offset, src);   offset += 8;
-  lfd_PPC(F2, offset, src);   offset += 8;
-  lfd_PPC(F3, offset, src);   offset += 8;
-  lfd_PPC(F4, offset, src);   offset += 8;
-  lfd_PPC(F5, offset, src);   offset += 8;
-  lfd_PPC(F6, offset, src);   offset += 8;
-  lfd_PPC(F7, offset, src);   offset += 8;
-  lfd_PPC(F8, offset, src);   offset += 8;
-  lfd_PPC(F9, offset, src);   offset += 8;
-  lfd_PPC(F10, offset, src);  offset += 8;
-  lfd_PPC(F11, offset, src);  offset += 8;
-  lfd_PPC(F12, offset, src);  offset += 8;
+  lfd_PPC(F0, offset, src);   offset -= 8;
+  lfd_PPC(F1, offset, src);   offset -= 8;
+  lfd_PPC(F2, offset, src);   offset -= 8;
+  lfd_PPC(F3, offset, src);   offset -= 8;
+  lfd_PPC(F4, offset, src);   offset -= 8;
+  lfd_PPC(F5, offset, src);   offset -= 8;
+  lfd_PPC(F6, offset, src);   offset -= 8;
+  lfd_PPC(F7, offset, src);   offset -= 8;
+  lfd_PPC(F8, offset, src);   offset -= 8;
+  lfd_PPC(F9, offset, src);   offset -= 8;
+  lfd_PPC(F10, offset, src);  offset -= 8;
+  lfd_PPC(F11, offset, src);  offset -= 8;
+  lfd_PPC(F12, offset, src);  offset -= 8;
   lfd_PPC(F13, offset, src);
 }
 
@@ -903,14 +908,15 @@ void MacroAssembler::resize_frame(Register offset, Register tmp) {
 
 void MacroAssembler::resize_frame(int offset, Register tmp) {
   assert(is_simm(offset, 16), "too big an offset");
-  assert_different_registers(tmp, R1_SP_PPC);
+  assert_different_registers(tmp, R2_SP);
   assert((offset & (frame::alignment_in_bytes-1))==0, "resize_frame: unaligned");
   // tmp <- *(SP)
-  ld_PPC(tmp, _abi_PPC(callers_sp), R1_SP_PPC);
+  ld(tmp, R2_SP, _abi(fp));
   // addr <- SP + offset;
   // *(addr) <- tmp;
   // SP <- addr
-  stdu_PPC(tmp, offset, R1_SP_PPC);
+  sd(tmp, R2_SP, offset);
+  addi(R2_SP, R2_SP, offset);
 }
 
 void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Register tmp2) {
@@ -925,15 +931,13 @@ void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Registe
   resize_frame(tmp1/* offset */, tmp2/* tmp */);
 }
 
-void MacroAssembler::push_frame(Register bytes, Register tmp) {
+void MacroAssembler::push_frame(Register bytes) {
 #if 0 // FIXME_RISCV how to check alignment?
   assert(bytes != R0, "r0 not allowed here");
   andi(R0, bytes, frame::alignment_in_bytes-1);
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
-  // TODO_RISCV push frame in correct way for riscv
-  neg(tmp, bytes);
-  add(R2_SP, R2_SP, tmp);
+  sub(R2_SP, R2_SP, bytes);
 }
 
 // Push a frame of size `bytes'.
@@ -960,8 +964,29 @@ void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
 }
 
 // Pop current C frame.
-void MacroAssembler::pop_frame() {
-  ld_PPC(R1_SP_PPC, _abi_PPC(callers_sp), R1_SP_PPC);
+void MacroAssembler::pop_C_frame() {
+  mv(R2_SP, R8_FP);
+  ld(R8_FP, R8_FP, _abi(fp));
+}
+
+void MacroAssembler::pop_java_frame(bool setRA) {
+  ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
+  if (setRA) {
+    ld(R1_RA, R8_FP, _abi(ra));
+  }
+  ld(R8_FP, R8_FP, _abi(fp));
+  mv(R2_SP, R21_sender_SP);
+#ifdef ASSERT
+  {
+    Label Lok;
+    // TODO_RISCV take registers for assert
+//    ld(Rscratch1, R8_FP, _ijava_state(ijava_reserved));
+//    li(Rscratch2, 0x5afe);
+//    beq(Rscratch1, Rscratch2, Lok);
+    stop("frame corrupted (remove activation)", 0x5afe);
+    bind(Lok);
+  }
+#endif
 }
 
 address MacroAssembler::branch_to(Register r_function_entry, bool and_link) {
@@ -1000,10 +1025,10 @@ void MacroAssembler::call_VM_base(Register oop_result,
   if (!last_java_sp->is_valid()) {
     last_java_sp = R2_SP;
   }
-  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R5_scratch1);
+  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R8_FP, R5_scratch1);
 
-  // ARG1 must hold thread address.
-  mv(R11_ARG1, R24_thread);
+  // ARG0 must hold thread address.
+  mv(R10_ARG0, R24_thread);
   address return_pc = call_c(entry_point, relocInfo::none);
 
   reset_last_Java_frame();
@@ -1036,26 +1061,26 @@ void MacroAssembler::call_VM(Register oop_result, address entry_point, bool chec
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg_3,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
-  mr_if_needed(R6_ARG4_PPC, arg_3);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R6_ARG4_PPC, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -1064,23 +1089,23 @@ void MacroAssembler::call_VM_leaf(address entry_point) {
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
+  mv_if_needed(R3_ARG1_PPC, arg_1);
   call_VM_leaf(entry_point);
 }
 
-void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
-  assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mr_if_needed(R4_ARG2_PPC, arg_2);
+void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register arg_1) {
+  mv_if_needed(R10_ARG0, arg_0);
+  assert(arg_1 != R10_ARG0, "smashed argument");
+  mv_if_needed(R11_ARG1, arg_1);
   call_VM_leaf(entry_point);
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
+  mv_if_needed(R3_ARG1_PPC, arg_1);
   assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mr_if_needed(R4_ARG2_PPC, arg_2);
+  mv_if_needed(R4_ARG2_PPC, arg_2);
   assert(arg_3 != R3_ARG1_PPC && arg_3 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_3);
+  mv_if_needed(R5_ARG3_PPC, arg_3);
   call_VM_leaf(entry_point);
 }
 
@@ -1204,7 +1229,7 @@ void MacroAssembler::reserved_stack_check(Register return_pc) {
   // Enable reserved zone again, throw stack overflow exception.
   push_frame_reg_args(0, R0);
   call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), R24_thread);
-  pop_frame();
+  pop_C_frame();
   mtlr_PPC(return_pc);
   load_const_optimized(R0, StubRoutines::throw_delayed_StackOverflowError_entry());
   mtctr_PPC(R0);
@@ -2888,7 +2913,7 @@ void MacroAssembler::resolve_jobject(Register value, Register tmp1, Register tmp
 
 // Values for last_Java_pc, and last_Java_sp must comply to the rules
 // in frame_riscv.hpp.
-void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Java_pc) {
+void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Java_fp, Register last_Java_pc) {
   // Always set last_Java_pc and flags first because once last_Java_sp
   // is visible has_last_Java_frame is true and users will look at the
   // rest of the fields. (Note: flags should always be zero before we
@@ -2904,37 +2929,43 @@ void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Ja
   // known pc and don't have to rely on the native call having a
   // standard frame linkage where we can find the pc.
   if (last_Java_pc != noreg)
-    std_PPC(last_Java_pc, in_bytes(JavaThread::last_Java_pc_offset()), R24_thread);
+    sd(last_Java_pc, R24_thread, in_bytes(JavaThread::last_Java_pc_offset()));
+
+  if (last_Java_fp != noreg)
+    sd(last_Java_fp, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
+
+//  sd(last_Java_fp, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
 
   // Set last_Java_sp last.
-  std_PPC(last_Java_sp, in_bytes(JavaThread::last_Java_sp_offset()), R24_thread);
+  sd(last_Java_sp, R24_thread, in_bytes(JavaThread::last_Java_sp_offset()));
 }
 
-void MacroAssembler::reset_last_Java_frame(void) {
+void MacroAssembler::reset_last_Java_frame() {
   asm_assert_mem8_isnot_zero(in_bytes(JavaThread::last_Java_sp_offset()),
                              R24_thread, "SP was not set, still zero", 0x202);
 
   BLOCK_COMMENT("reset_last_Java_frame {");
-  li_PPC(R0, 0);
+  // _last_Java_sp = 0
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_sp_offset()));
 
   // _last_Java_sp = 0
-  std_PPC(R0, in_bytes(JavaThread::last_Java_sp_offset()), R24_thread);
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
 
   // _last_Java_pc = 0
-  std_PPC(R0, in_bytes(JavaThread::last_Java_pc_offset()), R24_thread);
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_pc_offset()));
   BLOCK_COMMENT("} reset_last_Java_frame");
 }
 
-void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1) {
+void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register fp, Register tmp1) {
   assert_different_registers(sp, tmp1);
 
   // sp points to a TOP_IJAVA_FRAME, retrieve frame's PC via
   // TOP_IJAVA_FRAME_ABI.
   // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
   address entry = pc();
-  load_const_optimized(tmp1, entry);
+  li(tmp1, entry);
 
-  set_last_Java_frame(/*sp=*/sp, /*pc=*/tmp1);
+  set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
 }
 
 void MacroAssembler::get_vm_result(Register oop_result) {
@@ -2948,9 +2979,8 @@ void MacroAssembler::get_vm_result(Register oop_result) {
 
   verify_thread();
 
-  ld_PPC(oop_result, in_bytes(JavaThread::vm_result_offset()), R24_thread);
-  li_PPC(R0, 0);
-  std_PPC(R0, in_bytes(JavaThread::vm_result_offset()), R24_thread);
+  ld(oop_result, R24_thread, in_bytes(JavaThread::vm_result_offset()));
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::vm_result_offset()));
 
   verify_oop(oop_result);
 }
@@ -4382,7 +4412,7 @@ void MacroAssembler::multiply_64_x_64_loop(Register x, Register xstart,
 #endif
   sldi_PPC(tmp, kdx, LogBytesPerInt);
   stdx_PPC(product, z, tmp);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
   b_PPC(L_first_loop);
 
 
@@ -4475,10 +4505,10 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
   addi_PPC(idx, idx, -4);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry, product_high, product, tmp, 8);
-  mr_if_needed(carry2, product_high);
+  mv_if_needed(carry2, product_high);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry2, product_high, product, tmp, 0);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
   bdnz_PPC(L_third_loop);
 
   bind(L_third_loop_exit);  // Handle any left-over operand parts.
@@ -4492,7 +4522,7 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
   blt_PPC(CCR0, L_check_1);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry, product_high, product, tmp, 0);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
 
   bind(L_check_1);
 
@@ -4514,7 +4544,7 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
 
   sldi_PPC(product_high, product_high, 32);
   orr_PPC(product, product, product_high);
-  mr_if_needed(carry, product);
+  mv_if_needed(carry, product);
 
   bind(L_post_third_loop_done);
 }   // multiply_128_x_128_loop
@@ -4597,8 +4627,8 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen,
   //  }
   //  z[xstart] = (int)carry;
 
-  mr_if_needed(idx, ylen);        // idx = ylen
-  mr_if_needed(kdx, zlen);        // kdx = xlen + ylen
+  mv_if_needed(idx, ylen);        // idx = ylen
+  mv_if_needed(kdx, zlen);        // kdx = xlen + ylen
   li_PPC(carry, 0);                   // carry = 0
 
   Label L_done;
@@ -4729,21 +4759,26 @@ void MacroAssembler::asm_assert(bool check_equal, const char *msg, int id) {
 }
 
 void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_offset,
-                                          Register mem_base, const char* msg, int id) {
+                                          Register mem_base, const char* msg, int id, Register tmp) {
 #ifdef ASSERT
   switch (size) {
     case 4:
-      lwz_PPC(R0, mem_offset, mem_base);
-      cmpwi_PPC(CCR0, R0, 0);
+      lwu(tmp, mem_base, mem_offset);
       break;
     case 8:
-      ld_PPC(R0, mem_offset, mem_base);
-      cmpdi_PPC(CCR0, R0, 0);
+      ld(tmp, mem_base, mem_offset);
       break;
     default:
       ShouldNotReachHere();
   }
-  asm_assert(check_equal, msg, id);
+  Label ok;
+  if (check_equal) {
+    beq(tmp, R0_ZERO, ok);
+  } else {
+    bne(tmp, R0_ZERO, ok);
+  }
+  stop(msg, id);
+  bind(ok);
 #endif // ASSERT
 }
 
@@ -4755,7 +4790,8 @@ void MacroAssembler::verify_thread() {
 
 // READ: oop. KILL: R0. Volatile floats perhaps.
 void MacroAssembler::verify_oop(Register oop, const char* msg) {
-  assert(!VerifyOops, "TODO_RISCV: Macroasm::verify_oop unsupported");
+#if 0  // FIXME_RISCV
+
   if (!VerifyOops) {
     return;
   }
@@ -4765,7 +4801,7 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   const int nbytes_save = MacroAssembler::num_volatile_regs * 8;
   save_volatile_gprs(R2_SP, -nbytes_save);
 
-  mr_if_needed(R12_ARG2, oop);
+  mv_if_needed(R12_ARG2, oop);
   push_frame_reg_args(nbytes_save, tmp);
   // load FunctionDescriptor** / entry_address *
   load_const_optimized(tmp, fd, R0);
@@ -4775,9 +4811,10 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   // Call destination for its side effect.
   call_c(tmp);
 
-  pop_frame();
+  pop_C_frame();
   restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
+# endif
 }
 
 void MacroAssembler::verify_oop_addr(RegisterOrConstant offs, Register base, const char* msg) {
@@ -4801,7 +4838,7 @@ void MacroAssembler::verify_oop_addr(RegisterOrConstant offs, Register base, con
   // Call destination for its side effect.
   call_c(tmp);
 
-  pop_frame();
+  pop_C_frame();
   restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 }
@@ -4827,9 +4864,9 @@ void MacroAssembler::stop(int type, const char* msg, int id) {
 #endif
 
   // setup arguments
-  li(R11_ARG1, type);
-  li(R12_ARG2, (void *)msg);
-  call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R11_ARG1, R12_ARG2);
+  li(R10_ARG0, type);
+  li(R11_ARG1, (void *)msg);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R10_ARG0, R11_ARG1);
   illtrap();
   emit_int32(id);
   block_comment("} stop;");

@@ -1067,6 +1067,7 @@ class JavaThread: public Thread {
   ThreadSafepointState* _safepoint_state;        // Holds information about a thread during a safepoint
   address               _saved_exception_pc;     // Saved pc of instruction where last implicit exception happened
 
+ protected:
   // JavaThread termination support
   enum TerminatedTypes {
     _not_terminated = 0xDEAD - 2,
@@ -1076,6 +1077,7 @@ class JavaThread: public Thread {
                                                  // only VM_Exit can set _vm_exited
   };
 
+ private:
   // In general a JavaThread's _terminated field transitions as follows:
   //
   //   _not_terminated => _thread_exiting => _thread_terminated
@@ -1243,7 +1245,7 @@ class JavaThread: public Thread {
     normal_exit,
     jni_detach
   };
-  void exit(bool destroy_vm, ExitType exit_type = normal_exit);
+  virtual void exit(bool destroy_vm, ExitType exit_type = normal_exit);
 
   void cleanup_failed_attach_current_thread(bool is_daemon);
 
@@ -1940,7 +1942,7 @@ class JavaThread: public Thread {
  protected:
   virtual void pre_run();
   virtual void run();
-  void thread_main_inner();
+  virtual void thread_main_inner();
   virtual void post_run();
 
 
@@ -2344,5 +2346,39 @@ class SignalHandlerMark: public StackObj {
   }
 };
 
+class TestJavaThread : public JavaThread {
+  private:
+    const char* test_method;
+
+  public:
+    TestJavaThread(const char* test_method, ThreadFunction entry_point)
+        : JavaThread(entry_point), test_method(test_method) {}
+
+    virtual void thread_main_inner();
+
+    virtual void exit(bool destroy_vm, ExitType exit_type);
+
+    const char* get_test_method();
+
+    void join();
+};
+
+typedef void (*TestFunction)(TRAPS);
+
+class JmmTest {
+  public:
+    const char *before_test_method_name;
+    char **actor_method_names;
+    int actors_number;
+    TestFunction after_test;
+
+    JmmTest(const char *before_test_method_name, char **actor_method_names, int actors_number, TestFunction after_test)
+        : before_test_method_name(before_test_method_name), actor_method_names(actor_method_names),
+          actors_number(actors_number), after_test(after_test) {};
+
+    void run(TRAPS);
+
+    static void run_all(JmmTest* tests, size_t size, TRAPS);
+};
 
 #endif // SHARE_RUNTIME_THREAD_HPP

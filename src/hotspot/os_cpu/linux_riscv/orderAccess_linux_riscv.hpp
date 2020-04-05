@@ -64,44 +64,37 @@
 //                          Store|Load
 //
 
-// FIXME_RISCV
-#define inlasm_sync()
-#define inlasm_lwsync()
-#define inlasm_eieio()
-#define inlasm_isync()
-#define inlasm_acquire_reg(X)
-
-#if 0
-#define inlasm_sync()     __asm__ __volatile__ ("sync"   : : : "memory");
-#define inlasm_lwsync()   __asm__ __volatile__ ("lwsync" : : : "memory");
-#define inlasm_eieio()    __asm__ __volatile__ ("eieio"  : : : "memory");
-#define inlasm_isync()    __asm__ __volatile__ ("isync"  : : : "memory");
+#define inlasm_fence(p, s)  __asm__ __volatile__ ("fence " #p "," #s : : : "memory");
+#define inlasm_fencei()     __asm__ __volatile__ ("fence.i" : : : "memory");
 // Use twi-isync for load_acquire (faster than lwsync).
-#define inlasm_acquire_reg(X) __asm__ __volatile__ ("twi 0,%0,0\n isync\n" : : "r" (X) : "memory");
-#endif
+//#define inlasm_acquire_reg(X) __asm__ __volatile__ ("twi 0,%0,0\n isync\n" : : "r" (X) : "memory");
 
-inline void   OrderAccess::loadload()   { inlasm_lwsync(); }
-inline void   OrderAccess::storestore() { inlasm_lwsync(); }
-inline void   OrderAccess::loadstore()  { inlasm_lwsync(); }
-inline void   OrderAccess::storeload()  { inlasm_sync();   }
+inline void   OrderAccess::loadload()   { inlasm_fence(r, r); }
+inline void   OrderAccess::storestore() { inlasm_fence(w, w); }
+inline void   OrderAccess::loadstore()  { inlasm_fence(r, w); }
+inline void   OrderAccess::storeload()  { inlasm_fence(w, r); }
 
-inline void   OrderAccess::acquire()    { inlasm_lwsync(); }
-inline void   OrderAccess::release()    { inlasm_lwsync(); }
-inline void   OrderAccess::fence()      { inlasm_sync();   }
-inline void   OrderAccess::cross_modify_fence()
-                                        { inlasm_isync();  }
+inline void   OrderAccess::acquire()    { inlasm_fence(r, rw); }
+inline void   OrderAccess::release()    { inlasm_fence(rw, w); }
+inline void   OrderAccess::fence()      { inlasm_fence(rw, rw); }
+inline void   OrderAccess::cross_modify_fence() {
+  inlasm_fencei();
+  inlasm_fence(r, r);
+}
 
 template<size_t byte_size>
 struct OrderAccess::PlatformOrderedLoad<byte_size, X_ACQUIRE>
 {
   template <typename T>
-  T operator()(const volatile T* p) const { T t = Atomic::load(p); inlasm_acquire_reg(t); return t; }
+  T operator()(const volatile T* p) const {
+    T t = Atomic::load(p);
+    //inlasm_acquire_reg(t);
+    acquire();
+    return t;
+  }
 };
 
-#undef inlasm_sync
-#undef inlasm_lwsync
-#undef inlasm_eieio
-#undef inlasm_isync
-#undef inlasm_acquire_reg
+#undef inlasm_fence
+#undef inlasm_fencei
 
 #endif // OS_CPU_LINUX_RISCV_ORDERACCESS_LINUX_RISCV_HPP

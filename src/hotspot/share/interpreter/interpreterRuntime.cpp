@@ -1016,6 +1016,7 @@ JRT_ENTRY(void, InterpreterRuntime::resolve_from_cache(JavaThread* thread, Bytec
     resolve_invokedynamic(thread);
     break;
   default:
+    tty->print_cr("unexpected bytecode: %s", Bytecodes::name(bytecode));
     fatal("unexpected bytecode: %s", Bytecodes::name(bytecode));
     break;
   }

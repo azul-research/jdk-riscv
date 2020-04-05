@@ -525,7 +525,7 @@ void trace_method_handle_stub(const char* adaptername,
       // Safely create a frame and call frame::describe.
       intptr_t *dump_sp = trace_calling_frame.sender_sp();
 
-      frame dump_frame = frame(dump_sp);
+      frame dump_frame = frame(dump_sp, NULL /* FIXME_RISCV fp */);
       dump_frame.describe(values, 1);
 
       values.describe(-1, saved_regs, "raw top of stack");
@@ -562,7 +562,7 @@ void MethodHandles::trace_method_handle(MacroAssembler* _masm, const char* adapt
   __ mr_PPC(R6_ARG4_PPC, R1_SP_PPC);
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, trace_method_handle_stub));
 
-  __ pop_frame();
+  __ pop_C_frame();
   __ restore_LR_CR(tmp);
   __ restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 

@@ -125,16 +125,16 @@ void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
 */// FIXME_RISCV end
 }
 
-static address ucontext_get_lr(const ucontext_t * uc) {
-  return NULL; // FIXME_RISCV (address)uc->uc_mcontext.regs->link;
+static address ucontext_get_ra(const ucontext_t * uc) {
+  return (address)uc->uc_mcontext.__gregs[1/*REG_RA*/];
 }
 
 intptr_t* os::Linux::ucontext_get_sp(const ucontext_t * uc) {
-  return NULL;//(intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/]; // FIXME_RISCV
+  return (intptr_t*)uc->uc_mcontext.__gregs[2/*REG_SP*/];
 }
 
 intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
-  return NULL;//(intptr_t*)uc->uc_mcontext.regs->gpr[1/*REG_SP*/]; // FIXME_RISCV
+  return (intptr_t*)uc->uc_mcontext.__gregs[1/*REG_SP*/];
 }
 
 static unsigned long ucontext_get_trap(const ucontext_t * uc) {
@@ -165,7 +165,7 @@ frame os::fetch_frame_from_context(const void* ucVoid) {
   intptr_t* sp;
   intptr_t* fp;
   ExtendedPC epc = fetch_frame_from_context(ucVoid, &sp, &fp);
-  return frame(sp, epc.pc());
+  return frame(sp, fp, epc.pc());
 }
 
 bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t* uc, frame* fr) {
@@ -191,8 +191,9 @@ bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t*
       return false;
     } else {
       intptr_t* sp = os::Linux::ucontext_get_sp(uc);
-      address lr = ucontext_get_lr(uc);
-      *fr = frame(sp, lr);
+      intptr_t* fp = os::Linux::ucontext_get_fp(uc);
+      address ra = ucontext_get_ra(uc);
+      *fr = frame(sp, fp, ra);
       if (!fr->is_java_frame()) {
         assert(fr->safe_for_sender(thread), "Safety check");
         assert(!fr->is_first_frame(), "Safety check");
@@ -207,16 +208,16 @@ bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t*
 frame os::get_sender_for_C_frame(frame* fr) {
   if (*fr->sp() == 0) {
     // fr is the last C frame
-    return frame(NULL, NULL);
+    return frame(NULL, NULL, (address) NULL);
   }
-  return frame(fr->sender_sp(), fr->sender_pc());
+  return frame(fr->sender_sp(), NULL /* FIXME_RISCV fr->sender_sp() */, fr->sender_pc());
 }
 
 
 frame os::current_frame() {
   intptr_t* csp = (intptr_t*) *((intptr_t*) os::current_stack_pointer());
   // hack.
-  frame topframe(csp, (address)0x8);
+  frame topframe(csp, NULL /* FIXME_RISCV current fp */ , (address)0x8);
   // Return sender of sender of current topframe which hopefully
   // both have pc != NULL.
   frame tmp = os::get_sender_for_C_frame(&topframe);
