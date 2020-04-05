@@ -296,9 +296,9 @@ monitor-> |                 |       }
     frame_header_size = abi_frame_size + ijava_state_size
   };
 
+
 #define _ijava_state(_component) \
         (int) (-8 - frame::abi_frame_size - offset_of(frame::ijava_state, _component))
-
 
   //  Frame layout for JIT generated methods
   //
@@ -388,9 +388,9 @@ monitor-> |                 |       }
  public:
 
   // Constructors
-  inline frame(intptr_t* sp);
-  inline frame(intptr_t* sp, address pc);
-  inline frame(intptr_t* sp, address pc, intptr_t* unextended_sp);
+  inline frame(intptr_t* sp, intptr_t* fp);
+  inline frame(intptr_t* sp, intptr_t* fp, address pc);
+  inline frame(intptr_t* sp, intptr_t* fp, address pc, intptr_t* unextended_sp);
 
  private:
 

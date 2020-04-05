@@ -122,22 +122,22 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result,
 
 
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1) {
-  mr_if_needed(R4_ARG2_PPC, arg1);
+  mv_if_needed(R4_ARG2_PPC, arg1);
   return call_RT(oop_result1, metadata_result, entry, 1);
 }
 
 
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1, Register arg2) {
-  mr_if_needed(R4_ARG2_PPC, arg1);
-  mr_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
+  mv_if_needed(R4_ARG2_PPC, arg1);
+  mv_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
   return call_RT(oop_result1, metadata_result, entry, 2);
 }
 
 
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1, Register arg2, Register arg3) {
-  mr_if_needed(R4_ARG2_PPC, arg1);
-  mr_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R6_ARG4_PPC, arg3); assert(arg3 != R4_ARG2_PPC && arg3 != R5_ARG3_PPC, "smashed argument");
+  mv_if_needed(R4_ARG2_PPC, arg1);
+  mv_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
+  mv_if_needed(R6_ARG4_PPC, arg3); assert(arg3 != R4_ARG2_PPC && arg3 != R5_ARG3_PPC, "smashed argument");
   return call_RT(oop_result1, metadata_result, entry, 3);
 }
 

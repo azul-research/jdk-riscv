@@ -3021,7 +3021,7 @@ void SharedRuntime::generate_deopt_blob() {
   // optional c2i, caller of deoptee, ...).
 
   // Initialize R14_state.
-  __ restore_interpreter_state(R5_scratch1);
+  __ restore_interpreter_state();
   __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // Return to the interpreter entry point.
@@ -3161,7 +3161,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // stack: (top interpreter frame, ..., optional interpreter frame,
   // optional c2i, caller of deoptee, ...).
 
-  __ restore_interpreter_state(R5_scratch1);
+  __ restore_interpreter_state();
   __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // Return to the interpreter entry point.
@@ -3221,7 +3221,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   // The following is basically a call_VM. However, we need the precise
   // address of the call in order to generate an oopmap. Hence, we do all the
   // work outselves.
-  __ set_last_Java_frame(/*sp=*/R1_SP_PPC, /*pc=*/noreg);
+  __ set_last_Java_frame(/*sp=*/R1_SP_PPC, /*fp=*/noreg, /*pc=*/noreg);
 
   // The return address must always be correct so that the frame constructor
   // never sees an invalid pc.

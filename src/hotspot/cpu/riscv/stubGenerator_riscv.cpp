@@ -108,7 +108,7 @@ class StubGenerator: public StubCodeGenerator {
       Register r_argument_addr              = R29_TMP4;
       Register r_argumentcopy_addr          = R30_TMP5;
       Register r_argument_size_in_bytes     = R31_TMP6;
-      Register r_frame_size                 = R9_S1;
+      Register r_frame_size                 = R7_TMP2;
 
       Label arguments_copied;
 
@@ -206,7 +206,7 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R9_S1;
+      Register r_new_arg_entry = R7_TMP2;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
@@ -529,7 +529,7 @@ class StubGenerator: public StubCodeGenerator {
     // whose address will be moved to R5_scratch1.
     address gc_map_pc = __ get_PC_trash_LR(R5_scratch1);
 
-    __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R5_scratch1);
+    __ set_last_Java_frame(/*sp*/R1_SP_PPC, noreg, /*pc*/R5_scratch1);
 
     __ mr_PPC(R3_ARG1_PPC, R24_thread);
     if (arg1 != noreg) {

@@ -39,8 +39,6 @@ inline void frame::find_codeblob_and_set_pc_and_deopt_state(address pc) {
   _cb = CodeCache::find_blob(pc);
   _pc = pc;   // Must be set for get_deopt_original_pc()
 
-  _fp = (intptr_t*)own_abi()->callers_sp;
-
   address original_pc = CompiledMethod::get_deopt_original_pc(this);
   if (original_pc != NULL) {
     _pc = original_pc;
@@ -57,15 +55,15 @@ inline void frame::find_codeblob_and_set_pc_and_deopt_state(address pc) {
 // Initialize all fields, _unextended_sp will be adjusted in find_codeblob_and_set_pc_and_deopt_state.
 inline frame::frame() : _sp(NULL), _pc(NULL), _cb(NULL),  _deopt_state(unknown), _unextended_sp(NULL), _fp(NULL) {}
 
-inline frame::frame(intptr_t* sp) : _sp(sp), _unextended_sp(sp) {
+inline frame::frame(intptr_t* sp, intptr_t* fp) : _sp(sp), _unextended_sp(sp), _fp(fp) {
   find_codeblob_and_set_pc_and_deopt_state((address)own_abi()->lr); // also sets _fp and adjusts _unextended_sp
 }
 
-inline frame::frame(intptr_t* sp, address pc) : _sp(sp), _unextended_sp(sp) {
+inline frame::frame(intptr_t* sp, intptr_t* fp, address pc) : _sp(sp), _unextended_sp(sp), _fp(fp) {
   find_codeblob_and_set_pc_and_deopt_state(pc); // also sets _fp and adjusts _unextended_sp
 }
 
-inline frame::frame(intptr_t* sp, address pc, intptr_t* unextended_sp) : _sp(sp), _unextended_sp(unextended_sp) {
+inline frame::frame(intptr_t* sp, intptr_t* fp, address pc, intptr_t* unextended_sp) : _sp(sp), _unextended_sp(unextended_sp), _fp(fp) {
   find_codeblob_and_set_pc_and_deopt_state(pc); // also sets _fp and adjusts _unextended_sp
 }
 

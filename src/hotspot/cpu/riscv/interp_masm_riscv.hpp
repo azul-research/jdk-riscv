@@ -48,7 +48,7 @@ class InterpreterMacroAssembler: public MacroAssembler {
 #define thread_(field_name) R24_thread, in_bytes(JavaThread::field_name ## _offset())
 #define method_(field_name) R27_method, in_bytes(Method::field_name ## _offset())
 
-  virtual void check_and_handle_popframe(Register scratch_reg);
+  virtual void check_and_handle_popframe(Register scratch_reg, Register scratch_reg2);
   virtual void check_and_handle_earlyret(Register scratch_reg);
 
   // Base routine for all dispatches.
@@ -199,8 +199,8 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void static_aload_or_store(int which_local, LoadOrStore direction, Register Rtmp);
   void static_dload_or_store(int which_local, LoadOrStore direction);
 
-  void save_interpreter_state(Register scratch);
-  void restore_interpreter_state(Register scratch, bool bcp_and_mdx_only = false);
+  void save_interpreter_state();
+  void restore_interpreter_state(bool bcp_and_mdx_only = false);
 
   void increment_backedge_counter(const Register Rcounters, Register Rtmp, Register Rtmp2, Register Rscratch);
   void test_backedge_count_for_osr(Register backedge_count, Register method_counters, Register target_bcp, Register disp, Register Rtmp);
