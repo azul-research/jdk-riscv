@@ -2693,16 +2693,21 @@ class Assembler : public AbstractAssembler {
   // tmp reg if the constant is not encodable as immediate.
   // Size unpredictable.
   void ld_PPC(  Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void ld(Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwa_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
+  void lwu( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lha_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lhz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lbz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void std_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
+  void sd(Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stw_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
+  void sw(Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void sth_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stb_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void add_PPC( Register d, RegisterOrConstant roc, Register s1);
+  void add(Register d, RegisterOrConstant roc, Register s1);
   void subf_PPC(Register d, RegisterOrConstant roc, Register s1);
   void cmpd_PPC(ConditionRegister d, RegisterOrConstant roc, Register s1);
   // Load pointer d from s1+roc.

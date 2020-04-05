@@ -2823,8 +2823,8 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
                  Roffset       = R7_TMP2,   // Needs to survive C call.
                  Rflags        = R11_ARG1,
                  Rbtable       = R12_ARG2,
-                 Rscratch      = R5_scratch1,
-                 Rscratch2     = R6_scratch2,
+                 Rscratch      = R6_scratch2,
+                 Rscratch2     = R5_scratch1,
                  Rscratch3     = R14_ARG4,
                  Rbc           = Rscratch3;
   const ConditionRegister CR_is_vol = CCR2; // Non-volatile condition register (survives runtime call in do_oop_store).
@@ -2849,10 +2849,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   __ li(Rbtable, (address)branch_table);
 
   // Get volatile flag.
-  __ rldicl_PPC(Rscratch, Rflags, 64-ConstantPoolCacheEntry::is_volatile_shift, 63); // Extract volatile bit.
+  __ srli(Rscratch, Rflags, ConstantPoolCacheEntry::is_volatile_shift);
+  __ andi(Rscratch, Rscratch, 1); // Extract volatile bit.
 
   // Check the field type.
-  __ rldicl_PPC(Rflags, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
+  __ srli(Rflags, Rflags, ConstantPoolCacheEntry::tos_state_shift);
+  __ andi(Rflags, Rflags, (1 << ConstantPoolCacheEntry::tos_state_bits) - 1);
 
 #ifdef ASSERT
   Label LFlagInvalid;
@@ -2861,16 +2863,16 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).
-  __ sldi_PPC(Rflags, Rflags, LogBytesPerWord);
+  __ slli(Rflags, Rflags, LogBytesPerWord);
   if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
     __ cmpwi_PPC(CR_is_vol, Rscratch, 1);  // Volatile?
   }
-  __ sldi_PPC(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile? size of instruction 1 : 0.
-  __ ldx_PPC(Rbtable, Rbtable, Rflags);
+  __ slli(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.
+  __ add(Rbtable, Rbtable, Rflags);
+  __ ld(Rbtable, Rbtable, 0);
 
-  __ subf_PPC(Rbtable, Rscratch, Rbtable); // Point to volatile/non-volatile entry point.
-  __ mtctr_PPC(Rbtable);
-  __ bctr_PPC();
+  __ sub(Rbtable, Rbtable, Rscratch); // Point to volatile/non-volatile entry point.
+  __ jr(Rbtable);
 
 #ifdef ASSERT
   __ bind(LFlagInvalid);
@@ -2894,13 +2896,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   if (!is_static) {
     pop_and_check_object(Rclass_or_obj);  // Kills R5_scratch1.
   }
-  __ stfdx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ fsd(F23_ftos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_dputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -2910,13 +2911,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[ftos] = __ pc(); // non-volatile_entry point
   __ pop(ftos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1.
-  __ stfsx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ fsw(F23_ftos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_fputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -2926,13 +2926,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[itos] = __ pc(); // non-volatile_entry point
   __ pop(itos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1.
-  __ stwx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ sw(R25_tos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_iputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -2942,13 +2941,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[ltos] = __ pc(); // non-volatile_entry point
   __ pop(ltos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1.
-  __ stdx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ sd(R25_tos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_lputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -2958,13 +2956,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[btos] = __ pc(); // non-volatile_entry point
   __ pop(btos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1.
-  __ stbx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ sb(R25_tos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_bputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -2975,13 +2972,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   __ pop(ztos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1.
   __ andi(R25_tos, R25_tos, 0x1);
-  __ stbx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ sb(R25_tos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_zputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -2991,13 +2987,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[ctos] = __ pc(); // non-volatile_entry point
   __ pop(ctos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1..
-  __ sthx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ sh(R25_tos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_cputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -3007,13 +3002,12 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[stos] = __ pc(); // non-volatile_entry point
   __ pop(stos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // Kills R5_scratch1.
-  __ sthx_PPC(R25_tos, Rclass_or_obj, Roffset);
+  __ add(Rclass_or_obj, Rclass_or_obj, Roffset);
+  __ sh(R25_tos, Rclass_or_obj, 0);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_sputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
   __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
   __ align(32, 28, 28); // Align pop.
@@ -3023,18 +3017,17 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   branch_table[atos] = __ pc(); // non-volatile_entry point
   __ pop(atos);
   if (!is_static) { pop_and_check_object(Rclass_or_obj); } // kills R5_scratch1
-  do_oop_store(_masm, Rclass_or_obj, Roffset, R25_tos, Rscratch, Rscratch2, Rscratch3, IN_HEAP);
+  do_oop_store(_masm, Rclass_or_obj, Roffset, R25_tos, Rscratch3, Rscratch2, Rscratch, IN_HEAP);
   if (!is_static && rc == may_rewrite) {
     patch_bytecode(Bytecodes::_fast_aputfield, Rbc, Rscratch, true, byte_no);
   }
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ beq_PPC(CR_is_vol, Lvolatile); // Volatile?
-    __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
 
-    __ align(32, 12);
-    __ bind(Lvolatile);
-    __ fence();
-  }
+  __ bnez(Rscratch, Lvolatile); // Volatile?
+  __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
+
+  __ align(32, 12);
+  __ bind(Lvolatile);
+  __ fence();
   // fallthru: __ b_PPC(Lexit);
 
 #ifdef ASSERT
@@ -4109,19 +4102,19 @@ void TemplateTable::athrow() {
 void TemplateTable::monitorenter() {
   transition(atos, vtos);
 
-  __ verify_oop(R25_tos);
+  //__ verify_oop(R25_tos); FIXME_RISCV
 
   Register Rcurrent_monitor  = R5_scratch1,
            Rcurrent_obj      = R6_scratch2,
            Robj_to_lock      = R25_tos,
-           Rscratch1         = R3_ARG1_PPC,
-           Rscratch2         = R4_ARG2_PPC,
-           Rscratch3         = R5_ARG3_PPC,
-           Rcurrent_obj_addr = R6_ARG4_PPC;
+           Rscratch1         = R11_ARG1,
+           Rscratch2         = R12_ARG2,
+           Rscratch3         = R13_ARG3,
+           Rcurrent_obj_addr = R14_ARG4;
 
   // ------------------------------------------------------------------------------
   // Null pointer exception.
-  __ null_check_throw(Robj_to_lock, -1, R5_scratch1);
+  //__ null_check_throw(Robj_to_lock, -1, R5_scratch1); FIXME_RISCV
 
   // Try to acquire a lock on the object.
   // Repeat until succeeded (i.e., until monitorenter returns true).
@@ -4129,58 +4122,51 @@ void TemplateTable::monitorenter() {
   // ------------------------------------------------------------------------------
   // Find a free slot in the monitor block.
   Label Lfound, Lexit, Lallocate_new;
-  ConditionRegister found_free_slot = CCR0,
-                    found_same_obj  = CCR1,
-                    reached_limit   = CCR6;
   {
     Label Lloop;
     Register Rlimit = Rcurrent_monitor;
 
     // Set up search loop - start with topmost monitor.
-    __ add_PPC(Rcurrent_obj_addr, BasicObjectLock::obj_offset_in_bytes(), R26_monitor_PPC);
+    __ addi(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
 
-    __ ld_PPC(Rlimit, 0, R1_SP_PPC);
-    __ addi_PPC(Rlimit, Rlimit, - (frame::ijava_state_size + frame::interpreter_frame_monitor_size_in_bytes() - BasicObjectLock::obj_offset_in_bytes())); // Monitor base
+    __ ld(Rlimit, R2_SP, 0);
+    __ addi(Rlimit, Rlimit, -(frame::ijava_state_size + frame::interpreter_frame_monitor_size_in_bytes() - BasicObjectLock::obj_offset_in_bytes())); // Monitor base
 
     // Check if any slot is present => short cut to allocation if not.
-    __ cmpld_PPC(reached_limit, Rcurrent_obj_addr, Rlimit);
-    __ bgt_PPC(reached_limit, Lallocate_new);
+    __ bgt(Rcurrent_obj_addr, Rlimit, Lallocate_new);
 
     // Pre-load topmost slot.
-    __ ld_PPC(Rcurrent_obj, 0, Rcurrent_obj_addr);
-    __ addi_PPC(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
+    __ ld(Rcurrent_obj, Rcurrent_obj_addr, 0);
+    __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
     // The search loop.
     __ bind(Lloop);
     // Found free slot?
-    __ cmpdi_PPC(found_free_slot, Rcurrent_obj, 0);
+    __ beqz(Rcurrent_obj, Lexit);
     // Is this entry for same obj? If so, stop the search and take the found
     // free slot or allocate a new one to enable recursive locking.
-    __ cmpd_PPC(found_same_obj, Rcurrent_obj, Robj_to_lock);
-    __ cmpld_PPC(reached_limit, Rcurrent_obj_addr, Rlimit);
-    __ beq_PPC(found_free_slot, Lexit);
-    __ beq_PPC(found_same_obj, Lallocate_new);
-    __ bgt_PPC(reached_limit, Lallocate_new);
+    __ beq(Rcurrent_obj, Robj_to_lock, Lallocate_new);
+    __ bgt(Rcurrent_obj_addr, Rlimit, Lallocate_new);
     // Check if last allocated BasicLockObj reached.
-    __ ld_PPC(Rcurrent_obj, 0, Rcurrent_obj_addr);
-    __ addi_PPC(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
+    __ ld(Rcurrent_obj, Rcurrent_obj_addr, 0);
+    __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
     // Next iteration if unchecked BasicObjectLocks exist on the stack.
-    __ b_PPC(Lloop);
+    __ j(Lloop);
   }
 
   // ------------------------------------------------------------------------------
   // Check if we found a free slot.
   __ bind(Lexit);
 
-  __ addi_PPC(Rcurrent_monitor, Rcurrent_obj_addr, -(frame::interpreter_frame_monitor_size() * wordSize) - BasicObjectLock::obj_offset_in_bytes());
-  __ addi_PPC(Rcurrent_obj_addr, Rcurrent_obj_addr, - frame::interpreter_frame_monitor_size() * wordSize);
-  __ b_PPC(Lfound);
+  __ addi(Rcurrent_monitor, Rcurrent_obj_addr, -(frame::interpreter_frame_monitor_size() * wordSize) - BasicObjectLock::obj_offset_in_bytes());
+  __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, - frame::interpreter_frame_monitor_size() * wordSize);
+  __ j(Lfound);
 
   // We didn't find a free BasicObjLock => allocate one.
   __ align(32, 12);
   __ bind(Lallocate_new);
   __ add_monitor_to_stack(false, Rscratch1, Rscratch2);
-  __ mr_PPC(Rcurrent_monitor, R26_monitor_PPC);
-  __ addi_PPC(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
+  __ mv(Rcurrent_monitor, R26_monitor_PPC);
+  __ addi(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
 
   // ------------------------------------------------------------------------------
   // We now have a slot to lock.
@@ -4188,14 +4174,14 @@ void TemplateTable::monitorenter() {
 
   // Increment bcp to point to the next bytecode, so exception handling for async. exceptions work correctly.
   // The object has already been poped from the stack, so the expression stack looks correct.
-  __ addi_PPC(R22_bcp, R22_bcp, 1);
+  __ addi(R22_bcp, R22_bcp, 1);
 
-  __ std_PPC(Robj_to_lock, 0, Rcurrent_obj_addr);
+  __ sd(Robj_to_lock, Rcurrent_obj_addr, 0);
   __ lock_object(Rcurrent_monitor, Robj_to_lock);
 
   // Check if there's enough space on the stack for the monitors after locking.
   // This emits a single store.
-  __ generate_stack_overflow_check(0);
+  //__ generate_stack_overflow_check(0); FIXME_RISCV
 
   // The bcp has already been incremented. Just need to dispatch to next instruction.
   __ dispatch_next(vtos);
@@ -4203,48 +4189,46 @@ void TemplateTable::monitorenter() {
 
 void TemplateTable::monitorexit() {
   transition(atos, vtos);
-  __ verify_oop(R25_tos);
+  //__ verify_oop(R25_tos); FIXME_RISCV
 
   Register Rcurrent_monitor  = R5_scratch1,
            Rcurrent_obj      = R6_scratch2,
            Robj_to_lock      = R25_tos,
-           Rcurrent_obj_addr = R3_ARG1_PPC,
-           Rlimit            = R4_ARG2_PPC;
+           Rcurrent_obj_addr = R11_ARG1,
+           Rlimit            = R12_ARG2;
   Label Lfound, Lillegal_monitor_state;
 
   // Check corner case: unbalanced monitorEnter / Exit.
-  __ ld_PPC(Rlimit, 0, R1_SP_PPC);
-  __ addi_PPC(Rlimit, Rlimit, - (frame::ijava_state_size + frame::interpreter_frame_monitor_size_in_bytes())); // Monitor base
+  __ ld(Rlimit, R2_SP, 0);
+  __ addi(Rlimit, Rlimit, - (frame::ijava_state_size + frame::interpreter_frame_monitor_size_in_bytes())); // Monitor base
 
   // Null pointer check.
-  __ null_check_throw(Robj_to_lock, -1, R5_scratch1);
+  //__ null_check_throw(Robj_to_lock, -1, R5_scratch1); FIXME_RISCV
 
-  __ cmpld_PPC(CCR0, R26_monitor_PPC, Rlimit);
-  __ bgt_PPC(CCR0, Lillegal_monitor_state);
+  __ bgt(R26_monitor_PPC, Rlimit, Lillegal_monitor_state);
 
   // Find the corresponding slot in the monitors stack section.
   {
     Label Lloop;
 
     // Start with topmost monitor.
-    __ addi_PPC(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
-    __ addi_PPC(Rlimit, Rlimit, BasicObjectLock::obj_offset_in_bytes());
-    __ ld_PPC(Rcurrent_obj, 0, Rcurrent_obj_addr);
-    __ addi_PPC(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
+    __ addi(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
+    __ addi(Rlimit, Rlimit, BasicObjectLock::obj_offset_in_bytes());
+    __ ld(Rcurrent_obj, Rcurrent_obj_addr, 0);
+    __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
 
     __ bind(Lloop);
     // Is this entry for same obj?
-    __ cmpd_PPC(CCR0, Rcurrent_obj, Robj_to_lock);
-    __ beq_PPC(CCR0, Lfound);
+    __ beq(Rcurrent_obj, Robj_to_lock, Lfound);
 
     // Check if last allocated BasicLockObj reached.
 
-    __ ld_PPC(Rcurrent_obj, 0, Rcurrent_obj_addr);
+    __ ld(Rcurrent_obj, Rcurrent_obj_addr, 0);
     __ cmpld_PPC(CCR0, Rcurrent_obj_addr, Rlimit);
-    __ addi_PPC(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
+    __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
 
     // Next iteration if unchecked BasicObjectLocks exist on the stack.
-    __ ble_PPC(CCR0, Lloop);
+    __ ble(Rcurrent_obj_addr, Rlimit, Lloop);
   }
 
   // Fell through without finding the basic obj lock => throw up!
@@ -4254,7 +4238,7 @@ void TemplateTable::monitorexit() {
 
   __ align(32, 12);
   __ bind(Lfound);
-  __ addi_PPC(Rcurrent_monitor, Rcurrent_obj_addr,
+  __ addi(Rcurrent_monitor, Rcurrent_obj_addr,
           -(frame::interpreter_frame_monitor_size() * wordSize) - BasicObjectLock::obj_offset_in_bytes());
   __ unlock_object(Rcurrent_monitor);
 }

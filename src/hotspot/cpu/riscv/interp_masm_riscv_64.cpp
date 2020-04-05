@@ -751,12 +751,12 @@ void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register retur
 
   // Pop interpreter frame.
   ld(Rscratch1, R2_SP, 0); // *SP
-  ld(Rsender_sp, Rscratch1, _ijava_state_neg(sender_sp)); // top_frame_sp
+  ld(Rsender_sp, Rscratch1, _ijava_state(sender_sp)); // top_frame_sp
   ld(Rscratch2, Rscratch1, 0); // **SP
 #ifdef ASSERT
   {
     Label Lok;
-    ld(Rscratch1, Rscratch1, _ijava_state_neg(ijava_reserved));
+    ld(Rscratch1, Rscratch1, _ijava_state(ijava_reserved));
     li(Rscratch2, 0x5afe);
     beq(Rscratch1, Rscratch2, Lok);
     stop("frame corrupted (remove activation)", 0x5afe);
@@ -1161,7 +1161,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
 
   save_interpreter_state(Rscratch2);
 #ifdef ASSERT
-  ld_PPC(Rscratch1, _ijava_state_neg(top_frame_sp), Rscratch2); // Rscratch2 contains fp
+  ld_PPC(Rscratch1, _ijava_state(top_frame_sp), Rscratch2); // Rscratch2 contains fp
   cmpd_PPC(CCR0, R21_sender_SP, Rscratch1);
   asm_assert_eq("top_frame_sp incorrect", 0x951);
 #endif
@@ -2025,7 +2025,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
          "size of a monitor must respect alignment of SP");
 
   resize_frame(-monitor_size, /*temp*/esp); // Allocate space for new monitor
-  std_PPC(R1_SP_PPC, _ijava_state_neg(top_frame_sp), esp); // esp contains fp
+  sd(R2_SP, esp, _ijava_state(top_frame_sp)); // esp contains fp
 
   // Shuffle expression stack down. Recall that stack_base points
   // just above the new expression stack bottom. Old_tos and new_tos
@@ -2034,26 +2034,27 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
     Label copy_slot, copy_slot_finished;
     const Register n_slots = slot;
 
-    addi_PPC(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
-    subf_PPC(n_slots, esp, R26_monitor_PPC);
-    srdi__PPC(n_slots, n_slots, LogBytesPerWord);          // Compute number of slots to copy.
+    addi(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
+    sub(n_slots, R26_monitor_PPC, esp);
+    srli(n_slots, n_slots, LogBytesPerWord); // Compute number of slots to copy.
     assert(LogBytesPerWord == 3, "conflicts assembler instructions");
-    beq_PPC(CCR0, copy_slot_finished);                     // Nothing to copy.
+    beqz(n_slots, copy_slot_finished); // Nothing to copy.
 
-    mtctr_PPC(n_slots);
+    mv(R29_TMP4, n_slots);
 
     // loop
     bind(copy_slot);
-    ld_PPC(slot, 0, esp);              // Move expression stack down.
-    std_PPC(slot, -monitor_size, esp); // distance = monitor_size
-    addi_PPC(esp, esp, BytesPerWord);
-    bdnz_PPC(copy_slot);
+    ld(slot, esp, 0); // Move expression stack down.
+    sd(slot, esp, -monitor_size); // distance = monitor_size
+    addi(esp, esp, BytesPerWord);
+    addi(R29_TMP4, R29_TMP4, -1);
+    bnez(R29_TMP4, copy_slot);
 
     bind(copy_slot_finished);
   }
 
-  addi_PPC(R23_esp, R23_esp, -monitor_size);
-  addi_PPC(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
+  addi(R23_esp, R23_esp, -monitor_size);
+  addi(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
 
   // Restart interpreter
 }
@@ -2245,25 +2246,25 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 
 void InterpreterMacroAssembler::save_interpreter_state(Register scratch) {
   ld(scratch, R2_SP, 0);
-  sd(R23_esp, scratch, _ijava_state_neg(esp));
-  sd(R22_bcp, scratch, _ijava_state_neg(bcp));
-  sd(R28_monitor, scratch, _ijava_state_neg(monitors));
-  if (ProfileInterpreter) { sd(R29_mdx, scratch, _ijava_state_neg(mdx)); }
+  sd(R23_esp, scratch, _ijava_state(esp));
+  sd(R22_bcp, scratch, _ijava_state(bcp));
+  sd(R28_monitor, scratch, _ijava_state(monitors));
+  if (ProfileInterpreter) { sd(R29_mdx, scratch, _ijava_state(mdx)); }
   // Other entries should be unchanged.
 }
 
 void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool bcp_and_mdx_only) {
   ld(scratch, R2_SP, 0);
-  ld(R22_bcp, scratch, _ijava_state_neg(bcp)); // Changed by VM code (exception).
-  if (ProfileInterpreter) { ld(R29_mdx, scratch, _ijava_state_neg(mdx)); } // Changed by VM code.
+  ld(R22_bcp, scratch, _ijava_state(bcp)); // Changed by VM code (exception).
+  if (ProfileInterpreter) { ld(R29_mdx, scratch, _ijava_state(mdx)); } // Changed by VM code.
   if (!bcp_and_mdx_only) {
     // Following ones are Metadata.
-    ld(R27_method, scratch, _ijava_state_neg(method));
-    ld(R30_constPoolCache, scratch, _ijava_state_neg(cpoolCache));
+    ld(R27_method, scratch, _ijava_state(method));
+    ld(R30_constPoolCache, scratch, _ijava_state(cpoolCache));
     // Following ones are stack addresses and don't require reload.
-    ld(R23_esp, scratch, _ijava_state_neg(esp));
-    ld(R26_locals, scratch, _ijava_state_neg(locals));
-    ld(R28_monitor, scratch, _ijava_state_neg(monitors));
+    ld(R23_esp, scratch, _ijava_state(esp));
+    ld(R26_locals, scratch, _ijava_state(locals));
+    ld(R28_monitor, scratch, _ijava_state(monitors));
   }
 #ifdef ASSERT
   {
@@ -2276,7 +2277,7 @@ void InterpreterMacroAssembler::restore_interpreter_state(Register scratch, bool
   }
   {
     Label Lok;
-    ld_PPC(R0, _ijava_state_neg(ijava_reserved), scratch);
+    ld_PPC(R0, _ijava_state(ijava_reserved), scratch);
     cmpdi_PPC(CCR0, R0, 0x5afe);
     beq_PPC(CCR0, Lok);
     stop("frame corrupted (restore istate)", 0x5afe);

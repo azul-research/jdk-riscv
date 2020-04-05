@@ -55,9 +55,14 @@ inline int MacroAssembler::get_ld_largeoffset_offset(address a) {
   }
 }
 
-inline void MacroAssembler::round_to(Register r, int modulus) {
+inline void MacroAssembler::round_up_to(Register r, int modulus) {
   assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
   addi(r, r, modulus-1);
+  andi(r, r, ~(modulus - 1));
+}
+
+inline void MacroAssembler::round_down_to(Register r, int modulus) {
+  assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
   andi(r, r, ~(modulus - 1));
 }
 
@@ -82,9 +87,9 @@ inline void MacroAssembler::membar(int bits) {
   else if (bits) { lwsync_PPC(); }
 #endif
 }
-inline void MacroAssembler::release() { membar(LoadStore | StoreStore); }
-inline void MacroAssembler::acquire() { membar(LoadLoad | LoadStore); }
-inline void MacroAssembler::fence()   { membar(LoadLoad | LoadStore | StoreLoad | StoreStore); }
+inline void MacroAssembler::release() { Assembler::fence(Assembler::RW_OP, Assembler::W_OP); }
+inline void MacroAssembler::acquire() { Assembler::fence(Assembler::R_OP, Assembler::RW_OP); }
+inline void MacroAssembler::fence()   { Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); }
 
 // Address of the global TOC.
 inline address MacroAssembler::global_toc() {
@@ -248,7 +253,7 @@ inline void MacroAssembler::bne_far(ConditionRegister crx, Label& L, int optimiz
 inline void MacroAssembler::bns_far(ConditionRegister crx, Label& L, int optimize) { MacroAssembler::bc_far(bcondCRbiIs0, bi0(crx, summary_overflow), L, optimize); }
 
 inline address MacroAssembler::call_stub(Register function_entry) {
-  jr(function_entry);
+  jalr(function_entry);
   return pc();
 }
 
@@ -380,11 +385,13 @@ inline void MacroAssembler::store_heap_oop(Register d, RegisterOrConstant offs, 
 inline Register MacroAssembler::encode_heap_oop_not_null(Register d, Register src) {
   Register current = (src != noreg) ? src : d; // Oop to be compressed is in d if no src provided.
   if (CompressedOops::base_overlaps()) {
-    sub_const_optimized(d, current, CompressedOops::base(), R0);
+    li(R30_TMP5, CompressedOops::base());
+    sub(d, current, R30_TMP5);
     current = d;
   }
   if (CompressedOops::shift() != 0) {
-    rldicl_PPC(d, current, 64-CompressedOops::shift(), 32);  // Clears the upper bits.
+    srli(d, current, CompressedOops::shift());
+    andi(d, d, (int) ((1U << 5) - 1));  // Clears the upper bits.
     current = d;
   }
   return current; // Encoded oop is in this register.
@@ -392,18 +399,11 @@ inline Register MacroAssembler::encode_heap_oop_not_null(Register d, Register sr
 
 inline Register MacroAssembler::encode_heap_oop(Register d, Register src) {
   if (CompressedOops::base() != NULL) {
-    if (VM_Version::has_isel()) {
-      cmpdi_PPC(CCR0, src, 0);
-      Register co = encode_heap_oop_not_null(d, src);
-      assert(co == d, "sanity");
-      isel_0_PPC(d, CCR0, Assembler::equal);
-    } else {
-      Label isNull;
-      or__PPC(d, src, src); // move and compare 0
-      beq_PPC(CCR0, isNull);
-      encode_heap_oop_not_null(d, src);
-      bind(isNull);
-    }
+    Label isNull;
+    mv(d, src);
+    beqz(d, isNull);
+    encode_heap_oop_not_null(d, src);
+    bind(isNull);
     return d;
   } else {
     return encode_heap_oop_not_null(d, src);
@@ -413,18 +413,26 @@ inline Register MacroAssembler::encode_heap_oop(Register d, Register src) {
 inline Register MacroAssembler::decode_heap_oop_not_null(Register d, Register src) {
   if (CompressedOops::base_disjoint() && src != noreg && src != d &&
       CompressedOops::shift() != 0) {
-    load_const_optimized(d, CompressedOops::base(), R0);
-    rldimi_PPC(d, src, CompressedOops::shift(), 32-CompressedOops::shift());
+    li(d, CompressedOops::base());
+    unsigned long long mask = ((unsigned long long) ((1ULL << 32) - 1)) << CompressedOops::shift();
+    li(R30_TMP5, mask);
+    mv(R29_TMP4, src);
+    slli(R29_TMP4, R29_TMP4, CompressedOops::shift());
+    andr(R29_TMP4, R29_TMP4, R30_TMP5);
+    xori(R30_TMP5, R30_TMP5, -1);
+    andr(d, d, R30_TMP5);
+    orr(d, d, R29_TMP4);
     return d;
   }
 
   Register current = (src != noreg) ? src : d; // Compressed oop is in d if no src provided.
   if (CompressedOops::shift() != 0) {
-    sldi_PPC(d, current, CompressedOops::shift());
+    slli(d, current, CompressedOops::shift());
     current = d;
   }
   if (CompressedOops::base() != NULL) {
-    add_const_optimized(d, current, CompressedOops::base(), R0);
+    li(R30_TMP5, CompressedOops::base());
+    add(d, current, R30_TMP5);
     current = d;
   }
   return current; // Decoded oop is in this register.
@@ -432,19 +440,10 @@ inline Register MacroAssembler::decode_heap_oop_not_null(Register d, Register sr
 
 inline void MacroAssembler::decode_heap_oop(Register d) {
   Label isNull;
-  bool use_isel = false;
   if (CompressedOops::base() != NULL) {
-    cmpwi_PPC(CCR0, d, 0);
-    if (VM_Version::has_isel()) {
-      use_isel = true;
-    } else {
-      beq_PPC(CCR0, isNull);
-    }
+    beqz(d, isNull);
   }
   decode_heap_oop_not_null(d);
-  if (use_isel) {
-    isel_0_PPC(d, CCR0, Assembler::equal);
-  }
   bind(isNull);
 }
 

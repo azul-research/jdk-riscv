@@ -943,7 +943,7 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   assert_different_registers(sender_SP, code, ientry, return_pc, tmp);
 
   // Adapter needs TOP_IJAVA_FRAME_ABI.
-  const int adapter_size = frame::top_ijava_frame_abi_size +
+  const int adapter_size = /*frame::top_ijava_frame_abi_size TODO RISC-V*/ +
                            align_up(total_args_passed * wordSize, frame::alignment_in_bytes);
 
   // regular (verified) c2i entry point
@@ -2713,9 +2713,9 @@ static void push_skeleton_frame(MacroAssembler* masm, bool deopt,
   __ push_frame(frame_size_reg, R0/*tmp*/);
 #ifdef ASSERT
   __ load_const_optimized(pc_reg, 0x5afe);
-  __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP_PPC);
+  __ std_PPC(pc_reg, _ijava_state(ijava_reserved), R1_SP_PPC);
 #endif
-  __ std_PPC(R1_SP_PPC, _ijava_state_neg(sender_sp), R1_SP_PPC);
+  __ std_PPC(R1_SP_PPC, _ijava_state(sender_sp), R1_SP_PPC);
   __ addi_PPC(number_of_frames_reg, number_of_frames_reg, -1);
   __ addi_PPC(frame_sizes_reg, frame_sizes_reg, wordSize);
   __ addi_PPC(pcs_reg, pcs_reg, wordSize);
@@ -2789,9 +2789,9 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
   // Initialize initial_caller_sp.
 #ifdef ASSERT
  __ load_const_optimized(pc_reg, 0x5afe);
- __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP_PPC);
+ __ std_PPC(pc_reg, _ijava_state(ijava_reserved), R1_SP_PPC);
 #endif
- __ std_PPC(frame_size_reg, _ijava_state_neg(sender_sp), R1_SP_PPC);
+ __ std_PPC(frame_size_reg, _ijava_state(sender_sp), R1_SP_PPC);
 
 #ifdef ASSERT
   // Make sure that there is at least one entry in the array.

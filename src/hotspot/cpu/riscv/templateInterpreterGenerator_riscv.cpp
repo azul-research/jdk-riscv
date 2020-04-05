@@ -115,7 +115,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   address entry = __ pc();
 
   __ save_LR_CR(R0);
-  __ save_nonvolatile_gprs(R1_SP_PPC, -frame::fp_ra_size);
+  __ save_nonvolatile_gprs(R1_SP_PPC, -frame::abi_frame_size);
   // We use target_sp for storing arguments in the C frame.
   __ mr_PPC(target_sp, R1_SP_PPC);
   __ push_frame_reg_args_nonvolatiles(0, R5_scratch1);
@@ -192,7 +192,6 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ cmplwi_PPC(CCR0, sig_byte, 'F'); // float
   __ beq_PPC(CCR0, do_float);
-
   __ cmplwi_PPC(CCR0, sig_byte, 'I'); // int
   __ beq_PPC(CCR0, do_int);
 
@@ -317,7 +316,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ bind(loop_end);
 
   __ pop_frame();
-  __ restore_nonvolatile_gprs(R1_SP_PPC, -frame::fp_ra_size);
+  __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
   __ restore_LR_CR(R0);
 
   __ blr_PPC();
@@ -628,7 +627,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   }
 
   __ restore_interpreter_state(R5_scratch1); // Sets R5_scratch1 = fp.
-  __ ld_PPC(R6_scratch2, _ijava_state_neg(top_frame_sp), R5_scratch1);
+  __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R5_scratch1);
   __ resize_frame_absolute(R6_scratch2, R5_scratch1, R0);
 
   // Compiled code destroys templateTableBase, reload.
@@ -814,15 +813,14 @@ void TemplateInterpreterGenerator::generate_counter_overflow(Label& continue_ent
 // will not be made usable. The shadow zone must suffice to handle the
 // overflow.
 //
-// Kills Rmem_frame_size, Rscratch1.
-void TemplateInterpreterGenerator::generate_stack_overflow_check(Register Rmem_frame_size, Register Rscratch1) {
+// Kills Rscratch1.
+void TemplateInterpreterGenerator::generate_stack_overflow_check(Register Rnext_SP, Register Rscratch1) {
   Label done;
-  assert_different_registers(Rmem_frame_size, Rscratch1);
+  assert_different_registers(Rnext_SP, Rscratch1);
 
   BLOCK_COMMENT("stack_overflow_check_with_compare {");
-  __ sub(Rmem_frame_size, R2_SP, Rmem_frame_size);
   __ ld(Rscratch1, thread_(stack_overflow_limit));
-  __ bgt(Rmem_frame_size, Rscratch1, done);
+  __ bgt(Rnext_SP, Rscratch1, done);
 
   // The stack overflows. Load target address of the runtime stub and call it.
   assert(StubRoutines::throw_StackOverflowError_entry() != NULL, "generated in wrong order");
@@ -883,7 +881,7 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
     __ bind(Lstatic); // Static case: Lock the java mirror
     // Load mirror from interpreter frame.
     __ ld_PPC(Robj_to_lock, _abi_PPC(callers_sp), R1_SP_PPC);
-    __ ld_PPC(Robj_to_lock, _ijava_state_neg(mirror), Robj_to_lock);
+    __ ld_PPC(Robj_to_lock, _ijava_state(mirror), Robj_to_lock);
 
     __ bind(Ldone);
     __ verify_oop(Robj_to_lock);
@@ -896,77 +894,61 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
   __ lock_object(R26_monitor_PPC, Robj_to_lock);
 }
 
-// Generate a fixed interpreter frame for pure interpreter
-// and I2N native transition frames.
-//
-// Before (stack grows downwards):
-//
-//         |  ...         |
-//         |------------- |
-//         |  java arg0   |
-//         |  ...         |
-//         |  java argn   |
-//         |              |   <-   R23_esp
-//         |              |
-//         |--------------|
-//         | abi_112      |
-//         |              |   <-   R1_SP_PPC
-//         |==============|
-//
-//
-// After:
-//
-//         |  ...         |
-//         |  java arg0   |<-   R26_locals
-//         |  ...         |
-//         |  java argn   |
-//         |--------------|
-//         |              |
-//         |  java locals |
-//         |              |
-//         |--------------|
-//         |  abi_48      |
-//         |==============|
-//         |              |
-//         |   istate     |
-//         |              |
-//         |--------------|
-//         |   monitor    |<-   R26_monitor_PPC
-//         |--------------|
-//         |              |<-   R23_esp
-//         | expression   |
-//         | stack        |
-//         |              |
-//         |--------------|
-//         |              |
-//         | abi_112      |<-   R1_SP_PPC
-//         |==============|
-//
-// The top most frame needs an abi space of 112 bytes. This space is needed,
-// since we call to c. The c function may spill their arguments to the caller
-// frame. When we call to java, we don't need these spill slots. In order to save
-// space on the stack, we resize the caller. However, java locals reside in
-// the caller frame and the frame has to be increased. The frame_size for the
-// current frame was calculated based on max_stack as size for the expression
-// stack. At the call, just a part of the expression stack might be used.
-// We don't want to waste this space and cut the frame back accordingly.
-// The resulting amount for resizing is calculated as follows:
-// resize =   (number_of_locals - number_of_arguments) * slot_size
-//          + (R1_SP_PPC - R23_esp) + 48
-//
-// The size for the callee frame is calculated:
-// framesize = 112 + max_stack + monitor + state_size
-//
-// maxstack:   Max number of slots on the expression stack, loaded from the method.
-// monitor:    We statically reserve room for one monitor object.
-// state_size: We save the current state of the interpreter to this area.
-//
-void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals) {
-  Register parent_frame_resize = R14_ARG4, // Frame will grow by this number of bytes.
-           top_frame_size      = R15_ARG5,
-           Rconst_method       = R16_ARG6;
+/* Generate a fixed interpreter frame for pure interpreter
+   and I2N native transition frames.
 
-  assert_different_registers(Rsize_of_parameters, Rsize_of_locals, parent_frame_resize, top_frame_size);
+   Before:                                     After:
+
+      fp --> |       ...       |   |                   |   |       ...       | <-+
+             +=================+   |                   |   +=================+   |
+             | return address  |   |                   |   | return address  |   |
+             |   previous fp ------+                   +------ previous fp   |   |
+             |       ...       |                           |       ...       |   |
+             |   argument 0    |                 locals--> |   argument 0    |   |
+             |       ...       |                           |       ...       |   |
+             |   argument n    |                           |   argument n    |   |
+     esp --> |       ___       |                           |-----------------|   |
+             |                 |                           |                 |   |
+             |                 |                           |     locals      |   |
+             |                 |                   fp -->  |                 |   |
+      sp --> |                 |                           +=================+   |
+             +=================+                           | return address  |   |
+               stack grows down                            |   previous fp ------+
+                      |                                    |-----------------|
+                      v                                    |                 |
+                                                           |   ijava state   |
+                                                 monitor-> |                 |
+                                                           |-----------------|
+                                                   esp --> |       ___       |
+                                                           |                 |
+                                                           |                 |
+                                                    sp --> |       ...       |
+                                                           +=================+
+                                                             stack grows down
+                                                                    |
+                                                                    v
+
+ However, java locals reside in the caller frame and the frame has to be increased.
+ The frame_size for the current frame was calculated based on max_stack as size for
+ the expression stack. At the call, just a part of the expression stack might be used.
+ We don't want to waste this space and cut the frame back accordingly.
+
+ The resulting amount for resizing is calculated as follows:
+ resize = (number_of_locals - number_of_arguments) * slot_size + (R2_SP - R23_esp - stackElementSize)
+
+ The size for the callee frame is calculated:
+ size = max_stack + frame_abi_size + ijava_state_size
+
+ Monitors will be pushed on the stack later, it needs the stack resizing.
+
+ */
+
+void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals) {
+  Register new_FP          = R14_ARG4,
+           new_frame_size  = R15_ARG5,
+           Rconst_method   = R16_ARG6;
+
+  assert_different_registers(Rsize_of_parameters, Rsize_of_locals, new_frame_size);
 
   __ ld(Rconst_method, method_(const));
   __ lhu(Rsize_of_parameters /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_parameters_offset()));
@@ -977,52 +959,59 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
     // We add two slots to the parameter_count, one for the jni
     // environment and one for a possible native mirror.
     Label skip_native_calculate_max_stack;
-    __ addi_PPC(top_frame_size, Rsize_of_parameters, 2);
-    __ cmpwi_PPC(CCR0, top_frame_size, Argument::n_register_parameters);
+    __ addi_PPC(new_frame_size, Rsize_of_parameters, 2);
+    __ cmpwi_PPC(CCR0, new_frame_size, Argument::n_register_parameters);
     __ bge_PPC(CCR0, skip_native_calculate_max_stack);
-    __ li_PPC(top_frame_size, Argument::n_register_parameters);
+    __ li_PPC(new_frame_size, Argument::n_register_parameters);
     __ bind(skip_native_calculate_max_stack);
     __ sldi_PPC(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
-    __ sldi_PPC(top_frame_size, top_frame_size, Interpreter::logStackElementSize);
-    __ sub_PPC(parent_frame_resize, R1_SP_PPC, R23_esp); // <0, off by Interpreter::stackElementSize!
+    __ sldi_PPC(new_frame_size, new_frame_size, Interpreter::logStackElementSize);
     assert(Rsize_of_locals == noreg, "Rsize_of_locals not initialized"); // Only relevant value is Rsize_of_parameters.
   } else {
     __ lhu(Rsize_of_locals /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_locals_offset()));
     __ slli(Rsize_of_locals, Rsize_of_locals, Interpreter::logStackElementSize);
-    __ lhu(top_frame_size, Rconst_method, in_bytes(ConstMethod::max_stack_offset()));
-    __ slli(top_frame_size, top_frame_size, Interpreter::logStackElementSize);
+
+    __ lhu(new_frame_size, Rconst_method, in_bytes(ConstMethod::max_stack_offset()));
+    __ slli(new_frame_size, new_frame_size, Interpreter::logStackElementSize);
 
     __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
-    __ sub(R5_scratch1, Rsize_of_locals, Rsize_of_parameters); // >=0
-    __ sub(parent_frame_resize, R2_SP, R23_esp); // <0, off by Interpreter::stackElementSize!
-    __ add(parent_frame_resize, parent_frame_resize, R5_scratch1);
   }
 
   // Compute top frame size.
-  __ addi(top_frame_size, top_frame_size, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
+  __ addi(new_frame_size, new_frame_size, frame::frame_header_size);
+  __ round_up_to(new_frame_size, frame::alignment_in_bytes);
 
-  // Cut back area between esp and max_stack.
-  __ addi(parent_frame_resize, parent_frame_resize, frame::abi_minframe_ppc_size - Interpreter::stackElementSize);
-
-  __ round_to(top_frame_size, frame::alignment_in_bytes);
-  __ round_to(parent_frame_resize, frame::alignment_in_bytes);
-  // parent_frame_resize = (locals-parameters) - (ESP-SP-ABI48) Rounded to frame alignment size.
-  // Enlarge by locals-parameters (not in case of native_call), shrink by ESP-SP-ABI48.
+  // calculate new FP
+  __ addi(new_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
+  __ sub(new_FP, new_FP, Rsize_of_locals); // add size of all locals (includes parameters)
+  __ add(new_FP, new_FP, Rsize_of_parameters);
+  __ round_down_to(new_FP, frame::alignment_in_bytes);
 
   if (!native_call) {
     // Stack overflow check.
     // Native calls don't need the stack size check since they have no
     // expression stack and the arguments are already on the stack and
     // we only add a handful of words to the stack.
-    __ add(R5_scratch1, parent_frame_resize, top_frame_size);
+    __ sub(R5_scratch1, new_FP, new_frame_size); // R5_scratch1 <- R2_SP shift after frame pushing.
     generate_stack_overflow_check(R5_scratch1, R6_scratch2);
   }
 
+  // Push new frame
+  __ save_abi_frame(new_FP, 0);
+  __ mv(R8_FP, new_FP);
+  __ sub(R2_SP, R8_FP, new_frame_size);
+
+  // Set up registers.
+  __ add(R26_locals, R23_esp, Rsize_of_parameters); // R26_locals should point to the first method argument(local 0).
+  Register RXX_monitor = R5_scratch1; // TODO change RXX_monitor register
+  __ addi(RXX_monitor, R8_FP, -frame::frame_header_size); // Frame will be resized on monitor pushing.
+  __ addi(R23_esp, RXX_monitor, -Interpreter::stackElementSize);
+
   // Set up interpreter state registers.
 
-  __ add(R26_locals, R23_esp, Rsize_of_parameters);
-  __ ld(R27_constPoolCache_PPC, Rconst_method, in_bytes(ConstMethod::constants_offset())); //TODO change register
-  __ ld(R27_constPoolCache_PPC, R27_constPoolCache_PPC, ConstantPool::cache_offset_in_bytes());
+  Register RXX_constPoolCache = R5_scratch1; // TODO change RXX_constPoolCache register
+  __ ld(RXX_constPoolCache, Rconst_method, in_bytes(ConstMethod::constants_offset()));
+  __ ld(RXX_constPoolCache, RXX_constPoolCache, ConstantPool::cache_offset_in_bytes());
 
   // Set method data pointer.
   if (ProfileInterpreter) { // FIXME_RISCV
@@ -1041,25 +1030,17 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
     __ addi(R22_bcp, Rconst_method, in_bytes(ConstMethod::codes_offset()));
   }
 
-  // Resize parent frame.
-  __ neg(parent_frame_resize, parent_frame_resize);
-  __ resize_frame(parent_frame_resize, R5_scratch1);
-  __ sd(R1_RA, R2_SP, _abi_PPC(lr));
-
   // Get mirror and store it in the frame as GC root for this Method*.
   __ load_mirror_from_const_method(R6_scratch2, Rconst_method);
-
-  __ addi(R26_monitor_PPC, R2_SP, - frame::ijava_state_size);
-  __ addi(R23_esp, R26_monitor_PPC, - Interpreter::stackElementSize);
 
   // Store values.
   // R23_esp, R22_bcp, R26_monitor_PPC, R28_mdx_PPC are saved at java calls
   // in InterpreterMacroAssembler::call_from_interpreter.
-  __ sd(R27_method, R2_SP, _ijava_state_neg(method));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(mirror));
-  __ sd(R21_sender_SP, R2_SP, _ijava_state_neg(sender_sp));
-  __ sd(R27_constPoolCache_PPC, R2_SP, _ijava_state_neg(cpoolCache));
-  __ sd(R26_locals, R2_SP, _ijava_state_neg(locals));
+  __ sd(R27_method, R8_FP, _ijava_state(method));
+  __ sd(R6_scratch2, R8_FP, _ijava_state(mirror));
+  __ sd(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
+  __ sd(RXX_constPoolCache, R8_FP, _ijava_state(cpoolCache));
+  __ sd(R26_locals, R8_FP, _ijava_state(locals));
 
   // Note: esp, bcp, monitor, mdx live in registers. Hence, the correct version can only
   // be found in the frame after save_interpreter_state is done. This is always true
@@ -1067,7 +1048,6 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // because e.g. frame::interpreter_frame_bcp() will not access the correct value
   // (Enhanced Stack Trace).
   // The signal handler does not save the interpreter state into the frame.
-  __ li(R0, 0L);
 #ifdef ASSERT
   // Fill remaining slots with constants.
   __ li(R5_scratch1, 0x5afe);
@@ -1075,27 +1055,23 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 #endif
   // We have to initialize some frame slots for native calls (accessed by GC).
   if (native_call) {
-    __ std_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), R2_SP);
-    __ std_PPC(R22_bcp, _ijava_state_neg(bcp), R2_SP);
-    if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), R2_SP); }
+    __ std_PPC(RXX_monitor, _ijava_state(monitors), R2_SP);
+    __ std_PPC(R22_bcp, _ijava_state(bcp), R2_SP);
+    if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R2_SP); }
   }
 #ifdef ASSERT
   else {
-    __ sd(R6_scratch2, R2_SP, _ijava_state_neg(monitors));
-    __ sd(R6_scratch2, R2_SP, _ijava_state_neg(bcp));
-    __ sd(R6_scratch2, R2_SP, _ijava_state_neg(mdx));
+    __ sd(R6_scratch2, R2_SP, _ijava_state(monitors));
+    __ sd(R6_scratch2, R2_SP, _ijava_state(bcp));
+    __ sd(R6_scratch2, R2_SP, _ijava_state(mdx));
   }
-  __ sd(R5_scratch1, R2_SP, _ijava_state_neg(ijava_reserved));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(esp));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(lresult));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(fresult));
+  __ sd(R5_scratch1, R2_SP, _ijava_state(ijava_reserved));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(esp));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(lresult));
+  __ sd(R6_scratch2, R2_SP, _ijava_state(fresult));
 #endif
-  __ sub(R6_scratch2, R2_SP, top_frame_size);
-  __ sd(R0, R2_SP, _ijava_state_neg(oop_tmp));
-  __ sd(R6_scratch2, R2_SP, _ijava_state_neg(top_frame_sp));
-
-  // Push top frame.
-  __ push_frame(top_frame_size, R5_scratch1);
+  __ sd(R0, R8_FP, _ijava_state(oop_tmp)); //TODO what is it?
+  __ sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
 }
 
 // End of helpers
@@ -1318,7 +1294,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
     // Update monitor in state.
     __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-    __ std_PPC(R26_monitor_PPC, _ijava_state_neg(monitors), R5_scratch1);
+    __ std_PPC(R26_monitor_PPC, _ijava_state(monitors), R5_scratch1);
   }
 
   // jvmti/jvmpi support
@@ -1401,10 +1377,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
     __ ld_PPC(R5_scratch1, _abi_PPC(callers_sp), R1_SP_PPC);
     // Load mirror from interpreter frame.
-    __ ld_PPC(R6_scratch2, _ijava_state_neg(mirror), R5_scratch1);
+    __ ld_PPC(R6_scratch2, _ijava_state(mirror), R5_scratch1);
     // R4_ARG2_PPC = &state->_oop_temp;
-    __ addi_PPC(R4_ARG2_PPC, R5_scratch1, _ijava_state_neg(oop_tmp));
-    __ std_PPC(R6_scratch2/*mirror*/, _ijava_state_neg(oop_tmp), R5_scratch1);
+    __ addi_PPC(R4_ARG2_PPC, R5_scratch1, _ijava_state(oop_tmp));
+    __ std_PPC(R6_scratch2/*mirror*/, _ijava_state(oop_tmp), R5_scratch1);
     BIND(method_is_not_static);
   }
 
@@ -1442,9 +1418,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   __ li_PPC(R0, 0);
   __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ std_PPC(R3_RET_PPC, _ijava_state_neg(lresult), R5_scratch1);
-  __ stfd_PPC(F1_RET_PPC, _ijava_state_neg(fresult), R5_scratch1);
-  __ std_PPC(R0/*mirror*/, _ijava_state_neg(oop_tmp), R5_scratch1); // reset
+  __ std_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
+  __ stfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
+  __ std_PPC(R0/*mirror*/, _ijava_state(oop_tmp), R5_scratch1); // reset
 
   // Note: C++ interpreter needs the following here:
   // The frame_manager_lr field, which we use for setting the last
@@ -1580,8 +1556,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Move native method result back into proper registers and return.
   // Invoke result handler (may unbox/promote).
   __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ ld_PPC(R3_RET_PPC, _ijava_state_neg(lresult), R5_scratch1);
-  __ lfd_PPC(F1_RET_PPC, _ijava_state_neg(fresult), R5_scratch1);
+  __ ld_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
+  __ lfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
   __ call_stub(result_handler_addr);
 
   __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
@@ -1669,11 +1645,10 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   __ sub(Rslot_addr, R26_locals, Rsize_of_parameters);
   __ srli(Rnum, Rnum, Interpreter::logStackElementSize);
   __ beqz(Rnum, Lno_locals);
-  __ addi(R5_scratch1, R0, 0);
 
   // The zero locals loop.
   __ bind(Lzero_loop);
-  __ sd(R5_scratch1, Rslot_addr, 0);
+  __ sd(R0, Rslot_addr, 0);
   __ addi(Rslot_addr, Rslot_addr, -Interpreter::stackElementSize);
   __ addi(Rnum, Rnum, -1);
   __ bnez(Rnum, Lzero_loop);
@@ -1999,7 +1974,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   Interpreter::_rethrow_exception_entry = __ pc();
   {
     __ restore_interpreter_state(R5_scratch1); // Sets R5_scratch1 = fp.
-    __ ld_PPC(R6_scratch2, _ijava_state_neg(top_frame_sp), R5_scratch1);
+    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R5_scratch1);
     __ resize_frame_absolute(R6_scratch2, R5_scratch1, R0);
 
     // Compiled code destroys templateTableBase, reload.
@@ -2103,12 +2078,12 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     // Get out of the current method and re-execute the call that called us.
     __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ noreg, R5_scratch1, R6_scratch2);
     __ restore_interpreter_state(R5_scratch1);
-    __ ld_PPC(R6_scratch2, _ijava_state_neg(top_frame_sp), R5_scratch1);
+    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R5_scratch1);
     __ resize_frame_absolute(R6_scratch2, R5_scratch1, R0);
     if (ProfileInterpreter) {
       __ set_method_data_pointer_for_bcp();
       __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-      __ std_PPC(R28_mdx_PPC, _ijava_state_neg(mdx), R5_scratch1);
+      __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R5_scratch1);
     }
 #if INCLUDE_JVMTI
     Label L_done;
