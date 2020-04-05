@@ -943,7 +943,7 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   assert_different_registers(sender_SP, code, ientry, return_pc, tmp);
 
   // Adapter needs TOP_IJAVA_FRAME_ABI.
-  const int adapter_size = frame::top_ijava_frame_abi_size +
+  const int adapter_size = /*frame::top_ijava_frame_abi_size TODO RISC-V*/ +
                            align_up(total_args_passed * wordSize, frame::alignment_in_bytes);
 
   // regular (verified) c2i entry point

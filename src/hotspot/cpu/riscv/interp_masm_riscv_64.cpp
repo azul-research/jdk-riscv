@@ -2237,6 +2237,7 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
     ld(R23_esp, R8_FP, _ijava_state(esp));
     ld(R26_locals, R8_FP, _ijava_state(locals));
     ld(R28_monitor, R8_FP, _ijava_state(monitors));
+
   }
 #ifdef ASSERT
   {

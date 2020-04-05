@@ -81,7 +81,7 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // some sanity checks
-    assert((sizeof(frame::fp_ra) % 16) == 0,                  "unaligned");
+    assert((sizeof(frame::abi_frame) % 16) == 0,              "unaligned");
     assert((sizeof(frame::spill_nonvolatiles) % 16) == 0,     "unaligned");
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
@@ -95,7 +95,6 @@ class StubGenerator: public StubCodeGenerator {
 
     Register r_temp                         = R5_TMP0;
     Register r_top_of_arguments_addr        = R6_TMP1;
-    Register r_entryframe_fp                = R8_FP;
 
     {
       // Stack on entry to call_stub:
@@ -113,15 +112,6 @@ class StubGenerator: public StubCodeGenerator {
 
       Label arguments_copied;
 
-      // Save fp and ra to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_fp_ra(R2_SP, _fp_ra_offset_neg);
-
-      // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_nonvolatile_gprs(R2_SP, _spill_nonvolatiles_offset_neg);
-
-      // Keep copy of our frame pointer (caller's SP).
-      __ mv(r_entryframe_fp, R2_SP);
-
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
       // Push ENTRY_FRAME including arguments:
       //
@@ -131,6 +121,12 @@ class StubGenerator: public StubCodeGenerator {
       //              [ENTRY_FRAME_LOCALS]
       //      F1      [C_FRAME]
       //              ...
+
+      // Save fp and ra to ENTRY_FRAME (will be pushed later).
+      __ save_abi_frame(R2_SP, 0);
+
+      // Save non-volatiles GPRs to ENTRY_FRAME (will be pushed later).
+      __ save_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
 
       // calculate frame size
 
@@ -147,31 +143,27 @@ class StubGenerator: public StubCodeGenerator {
       __ add(r_frame_size, r_argument_size_in_bytes,
                  r_frame_alignment_in_bytes);
 
-      // size += top abi's size
-      __ addi(r_frame_size,
-             r_frame_size, frame::top_ijava_frame_abi_size);
-
       // size += size of call_stub locals
-      __ addi(r_frame_size,
-              r_frame_size, frame::entry_frame_locals_size);
+      __ addi(r_frame_size, r_frame_size, frame::entry_frame_size);
 
       // push ENTRY_FRAME
-      __ push_frame(r_frame_size, r_temp);
+      __ mv(R8_FP, R2_SP);
+      __ push_frame(r_frame_size);
 
       // initialize call_stub locals (step 1)
       __ sd(r_arg_call_wrapper_addr,
-               r_entryframe_fp, _top_ijava_frame_abi_neg(call_wrapper_address));
+            R8_FP, _entry_frame_locals(call_wrapper_address));
       __ sd(r_arg_result_addr,
-               r_entryframe_fp, _top_ijava_frame_abi_neg(result_address));
+            R8_FP, _entry_frame_locals(result_address));
       __ sd(r_arg_result_type,
-               r_entryframe_fp, _top_ijava_frame_abi_neg(result_type));
+            R8_FP, _entry_frame_locals(result_type));
       // we will save arguments_tos_address later
 
 
       BLOCK_COMMENT("Copy Java arguments");
       // copy Java arguments
 
-      // Calculate top_of_arguments_addr which will be R25_tos (not prepushed) later.
+      // Calculate top_of_arguments_addr which will be R23_tos (not prepushed) later.
       __ add(r_top_of_arguments_addr,
              R2_SP, r_frame_alignment_in_bytes);
 
@@ -233,7 +225,7 @@ class StubGenerator: public StubCodeGenerator {
 
       // initialize call_stub locals (step 2)
       // now save tos as arguments_tos_address
-      __ sd(tos, r_entryframe_fp, _top_ijava_frame_abi(arguments_tos_address));
+      __ sd(tos, R8_FP, _entry_frame_locals(arguments_tos_address));
 
       // load argument registers for call
       __ mv(R27_method, r_arg_method);
@@ -298,9 +290,9 @@ class StubGenerator: public StubCodeGenerator {
       __ ld_PPC(r_entryframe_fp, _abi_PPC(callers_sp), R1_SP_PPC);
       assert_different_registers(r_entryframe_fp, R3_RET_PPC, r_arg_result_addr, r_arg_result_type, r_cr, r_lr);
       __ ld_PPC(r_arg_result_addr,
-            _entry_frame_locals_neg(result_address), r_entryframe_fp);
+            _entry_frame_locals(result_address), r_entryframe_fp);
       __ ld_PPC(r_arg_result_type,
-            _entry_frame_locals_neg(result_type), r_entryframe_fp);
+            _entry_frame_locals(result_type), r_entryframe_fp);
       __ ld_PPC(r_cr, _abi_PPC(cr), r_entryframe_fp);
       __ ld_PPC(r_lr, _abi_PPC(lr), r_entryframe_fp);
 
