@@ -744,41 +744,6 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
   pop(state);
 }
 
-// Support function for remove_activation & Co.
-void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register return_pc,
-                                             Register Rscratch1, Register Rscratch2) {
-  // TODO_RISCV: this is rewritten word-for-word as in ppc
-
-  // Pop interpreter frame.
-  ld(Rscratch1, R2_SP, 0); // *SP
-  ld(Rsender_sp, Rscratch1, _ijava_state(sender_sp)); // top_frame_sp
-  ld(Rscratch2, Rscratch1, 0); // **SP
-#ifdef ASSERT
-  {
-    Label Lok;
-    ld(Rscratch1, Rscratch1, _ijava_state(ijava_reserved));
-    li(Rscratch2, 0x5afe);
-    beq(Rscratch1, Rscratch2, Lok);
-    stop("frame corrupted (remove activation)", 0x5afe);
-    bind(Lok);
-    ld(Rscratch1, R2_SP, 0); // *SP
-    ld(Rscratch2, Rscratch1, 0); // **SP
-  }
-#endif
-  if (return_pc!=noreg) {
-    ld(return_pc, Rscratch1, _abi_PPC(lr));
-  }
-
-  // Merge top frames.
-  sub(Rscratch1, Rsender_sp, R2_SP); // top_frame_sp - SP
-
-  // TODO_RISCV: this seems to be supposed to be atomic
-
-  // set *(SP = top_frame_sp) = **SP
-  mv(R2_SP, Rsender_sp);
-  sd(Rscratch2, R2_SP, 0);
-}
-
 void InterpreterMacroAssembler::narrow(Register result) {
   Register ret_type = R5_scratch1;
   Register scratch = R6_scratch2;
@@ -884,7 +849,7 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
   verify_oop(R25_tos, state);
   verify_thread();
 
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R1_RA, R5_scratch1, R6_scratch2);
+  pop_java_frame(true);
   BLOCK_COMMENT("} remove_activation");
 }
 
@@ -1286,11 +1251,10 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
   // OSR buffer is in ARG1
 
   // Remove the interpreter frame.
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
+  pop_java_frame(true);
 
   // Jump to the osr code.
   ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-  mtlr_PPC(R0);
   mtctr_PPC(R5_scratch1);
   bctr_PPC();
 
@@ -2391,7 +2355,7 @@ void InterpreterMacroAssembler::verify_oop_or_return_address(Register reg, Regis
   mr_PPC(R3_ARG1_PPC, R27_method);
   call_c(Rtmp); // call C
 
-  pop_frame();
+  pop_C_frame();
   restore_LR_CR(Rtmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   b_PPC(skip);

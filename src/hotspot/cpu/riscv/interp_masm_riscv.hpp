@@ -163,7 +163,6 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void remove_activation(TosState state,
                          bool throw_monitor_exception = true,
                          bool install_monitor_exception = true);
-  void merge_frames(Register Rtop_frame_sp, Register return_pc, Register Rscratch1, Register Rscratch2); // merge top frames
 
   void add_monitor_to_stack(bool stack_is_empty, Register Rtemp1, Register Rtemp2);
 

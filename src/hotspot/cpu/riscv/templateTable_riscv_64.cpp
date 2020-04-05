@@ -1787,11 +1787,10 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // OSR buffer is in ARG1.
 
       // Remove the interpreter frame.
-      __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
+      __ pop_java_frame(true);
 
       // Jump to the osr code.
       __ ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-      __ mtlr_PPC(R0);
       __ mtctr_PPC(R5_scratch1);
       __ bctr_PPC();
 
@@ -2178,7 +2177,7 @@ void TemplateTable::_return(TosState state) {
 
     // Check if the method has the FINALIZER flag set and call into the VM to finalize in this case.
     assert(state == vtos, "only valid state");
-    __ ld(R25_tos, R26_locals, 9);
+    __ ld(R25_tos, R26_locals, 0);
 
     // Load klass of this obj.
     __ load_klass(Rklass, R25_tos);

@@ -294,7 +294,8 @@ class MacroAssembler: public Assembler {
   void push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp);
 
   // pop current C frame
-  void pop_frame();
+  void pop_C_frame();
+  void pop_java_frame(bool setRA);
 
   //
   // Calls

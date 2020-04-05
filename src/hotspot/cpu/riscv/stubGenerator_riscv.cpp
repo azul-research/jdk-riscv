@@ -441,7 +441,7 @@ class StubGenerator: public StubCodeGenerator {
                     R4_ARG2_PPC);
     // Copy handler's address.
     __ mtctr_PPC(R3_RET_PPC);
-    __ pop_frame();
+    __ pop_C_frame();
     __ restore_LR_CR(R0);
 
     // Set up the arguments for the exception handler:
@@ -561,7 +561,7 @@ class StubGenerator: public StubCodeGenerator {
 #endif
 
     // Pop frame.
-    __ pop_frame();
+    __ pop_C_frame();
 
     __ restore_LR_CR(R5_scratch1);
 

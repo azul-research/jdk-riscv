@@ -963,9 +963,29 @@ void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
 }
 
 // Pop current C frame.
-void MacroAssembler::pop_frame() {
-  ld(R2_SP, R8_FP, _ijava_state(sender_sp));
+void MacroAssembler::pop_C_frame() {
+  mv(R2_SP, R8_FP);
   ld(R8_FP, R8_FP, _abi(fp));
+}
+
+void MacroAssembler::pop_java_frame(bool setRA) {
+  ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
+  if (setRA) {
+    ld(R1_RA, R8_FP, _abi(ra));
+  }
+  ld(R8_FP, R8_FP, _abi(fp));
+  mv(R2_SP, R21_sender_SP);
+#ifdef ASSERT
+  {
+    Label Lok;
+    // TODO_RISCV take registers for assert
+//    ld(Rscratch1, R8_FP, _ijava_state(ijava_reserved));
+//    li(Rscratch2, 0x5afe);
+//    beq(Rscratch1, Rscratch2, Lok);
+    stop("frame corrupted (remove activation)", 0x5afe);
+    bind(Lok);
+  }
+#endif
 }
 
 address MacroAssembler::branch_to(Register r_function_entry, bool and_link) {
@@ -1208,7 +1228,7 @@ void MacroAssembler::reserved_stack_check(Register return_pc) {
   // Enable reserved zone again, throw stack overflow exception.
   push_frame_reg_args(0, R0);
   call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), R24_thread);
-  pop_frame();
+  pop_C_frame();
   mtlr_PPC(return_pc);
   load_const_optimized(R0, StubRoutines::throw_delayed_StackOverflowError_entry());
   mtctr_PPC(R0);
@@ -4771,7 +4791,7 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   // Call destination for its side effect.
   call_c(tmp);
 
-  pop_frame();
+  pop_C_frame();
   restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 }
@@ -4797,7 +4817,7 @@ void MacroAssembler::verify_oop_addr(RegisterOrConstant offs, Register base, con
   // Call destination for its side effect.
   call_c(tmp);
 
-  pop_frame();
+  pop_C_frame();
   restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 }
