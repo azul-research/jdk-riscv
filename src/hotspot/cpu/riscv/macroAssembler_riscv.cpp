@@ -1005,10 +1005,10 @@ void MacroAssembler::call_VM_base(Register oop_result,
   if (!last_java_sp->is_valid()) {
     last_java_sp = R2_SP;
   }
-  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R5_scratch1);
+  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R8_FP, R5_scratch1);
 
-  // ARG1 must hold thread address.
-  mv(R11_ARG1, R24_thread);
+  // ARG0 must hold thread address.
+  mv(R10_ARG0, R24_thread);
   address return_pc = call_c(entry_point, relocInfo::none);
 
   reset_last_Java_frame();
@@ -1041,26 +1041,26 @@ void MacroAssembler::call_VM(Register oop_result, address entry_point, bool chec
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread.
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg_3,
                              bool check_exceptions) {
   // R3_ARG1_PPC is reserved for the thread
-  mr_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R4_ARG2_PPC, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_2);
-  mr_if_needed(R6_ARG4_PPC, arg_3);
+  mv_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R6_ARG4_PPC, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -1069,23 +1069,23 @@ void MacroAssembler::call_VM_leaf(address entry_point) {
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
+  mv_if_needed(R3_ARG1_PPC, arg_1);
   call_VM_leaf(entry_point);
 }
 
-void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
-  assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mr_if_needed(R4_ARG2_PPC, arg_2);
+void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register arg_1) {
+  mv_if_needed(R10_ARG0, arg_0);
+  assert(arg_1 != R10_ARG0, "smashed argument");
+  mv_if_needed(R11_ARG1, arg_1);
   call_VM_leaf(entry_point);
 }
 
 void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3) {
-  mr_if_needed(R3_ARG1_PPC, arg_1);
+  mv_if_needed(R3_ARG1_PPC, arg_1);
   assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mr_if_needed(R4_ARG2_PPC, arg_2);
+  mv_if_needed(R4_ARG2_PPC, arg_2);
   assert(arg_3 != R3_ARG1_PPC && arg_3 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R5_ARG3_PPC, arg_3);
+  mv_if_needed(R5_ARG3_PPC, arg_3);
   call_VM_leaf(entry_point);
 }
 
@@ -2893,7 +2893,7 @@ void MacroAssembler::resolve_jobject(Register value, Register tmp1, Register tmp
 
 // Values for last_Java_pc, and last_Java_sp must comply to the rules
 // in frame_riscv.hpp.
-void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Java_pc) {
+void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Java_fp, Register last_Java_pc) {
   // Always set last_Java_pc and flags first because once last_Java_sp
   // is visible has_last_Java_frame is true and users will look at the
   // rest of the fields. (Note: flags should always be zero before we
@@ -2909,37 +2909,43 @@ void MacroAssembler::set_last_Java_frame(Register last_Java_sp, Register last_Ja
   // known pc and don't have to rely on the native call having a
   // standard frame linkage where we can find the pc.
   if (last_Java_pc != noreg)
-    std_PPC(last_Java_pc, in_bytes(JavaThread::last_Java_pc_offset()), R24_thread);
+    sd(last_Java_pc, R24_thread, in_bytes(JavaThread::last_Java_pc_offset()));
+
+  if (last_Java_fp != noreg)
+    sd(last_Java_fp, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
+
+//  sd(last_Java_fp, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
 
   // Set last_Java_sp last.
-  std_PPC(last_Java_sp, in_bytes(JavaThread::last_Java_sp_offset()), R24_thread);
+  sd(last_Java_sp, R24_thread, in_bytes(JavaThread::last_Java_sp_offset()));
 }
 
-void MacroAssembler::reset_last_Java_frame(void) {
+void MacroAssembler::reset_last_Java_frame() {
   asm_assert_mem8_isnot_zero(in_bytes(JavaThread::last_Java_sp_offset()),
                              R24_thread, "SP was not set, still zero", 0x202);
 
   BLOCK_COMMENT("reset_last_Java_frame {");
-  li_PPC(R0, 0);
+  // _last_Java_sp = 0
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_sp_offset()));
 
   // _last_Java_sp = 0
-  std_PPC(R0, in_bytes(JavaThread::last_Java_sp_offset()), R24_thread);
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_fp_offset()));
 
   // _last_Java_pc = 0
-  std_PPC(R0, in_bytes(JavaThread::last_Java_pc_offset()), R24_thread);
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::last_Java_pc_offset()));
   BLOCK_COMMENT("} reset_last_Java_frame");
 }
 
-void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1) {
+void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register fp, Register tmp1) {
   assert_different_registers(sp, tmp1);
 
   // sp points to a TOP_IJAVA_FRAME, retrieve frame's PC via
   // TOP_IJAVA_FRAME_ABI.
   // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
   address entry = pc();
-  load_const_optimized(tmp1, entry);
+  li(tmp1, entry);
 
-  set_last_Java_frame(/*sp=*/sp, /*pc=*/tmp1);
+  set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
 }
 
 void MacroAssembler::get_vm_result(Register oop_result) {
@@ -2953,9 +2959,8 @@ void MacroAssembler::get_vm_result(Register oop_result) {
 
   verify_thread();
 
-  ld_PPC(oop_result, in_bytes(JavaThread::vm_result_offset()), R24_thread);
-  li_PPC(R0, 0);
-  std_PPC(R0, in_bytes(JavaThread::vm_result_offset()), R24_thread);
+  ld(oop_result, R24_thread, in_bytes(JavaThread::vm_result_offset()));
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::vm_result_offset()));
 
   verify_oop(oop_result);
 }
@@ -4383,7 +4388,7 @@ void MacroAssembler::multiply_64_x_64_loop(Register x, Register xstart,
 #endif
   sldi_PPC(tmp, kdx, LogBytesPerInt);
   stdx_PPC(product, z, tmp);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
   b_PPC(L_first_loop);
 
 
@@ -4476,10 +4481,10 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
   addi_PPC(idx, idx, -4);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry, product_high, product, tmp, 8);
-  mr_if_needed(carry2, product_high);
+  mv_if_needed(carry2, product_high);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry2, product_high, product, tmp, 0);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
   bdnz_PPC(L_third_loop);
 
   bind(L_third_loop_exit);  // Handle any left-over operand parts.
@@ -4493,7 +4498,7 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
   blt_PPC(CCR0, L_check_1);
 
   multiply_add_128_x_128(x_xstart, y, z, yz_idx, idx, carry, product_high, product, tmp, 0);
-  mr_if_needed(carry, product_high);
+  mv_if_needed(carry, product_high);
 
   bind(L_check_1);
 
@@ -4515,7 +4520,7 @@ void MacroAssembler::multiply_128_x_128_loop(Register x_xstart,
 
   sldi_PPC(product_high, product_high, 32);
   orr_PPC(product, product, product_high);
-  mr_if_needed(carry, product);
+  mv_if_needed(carry, product);
 
   bind(L_post_third_loop_done);
 }   // multiply_128_x_128_loop
@@ -4598,8 +4603,8 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen,
   //  }
   //  z[xstart] = (int)carry;
 
-  mr_if_needed(idx, ylen);        // idx = ylen
-  mr_if_needed(kdx, zlen);        // kdx = xlen + ylen
+  mv_if_needed(idx, ylen);        // idx = ylen
+  mv_if_needed(kdx, zlen);        // kdx = xlen + ylen
   li_PPC(carry, 0);                   // carry = 0
 
   Label L_done;
@@ -4730,21 +4735,26 @@ void MacroAssembler::asm_assert(bool check_equal, const char *msg, int id) {
 }
 
 void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_offset,
-                                          Register mem_base, const char* msg, int id) {
+                                          Register mem_base, const char* msg, int id, Register tmp) {
 #ifdef ASSERT
   switch (size) {
     case 4:
-      lwz_PPC(R0, mem_offset, mem_base);
-      cmpwi_PPC(CCR0, R0, 0);
+      lwu(tmp, mem_base, mem_offset);
       break;
     case 8:
-      ld_PPC(R0, mem_offset, mem_base);
-      cmpdi_PPC(CCR0, R0, 0);
+      ld(tmp, mem_base, mem_offset);
       break;
     default:
       ShouldNotReachHere();
   }
-  asm_assert(check_equal, msg, id);
+  Label ok;
+  if (check_equal) {
+    beq(tmp, R0_ZERO, ok);
+  } else {
+    bne(tmp, R0_ZERO, ok);
+  }
+  stop(msg, id);
+  bind(ok);
 #endif // ASSERT
 }
 
@@ -4756,6 +4766,8 @@ void MacroAssembler::verify_thread() {
 
 // READ: oop. KILL: R0. Volatile floats perhaps.
 void MacroAssembler::verify_oop(Register oop, const char* msg) {
+#if 0  // FIXME_RISCV
+
   if (!VerifyOops) {
     return;
   }
@@ -4765,7 +4777,7 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   const int nbytes_save = MacroAssembler::num_volatile_regs * 8;
   save_volatile_gprs(R2_SP, -nbytes_save);
 
-  mr_if_needed(R12_ARG2, oop);
+  mv_if_needed(R12_ARG2, oop);
   push_frame_reg_args(nbytes_save, tmp);
   // load FunctionDescriptor** / entry_address *
   load_const_optimized(tmp, fd, R0);
@@ -4778,6 +4790,7 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   pop_frame();
   restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
+# endif
 }
 
 void MacroAssembler::verify_oop_addr(RegisterOrConstant offs, Register base, const char* msg) {
@@ -4827,9 +4840,9 @@ void MacroAssembler::stop(int type, const char* msg, int id) {
 #endif
 
   // setup arguments
-  load_const_optimized(R3_ARG1_PPC, type);
-  load_const_optimized(R4_ARG2_PPC, (void *)msg, /*tmp=*/R0);
-  call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R3_ARG1_PPC, R4_ARG2_PPC);
+  li(R10_ARG0, type);
+  li(R11_ARG1, (void *)msg);
+  call_VM_leaf(CAST_FROM_FN_PTR(address, stop_on_request), R10_ARG0, R11_ARG1);
   illtrap();
   emit_int32(id);
   block_comment("} stop;");

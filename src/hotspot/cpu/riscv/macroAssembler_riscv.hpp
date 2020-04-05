@@ -61,8 +61,8 @@ class MacroAssembler: public Assembler {
   void store_sized_value(Register dst, RegisterOrConstant offs, Register base, size_t size_in_bytes);
 
   // Move register if destination register and target register are different
-  inline void mr_if_needed(Register rd, Register rs);
-  inline void fmr_if_needed(FloatRegister rd, FloatRegister rs);
+  inline void mv_if_needed(Register rd, Register rs);
+  inline void fmv_if_needed(FloatRegister rd, FloatRegister rs);
   // This is dedicated for emitting scheduled mach nodes. For better
   // readability of the ad file I put it here.
   // Endgroups are not needed if
@@ -359,7 +359,7 @@ class MacroAssembler: public Assembler {
   void call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg3, bool check_exceptions = true);
   void call_VM_leaf(address entry_point);
   void call_VM_leaf(address entry_point, Register arg_1);
-  void call_VM_leaf(address entry_point, Register arg_1, Register arg_2);
+  void call_VM_leaf(address entry_point, Register arg_0, Register arg_1);
   void call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3);
 
   // Call a stub function via a function descriptor, but don't save
@@ -639,9 +639,9 @@ class MacroAssembler: public Assembler {
 
   // Support for last Java frame (but use call_VM instead where possible):
   // access R24_thread->last_Java_sp.
-  void set_last_Java_frame(Register last_java_sp, Register last_Java_pc);
-  void reset_last_Java_frame(void);
-  void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1);
+  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Register last_Java_pc);
+  void reset_last_Java_frame();
+  void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register fp, Register tmp1);
 
   // Read vm result from thread: oop_result = R24_thread->result;
   void get_vm_result  (Register oop_result);
@@ -886,15 +886,15 @@ class MacroAssembler: public Assembler {
 
  private:
   void asm_assert_mems_zero(bool check_equal, int size, int mem_offset, Register mem_base,
-                            const char* msg, int id);
+                            const char* msg, int id, Register tmp);
 
  public:
 
-  void asm_assert_mem8_is_zero(int mem_offset, Register mem_base, const char* msg, int id) {
-    asm_assert_mems_zero(true,  8, mem_offset, mem_base, msg, id);
+  void asm_assert_mem8_is_zero(int mem_offset, Register mem_base, const char* msg, int id, Register tmp = R6_scratch2) {
+    asm_assert_mems_zero(true,  8, mem_offset, mem_base, msg, id, tmp);
   }
-  void asm_assert_mem8_isnot_zero(int mem_offset, Register mem_base, const char* msg, int id) {
-    asm_assert_mems_zero(false, 8, mem_offset, mem_base, msg, id);
+  void asm_assert_mem8_isnot_zero(int mem_offset, Register mem_base, const char* msg, int id, Register tmp = R6_scratch2) {
+    asm_assert_mems_zero(false, 8, mem_offset, mem_base, msg, id, tmp);
   }
 
   // Verify R24_thread contents.

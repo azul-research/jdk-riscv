@@ -31,6 +31,7 @@ frame JavaThread::pd_last_frame() {
   assert(has_last_Java_frame(), "must have last_Java_sp() when suspended");
 
   intptr_t* sp = last_Java_sp();
+  intptr_t* fp = last_Java_fp();
   address pc = _anchor.last_Java_pc();
 
   // Last_Java_pc ist not set, if we come here from compiled code.
@@ -38,7 +39,7 @@ frame JavaThread::pd_last_frame() {
     pc = (address) *(sp + 2);
   }
 
-  return frame(sp, pc);
+  return frame(sp, fp, pc);
 }
 
 bool JavaThread::pd_get_top_frame_for_profiling(frame* fr_addr, void* ucontext, bool isInJava) {

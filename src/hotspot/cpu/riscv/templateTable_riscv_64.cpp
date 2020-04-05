@@ -174,7 +174,7 @@ void TemplateTable::aconst_null() {
 void TemplateTable::iconst(int value) {
   transition(vtos, itos);
   assert(value >= -1 && value <= 5, "");
-  __ li_PPC(R25_tos, value);
+  __ addi(R25_tos, R0, value);
 }
 
 void TemplateTable::lconst(int value) {
@@ -1781,7 +1781,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // Save nmethod.
       const Register osr_nmethod = R31;
       __ mr_PPC(osr_nmethod, R3_RET_PPC);
-      __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R5_scratch1);
+      __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, noreg, R5_scratch1);
       __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::OSR_migration_begin), R24_thread);
       __ reset_last_Java_frame();
       // OSR buffer is in ARG1.
@@ -2267,15 +2267,15 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
   // Acquire by cmp-br-isync (see below).
-  __ li(R12_ARG2, (int)code);
-  __ beq(Rscratch, R12_ARG2, Lresolved);
+  __ li(R11_ARG1, (int) code);
+  __ beq(Rscratch, R11_ARG1, Lresolved);
 
   // Class initialization barrier slow path lands here as well.
   __ bind(L_clinit_barrier_slow);
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_from_cache);
-  __ li(R12_ARG2, (int)code);
-  __ call_VM(noreg, entry, R12_ARG2, true);
+  __ li(R11_ARG1, (int) code);
+  __ call_VM(noreg, entry, R11_ARG1, true);
 
   // Update registers with resolved info.
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
@@ -2714,14 +2714,17 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
 }
 
 void TemplateTable::getfield(int byte_no) {
+  tty->print_cr("getfield #%i: %p", byte_no, __ pc());
   getfield_or_static(byte_no, false);
 }
 
 void TemplateTable::nofast_getfield(int byte_no) {
+  tty->print_cr("nofast_getstatic #%i: %p", byte_no, __ pc());
   getfield_or_static(byte_no, false, may_not_rewrite);
 }
 
 void TemplateTable::getstatic(int byte_no) {
+  tty->print_cr("getstatic #%i: %p", byte_no, __ pc());
   getfield_or_static(byte_no, true);
 }
 
@@ -2826,7 +2829,6 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
                  Rscratch2     = R5_scratch1,
                  Rscratch3     = R14_ARG4,
                  Rbc           = Rscratch3;
-  const ConditionRegister CR_is_vol = CCR2; // Non-volatile condition register (survives runtime call in do_oop_store).
 
   static address field_rw_branch_table[number_of_states],
                  field_norw_branch_table[number_of_states],
@@ -2864,7 +2866,8 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   // Load from branch table and dispatch (volatile case: one instruction ahead).
   __ slli(Rflags, Rflags, LogBytesPerWord);
   if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    __ cmpwi_PPC(CR_is_vol, Rscratch, 1);  // Volatile?
+    // FIXME_RISCV
+    //__ cmpwi_PPC(CR_is_vol, Rscratch, 1);  // Volatile?
   }
   __ slli(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.
   __ add(Rbtable, Rbtable, Rflags);
@@ -3039,14 +3042,17 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
 }
 
 void TemplateTable::putfield(int byte_no) {
+  tty->print_cr("putfield #%i: %p", byte_no, __ pc());
   putfield_or_static(byte_no, false);
 }
 
 void TemplateTable::nofast_putfield(int byte_no) {
+  tty->print_cr("nofast_putfield #%i: %p", byte_no, __ pc());
   putfield_or_static(byte_no, false, may_not_rewrite);
 }
 
 void TemplateTable::putstatic(int byte_no) {
+  tty->print_cr("putstatic #%i: %p", byte_no, __ pc());
   putfield_or_static(byte_no, true);
 }
 
@@ -3873,18 +3879,18 @@ void TemplateTable::_new() {
   __ bind(Ldone);
 
   // Must prevent reordering of stores for object initialization with stores that publish the new object.
-  __ membar(Assembler::StoreStore);
+  __ Assembler::fence(Assembler::W_OP, Assembler::W_OP);
 }
 
 void TemplateTable::newarray() {
   transition(itos, atos);
 
-  __ lbz_PPC(R4, 1, R22_bcp);
-  __ extsw_PPC(R5, R25_tos);
-  call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::newarray), R4, R5 /* size */);
+  __ lbu(R11_ARG1, R22_bcp, 1);
+  __ addw(R12_ARG2, R0_ZERO, R25_tos);
+  call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::newarray), R11_ARG1, R12_ARG2 /* size */);
 
   // Must prevent reordering of stores for object initialization with stores that publish the new object.
-  __ membar(Assembler::StoreStore);
+  __ Assembler::fence(Assembler::W_OP, Assembler::W_OP);
 }
 
 void TemplateTable::anewarray() {

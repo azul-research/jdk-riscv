@@ -2363,19 +2363,22 @@ class TestJavaThread : public JavaThread {
     void join();
 };
 
-typedef void (*TestFunction)();
+typedef void (*TestFunction)(TRAPS);
 
 class JmmTest {
   public:
-    TestFunction before_test, after_test;
-    const char* test_method_name;
+    const char *before_test_method_name;
+    char **actor_method_names;
+    int actors_number;
+    TestFunction after_test;
 
-    JmmTest(TestFunction before_test, TestFunction after_test, const char* test_method_name)
-        : before_test(before_test), after_test(after_test), test_method_name(test_method_name) {};
+    JmmTest(const char *before_test_method_name, char **actor_method_names, int actors_number, TestFunction after_test)
+        : before_test_method_name(before_test_method_name), actor_method_names(actor_method_names),
+          actors_number(actors_number), after_test(after_test) {};
 
-    void run();
+    void run(TRAPS);
 
-    static void run_all(JmmTest* tests, size_t size);
+    static void run_all(JmmTest* tests, size_t size, TRAPS);
 };
 
 #endif // SHARE_RUNTIME_THREAD_HPP

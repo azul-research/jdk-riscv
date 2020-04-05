@@ -444,7 +444,7 @@ address TemplateInterpreterGenerator::generate_abstract_entry(void) {
   // Can't use call_VM here because we have not set up a new
   // interpreter state. Make the call to the vm and make it look like
   // our caller set up the JavaFrameAnchor.
-  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R6_scratch2/*tmp*/);
+  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, noreg, R6_scratch2/*tmp*/);
 
   // Push a new C frame and save LR.
   __ save_LR_CR(R0);
@@ -582,7 +582,7 @@ address TemplateInterpreterGenerator::generate_ClassCastException_handler() {
 
 address TemplateInterpreterGenerator::generate_exception_handler_common(const char* name, const char* message, bool pass_oop) {
   address entry = __ pc();
-  //__ untested("generate_exception_handler_common");
+  __ untested("generate_exception_handler_common");
   Register Rexception = R25_tos;
 
   // Expression stack must be empty before entering the VM if an exception happened.
@@ -626,9 +626,9 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     default  : ShouldNotReachHere();
   }
 
-  __ restore_interpreter_state(R5_scratch1); // Sets R5_scratch1 = fp.
-  __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R5_scratch1);
-  __ resize_frame_absolute(R6_scratch2, R5_scratch1, R0);
+  __ restore_interpreter_state();
+  __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
+  __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
 
   // Compiled code destroys templateTableBase, reload.
   __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R6_scratch2);
@@ -650,7 +650,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ sldi_PPC(size, size, Interpreter::logStackElementSize);
   __ add_PPC(R23_esp, R23_esp, size);
 
- __ check_and_handle_popframe(R5_scratch1);
+ __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
  __ check_and_handle_earlyret(R5_scratch1);
 
   __ dispatch_next(state, step);
@@ -678,7 +678,7 @@ address TemplateInterpreterGenerator::generate_deopt_entry_for(TosState state, i
   }
 
   // Load LcpoolCache @@@ should be already set!
-  __ get_constant_pool_cache(R27_constPoolCache_PPC);
+  __ get_constant_pool_cache(R9_constPoolCache);
 
   // Handle a pending exception, fall through if none.
   __ check_and_forward_exception(R5_scratch1, R6_scratch2);
@@ -1009,9 +1009,9 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 
   // Set up interpreter state registers.
 
-  Register RXX_constPoolCache = R5_scratch1; // TODO change RXX_constPoolCache register
-  __ ld(RXX_constPoolCache, Rconst_method, in_bytes(ConstMethod::constants_offset()));
-  __ ld(RXX_constPoolCache, RXX_constPoolCache, ConstantPool::cache_offset_in_bytes());
+  __ ld(R9_constPoolCache, Rconst_method, in_bytes(ConstMethod::constants_offset()));
+  __ ld(R9_constPoolCache, R9_constPoolCache, ConstantPool::cache_offset_in_bytes());
+
 
   // Set method data pointer.
   if (ProfileInterpreter) { // FIXME_RISCV
@@ -1036,10 +1036,11 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // Store values.
   // R23_esp, R22_bcp, R26_monitor_PPC, R28_mdx_PPC are saved at java calls
   // in InterpreterMacroAssembler::call_from_interpreter.
+
   __ sd(R27_method, R8_FP, _ijava_state(method));
   __ sd(R6_scratch2, R8_FP, _ijava_state(mirror));
   __ sd(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
-  __ sd(RXX_constPoolCache, R8_FP, _ijava_state(cpoolCache));
+  __ sd(R9_constPoolCache, R8_FP, _ijava_state(cpoolCache));
   __ sd(R26_locals, R8_FP, _ijava_state(locals));
 
   // Note: esp, bcp, monitor, mdx live in registers. Hence, the correct version can only
@@ -1336,7 +1337,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // anchor.
 
   // We have a TOP_IJAVA_FRAME here, which belongs to us.
-  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, R6_scratch2/*tmp*/);
+  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, noreg, R6_scratch2/*tmp*/);
 
   // Now the interpreter frame (and its call chain) have been
   // invalidated and flushed. We are now protected against eager
@@ -1973,9 +1974,9 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   // Entry point if an method returns with a pending exception (rethrow).
   Interpreter::_rethrow_exception_entry = __ pc();
   {
-    __ restore_interpreter_state(R5_scratch1); // Sets R5_scratch1 = fp.
-    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R5_scratch1);
-    __ resize_frame_absolute(R6_scratch2, R5_scratch1, R0);
+    __ restore_interpreter_state();
+    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
+    __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
 
     // Compiled code destroys templateTableBase, reload.
     __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
@@ -2077,9 +2078,11 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     // Get out of the current method and re-execute the call that called us.
     __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ noreg, R5_scratch1, R6_scratch2);
-    __ restore_interpreter_state(R5_scratch1);
-    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R5_scratch1);
-    __ resize_frame_absolute(R6_scratch2, R5_scratch1, R0);
+
+    __ restore_interpreter_state();
+    __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
+    __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+    
     if (ProfileInterpreter) {
       __ set_method_data_pointer_for_bcp();
       __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
@@ -2096,7 +2099,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     // Detect such a case in the InterpreterRuntime function and return the member name argument, or NULL.
     __ ld_PPC(R4_ARG2_PPC, 0, R26_locals);
     __ MacroAssembler::call_VM(R4_ARG2_PPC, CAST_FROM_FN_PTR(address, InterpreterRuntime::member_name_arg_or_null), R4_ARG2_PPC, R27_method, R22_bcp, false);
-    __ restore_interpreter_state(R5_scratch1, /*bcp_and_mdx_only*/ true);
+    __ restore_interpreter_state(/*bcp_and_mdx_only*/ true);
     __ cmpdi_PPC(CCR0, R4_ARG2_PPC, 0);
     __ beq_PPC(CCR0, L_done);
     __ std_PPC(R4_ARG2_PPC, wordSize, R23_esp);
@@ -2279,39 +2282,39 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   // Don't call into the VM if we don't want to trace to speed up things.
   Label Lskip_vm_call;
   if (TraceBytecodesAt > 0 && TraceBytecodesAt < max_intx) {
-    int offs1 = __ load_const_optimized(R5_scratch1, (address) &TraceBytecodesAt, R0, true);
-    int offs2 = __ load_const_optimized(R6_scratch2, (address) &BytecodeCounter::_counter_value, R0, true);
-    __ ld_PPC(R5_scratch1, offs1, R5_scratch1);
-    __ lwa_PPC(R6_scratch2, offs2, R6_scratch2);
-    __ cmpd_PPC(CCR0, R6_scratch2, R5_scratch1);
-    __ blt_PPC(CCR0, Lskip_vm_call);
+    __ li(R5_scratch1, (address) &TraceBytecodesAt);
+    __ li(R6_scratch2, (address) &BytecodeCounter::_counter_value);
+    __ ld(R5_scratch1, R5_scratch1, 0);
+    __ lw(R6_scratch2, R6_scratch2, 0);
+    __ blt(R6_scratch2, R5_scratch1, Lskip_vm_call);
   }
 
   __ push(state);
   // Load 2 topmost expression stack values.
-  __ ld_PPC(R6_ARG4_PPC, tsize*Interpreter::stackElementSize, R23_esp);
-  __ ld_PPC(R5_ARG3_PPC, Interpreter::stackElementSize, R23_esp);
-  __ mflr_PPC(R31);
-  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::trace_bytecode), /* unused */ R4_ARG2_PPC, R5_ARG3_PPC, R6_ARG4_PPC, false);
-  __ mtlr_PPC(R31);
+  __ ld(R13_ARG3, R23_esp, tsize*Interpreter::stackElementSize);
+  __ ld(R12_ARG2, R23_esp, Interpreter::stackElementSize);
+  __ mv(R18_S2, R1_RA);
+  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::trace_bytecode), /* unused */ R11_ARG1, R12_ARG2, R13_ARG3, false);
+  __ mv(R1_RA, R18_S2); // FIXME_RISCV check usages of R18 or choose another one
   __ pop(state);
 
   if (TraceBytecodesAt > 0 && TraceBytecodesAt < max_intx) {
     __ bind(Lskip_vm_call);
   }
-  __ blr_PPC();
+  __ jr(R1_RA);
   BLOCK_COMMENT("} trace_code");
   return entry;
 }
 
 void TemplateInterpreterGenerator::count_bytecode() {
-  int offs = __ load_const_optimized(R5_scratch1, (address) &BytecodeCounter::_counter_value, R6_scratch2, true);
-  __ lwz_PPC(R6_scratch2, offs, R5_scratch1);
-  __ addi_PPC(R6_scratch2, R6_scratch2, 1);
-  __ stw_PPC(R6_scratch2, offs, R5_scratch1);
+  __ li(R5_scratch1, &BytecodeCounter::_counter_value);
+  __ lwu(R6_scratch2, R5_scratch1, 0);
+  __ addi(R6_scratch2, R6_scratch2, 1);
+  __ sw(R6_scratch2, R5_scratch1, 0);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode(Template* t) {
+  tty->print_cr("histogram_bytecode: %p", __ pc());
   int offs = __ load_const_optimized(R5_scratch1, (address) &BytecodeHistogram::_counters[t->bytecode()], R6_scratch2, true);
   __ lwz_PPC(R6_scratch2, offs, R5_scratch1);
   __ addi_PPC(R6_scratch2, R6_scratch2, 1);
@@ -2319,6 +2322,7 @@ void TemplateInterpreterGenerator::histogram_bytecode(Template* t) {
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode_pair(Template* t) {
+  tty->print_cr("count_bytecode_pair: %p", __ pc());
   const Register addr = R5_scratch1,
                  tmp  = R6_scratch2;
   // Get index, shift out old bytecode, bring in new bytecode, and store it.
@@ -2349,10 +2353,12 @@ void TemplateInterpreterGenerator::trace_bytecode(Template* t) {
          "entry must have been generated");
 
   // Note: we destroy LR here.
-  __ bl_PPC(Interpreter::trace_code(t->tos_in()));
+  __ li(R5_scratch1, Interpreter::trace_code(t->tos_in()));
+  __ jalr (R5_scratch1);
 }
 
 void TemplateInterpreterGenerator::stop_interpreter_at() {
+  tty->print_cr("stop_interpreter_at: %p", __ pc());
   Label L;
   int offs1 = __ load_const_optimized(R5_scratch1, (address) &StopInterpreterAt, R0, true);
   int offs2 = __ load_const_optimized(R6_scratch2, (address) &BytecodeCounter::_counter_value, R0, true);

@@ -178,7 +178,7 @@ void SimpleExceptionStub::emit_code(LIR_Assembler* ce) {
   address stub = Runtime1::entry_for(_stub);
   //__ load_const_optimized(R0, stub);
   __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
-  if (_obj->is_valid()) { __ mr_if_needed(/*tmp1 in do_CheckCast*/ R4_ARG2_PPC, _obj->as_register()); }
+  if (_obj->is_valid()) { __ mv_if_needed(/*tmp1 in do_CheckCast*/ R4_ARG2_PPC, _obj->as_register()); }
   __ mtctr_PPC(R0);
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
@@ -227,7 +227,7 @@ void NewTypeArrayStub::emit_code(LIR_Assembler* ce) {
   address entry = Runtime1::entry_for(Runtime1::new_type_array_id);
   //__ load_const_optimized(R0, entry);
   __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(entry));
-  __ mr_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3_PPC, _length->as_register()); // already sign-extended
+  __ mv_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3_PPC, _length->as_register()); // already sign-extended
   __ mtctr_PPC(R0);
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
@@ -250,7 +250,7 @@ void NewObjectArrayStub::emit_code(LIR_Assembler* ce) {
   address entry = Runtime1::entry_for(Runtime1::new_object_array_id);
   //__ load_const_optimized(R0, entry);
   __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(entry));
-  __ mr_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3_PPC, _length->as_register()); // already sign-extended
+  __ mv_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3_PPC, _length->as_register()); // already sign-extended
   __ mtctr_PPC(R0);
   __ bctrl_PPC();
   ce->add_call_info_here(_info);
@@ -270,7 +270,7 @@ void MonitorEnterStub::emit_code(LIR_Assembler* ce) {
   address stub = Runtime1::entry_for(ce->compilation()->has_fpu_code() ? Runtime1::monitorenter_id : Runtime1::monitorenter_nofpu_id);
   //__ load_const_optimized(R0, stub);
   __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
-  __ mr_if_needed(/*scratch_opr()->as_register()*/ R4_ARG2_PPC, _obj_reg->as_register());
+  __ mv_if_needed(/*scratch_opr()->as_register()*/ R4_ARG2_PPC, _obj_reg->as_register());
   assert(_lock_reg->as_register() == R5_ARG3_PPC, "");
   __ mtctr_PPC(R0);
   __ bctrl_PPC();
