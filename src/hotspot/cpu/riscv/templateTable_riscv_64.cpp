@@ -2178,7 +2178,7 @@ void TemplateTable::_return(TosState state) {
 
     // Check if the method has the FINALIZER flag set and call into the VM to finalize in this case.
     assert(state == vtos, "only valid state");
-    __ ld(R25_tos, R26_locals, 9);
+    __ ld(R25_tos, R26_locals, 0);
 
     // Load klass of this obj.
     __ load_klass(Rklass, R25_tos);
