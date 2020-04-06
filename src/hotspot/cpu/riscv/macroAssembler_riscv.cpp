@@ -937,6 +937,7 @@ void MacroAssembler::push_frame(Register bytes) {
   andi(R0, bytes, frame::alignment_in_bytes-1);
   asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
 #endif
+  mv(R8_FP, R2_SP);
   sub(R2_SP, R2_SP, bytes);
 }
 
