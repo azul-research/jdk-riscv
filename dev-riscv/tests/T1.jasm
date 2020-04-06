@@ -32,6 +32,23 @@ public static Method bipush_neg:"()I"
                 ireturn;
 }
 
+public static Method test_ldc:"()I"
+	stack 1 locals 1
+{
+		ldc	String "hello";
+		astore_0;
+		iconst_1;
+		ireturn;
+}
 
+
+public static Method test_ldc_int:"()I"
+        stack 1 locals 1
+{
+                ldc     0x12345678;
+                astore_0;
+                iconst_1;
+                ireturn;
+}
 
 } // end Class T1

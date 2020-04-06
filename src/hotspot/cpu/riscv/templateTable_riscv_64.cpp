@@ -240,34 +240,41 @@ void TemplateTable::sipush() {
 void TemplateTable::ldc(bool wide) {
   Register Rscratch1 = R5_scratch1,
            Rscratch2 = R6_scratch2,
-           Rcpool    = R3_ARG1_PPC;
+           Rcpool    = R7_scratch3;
 
   transition(vtos, vtos);
-  Label notInt, notFloat, notClass, exit;
+  Label notInt, notFloat, notClass, isClass, exit;
 
   __ get_cpool_and_tags(Rcpool, Rscratch2); // Set Rscratch2 = &tags.
   if (wide) { // Read index.
     __ get_2_byte_integer_at_bcp(1, Rscratch1, InterpreterMacroAssembler::Unsigned);
   } else {
-    __ lbz_PPC(Rscratch1, 1, R22_bcp);
+    __ lb(Rscratch1, R22_bcp, 1);
   }
 
   const int base_offset = ConstantPool::header_size() * wordSize;
   const int tags_offset = Array<u1>::base_offset_in_bytes();
 
   // Get type from tags.
-  __ addi_PPC(Rscratch2, Rscratch2, tags_offset);
-  __ lbzx_PPC(Rscratch2, Rscratch2, Rscratch1);
+  __ add(Rscratch2, Rscratch1, Rscratch2);
+  __ lb(Rscratch2, Rscratch2, tags_offset);
 
-  __ cmpwi_PPC(CCR0, Rscratch2, JVM_CONSTANT_UnresolvedClass); // Unresolved class?
-  __ cmpwi_PPC(CCR1, Rscratch2, JVM_CONSTANT_UnresolvedClassInError); // Unresolved class in error state?
-  __ cror_PPC(CCR0, Assembler::equal, CCR1, Assembler::equal);
+  __ addi(Rscratch2, Rscratch2, -JVM_CONSTANT_UnresolvedClass);
+  __ beqz(Rscratch2, isClass);
+  __ addi(Rscratch2, Rscratch2, JVM_CONSTANT_UnresolvedClass);
 
-  // Resolved class - need to call vm to get java mirror of the class.
-  __ cmpwi_PPC(CCR1, Rscratch2, JVM_CONSTANT_Class);
-  __ crnor_PPC(CCR0, Assembler::equal, CCR1, Assembler::equal); // Neither resolved class nor unresolved case from above?
-  __ beq_PPC(CCR0, notClass);
+  __ addi(Rscratch2, Rscratch2, -JVM_CONSTANT_UnresolvedClassInError);
+  __ beqz(Rscratch2, isClass);
+  __ addi(Rscratch2, Rscratch2, JVM_CONSTANT_UnresolvedClassInError);
 
+  __ addi(Rscratch2, Rscratch2, -JVM_CONSTANT_Class);
+  __ beqz(Rscratch2, isClass);
+  __ addi(Rscratch2, Rscratch2, JVM_CONSTANT_Class);
+
+  __ j(notClass);
+
+  __ align(32, 12);
+  __ bind(isClass);
   __ li_PPC(R4, wide ? 1 : 0);
   call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::ldc), R4);
   __ push(atos);
@@ -275,13 +282,17 @@ void TemplateTable::ldc(bool wide) {
 
   __ align(32, 12);
   __ bind(notClass);
-  __ addi_PPC(Rcpool, Rcpool, base_offset);
-  __ sldi_PPC(Rscratch1, Rscratch1, LogBytesPerWord);
-  __ cmpdi_PPC(CCR0, Rscratch2, JVM_CONSTANT_Integer);
-  __ bne_PPC(CCR0, notInt);
-  __ lwax_PPC(R25_tos, Rcpool, Rscratch1);
+
+  __ addi(Rcpool, Rcpool, base_offset);
+  __ slli(Rscratch1, Rscratch1, LogBytesPerWord);
+
+  __ addi(Rscratch2, Rscratch2, -JVM_CONSTANT_Integer);
+  __ bnez(Rscratch2, notInt);
+
+  __ add(Rcpool, Rcpool, Rscratch1);
+  __ lw(R25_tos, Rcpool, 0);
   __ push(itos);
-  __ b_PPC(exit);
+  __ j(exit);
 
   __ align(32, 12);
   __ bind(notInt);

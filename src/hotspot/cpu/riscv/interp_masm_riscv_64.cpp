@@ -591,12 +591,12 @@ void InterpreterMacroAssembler::index_check(Register array, Register index,
 }
 
 void InterpreterMacroAssembler::get_const(Register Rdst) {
-  ld_PPC(Rdst, in_bytes(Method::const_offset()), R27_method);
+  ld(Rdst, in_bytes(Method::const_offset()), R27_method);
 }
 
 void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
   get_const(Rdst);
-  ld_PPC(Rdst, in_bytes(ConstMethod::constants_offset()), Rdst);
+  ld(Rdst, in_bytes(ConstMethod::constants_offset()), Rdst);
 }
 
 void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
@@ -606,7 +606,7 @@ void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
 
 void InterpreterMacroAssembler::get_cpool_and_tags(Register Rcpool, Register Rtags) {
   get_constant_pool(Rcpool);
-  ld_PPC(Rtags, ConstantPool::tags_offset_in_bytes(), Rcpool);
+  ld(Rtags, ConstantPool::tags_offset_in_bytes(), Rcpool);
 }
 
 // Unlock if synchronized method.

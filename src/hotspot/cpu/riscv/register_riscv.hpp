@@ -799,9 +799,12 @@ REGISTER_DECLARATION(Register, R21_sender_SP,           R21);
 // Scratch registers are volatile.
 REGISTER_DECLARATION(Register, R5_scratch1, R5);
 REGISTER_DECLARATION(Register, R6_scratch2, R6);
+REGISTER_DECLARATION(Register, R7_scratch3, R7);
+
 #ifndef DONT_USE_REGISTER_DEFINES
 #define R5_scratch1   AS_REGISTER(Register, R5)
 #define R6_scratch2   AS_REGISTER(Register, R6)
+#define R7_scratch3   AS_REGISTER(Register, R7)
 #endif
 
 
