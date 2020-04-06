@@ -377,8 +377,8 @@ monitor-> |                 |       }
   intptr_t* fp() const { return _fp; }
 
   // Accessors for ABIs
-  inline abi_minframe_ppc* own_abi()     const { return (abi_minframe_ppc*) _sp; }
-  inline abi_minframe_ppc* callers_abi() const { return (abi_minframe_ppc*) _fp; }
+  inline abi_frame* own_abi()     const { return (abi_frame*) (_fp - abi_frame_size); }
+  inline abi_frame* callers_abi() const { return (abi_frame*) (own_abi()->fp - abi_frame_size); }
 
  private:
 
