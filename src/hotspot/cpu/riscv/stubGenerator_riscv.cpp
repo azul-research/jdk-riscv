@@ -610,7 +610,7 @@ class StubGenerator: public StubCodeGenerator {
 
     // Clear up to 128byte boundary if long enough, dword_cnt=(16-(base>>3))%16.
     __ dcbtst_PPC(base_ptr_reg);                    // Indicate write access to first cache line ...
-    __ andi(tmp2_reg, cnt_dwords_reg, 1);       // to check if number of dwords is even.
+    __ andi_PPC(tmp2_reg, cnt_dwords_reg, 1);       // to check if number of dwords is even.
     __ srdi__PPC(tmp1_reg, cnt_dwords_reg, 1);      // number of double dwords
     __ load_const_optimized(zero_reg, 0L);      // Use as zero register.
 
@@ -636,7 +636,7 @@ class StubGenerator: public StubCodeGenerator {
     // clear 128byte blocks
     __ bind(fast);
     __ srdi_PPC(tmp1_reg, cnt_dwords_reg, cl_dwordaddr_bits); // loop count for 128byte loop (>0 since size>=256-8)
-    __ andi(tmp2_reg, cnt_dwords_reg, 1);       // to check if rest even
+    __ andi_PPC(tmp2_reg, cnt_dwords_reg, 1);       // to check if rest even
 
     __ mtctr_PPC(tmp1_reg);                         // load counter
     __ cmpdi_PPC(CCR1, tmp2_reg, 0);                // rest even?
@@ -1617,7 +1617,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ble_PPC(CCR0, l_5); // copy 1 at a time if less than 8 elements remain
 
       __ srdi_PPC(tmp1, R5_ARG3_PPC, 3);
-      __ andi(R5_ARG3_PPC, R5_ARG3_PPC, 7);
+      __ andi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 7);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -1867,7 +1867,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ble_PPC(CCR0, l_5); // copy 1 at a time if less than 4 elements remain
 
       __ srdi_PPC(tmp1, R5_ARG3_PPC, 2);
-      __ andi(R5_ARG3_PPC, R5_ARG3_PPC, 3);
+      __ andi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 3);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -2403,7 +2403,7 @@ class StubGenerator: public StubCodeGenerator {
     const Register elsize = src_klass;    // log2 element size
 
     __ rldicl_PPC(offset, lh, 64 - Klass::_lh_header_size_shift, 64 - exact_log2(Klass::_lh_header_size_mask + 1));
-    __ andi(elsize, lh, Klass::_lh_log2_element_size_mask);
+    __ andi_PPC(elsize, lh, Klass::_lh_log2_element_size_mask);
     __ add_PPC(src, offset, src);       // src array offset
     __ add_PPC(dst, offset, dst);       // dst array offset
 

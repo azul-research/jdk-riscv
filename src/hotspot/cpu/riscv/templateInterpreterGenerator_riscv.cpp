@@ -1062,14 +1062,14 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   }
 #ifdef ASSERT
   else {
-    __ sd(R6_scratch2, R2_SP, _ijava_state(monitors));
-    __ sd(R6_scratch2, R2_SP, _ijava_state(bcp));
-    __ sd(R6_scratch2, R2_SP, _ijava_state(mdx));
+    __ sd(R6_scratch2, R8_FP, _ijava_state(monitors));
+    __ sd(R6_scratch2, R8_FP, _ijava_state(bcp));
+    __ sd(R6_scratch2, R8_FP, _ijava_state(mdx));
   }
-  __ sd(R5_scratch1, R2_SP, _ijava_state(ijava_reserved));
-  __ sd(R6_scratch2, R2_SP, _ijava_state(esp));
-  __ sd(R6_scratch2, R2_SP, _ijava_state(lresult));
-  __ sd(R6_scratch2, R2_SP, _ijava_state(fresult));
+  __ sd(R5_scratch1, R8_FP, _ijava_state(ijava_reserved));
+  __ sd(R6_scratch2, R8_FP, _ijava_state(esp));
+  __ sd(R6_scratch2, R8_FP, _ijava_state(lresult));
+  __ sd(R6_scratch2, R8_FP, _ijava_state(fresult));
 #endif
   __ sd(R0, R8_FP, _ijava_state(oop_tmp)); //TODO what is it?
   __ sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));

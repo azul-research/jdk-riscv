@@ -1944,7 +1944,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
     stwx_PPC(temp_reg, temp2_reg);
   }
 
-  andi(temp_reg, mark_reg, markOopDesc::biased_lock_mask_in_place);
+  andi_PPC(temp_reg, mark_reg, markOopDesc::biased_lock_mask_in_place);
   cmpwi_PPC(cr_reg, temp_reg, markOopDesc::biased_lock_pattern);
   bne_PPC(cr_reg, cas_label);
 
@@ -1981,7 +1981,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // If the low three bits in the xor result aren't clear, that means
   // the prototype header is no longer biased and we have to revoke
   // the bias on this object.
-  andi(temp2_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
+  andi_PPC(temp2_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
   cmpwi_PPC(cr_reg, temp2_reg, 0);
   bne_PPC(cr_reg, try_revoke_bias);
 
@@ -2008,7 +2008,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // fails we will go in to the runtime to revoke the object's bias.
   // Note that we first construct the presumed unbiased header so we
   // don't accidentally blow away another thread's valid bias.
-  andi(mark_reg, mark_reg, (markOopDesc::biased_lock_mask_in_place |
+  andi_PPC(mark_reg, mark_reg, (markOopDesc::biased_lock_mask_in_place |
                                 markOopDesc::age_mask_in_place |
                                 markOopDesc::epoch_mask_in_place));
   orr_PPC(temp_reg, R24_thread, mark_reg);
@@ -2043,7 +2043,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // bias in the current epoch. In other words, we allow transfer of
   // the bias from one thread to another directly in this situation.
   load_klass(temp_reg, obj_reg);
-  andi(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
+  andi_PPC(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
   orr_PPC(temp2_reg, R24_thread, temp2_reg);
   ld_PPC(temp_reg, in_bytes(Klass::prototype_header_offset()), temp_reg);
   orr_PPC(temp_reg, temp2_reg, temp_reg);
@@ -2080,7 +2080,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // normal locking code.
   load_klass(temp_reg, obj_reg);
   ld_PPC(temp_reg, in_bytes(Klass::prototype_header_offset()), temp_reg);
-  andi(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
+  andi_PPC(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
   orr_PPC(temp_reg, temp_reg, temp2_reg);
 
   assert(oopDesc::mark_offset_in_bytes() == 0, "offset of _mark is not 0");
@@ -2120,7 +2120,7 @@ void MacroAssembler::biased_locking_exit (ConditionRegister cr_reg, Register mar
   // the bias bit would be clear.
 
   ld_PPC(temp_reg, 0, mark_addr);
-  andi(temp_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
+  andi_PPC(temp_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
 
   cmpwi_PPC(cr_reg, temp_reg, markOopDesc::biased_lock_pattern);
   beq_PPC(cr_reg, done);
@@ -2562,7 +2562,7 @@ void MacroAssembler::rtm_stack_locking(ConditionRegister flag,
   tbegin__PPC();
   beq_PPC(CCR0, L_on_abort);
   ld_PPC(mark_word, oopDesc::mark_offset_in_bytes(), obj);         // Reload in transaction, conflicts need to be tracked.
-  andi(R0, mark_word, markOopDesc::biased_lock_mask_in_place); // look at 3 lock bits
+  andi_PPC(R0, mark_word, markOopDesc::biased_lock_mask_in_place); // look at 3 lock bits
   cmpwi_PPC(flag, R0, markOopDesc::unlocked_value);                // bits = 001 unlocked
   beq_PPC(flag, DONE_LABEL);                                       // all done if unlocked
 
@@ -2814,7 +2814,7 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
     assert(!UseBiasedLocking, "Biased locking is not supported with RTM locking");
     Label L_regular_unlock;
     ld_PPC(current_header, oopDesc::mark_offset_in_bytes(), oop);         // fetch markword
-    andi(R0, current_header, markOopDesc::biased_lock_mask_in_place); // look at 3 lock bits
+    andi_PPC(R0, current_header, markOopDesc::biased_lock_mask_in_place); // look at 3 lock bits
     cmpwi_PPC(flag, R0, markOopDesc::unlocked_value);                     // bits = 001 unlocked
     bne_PPC(flag, L_regular_unlock);                                      // else RegularLock
     tend__PPC();                                                          // otherwise end...
@@ -3149,7 +3149,7 @@ void MacroAssembler::clear_memory_doubleword(Register base_ptr, Register cnt_dwo
 
   bind(fast);                                  // Clear 128byte blocks.
     srdi_PPC(tmp, cnt_dwords, cl_dw_addr_bits);    // Loop count for 128byte loop (>0).
-    andi(cnt_dwords, cnt_dwords, cl_dwords-1); // Rest in dwords.
+    andi_PPC(cnt_dwords, cnt_dwords, cl_dwords-1); // Rest in dwords.
     mtctr_PPC(tmp);                                // Load counter.
 
   bind(fastloop);
@@ -3940,7 +3940,7 @@ void MacroAssembler::kernel_crc32_1word(Register crc, Register buf, Register len
   }
 
   srdi_PPC(tmp2, len, log_stepping);                 // #iterations for mainLoop
-  andi(len, len, mainLoop_stepping-1);           // remaining bytes for tailLoop
+  andi_PPC(len, len, mainLoop_stepping-1);           // remaining bytes for tailLoop
   mtctr_PPC(tmp2);
 
 #ifdef VM_LITTLE_ENDIAN
@@ -4009,7 +4009,7 @@ void MacroAssembler::kernel_crc32_vpmsum(Register crc, Register buf, Register le
 
   neg_PPC(prealign, buf);
   addi_PPC(t1, len, -threshold);
-  andi(prealign, prealign, alignment - 1);
+  andi_PPC(prealign, prealign, alignment - 1);
   cmpw_PPC(CCR0, t1, prealign);
   blt_PPC(CCR0, L_tail); // len - prealign < threshold?
 

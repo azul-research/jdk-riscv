@@ -2416,7 +2416,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
       break;
       }
     case T_CHAR: {                // unsigned result
-      __ andi(R3_RET_PPC, R3_RET_PPC, 0xffff);
+      __ andi_PPC(R3_RET_PPC, R3_RET_PPC, 0xffff);
       break;
       }
     case T_SHORT: {               // sign extension

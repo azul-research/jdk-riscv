@@ -101,7 +101,7 @@ void MethodHandles::verify_ref_kind(MacroAssembler* _masm, int ref_kind, Registe
                       sizeof(u4), /*is_signed*/ false);
   // assert(sizeof(u4) == sizeof(java.lang.invoke.MemberName.flags), "");
   __ srwi_PPC( temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_SHIFT);
-  __ andi(temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_MASK);
+  __ andi_PPC(temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_MASK);
   __ cmpwi_PPC(CCR1, temp, ref_kind);
   __ beq_PPC(CCR1, L);
   { char* buf = NEW_C_HEAP_ARRAY(char, 100, mtInternal);

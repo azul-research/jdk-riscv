@@ -1402,7 +1402,7 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
   addi_PPC(counter, counter, InvocationCounter::count_increment);
 
   // Mask the invocation counter.
-  andi(invocation_counter, invocation_counter, InvocationCounter::count_mask_value);
+  andi_PPC(invocation_counter, invocation_counter, InvocationCounter::count_mask_value);
 
   // Store new counter value.
   stw_PPC(counter, in_bytes(MethodCounters::backedge_counter_offset()) +
@@ -2235,8 +2235,8 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
   {
     Label Lok;
     sub(R5_scratch1, R8_FP, R2_SP);
-    slti(R5_scratch1, R5_scratch1, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
-    beqz(R5_scratch1, Lok);
+    slti(R5_scratch1, R5_scratch1, frame::frame_header_size);
+    beqz(R5_scratch1, Lok); // ok if frame_size >= header_size + ijava_state_size
     stop("frame too small (restore istate)", 0x5432);
     bind(Lok);
   }
@@ -2290,7 +2290,7 @@ void InterpreterMacroAssembler::increment_invocation_counter(Register Rcounters,
   // Load the backedge counter.
   lwz_PPC(backedge_count, be_counter_offset, Rcounters); // is unsigned int
   // Mask the backedge counter.
-  andi(backedge_count, backedge_count, InvocationCounter::count_mask_value);
+  andi_PPC(backedge_count, backedge_count, InvocationCounter::count_mask_value);
 
   // Load the invocation counter.
   lwz_PPC(invocation_count, inv_counter_offset, Rcounters); // is unsigned int

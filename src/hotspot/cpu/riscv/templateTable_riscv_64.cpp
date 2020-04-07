@@ -388,7 +388,7 @@ void TemplateTable::condy_helper(Label& Done) {
 
   // VMr = obj = base address to find primitive value to push
   // VMr2 = flags = (tos, off) using format of CPCE::_flags
-  __ andi(off, flags, ConstantPoolCacheEntry::field_index_mask);
+  __ andi_PPC(off, flags, ConstantPoolCacheEntry::field_index_mask);
 
   // What sort of thing are we loading?
   __ rldicl_PPC(flags, flags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
@@ -1047,7 +1047,7 @@ void TemplateTable::bastore() {
   __ testbitdi_PPC(CCR0, R0, Rscratch, diffbit);
   Label L_skip;
   __ bfalse_PPC(CCR0, L_skip);
-  __ andi(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
+  __ andi_PPC(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
   __ bind(L_skip);
 
   __ index_check_without_pop(Rarray, Rindex, 0, Rscratch, Rarray);
@@ -2858,9 +2858,10 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   __ andi(Rflags, Rflags, (1 << ConstantPoolCacheEntry::tos_state_bits) - 1);
 
 #ifdef ASSERT
+  // FIXME_RISCV
   Label LFlagInvalid;
-  __ cmpldi_PPC(CCR0, Rflags, number_of_states);
-  __ bge_PPC(CCR0, LFlagInvalid);
+//  __ cmpldi_PPC(CCR0, Rflags, number_of_states);
+//  __ bge_PPC(CCR0, LFlagInvalid);
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).
@@ -3108,7 +3109,7 @@ void TemplateTable::fast_storefield(TosState state) {
       break;
 
     case Bytecodes::_fast_zputfield:
-      __ andi(R25_tos, R25_tos, 0x1);  // boolean is true if LSB is 1
+      __ andi_PPC(R25_tos, R25_tos, 0x1);  // boolean is true if LSB is 1
       // fall through to bputfield
     case Bytecodes::_fast_bputfield:
       __ stbx_PPC(R25_tos, Rclass_or_obj, Roffset);

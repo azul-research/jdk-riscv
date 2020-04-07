@@ -1500,7 +1500,7 @@ class Assembler : public AbstractAssembler {
   inline void isel_0_PPC( Register d, ConditionRegister cr, Condition cc, Register b = noreg);
 
   // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
-         void andi(   Register a, Register s, long ui16);   // optimized version
+         void andi_PPC(   Register a, Register s, long ui16);   // optimized version
   inline void andi__PPC(  Register a, Register s, int ui16);
   inline void andis__PPC( Register a, Register s, int ui16);
   inline void ori_PPC(    Register a, Register s, int ui16);
