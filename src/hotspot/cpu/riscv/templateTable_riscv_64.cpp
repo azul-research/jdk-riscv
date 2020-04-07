@@ -1054,7 +1054,7 @@ void TemplateTable::castore() {
 
   const Register Rindex   = R5_scratch1,
                  Rarray   = R6_scratch2,
-                 Rscratch = R3_ARG1_PPC;
+                 Rscratch = R10_ARG0;
   __ pop_i(Rindex);
   // tos: val
   // Rarray: array ptr (popped by index_check)
