@@ -2858,9 +2858,10 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   __ andi(Rflags, Rflags, (1 << ConstantPoolCacheEntry::tos_state_bits) - 1);
 
 #ifdef ASSERT
+  // FIXME_RISCV
   Label LFlagInvalid;
-  __ cmpldi_PPC(CCR0, Rflags, number_of_states);
-  __ bge_PPC(CCR0, LFlagInvalid);
+//  __ cmpldi_PPC(CCR0, Rflags, number_of_states);
+//  __ bge_PPC(CCR0, LFlagInvalid);
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).

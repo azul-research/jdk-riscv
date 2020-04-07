@@ -2243,8 +2243,8 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
   {
     Label Lok;
     sub(R5_scratch1, R8_FP, R2_SP);
-    slti(R5_scratch1, R5_scratch1, frame::abi_reg_args_ppc_size + frame::ijava_state_size);
-    beqz(R5_scratch1, Lok);
+    slti(R5_scratch1, R5_scratch1, frame::frame_header_size);
+    beqz(R5_scratch1, Lok); // ok if frame_size >= header_size + ijava_state_size
     stop("frame too small (restore istate)", 0x5432);
     bind(Lok);
   }
