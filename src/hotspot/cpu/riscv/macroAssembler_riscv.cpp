@@ -975,13 +975,13 @@ void MacroAssembler::pop_java_frame(bool setRA) {
   mv(R2_SP, R21_sender_SP);
 #ifdef ASSERT
   {
-    Label Lok;
+//    Label Lok;
     // TODO_RISCV take registers for assert
 //    ld(Rscratch1, R8_FP, _ijava_state(ijava_reserved));
 //    li(Rscratch2, 0x5afe);
 //    beq(Rscratch1, Rscratch2, Lok);
-    stop("frame corrupted (remove activation)", 0x5afe);
-    bind(Lok);
+//    stop("frame corrupted (remove activation)", 0x5afe);
+//    bind(Lok);
   }
 #endif
 }
@@ -3053,7 +3053,7 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src) {
 void MacroAssembler::load_klass(Register dst, Register src) {
   // TODO_RISCV: add support for compressed class pointers
   if (UseCompressedClassPointers) {
-    assert(!UseCompressedClassPointers, "RISCV port: compressed class pointers not supported");
+//    assert(!UseCompressedClassPointers, "RISCV port: compressed class pointers not supported");
 #if 0
     lwz_PPC(dst, oopDesc::klass_offset_in_bytes(), src);
     // Attention: no null check here!
