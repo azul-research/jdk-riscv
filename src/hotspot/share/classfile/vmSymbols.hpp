@@ -65,8 +65,6 @@
   template(java_lang_T8,                              "java/lang/T8")                             \
   template(java_lang_T9,                              "java/lang/T9")                             \
   template(java_lang_jmmtest_JmmTest,                 "java/lang/jmmtest/JmmTest")                \
-  template(java_lang_jmmtest_ResultData,              "java/lang/jmmtest/ResultData")             \
-  template(java_lang_jmmtest_TestData,                "java/lang/jmmtest/TestData")               \
   template(java_lang_Class,                           "java/lang/Class")                          \
   template(java_lang_Package,                         "java/lang/Package")                        \
   template(java_lang_Module,                          "java/lang/Module")                         \

@@ -3024,7 +3024,7 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src) {
   if (CompressedKlassPointers::shift() != 0 ||
       CompressedKlassPointers::base() == 0 && src != dst) {  // Move required.
     shifted_src = dst;
-    sldi_PPC(shifted_src, src, CompressedKlassPointers::shift());
+    slli(shifted_src, src, CompressedKlassPointers::shift());
   }
   if (CompressedKlassPointers::base() != 0) {
     add_const_optimized(dst, shifted_src, CompressedKlassPointers::base(), R0);
@@ -3033,11 +3033,11 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src) {
 
 void MacroAssembler::load_klass(Register dst, Register src) {
   if (UseCompressedClassPointers) {
-    lwz_PPC(dst, oopDesc::klass_offset_in_bytes(), src);
+    lwu(dst, src, oopDesc::klass_offset_in_bytes());
     // Attention: no null check here!
     decode_klass_not_null(dst, dst);
   } else {
-    ld_PPC(dst, oopDesc::klass_offset_in_bytes(), src);
+    ld(dst, src, oopDesc::klass_offset_in_bytes());
   }
 }
 

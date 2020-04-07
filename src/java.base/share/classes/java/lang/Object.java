@@ -37,21 +37,6 @@ import jdk.internal.HotSpotIntrinsicCandidate;
  * @since   1.0
  */
 public class Object {
-	/**
-     */
-    public static class TestData {
-    	/**
-    	 */
-        public volatile int a, b;
-    }
-
-	/**
-	 */
-	public static TestData[] testData;
-	/**
-	 */
-	public static int i0;
-
     private static native void registerNatives();
     static {
         registerNatives();
@@ -61,27 +46,6 @@ public class Object {
 	 * A test method to call in VM.
 	 */
     public static void testMethod() {
-        testData = new TestData[1];
-        testData[0].a = 1;
-        i0 = testData[0].b;
-
-        /*ar = new int[3];
-        ar[0] = 645;
-        ra1 = ar[0];
-
-        start0 = false;
-
-        while(start0) {}
-
-        if (start0) {
-            ra1 = 1;
-        } else {
-            ra1 = 2;
-        }
-
-        for(ra2 = 0; ra2 < 10; ra2 = ra2 + 1) {
-            ra1 = ra2;
-        }*/
     }
 
     /**

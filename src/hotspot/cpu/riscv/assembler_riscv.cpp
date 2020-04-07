@@ -618,7 +618,7 @@ int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp,
     if (return_simm16_rest && (d == s)) {
       return xd;
     }
-    addi_PPC(d, s, xd);
+    addi(d, s, xd);
     return 0;
   }
 

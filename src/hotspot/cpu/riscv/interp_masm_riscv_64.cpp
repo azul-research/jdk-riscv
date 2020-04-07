@@ -530,7 +530,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   // Writes:
   //   - Rres: Address that corresponds to the array index if check was successful.
   verify_oop(Rarray);
-  const Register Rlength   = R5_scratch1;
+  const Register Rlength   = R6_scratch2;
   const Register RsxtIndex = Rtmp;
   Label LisNull, LnotOOR;
 
@@ -595,7 +595,7 @@ void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
 
 void InterpreterMacroAssembler::get_cpool_and_tags(Register Rcpool, Register Rtags) {
   get_constant_pool(Rcpool);
-  ld_PPC(Rtags, ConstantPool::tags_offset_in_bytes(), Rcpool);
+  ld(Rtags, Rcpool, ConstantPool::tags_offset_in_bytes());
 }
 
 // Unlock if synchronized method.
@@ -1635,7 +1635,8 @@ void InterpreterMacroAssembler::profile_switch_case(Register index,
 }
 
 void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register Rscratch2) {
-  if (ProfileInterpreter) {
+  //FIXME_RISCV
+  /*if (ProfileInterpreter) {
     assert_different_registers(Rscratch1, Rscratch2);
     Label profile_continue;
 
@@ -1652,7 +1653,7 @@ void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register R
     update_mdp_by_constant(mdp_delta);
 
     bind (profile_continue);
-  }
+  }*/
 }
 
 void InterpreterMacroAssembler::record_klass_in_profile(Register Rreceiver,

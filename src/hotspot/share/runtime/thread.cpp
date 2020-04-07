@@ -3684,6 +3684,18 @@ void put_bool_field(const InstanceKlass* klass, const char* field_name, bool val
   ShouldNotReachHere();
 }
 
+bool get_bool_field(const InstanceKlass* klass, const char* field_name) {
+  char fname[100];
+  for (int i = 0; i < klass->java_fields_count(); ++i) {
+    klass->field_name(i)->as_C_string(fname, 100);
+    if (strcmp(fname, field_name) == 0) {
+      return klass->java_mirror()->bool_field(klass->field_offset(i));
+    }
+  }
+  ShouldNotReachHere();
+  return false;
+}
+
 int get_int_field(const InstanceKlass* klass, const char* field_name) {
   char fname[100];
   for (int i = 0; i < klass->java_fields_count(); ++i) {
@@ -3719,9 +3731,17 @@ JavaValue call_method(const char *name, BasicType return_type, TRAPS) {
   return result;
 }
 
-void empty(TRAPS) {
-  call_method("calcResults", T_VOID, CHECK);
+void thread_entry_point(JavaThread* thread, TRAPS) {
+  TestJavaThread* test_thread = (TestJavaThread*) thread;
+  JavaValue result = call_method(test_thread->get_test_method(), T_VOID, CHECK);
+  //fprintf(stderr, "Default test method call result: %d\n", result.get_jint());
+}
+
+void print_jmm_test_results(TRAPS) {
+  //call_method("calcResults", T_VOID, CHECK);
   Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+  while (!get_bool_field(InstanceKlass::cast(klass), "calcFinished")) {}
+
   int errors = get_int_field(InstanceKlass::cast(klass), "errors");
   int side_by_side = get_int_field(InstanceKlass::cast(klass), "sideBySide");
   int a_outruns_b = get_int_field(InstanceKlass::cast(klass), "aOutrunsB");
@@ -3764,21 +3784,26 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
       JavaCallArguments args;
       JavaValue result(T_VOID);
       JavaCalls::call(&result, method, &args, CHECK);
-      fprintf(stderr, "Default est method call result: %d\n", 1/*result.get_jint()*/);
+      fprintf(stderr, "Default test method call result: %d\n", 1/*result.get_jint()*/);
     }
   }
 
-  if (TestRepetitionsNumber != 0) {
-    initialize_class(vmSymbols::java_lang_Object(), CHECK);
-    initialize_class(vmSymbols::java_lang_jmmtest_ResultData(), CHECK);
-    initialize_class(vmSymbols::java_lang_jmmtest_TestData(), CHECK);
+  if (TestJmm) {
     initialize_class(vmSymbols::java_lang_jmmtest_JmmTest(), CHECK);
+    Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, CHECK);
+    put_bool_field(InstanceKlass::cast(klass), "start0", false);
+    put_bool_field(InstanceKlass::cast(klass), "calcFinished", false);
 
-    char *actors_methods[] = { "actor0", "actor1", "actor2" };
-    JmmTest tests[1] = {
-        JmmTest("reset0", actors_methods, 3, &empty)
-    };
-    JmmTest::run_all(tests, 1, CHECK);
+    TestJavaThread *thread1 = new TestJavaThread("reset0", &thread_entry_point);
+    TestJavaThread *thread2 = new TestJavaThread("actor1", &thread_entry_point);
+    TestJavaThread *thread3 = new TestJavaThread("actor2", &thread_entry_point);
+    TestJavaThread *thread4 = new TestJavaThread("calcResults", &thread_entry_point);
+
+    os::start_thread(thread1);
+    os::start_thread(thread2);
+    os::start_thread(thread3);
+    os::start_thread(thread4);
+    print_jmm_test_results(THREAD);
   }
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
 
@@ -5415,12 +5440,6 @@ void TestJavaThread::exit(bool destroy_vm, JavaThread::ExitType exit_type) {
   }
 }
 
-void thread_entry_point(JavaThread* thread, TRAPS) {
-  TestJavaThread* test_thread = (TestJavaThread*) thread;
-  JavaValue result = call_method(test_thread->get_test_method(), T_VOID, CHECK);
-  //fprintf(stderr, "Default test method call result: %d\n", result.get_jint());
-}
-
 void JmmTest::run(TRAPS) {
   call_method(before_test_method_name, T_VOID, CHECK);
 
@@ -5441,8 +5460,6 @@ void JmmTest::run(TRAPS) {
 
 void JmmTest::run_all(JmmTest* tests, size_t size, TRAPS) {
   for (size_t i = 0; i < size; i++) {
-    for (int j = 0; j < TestRepetitionsNumber; j++) {
-      tests[i].run(CHECK);
-    }
+    tests[i].run(CHECK);
   }
 }
