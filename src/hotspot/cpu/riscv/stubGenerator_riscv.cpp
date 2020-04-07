@@ -147,7 +147,6 @@ class StubGenerator: public StubCodeGenerator {
       __ addi(r_frame_size, r_frame_size, frame::entry_frame_size);
 
       // push ENTRY_FRAME
-      __ mv(R8_FP, R2_SP);
       __ push_frame(r_frame_size);
 
       // initialize call_stub locals (step 1)

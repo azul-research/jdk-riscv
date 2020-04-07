@@ -108,21 +108,16 @@ address os::Linux::ucontext_get_pc(const ucontext_t * uc) {
   // - if uc was filled by getcontext(), it is undefined - getcontext() does not fill
   //   it because the volatile registers are not needed to make setcontext() work.
   //   Hopefully it was zero'd out beforehand.
-// FIXME_RISCV begin
-//  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_get_pc in sigaction context");
-  tty->print_cr("%s returned NULL", __func__);
-  return NULL;//(address)uc->uc_mcontext.regs->nip;
-// FIXME_RISCV end
+  guarantee(uc->uc_mcontext.__gregs != NULL, "only use ucontext_get_pc in sigaction context");
+  return (address)uc->uc_mcontext.__gregs[0/*REG_PC*/];
 }
 
 // modify PC in ucontext.
 // Note: Only use this for an ucontext handed down to a signal handler. See comment
 // in ucontext_get_pc.
 void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
-/* // FIXME_RISCV begin
-  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_set_pc in sigaction context");
-  uc->uc_mcontext.regs->nip = (unsigned long)pc;
-*/// FIXME_RISCV end
+  guarantee(uc->uc_mcontext.__gregs != NULL, "only use ucontext_set_pc in sigaction context");
+  uc->uc_mcontext.__gregs[0/*REG_PC*/] = (unsigned long)pc;
 }
 
 static address ucontext_get_ra(const ucontext_t * uc) {
@@ -134,7 +129,7 @@ intptr_t* os::Linux::ucontext_get_sp(const ucontext_t * uc) {
 }
 
 intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
-  return (intptr_t*)uc->uc_mcontext.__gregs[1/*REG_SP*/];
+  return (intptr_t*)uc->uc_mcontext.__gregs[8/*REG_FP*/];
 }
 
 static unsigned long ucontext_get_trap(const ucontext_t * uc) {
