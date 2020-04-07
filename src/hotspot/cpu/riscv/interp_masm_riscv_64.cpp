@@ -2043,9 +2043,9 @@ void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rds
 //   - Rdst_value
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rdst_address, Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  ld_PPC(Rdst_value, -8, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  ld(Rdst_value, Rdst_address, -8);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2058,9 +2058,9 @@ void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rd
 void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
                                                Register Rdst_address,
                                                Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  ld_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  ld(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2071,9 +2071,9 @@ void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
 void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
                                                  Register Rdst_address,
                                                  Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  lfs_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  flw(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2084,54 +2084,54 @@ void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
 void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
                                                   Register Rdst_address,
                                                   Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  lfd_PPC(Rdst_value, -8, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  fld(Rdst_value, Rdst_address, -8);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stw_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sw(Rvalue, Rindex, 0);
 }
 
 // Store a long value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  std_PPC(Rvalue, -8, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sd(Rvalue, Rindex, -8);
 }
 
 // Store an oop value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  std_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sd(Rvalue, Rindex, 0);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stfs_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  fsw(Rvalue, Rindex, 0);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stfd_PPC(Rvalue, -8, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  fsd(Rvalue, Rindex, -8);
 }
 
 // Read pending exception from thread and jump to interpreter.
