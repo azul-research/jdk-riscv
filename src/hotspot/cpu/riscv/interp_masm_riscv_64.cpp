@@ -782,7 +782,7 @@ void InterpreterMacroAssembler::narrow(Register result) {
 
   cmpwi_PPC(CCR0, ret_type, T_BOOLEAN);
   bne_PPC(CCR0, notBool);
-  andi(result, result, 0x1);
+  andi_PPC(result, result, 0x1);
   b_PPC(done);
 
   bind(notBool);
@@ -794,7 +794,7 @@ void InterpreterMacroAssembler::narrow(Register result) {
   bind(notByte);
   cmpwi_PPC(CCR0, ret_type, T_CHAR);
   bne_PPC(CCR0, notChar);
-  andi(result, result, 0xffff);
+  andi_PPC(result, result, 0xffff);
   b_PPC(done);
 
   bind(notChar);
@@ -1410,7 +1410,7 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
   addi_PPC(counter, counter, InvocationCounter::count_increment);
 
   // Mask the invocation counter.
-  andi(invocation_counter, invocation_counter, InvocationCounter::count_mask_value);
+  andi_PPC(invocation_counter, invocation_counter, InvocationCounter::count_mask_value);
 
   // Store new counter value.
   stw_PPC(counter, in_bytes(MethodCounters::backedge_counter_offset()) +
@@ -2298,7 +2298,7 @@ void InterpreterMacroAssembler::increment_invocation_counter(Register Rcounters,
   // Load the backedge counter.
   lwz_PPC(backedge_count, be_counter_offset, Rcounters); // is unsigned int
   // Mask the backedge counter.
-  andi(backedge_count, backedge_count, InvocationCounter::count_mask_value);
+  andi_PPC(backedge_count, backedge_count, InvocationCounter::count_mask_value);
 
   // Load the invocation counter.
   lwz_PPC(invocation_count, inv_counter_offset, Rcounters); // is unsigned int
