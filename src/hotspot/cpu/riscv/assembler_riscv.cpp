@@ -601,46 +601,35 @@ int Assembler::load_const_optimized(Register d, long imm, Register tmp, bool ret
 }
 
 // We emit only one addition to s to optimize latency.
-int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp, bool return_simm16_rest) {
-  assert(s != R0 && s != tmp, "unsupported");
-  long rem = x;
+int Assembler::add_const_optimized(Register d, Register s, long imm, Register tmp, bool return_simm12_rest) {
+  assert(s != d || tmp != noreg, "unsupported");
+  assert(tmp != s, "tmp register should not be equal to src");
+  unsigned long uimm = imm;
 
-  // Case 1: Can use mr or addi.
-  short xd = rem & 0xFFFF; // Lowest 16-bit chunk.
-  rem = (rem >> 16) + ((unsigned short)xd >> 15);
-  if (rem == 0) {
-    if (xd == 0) {
-      if (d != s) { mr_PPC(d, s); }
-      return 0;
+  // small constant
+  if (-0x800 <= imm && imm < 0x800) {
+    if (return_simm12_rest && s == d) {
+      return imm;
     }
-    if (return_simm16_rest && (d == s)) {
-      return xd;
-    }
-    addi_PPC(d, s, xd);
+    addi(d, s, imm);
     return 0;
   }
 
-  // Case 2: Can use addis.
-  if (xd == 0) {
-    short xc = rem & 0xFFFF; // 2nd 16-bit chunk.
-    rem = (rem >> 16) + ((unsigned short)xc >> 15);
-    if (rem == 0) {
-      addis_PPC(d, s, xc);
-      return 0;
-    }
+  if (tmp == noreg) {
+    // use destination as temp register
+    tmp = d;
   }
 
-  // Other cases: load & add.
   Register tmp1 = tmp,
            tmp2 = noreg;
-  if ((d != tmp) && (d != s)) {
-    // Can use d.
+
+  if (d != tmp && d != s) {
     tmp1 = d;
     tmp2 = tmp;
   }
-  int simm16_rest = load_const_optimized(tmp1, x, tmp2, return_simm16_rest);
-  add_PPC(d, tmp1, s);
-  return simm16_rest;
+  int simm12_rest = load_const_optimized(tmp1, imm, tmp2, return_simm12_rest);
+  add(d, tmp1, s);
+  return simm12_rest;
 }
 
 #ifndef PRODUCT
