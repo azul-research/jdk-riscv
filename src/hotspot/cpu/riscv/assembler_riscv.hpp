@@ -2725,26 +2725,26 @@ class Assembler : public AbstractAssembler {
   inline void load_const32_PPC(Register d, int i); // load signed int (patchable)
 
   // Load a 64 bit constant, optimized, not identifyable.
-  // Tmp can be used to increase ILP. Set return_simm16_rest = true to get a
+  // Tmp can be used to increase ILP. Set return_simm12_rest = true to get a
   // 16 bit immediate offset. This is useful if the offset can be encoded in
   // a succeeding instruction.
-         int load_const_optimized(Register d, long a,  Register tmp = noreg, bool return_simm16_rest = false);
-  inline int load_const_optimized(Register d, void* a, Register tmp = noreg, bool return_simm16_rest = false) {
-    return load_const_optimized(d, (long)(unsigned long)a, tmp, return_simm16_rest);
+         int load_const_optimized(Register d, long a,  Register tmp = noreg, bool return_simm12_rest = false);
+  inline int load_const_optimized(Register d, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
+    return load_const_optimized(d, (long)(unsigned long)a, tmp, return_simm12_rest);
   }
 
-  // If return_simm16_rest, the return value needs to get added afterwards.
-         int add_const_optimized(Register d, Register s, long x, Register tmp = R0, bool return_simm16_rest = false);
-  inline int add_const_optimized(Register d, Register s, void* a, Register tmp = R0, bool return_simm16_rest = false) {
-    return add_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm16_rest);
+  // If return_simm12_rest, the return value needs to get added afterwards.
+         int add_const_optimized(Register d, Register s, long x, Register tmp = noreg, bool return_simm12_rest = false);
+  inline int add_const_optimized(Register d, Register s, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm12_rest);
   }
 
-  // If return_simm16_rest, the return value needs to get added afterwards.
-  inline int sub_const_optimized(Register d, Register s, long x, Register tmp = R0, bool return_simm16_rest = false) {
-    return add_const_optimized(d, s, -x, tmp, return_simm16_rest);
+  // If return_simm12_rest, the return value needs to get added afterwards.
+  inline int sub_const_optimized(Register d, Register s, long x, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, -x, tmp, return_simm12_rest);
   }
-  inline int sub_const_optimized(Register d, Register s, void* a, Register tmp = R0, bool return_simm16_rest = false) {
-    return sub_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm16_rest);
+  inline int sub_const_optimized(Register d, Register s, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
+    return sub_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm12_rest);
   }
 
   // Creation
