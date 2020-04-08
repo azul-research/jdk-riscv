@@ -576,122 +576,27 @@ void Assembler::li(Register d, long imm) {
 }
 
 // Load a 64 bit constant, optimized, not identifyable.
-// Tmp can be used to increase ILP. Set return_simm16_rest=true to get a
-// 16 bit immediate offset.
-int Assembler::load_const_optimized(Register d, long x, Register tmp, bool return_simm16_rest) {
-  // Avoid accidentally trying to use R0 for indexed addressing.
+// Tmp can be used to increase ILP. Set return_simm12_rest=true to get a
+// 12 bit immediate offset.
+int Assembler::load_const_optimized(Register d, long imm, Register tmp, bool return_simm12_rest) {
+  // TODO_RISCV: utilize tmp register
   assert_different_registers(d, tmp);
 
-  short xa, xb, xc, xd; // Four 16-bit chunks of const.
-  long rem = x;         // Remaining part of const.
-
-  xd = rem & 0xFFFF;    // Lowest 16-bit chunk.
-  rem = (rem >> 16) + ((unsigned short)xd >> 15); // Compensation for sign extend.
-
-  if (rem == 0) { // opt 1: simm16
-    li_PPC(d, xd);
-    return 0;
-  }
-
   int retval = 0;
-  if (return_simm16_rest) {
-    retval = xd;
-    x = rem << 16;
-    xd = 0;
-  }
+  unsigned long uimm = imm;
 
-  if (d == R0) { // Can't use addi.
-    if (is_simm(x, 32)) { // opt 2: simm32
-      lis_PPC(d, x >> 16);
-      if (xd) ori_PPC(d, d, (unsigned short)xd);
-    } else {
-      // 64-bit value: x = xa xb xc xd
-      xa = (x >> 48) & 0xffff;
-      xb = (x >> 32) & 0xffff;
-      xc = (x >> 16) & 0xffff;
-      bool xa_loaded = (xb & 0x8000) ? (xa != -1) : (xa != 0);
-      if (tmp == noreg || (xc == 0 && xd == 0)) {
-        if (xa_loaded) {
-          lis_PPC(d, xa);
-          if (xb) { ori_PPC(d, d, (unsigned short)xb); }
-        } else {
-          li_PPC(d, xb);
-        }
-        sldi_PPC(d, d, 32);
-        if (xc) { oris_PPC(d, d, (unsigned short)xc); }
-        if (xd) { ori_PPC( d, d, (unsigned short)xd); }
-      } else {
-        // Exploit instruction level parallelism if we have a tmp register.
-        bool xc_loaded = (xd & 0x8000) ? (xc != -1) : (xc != 0);
-        if (xa_loaded) {
-          lis_PPC(tmp, xa);
-        }
-        if (xc_loaded) {
-          lis_PPC(d, xc);
-        }
-        if (xa_loaded) {
-          if (xb) { ori_PPC(tmp, tmp, (unsigned short)xb); }
-        } else {
-          li_PPC(tmp, xb);
-        }
-        if (xc_loaded) {
-          if (xd) { ori_PPC(d, d, (unsigned short)xd); }
-        } else {
-          li_PPC(d, xd);
-        }
-        insrdi_PPC(d, tmp, 32, 0);
-      }
-    }
+  if (!return_simm12_rest) {
+    li(d, imm);
     return retval;
   }
 
-  xc = rem & 0xFFFF; // Next 16-bit chunk.
-  rem = (rem >> 16) + ((unsigned short)xc >> 15); // Compensation for sign extend.
-
-  if (rem == 0) { // opt 2: simm32
-    lis_PPC(d, xc);
-  } else { // High 32 bits needed.
-
-    if (tmp != noreg  && (int)x != 0) { // opt 3: We have a temp reg.
-      // No carry propagation between xc and higher chunks here (use logical instructions).
-      xa = (x >> 48) & 0xffff;
-      xb = (x >> 32) & 0xffff; // No sign compensation, we use lis+ori or li to allow usage of R0.
-      bool xa_loaded = (xb & 0x8000) ? (xa != -1) : (xa != 0);
-      bool return_xd = false;
-
-      if (xa_loaded) { lis_PPC(tmp, xa); }
-      if (xc) { lis_PPC(d, xc); }
-      if (xa_loaded) {
-        if (xb) { ori_PPC(tmp, tmp, (unsigned short)xb); } // No addi, we support tmp == R0.
-      } else {
-        li_PPC(tmp, xb);
-      }
-      if (xc) {
-        if (xd) { addi_PPC(d, d, xd); }
-      } else {
-        li_PPC(d, xd);
-      }
-      insrdi_PPC(d, tmp, 32, 0);
-      return retval;
-    }
-
-    xb = rem & 0xFFFF; // Next 16-bit chunk.
-    rem = (rem >> 16) + ((unsigned short)xb >> 15); // Compensation for sign extend.
-
-    xa = rem & 0xFFFF; // Highest 16-bit chunk.
-
-    // opt 4: avoid adding 0
-    if (xa) { // Highest 16-bit needed?
-      lis_PPC(d, xa);
-      if (xb) { addi_PPC(d, d, xb); }
-    } else {
-      li_PPC(d, xb);
-    }
-    sldi_PPC(d, d, 32);
-    if (xc) { addis_PPC(d, d, xc); }
+  unsigned long low = uimm & 0xfff;
+  unsigned long high = uimm >> 12;
+  if (low >= 0x800) {
+    retval = (int)low - 0x1000;
+    ++high;
   }
-
-  if (xd) { addi_PPC(d, d, xd); }
+  li(d, high << 12);
   return retval;
 }
 
