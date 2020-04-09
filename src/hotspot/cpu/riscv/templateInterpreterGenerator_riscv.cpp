@@ -875,7 +875,7 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
     __ btrue_PPC(CCR0, Lstatic);
 
     // Non-static case: load receiver obj from stack and we're done.
-    __ ld_PPC(Robj_to_lock, R26_locals);
+    __ ld_PPC(Robj_to_lock, R18_locals_PPC);
     __ b_PPC(Ldone);
 
     __ bind(Lstatic); // Static case: Lock the java mirror
@@ -904,18 +904,19 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
              | return address  |   |                   |   | return address  |   |
              |   previous fp ------+                   +------ previous fp   |   |
              |       ...       |                           |       ...       |   |
-             |   argument 0    |                 locals--> |   argument 0    |   |
-             |       ...       |                           |       ...       |   |
-             |   argument n    |                           |   argument n    |   |
-     esp --> |       ___       |                           |-----------------|   |
+             +-----------------+                           +-----------------+   |
              |                 |                           |                 |   |
-             |                 |                           |     locals      |   |
-             |                 |                   fp -->  |                 |   |
-      sp --> |                 |                           +=================+   |
-             +=================+                           | return address  |   |
-               stack grows down                            |   previous fp ------+
-                      |                                    |-----------------|
-                      v                                    |                 |
+             |space for locals |                           |     locals      |   |
+             |                 |                           |                 |   |
+             +-----------------+                           |-----------------|   |
+             |   argument n    |                           |   argument n    |   |
+             |       ...       |                           |       ...       |   |
+      sp --> |   argument 0    |                   fp -->  |   argument 0    |   |
+     esp --> +=================+                           +=================+   |
+               stack grows down                            | return address  |   |
+                      |                                    |   previous fp ------+
+                      v                                    |-----------------|
+                                                           |                 |
                                                            |   ijava state   |
                                                  monitor-> |                 |
                                                            |-----------------|
@@ -981,12 +982,6 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   __ addi(new_frame_size, new_frame_size, frame::frame_header_size);
   __ round_up_to(new_frame_size, frame::alignment_in_bytes);
 
-  // calculate new FP
-  __ addi(new_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
-  __ sub(new_FP, new_FP, Rsize_of_locals); // add size of all locals (includes parameters)
-  __ add(new_FP, new_FP, Rsize_of_parameters);
-  __ round_down_to(new_FP, frame::alignment_in_bytes);
-
   if (!native_call) {
     // Stack overflow check.
     // Native calls don't need the stack size check since they have no
@@ -997,12 +992,10 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   }
 
   // Push new frame
-  __ save_abi_frame(new_FP, 0);
-  __ mv(R8_FP, new_FP);
-  __ sub(R2_SP, R8_FP, new_frame_size);
+  __ save_abi_frame(R2_SP, 0);
+  __ push_frame(new_frame_size);
 
   // Set up registers.
-  __ add(R26_locals, R23_esp, Rsize_of_parameters); // R26_locals should point to the first method argument(local 0).
   Register RXX_monitor = R5_scratch1; // TODO change RXX_monitor register
   __ addi(RXX_monitor, R8_FP, -frame::frame_header_size); // Frame will be resized on monitor pushing.
   __ addi(R23_esp, RXX_monitor, -Interpreter::stackElementSize);
@@ -1041,7 +1034,6 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   __ sd(R6_scratch2, R8_FP, _ijava_state(mirror));
   __ sd(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
   __ sd(R9_constPoolCache, R8_FP, _ijava_state(cpoolCache));
-  __ sd(R26_locals, R8_FP, _ijava_state(locals));
 
   // Note: esp, bcp, monitor, mdx live in registers. Hence, the correct version can only
   // be found in the frame after save_interpreter_state is done. This is always true
@@ -1349,7 +1341,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //
   // Our signature handlers copy required arguments to the C stack
   // (outgoing C args), R3_ARG1_PPC to R10_ARG8_PPC, and FARG1 to FARG13.
-  __ mr_PPC(R3_ARG1_PPC, R26_locals);
+  __ mr_PPC(R3_ARG1_PPC, R18_locals_PPC);
 
   __ call_stub(signature_handler_fd);
 
@@ -1643,14 +1635,14 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   // Set up the zeroing loop.
   __ sub(Rnum, Rsize_of_locals, Rsize_of_parameters);
-  __ sub(Rslot_addr, R26_locals, Rsize_of_parameters);
+  __ add(Rslot_addr, R8_FP, Rsize_of_parameters);
   __ srli(Rnum, Rnum, Interpreter::logStackElementSize);
   __ beqz(Rnum, Lno_locals);
 
   // The zero locals loop.
   __ bind(Lzero_loop);
   __ sd(R0, Rslot_addr, 0);
-  __ addi(Rslot_addr, Rslot_addr, -Interpreter::stackElementSize);
+  __ addi(Rslot_addr, Rslot_addr, Interpreter::stackElementSize);
   __ addi(Rnum, Rnum, -1);
   __ bnez(Rnum, Lzero_loop);
 
@@ -2053,7 +2045,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     __ ld_PPC(R4_ARG2_PPC, in_bytes(Method::const_offset()), R27_method);
     __ lhz_PPC(R4_ARG2_PPC /* number of params */, in_bytes(ConstMethod::size_of_parameters_offset()), R4_ARG2_PPC);
     __ slwi_PPC(R4_ARG2_PPC, R4_ARG2_PPC, Interpreter::logStackElementSize);
-    __ addi_PPC(R5_ARG3_PPC, R26_locals, Interpreter::stackElementSize);
+    __ addi_PPC(R5_ARG3_PPC, R18_locals_PPC, Interpreter::stackElementSize);
     __ subf_PPC(R5_ARG3_PPC, R4_ARG2_PPC, R5_ARG3_PPC);
     // Save these arguments.
     __ call_VM_leaf(CAST_FROM_FN_PTR(address, Deoptimization::popframe_preserve_args), R24_thread, R4_ARG2_PPC, R5_ARG3_PPC);
@@ -2097,7 +2089,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     // The member name argument must be restored if _invokestatic is re-executed after a PopFrame call.
     // Detect such a case in the InterpreterRuntime function and return the member name argument, or NULL.
-    __ ld_PPC(R4_ARG2_PPC, 0, R26_locals);
+    __ ld_PPC(R4_ARG2_PPC, 0, R18_locals_PPC);
     __ MacroAssembler::call_VM(R4_ARG2_PPC, CAST_FROM_FN_PTR(address, InterpreterRuntime::member_name_arg_or_null), R4_ARG2_PPC, R27_method, R22_bcp, false);
     __ restore_interpreter_state(/*bcp_and_mdx_only*/ true);
     __ cmpdi_PPC(CCR0, R4_ARG2_PPC, 0);

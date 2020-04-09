@@ -1961,7 +1961,7 @@ void InterpreterMacroAssembler::profile_parameters_type(Register tmp1, Register 
     sldi_PPC(tmp3, tmp3, Interpreter::logStackElementSize);
     neg_PPC(tmp3, tmp3);
     // Read the parameter from the local area.
-    ldx_PPC(tmp3, tmp3, R26_locals);
+    ldx_PPC(tmp3, tmp3, R18_locals_PPC);
 
     // Make entry_offset now point to the type field for this parameter.
     int type_base = in_bytes(ParametersTypeData::type_offset(0));
@@ -2040,7 +2040,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rdst_address, Register Rindex) {
   slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  sub(Rdst_address, R26_locals, Rdst_address);
+  add(Rdst_address, R8_FP, Rdst_address);
   lwu(Rdst_value, Rdst_address, 0);
 }
 
@@ -2051,7 +2051,7 @@ void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rds
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rdst_address, Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
+  add(Rdst_address, R8_FP, Rdst_address);
   ld_PPC(Rdst_value, -8, Rdst_address);
 }
 
@@ -2066,7 +2066,7 @@ void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
                                                Register Rdst_address,
                                                Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
+  add(Rdst_address, R8_FP, Rdst_address);
   ld_PPC(Rdst_value, 0, Rdst_address);
 }
 
@@ -2079,7 +2079,7 @@ void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
                                                  Register Rdst_address,
                                                  Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
+  add(Rdst_address, R8_FP, Rdst_address);
   lfs_PPC(Rdst_value, 0, Rdst_address);
 }
 
@@ -2092,7 +2092,7 @@ void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
                                                   Register Rdst_address,
                                                   Register Rindex) {
   sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
+  add(Rdst_address, R8_FP, Rdst_address);
   lfd_PPC(Rdst_value, -8, Rdst_address);
 }
 
@@ -2101,7 +2101,7 @@ void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
 //   - Rindex
 void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
+  add(Rindex, R8_FP, Rindex);
   stw_PPC(Rvalue, 0, Rindex);
 }
 
@@ -2110,7 +2110,7 @@ void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex
 //   - Rindex
 void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
+  add(Rindex, R8_FP, Rindex);
   std_PPC(Rvalue, -8, Rindex);
 }
 
@@ -2119,7 +2119,7 @@ void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rinde
 //   - Rindex
 void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
+  add(Rindex, R8_FP, Rindex);
   std_PPC(Rvalue, 0, Rindex);
 }
 
@@ -2128,7 +2128,7 @@ void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
+  add(Rindex, R8_FP, Rindex);
   stfs_PPC(Rvalue, 0, Rindex);
 }
 
@@ -2137,7 +2137,7 @@ void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {
   sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
+  add(Rindex, R8_FP, Rindex);
   stfd_PPC(Rvalue, -8, Rindex);
 }
 
@@ -2235,7 +2235,6 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
     ld(R9_constPoolCache, R8_FP, _ijava_state(cpoolCache));
     // Following ones are stack addresses and don't require reload.
     ld(R23_esp, R8_FP, _ijava_state(esp));
-    ld(R26_locals, R8_FP, _ijava_state(locals));
     ld(R28_monitor, R8_FP, _ijava_state(monitors));
 
   }

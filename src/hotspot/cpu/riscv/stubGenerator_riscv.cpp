@@ -91,6 +91,8 @@ class StubGenerator: public StubCodeGenerator {
     Register r_arg_result_type              = R12_ARG2;
     Register r_arg_method                   = R13_ARG3;
     Register r_arg_entry                    = R14_ARG4;
+    Register r_arg_argument_addr            = R15_ARG5;
+    Register r_arg_argument_count           = R16_ARG6;
     Register r_arg_thread                   = R17_ARG7;
 
     Register r_temp                         = R5_TMP0;
@@ -102,11 +104,9 @@ class StubGenerator: public StubCodeGenerator {
       //      F1      [C_FRAME]
       //              ...
 
-      Register r_arg_argument_addr          = R15_ARG5;
-      Register r_arg_argument_count         = R16_ARG6;
       Register r_frame_alignment_in_bytes   = R28_TMP3;
-      Register r_argument_addr              = R29_TMP4;
-      Register r_argumentcopy_addr          = R30_TMP5;
+      Register r_size_of_locals             = R29_TMP4;
+      Register r_const_method               = R30_TMP5;
       Register r_argument_size_in_bytes     = R31_TMP6;
       Register r_frame_size                 = R7_TMP2;
 
@@ -131,17 +131,17 @@ class StubGenerator: public StubCodeGenerator {
       // calculate frame size
 
       // unaligned size of arguments
-      __ slli(r_argument_size_in_bytes,
-                  r_arg_argument_count, Interpreter::logStackElementSize);
+
+      __ ld(r_const_method, r_arg_method, in_bytes(Method::const_offset()));
+      __ lhu(r_size_of_locals, r_const_method, in_bytes(ConstMethod::size_of_locals_offset()));
+      __ slli(r_size_of_locals, r_size_of_locals, Interpreter::logStackElementSize);
+      // TODO does r_size_of_locals contains r_arg_argument_count?
 
       // arguments alignment (max 1 slot)
-      __ andi(r_frame_alignment_in_bytes, r_arg_argument_count, 1);
-      __ slli(r_frame_alignment_in_bytes,
-              r_frame_alignment_in_bytes, Interpreter::logStackElementSize);
+      __ andi(r_frame_alignment_in_bytes, r_size_of_locals, Interpreter::stackElementSize);
 
       // size = unaligned size of arguments + arguments alignment
-      __ add(r_frame_size, r_argument_size_in_bytes,
-                 r_frame_alignment_in_bytes);
+      __ add(r_frame_size, r_size_of_locals, r_frame_alignment_in_bytes);
 
       // size += size of call_stub locals
       __ addi(r_frame_size, r_frame_size, frame::entry_frame_size);
@@ -161,23 +161,21 @@ class StubGenerator: public StubCodeGenerator {
 
       BLOCK_COMMENT("Copy Java arguments");
       // copy Java arguments
+      Register r_argument_addr      = R29_TMP4;
+      Register r_argumentcopy_addr  = R30_TMP5;
 
-      // Calculate top_of_arguments_addr which will be R23_tos (not prepushed) later.
-      __ add(r_top_of_arguments_addr,
-             R2_SP, r_frame_alignment_in_bytes);
+      assert_different_registers(r_argument_addr, r_argumentcopy_addr, r_arg_argument_count, r_temp);
 
       // any arguments to copy?
       __ beqz (r_arg_argument_count, arguments_copied);
 
       // prepare loop and copy arguments in reverse order
       {
-        // let r_argumentcopy_addr point to last outgoing Java arguments P
-        __ mv(r_argumentcopy_addr, r_top_of_arguments_addr);
+        // let r_argumentcopy_addr point to first outgoing Java arguments P
+        __ mv(r_argumentcopy_addr, R2_SP);
 
-        // let r_argument_addr point to last incoming java argument
-        __ add(r_argument_addr,
-                   r_arg_argument_addr, r_argument_size_in_bytes);
-        __ addi(r_argument_addr, r_argument_addr, -BytesPerWord);
+        // let r_argument_addr point to first incoming java argument
+        __ mv(r_argument_addr, r_arg_argument_addr);
 
         // now loop while argument_count > 0 and copy arguments
         {
@@ -185,15 +183,15 @@ class StubGenerator: public StubCodeGenerator {
           __ bind(next_argument);
 
           __ ld(r_temp, r_argument_addr, 0);
-          // argument_addr--;
-          __ addi(r_argument_addr, r_argument_addr, -BytesPerWord);
           __ sd(r_temp, r_argumentcopy_addr, 0);
+          // argument_addr++;
+          __ addi(r_argument_addr, r_argument_addr, BytesPerWord);
           // argumentcopy_addr++;
           __ addi(r_argumentcopy_addr, r_argumentcopy_addr, BytesPerWord);
 
           // argument_count--;
           __ addi(r_arg_argument_count, r_arg_argument_count, -1);
-
+          // TODO change to comparison of addresses and remove addi?
           __ bnez (r_arg_argument_count, next_argument);
         }
       }
@@ -206,8 +204,7 @@ class StubGenerator: public StubCodeGenerator {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
       Register r_new_arg_entry = R7_TMP2;
-      assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
-                                 r_arg_method, r_arg_thread);
+      assert_different_registers(r_new_arg_entry, r_arg_method, r_arg_thread);
 
       __ mv(r_new_arg_entry, r_arg_entry);
 
@@ -220,7 +217,7 @@ class StubGenerator: public StubCodeGenerator {
       // Tos must point to last argument - element_size.
       const Register tos = R23_esp;
 
-      __ addi(tos, r_top_of_arguments_addr, -Interpreter::stackElementSize);
+      __ addi(tos, R2_SP, -Interpreter::stackElementSize);
 
       // initialize call_stub locals (step 2)
       // now save tos as arguments_tos_address
@@ -257,7 +254,7 @@ class StubGenerator: public StubCodeGenerator {
       // and save runtime-value of LR in return_address.
       assert(r_new_arg_entry != tos && r_new_arg_entry != R27_method && r_new_arg_entry != R24_thread,
              "trashed r_new_arg_entry");
-      return_address = __ call_stub(r_new_arg_entry); //TODO call_stub
+      return_address = __ call_stub(r_new_arg_entry);
     }
 
 #if 0

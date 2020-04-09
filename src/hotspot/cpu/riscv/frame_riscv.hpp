@@ -70,10 +70,15 @@
           |  frame locals   |       }  entry_frame_locals
           |                 |       }
           +-----------------+
-          |   argument 0    |
+          |                 |
+          |      space      |
+          |   for locals    |
+          |                 |
+          +-----------------+
+          |   argument n    |
           |       ...       |
-   sp --> |   argument n    |
-          +=================+ <-- esp (it's equals to SP or SP + 8, depends on )
+   sp --> |   argument 0    |
+  esp --> +=================+
                    |
                    V
 
@@ -98,13 +103,13 @@
           |  operand stack  |
           |                 |
           +-----------------+
-locals--> |   argument 0    |       }
-          |       ...       |       }
-          |   argument n    |       }  arguments and locals of
-          +-----------------+       }     the next method
           |                 |       }
           |      locals     |       }
-          |                 |       }
+          |                 |       }  arguments and locals of
+          +-----------------+       }     the next method
+          |   argument n    |       }
+          |       ...       |       }
+          |   argument 0    |       }
           +=================+
                    |
                    V
@@ -112,13 +117,13 @@ locals--> |   argument 0    |       }
 
   Top Java frame layout:
 
-locals--> |   argument 0    |
-          |       ...       |
-          |   argument n    |
-          |-----------------|
           |                 |
           |     locals      |
-  fp -->  |                 |   |
+          |                 |
+          |-----------------|
+          |   argument n    |
+          |       ...       |
+  fp -->  |   argument 0    |   |
           +=================+   |
           | return address  |   |   }
           |   previous fp ------+   }  frame_abi
@@ -208,7 +213,6 @@ monitor-> |                 |       }
 #endif
     uint64_t method;
     uint64_t mirror;
-    uint64_t locals;
     uint64_t monitors;
     uint64_t cpoolCache;
     uint64_t bcp;

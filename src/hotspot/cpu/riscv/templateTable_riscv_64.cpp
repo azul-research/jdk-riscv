@@ -740,31 +740,31 @@ void TemplateTable::saload() {
 void TemplateTable::iload(int n) {
   transition(vtos, itos);
 
-  __ lwz_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ lwz_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R18_locals_PPC);
 }
 
 void TemplateTable::lload(int n) {
   transition(vtos, ltos);
 
-  __ ld_PPC(R25_tos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ ld_PPC(R25_tos, Interpreter::local_offset_in_bytes(n + 1), R18_locals_PPC);
 }
 
 void TemplateTable::fload(int n) {
   transition(vtos, ftos);
 
-  __ lfs_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ lfs_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n), R18_locals_PPC);
 }
 
 void TemplateTable::dload(int n) {
   transition(vtos, dtos);
 
-  __ lfd_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ lfd_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n + 1), R18_locals_PPC);
 }
 
 void TemplateTable::aload(int n) {
   transition(vtos, atos);
 
-  __ ld_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ ld_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R18_locals_PPC);
 }
 
 void TemplateTable::aload_0() {
@@ -1073,22 +1073,22 @@ void TemplateTable::sastore() {
 
 void TemplateTable::istore(int n) {
   transition(itos, vtos);
-  __ stw_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ stw_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R18_locals_PPC);
 }
 
 void TemplateTable::lstore(int n) {
   transition(ltos, vtos);
-  __ std_PPC(R25_tos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ std_PPC(R25_tos, Interpreter::local_offset_in_bytes(n + 1), R18_locals_PPC);
 }
 
 void TemplateTable::fstore(int n) {
   transition(ftos, vtos);
-  __ stfs_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ stfs_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n), R18_locals_PPC);
 }
 
 void TemplateTable::dstore(int n) {
   transition(dtos, vtos);
-  __ stfd_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ stfd_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n + 1), R18_locals_PPC);
 }
 
 void TemplateTable::astore(int n) {
@@ -1096,7 +1096,7 @@ void TemplateTable::astore(int n) {
 
   __ pop_ptr();
   __ verify_oop_or_return_address(R25_tos, R5_scratch1);
-  __ std_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ std_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R18_locals_PPC);
 }
 
 void TemplateTable::pop() {
@@ -2177,7 +2177,7 @@ void TemplateTable::_return(TosState state) {
 
     // Check if the method has the FINALIZER flag set and call into the VM to finalize in this case.
     assert(state == vtos, "only valid state");
-    __ ld_PPC(R25_tos, 0, R26_locals);
+    __ ld_PPC(R25_tos, 0, R18_locals_PPC);
 
     // Load klass of this obj.
     __ load_klass(Rklass, R25_tos);
@@ -3290,7 +3290,7 @@ void TemplateTable::fast_xaccess(TosState state) {
                  Rflags        = R23_tmp3_PPC,
                  Rscratch      = R6_scratch2;
 
-  __ ld_PPC(Rclass_or_obj, 0, R26_locals);
+  __ ld_PPC(Rclass_or_obj, 0, R18_locals_PPC);
 
   // Constant pool already resolved. Get the field offset.
   __ get_cache_and_index_at_bcp(Rcache, 2);

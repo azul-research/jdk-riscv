@@ -762,9 +762,12 @@ REGISTER_DECLARATION(Register, R26_monitor_PPC,           R26);
 REGISTER_DECLARATION(Register, R27_constPoolCache_PPC,    R27);
 REGISTER_DECLARATION(Register, R28_mdx_PPC,               R28);
 
+REGISTER_DECLARATION(Register, R18_locals_PPC, R18);      // address of first param slot (receiver).
 REGISTER_DECLARATION(Register, R19_inline_cache_reg_PPC, R19);
 
 #ifndef DONT_USE_REGISTER_DEFINES
+#define R18_locals_PPC       AS_REGISTER(Register, R18)
+
 #define R21_tmp1_PPC         AS_REGISTER(Register, R21)
 #define R22_tmp2_PPC         AS_REGISTER(Register, R22)
 #define R23_tmp3_PPC         AS_REGISTER(Register, R23)
@@ -812,7 +815,6 @@ REGISTER_DECLARATION(Register, R23_esp,        R23);
 REGISTER_DECLARATION(FloatRegister, F23_ftos,  F23);
 REGISTER_DECLARATION(Register, R24_thread,     R24);      // address of current thread
 REGISTER_DECLARATION(Register, R25_tos,        R25);      // address of Java tos (prepushed).
-REGISTER_DECLARATION(Register, R26_locals,     R26);      // address of first param slot (receiver).
 REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current method
 #ifndef DONT_USE_REGISTER_DEFINES
 #define R22_bcp           AS_REGISTER(Register, R22)
@@ -820,7 +822,6 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 #define F23_ftos          AS_REGISTER(FloatRegister, F23)
 #define R24_thread        AS_REGISTER(Register, R24)
 #define R25_tos           AS_REGISTER(Register, R25)
-#define R26_locals        AS_REGISTER(Register, R26)
 #define R27_method        AS_REGISTER(Register, R27)
 #endif
 
