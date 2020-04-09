@@ -1,5 +1,7 @@
 #define test_li(x) TEST(#x) { li(Rtemplate0, x); expect(x); }
 
+//#define ALL_TESTS
+
 void test() {
     test_li(-128);
     test_li(0);
@@ -32,6 +34,7 @@ void test() {
 
     // random tests
 
+#ifdef ALL_TESTS
     test_li(0x0000000000000001ull);
     test_li(0x0000000000000002ull);
     test_li(0x0000000000000003ull);
@@ -321,6 +324,7 @@ void test() {
     test_li(0x0cddebb1d70d9b6cull);
     test_li(0x0ce34628a2ab3973ull);
     test_li(0x0f75c496f7ca8bacull);
+#endif
     test_li(0x17457cf96750db56ull);
     test_li(0x18b160501756bb2bull);
     test_li(0x18b84297f5981820ull);
@@ -337,6 +341,7 @@ void test() {
     test_li(0x6b220560c4aa8b21ull);
     test_li(0x7b9f0f6874c4ae9aull);
 
+#ifdef ALL_TESTS
     test_li(-0x0000000000000001ll);
     test_li(-0x0000000000000002ll);
     test_li(-0x0000000000000003ll);
@@ -628,6 +633,7 @@ void test() {
     test_li(-0x0b66e7e0b7b3e884ll);
     test_li(-0x0cc2ba942eb9add1ll);
     test_li(-0x0df143aa8f1ee5efll);
+#endif
     test_li(-0x109e75d88f45427ell);
     test_li(-0x110dcbfa63525097ll);
     test_li(-0x148cafc791165211ll);
