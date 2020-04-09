@@ -573,13 +573,8 @@ void os::print_context(outputStream *st, const void *context) {
   const ucontext_t* uc = (const ucontext_t*)context;
 
   st->print_cr("Registers:");
-/* // FIXME_RISCV begin
-  st->print("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->nip);
-  st->print("lr =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->link);
-  st->print("ctr=" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->ctr);
-*/// FIXME_RISCV end
-    st->cr();
-  for (int i = 0; i < 32; i++) {
+  st->print_cr("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.__gregs[0]);
+  for (int i = 1; i < 32; i++) {
     st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.__gregs[i]);
     if (i % 3 == 2) st->cr();
   }
@@ -607,14 +602,11 @@ void os::print_register_info(outputStream *st, const void *context) {
   st->print_cr("Register to memory mapping:");
   st->cr();
 
-/* // FIXME_RISCV begin
-  st->print("pc ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->nip);
-  st->print("lr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->link);
-  st->print("ctr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->ctr);
-*/// FIXME_RISCV end
-  for (int i = 0; i < 32; i++) {
+  st->print("pc =");
+  print_location(st, uc->uc_mcontext.__gregs[0]);
+  for (int i = 1; i < 32; i++) {
     st->print("r%-2d=", i);
-    print_location(st, uc->uc_mcontext.__gregs[i]); // FIXME_RISCV check correctness
+    print_location(st, uc->uc_mcontext.__gregs[i]);
   }
   st->cr();
 }
