@@ -2164,6 +2164,7 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
+  tty->print_cr("return #%i: %p", state, __ pc());
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation

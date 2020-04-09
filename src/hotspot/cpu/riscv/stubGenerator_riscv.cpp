@@ -286,10 +286,10 @@ class StubGenerator: public StubCodeGenerator {
       // Access all locals via frame pointer, because we know nothing about
       // the topmost frame's size.
 
-      __ ld(r_arg_call_wrapper_addr, R8_FP, _entry_frame_locals(call_wrapper_address));
+      assert_different_registers(R10_RET1, r_arg_result_addr, r_arg_result_type);
+
       __ ld(r_arg_result_addr, R8_FP, _entry_frame_locals(result_address));
       __ ld(r_arg_result_type, R8_FP, _entry_frame_locals(result_type));
-
 
 
       // pop frame and restore non-volatiles, SP and FP

@@ -790,7 +790,6 @@ void InterpreterMacroAssembler::narrow(Register result) {
   bind(shortOne);
   li(scratch, 0xffff0000);
   orr(result, result, scratch);
-  j(done);
 
   // Nothing to do for T_INT
   bind(done);
