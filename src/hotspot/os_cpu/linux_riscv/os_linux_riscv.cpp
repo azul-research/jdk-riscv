@@ -411,9 +411,7 @@ JVM_handle_linux_signal(int sig,
           tty->print_cr("trap: zombie_not_entrant (%s)", (sig == SIGTRAP) ? "SIGTRAP" : "SIGILL");
         }
         stub = SharedRuntime::get_handle_wrong_method_stub();
-      }
-
-      else if (sig == ((SafepointMechanism::uses_thread_local_poll() && USE_POLL_BIT_ONLY) ? SIGTRAP : SIGSEGV) &&
+      } else if (sig == ((SafepointMechanism::uses_thread_local_poll() && USE_POLL_BIT_ONLY) ? SIGTRAP : SIGSEGV) &&
                // A linux-ppc64 kernel before 2.6.6 doesn't set si_addr on some segfaults
                // in 64bit mode (cf. http://www.kernel.org/pub/linux/kernel/v2.6/ChangeLog-2.6.6),
                // especially when we try to read from the safepoint polling page. So the check
@@ -480,9 +478,7 @@ JVM_handle_linux_signal(int sig,
           return true;
         }
       }
-    }
-
-    else { // thread->thread_state() != _thread_in_Java
+    } else { // thread->thread_state() != _thread_in_Java
       if (sig == SIGILL && VM_Version::is_determine_features_test_running()) {
         // SIGILL must be caused by VM_Version::determine_features().
         *(int *)pc = 0; // patch instruction to 0 to indicate that it causes a SIGILL,
@@ -577,14 +573,9 @@ void os::print_context(outputStream *st, const void *context) {
   const ucontext_t* uc = (const ucontext_t*)context;
 
   st->print_cr("Registers:");
-/* // FIXME_RISCV begin
-  st->print("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->nip);
-  st->print("lr =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->link);
-  st->print("ctr=" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->ctr);
-*/// FIXME_RISCV end
-    st->cr();
-  for (int i = 0; i < 32; i++) {
-//    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.regs->gpr[i]); // FIXME_RISCV
+  st->print_cr("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.__gregs[0]);
+  for (int i = 1; i < 32; i++) {
+    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.__gregs[i]);
     if (i % 3 == 2) st->cr();
   }
   st->cr();
@@ -611,14 +602,11 @@ void os::print_register_info(outputStream *st, const void *context) {
   st->print_cr("Register to memory mapping:");
   st->cr();
 
-/* // FIXME_RISCV begin
-  st->print("pc ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->nip);
-  st->print("lr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->link);
-  st->print("ctr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->ctr);
-*/// FIXME_RISCV end
-    for (int i = 0; i < 32; i++) {
+  st->print("pc =");
+  print_location(st, uc->uc_mcontext.__gregs[0]);
+  for (int i = 1; i < 32; i++) {
     st->print("r%-2d=", i);
-//    print_location(st, uc->uc_mcontext.regs->gpr[i]); // FIXME_RISCV
+    print_location(st, uc->uc_mcontext.__gregs[i]);
   }
   st->cr();
 }
