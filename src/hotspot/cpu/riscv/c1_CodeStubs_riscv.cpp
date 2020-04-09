@@ -58,9 +58,9 @@ void RangeCheckStub::emit_code(LIR_Assembler* ce) {
     // May be used by optimizations like LoopInvariantCodeMotion or RangeCheckEliminator.
     DEBUG_ONLY( __ untested("RangeCheckStub: predicate_failed_trap_id"); )
     //__ load_const_optimized(R0, a);
-    __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(a));
-    __ mtctr(R0);
-    __ bctrl();
+    __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(a));
+    __ mtctr_PPC(R0);
+    __ bctrl_PPC();
     ce->add_call_info_here(_info);
     ce->verify_oop_map(_info);
     debug_only(__ illtrap());
@@ -70,21 +70,21 @@ void RangeCheckStub::emit_code(LIR_Assembler* ce) {
   address stub = _throw_index_out_of_bounds_exception ? Runtime1::entry_for(Runtime1::throw_index_exception_id)
                                                       : Runtime1::entry_for(Runtime1::throw_range_check_failed_id);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  __ mtctr(R0);
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
+  __ mtctr_PPC(R0);
 
   Register index = R0;
   if (_index->is_register()) {
-    __ extsw(index, _index->as_register());
+    __ extsw_PPC(index, _index->as_register());
   } else {
     __ load_const_optimized(index, _index->as_jint());
   }
   if (_array) {
-    __ std(_array->as_pointer_register(), -8, R1_SP);
+    __ std_PPC(_array->as_pointer_register(), -8, R1_SP_PPC);
   }
-  __ std(index, -16, R1_SP);
+  __ std_PPC(index, -16, R1_SP_PPC);
 
-  __ bctrl();
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
   debug_only(__ illtrap());
@@ -99,9 +99,9 @@ void PredicateFailedStub::emit_code(LIR_Assembler* ce) {
   __ bind(_entry);
   address a = Runtime1::entry_for(Runtime1::predicate_failed_trap_id);
   //__ load_const_optimized(R0, a);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(a));
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(a));
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
   debug_only(__ illtrap());
@@ -113,23 +113,23 @@ void CounterOverflowStub::emit_code(LIR_Assembler* ce) {
 
   // Parameter 1: bci
   __ load_const_optimized(R0, _bci);
-  __ std(R0, -16, R1_SP);
+  __ std_PPC(R0, -16, R1_SP_PPC);
 
   // Parameter 2: Method*
   Metadata *m = _method->as_constant_ptr()->as_metadata();
   AddressLiteral md = __ constant_metadata_address(m); // Notify OOP recorder (don't need the relocation).
   __ load_const_optimized(R0, md.value());
-  __ std(R0, -8, R1_SP);
+  __ std_PPC(R0, -8, R1_SP_PPC);
 
   address a = Runtime1::entry_for(Runtime1::counter_overflow_id);
   //__ load_const_optimized(R0, a);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(a));
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(a));
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
 
-  __ b(_continuation);
+  __ b_PPC(_continuation);
 }
 
 
@@ -140,9 +140,9 @@ void DivByZeroStub::emit_code(LIR_Assembler* ce) {
   __ bind(_entry);
   address stub = Runtime1::entry_for(Runtime1::throw_div0_exception_id);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
   debug_only(__ illtrap());
@@ -163,9 +163,9 @@ void ImplicitNullCheckStub::emit_code(LIR_Assembler* ce) {
   }
   __ bind(_entry);
   //__ load_const_optimized(R0, a);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(a));
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(a));
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
   debug_only(__ illtrap());
@@ -177,10 +177,10 @@ void SimpleExceptionStub::emit_code(LIR_Assembler* ce) {
   __ bind(_entry);
   address stub = Runtime1::entry_for(_stub);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  if (_obj->is_valid()) { __ mr_if_needed(/*tmp1 in do_CheckCast*/ R4_ARG2, _obj->as_register()); }
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
+  if (_obj->is_valid()) { __ mv_if_needed(/*tmp1 in do_CheckCast*/ R4_ARG2_PPC, _obj->as_register()); }
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   debug_only( __ illtrap(); )
 }
@@ -204,12 +204,12 @@ void NewInstanceStub::emit_code(LIR_Assembler* ce) {
 
   address entry = Runtime1::entry_for(_stub_id);
   //__ load_const_optimized(R0, entry);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(entry));
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(entry));
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  __ b(_continuation);
+  __ b_PPC(_continuation);
 }
 
 
@@ -226,13 +226,13 @@ void NewTypeArrayStub::emit_code(LIR_Assembler* ce) {
 
   address entry = Runtime1::entry_for(Runtime1::new_type_array_id);
   //__ load_const_optimized(R0, entry);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(entry));
-  __ mr_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3, _length->as_register()); // already sign-extended
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(entry));
+  __ mv_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3_PPC, _length->as_register()); // already sign-extended
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  __ b(_continuation);
+  __ b_PPC(_continuation);
 }
 
 
@@ -249,13 +249,13 @@ void NewObjectArrayStub::emit_code(LIR_Assembler* ce) {
 
   address entry = Runtime1::entry_for(Runtime1::new_object_array_id);
   //__ load_const_optimized(R0, entry);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(entry));
-  __ mr_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3, _length->as_register()); // already sign-extended
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(entry));
+  __ mv_if_needed(/*op->tmp1()->as_register()*/ R5_ARG3_PPC, _length->as_register()); // already sign-extended
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  __ b(_continuation);
+  __ b_PPC(_continuation);
 }
 
 
@@ -269,14 +269,14 @@ void MonitorEnterStub::emit_code(LIR_Assembler* ce) {
   __ bind(_entry);
   address stub = Runtime1::entry_for(ce->compilation()->has_fpu_code() ? Runtime1::monitorenter_id : Runtime1::monitorenter_nofpu_id);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  __ mr_if_needed(/*scratch_opr()->as_register()*/ R4_ARG2, _obj_reg->as_register());
-  assert(_lock_reg->as_register() == R5_ARG3, "");
-  __ mtctr(R0);
-  __ bctrl();
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
+  __ mv_if_needed(/*scratch_opr()->as_register()*/ R4_ARG2_PPC, _obj_reg->as_register());
+  assert(_lock_reg->as_register() == R5_ARG3_PPC, "");
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   ce->verify_oop_map(_info);
-  __ b(_continuation);
+  __ b_PPC(_continuation);
 }
 
 void MonitorExitStub::emit_code(LIR_Assembler* ce) {
@@ -286,11 +286,11 @@ void MonitorExitStub::emit_code(LIR_Assembler* ce) {
   }
   address stub = Runtime1::entry_for(ce->compilation()->has_fpu_code() ? Runtime1::monitorexit_id : Runtime1::monitorexit_nofpu_id);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  assert(_lock_reg->as_register() == R4_ARG2, "");
-  __ mtctr(R0);
-  __ bctrl();
-  __ b(_continuation);
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
+  assert(_lock_reg->as_register() == R4_ARG2_PPC, "");
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
+  __ b_PPC(_continuation);
 }
 
 
@@ -332,12 +332,12 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
   if (_id == load_klass_id) {
     // Produce a copy of the load klass instruction for use by the being initialized case.
     AddressLiteral addrlit((address)NULL, metadata_Relocation::spec(_index));
-    __ load_const(_obj, addrlit, R0);
+    __ load_const_PPC(_obj, addrlit, R0);
     DEBUG_ONLY( compare_with_patch_site(__ code_section()->start() + being_initialized_entry, _pc_start, _bytes_to_copy); )
   } else if (_id == load_mirror_id || _id == load_appendix_id) {
     // Produce a copy of the load mirror instruction for use by the being initialized case.
     AddressLiteral addrlit((address)NULL, oop_Relocation::spec(_index));
-    __ load_const(_obj, addrlit, R0);
+    __ load_const_PPC(_obj, addrlit, R0);
     DEBUG_ONLY( compare_with_patch_site(__ code_section()->start() + being_initialized_entry, _pc_start, _bytes_to_copy); )
   } else {
     // Make a copy the code which is going to be patched.
@@ -360,17 +360,17 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
     // thread.
     assert(_obj != noreg, "must be a valid register");
     assert(_index >= 0, "must have oop index");
-    __ mr(R0, _obj); // spill
-    __ ld(_obj, java_lang_Class::klass_offset_in_bytes(), _obj);
-    __ ld(_obj, in_bytes(InstanceKlass::init_thread_offset()), _obj);
-    __ cmpd(CCR0, _obj, R16_thread);
-    __ mr(_obj, R0); // restore
-    __ bne(CCR0, call_patch);
+    __ mr_PPC(R0, _obj); // spill
+    __ ld_PPC(_obj, java_lang_Class::klass_offset_in_bytes(), _obj);
+    __ ld_PPC(_obj, in_bytes(InstanceKlass::init_thread_offset()), _obj);
+    __ cmpd_PPC(CCR0, _obj, R24_thread);
+    __ mr_PPC(_obj, R0); // restore
+    __ bne_PPC(CCR0, call_patch);
 
     // Load_klass patches may execute the patched code before it's
     // copied back into place so we need to jump back into the main
     // code of the nmethod to continue execution.
-    __ b(_patch_site_continuation);
+    __ b_PPC(_patch_site_continuation);
 
     // Make sure this extra code gets skipped.
     bytes_to_skip += __ offset() - offset;
@@ -410,14 +410,14 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
   __ bind(call_patch);
 
   __ block_comment("patch entry point");
-  //__ load_const(R0, target); + mtctr + bctrl must have size -_patch_info_offset
-  __ load_const32(R0, MacroAssembler::offset_to_global_toc(target));
-  __ add(R0, R29_TOC, R0);
-  __ mtctr(R0);
-  __ bctrl();
+  //__ load_const_PPC(R0, target); + mtctr + bctrl must have size -_patch_info_offset
+  __ load_const32_PPC(R0, MacroAssembler::offset_to_global_toc(target));
+  __ add_PPC(R0, R20_TOC, R0);
+  __ mtctr_PPC(R0);
+  __ bctrl_PPC();
   assert(_patch_info_offset == (patch_info_pc - __ pc()), "must not change");
   ce->add_call_info_here(_info);
-  __ b(_patch_site_entry);
+  __ b_PPC(_patch_site_entry);
   if (_id == load_klass_id || _id == load_mirror_id || _id == load_appendix_id) {
     CodeSection* cs = __ code_section();
     address pc = (address)_pc_start;
@@ -431,11 +431,11 @@ void DeoptimizeStub::emit_code(LIR_Assembler* ce) {
   __ bind(_entry);
   address stub = Runtime1::entry_for(Runtime1::deoptimize_id);
   //__ load_const_optimized(R0, stub);
-  __ add_const_optimized(R0, R29_TOC, MacroAssembler::offset_to_global_toc(stub));
-  __ mtctr(R0);
+  __ add_const_optimized(R0, R20_TOC, MacroAssembler::offset_to_global_toc(stub));
+  __ mtctr_PPC(R0);
 
   __ load_const_optimized(R0, _trap_request); // Pass trap request in R0.
-  __ bctrl();
+  __ bctrl_PPC();
   ce->add_call_info_here(_info);
   debug_only(__ illtrap());
 }
@@ -444,11 +444,11 @@ void DeoptimizeStub::emit_code(LIR_Assembler* ce) {
 void ArrayCopyStub::emit_code(LIR_Assembler* ce) {
   //---------------slow case: call to native-----------------
   __ bind(_entry);
-  __ mr(R3_ARG1, src()->as_register());
-  __ extsw(R4_ARG2, src_pos()->as_register());
-  __ mr(R5_ARG3, dst()->as_register());
-  __ extsw(R6_ARG4, dst_pos()->as_register());
-  __ extsw(R7_ARG5, length()->as_register());
+  __ mr_PPC(R3_ARG1_PPC, src()->as_register());
+  __ extsw_PPC(R4_ARG2_PPC, src_pos()->as_register());
+  __ mr_PPC(R5_ARG3_PPC, dst()->as_register());
+  __ extsw_PPC(R6_ARG4_PPC, dst_pos()->as_register());
+  __ extsw_PPC(R7_ARG5_PPC, length()->as_register());
 
   ce->emit_static_call_stub();
 
@@ -460,7 +460,7 @@ void ArrayCopyStub::emit_code(LIR_Assembler* ce) {
   // stub, and the entry point might be too far away for bl, so __ pc()
   // serves as dummy and the bl will be patched later.
   __ code()->set_insts_mark();
-  __ bl(__ pc());
+  __ bl_PPC(__ pc());
   ce->add_call_info_here(info());
   ce->verify_oop_map(info());
 
@@ -468,12 +468,12 @@ void ArrayCopyStub::emit_code(LIR_Assembler* ce) {
   const address counter = (address)&Runtime1::_arraycopy_slowcase_cnt;
   const Register tmp = R3, tmp2 = R4;
   int simm16_offs = __ load_const_optimized(tmp, counter, tmp2, true);
-  __ lwz(tmp2, simm16_offs, tmp);
-  __ addi(tmp2, tmp2, 1);
-  __ stw(tmp2, simm16_offs, tmp);
+  __ lwz_PPC(tmp2, simm16_offs, tmp);
+  __ addi_PPC(tmp2, tmp2, 1);
+  __ stw_PPC(tmp2, simm16_offs, tmp);
 #endif
 
-  __ b(_continuation);
+  __ b_PPC(_continuation);
 }
 
 #undef __

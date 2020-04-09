@@ -2323,8 +2323,23 @@ const size_t minimumSymbolTableSize = 1024;
           "Causes the VM to pause at startup time and wait for the pause "  \
           "file to be removed (default: ./vm.paused.<pid>)")                \
                                                                             \
-  diagnostic(bool, BreakAtStartup,      false,                         \
+  diagnostic(bool, BreakAtStartup,      false,                              \
           "")                                                               \
+                                                                            \
+  diagnostic(bool, DisableClinit, false,                                    \
+          "")                                                               \
+                                                                            \
+  diagnostic(bool, CallTestMethod, false,                                   \
+          "")                                                               \
+                                                                            \
+  diagnostic(int, TestRepetitionsNumber, 0,                                 \
+          "")                                                               \
+                                                                            \
+  diagnostic(ccstr, TestMethodClass, NULL,                                  \
+          "Class of test method ")                                          \
+                                                                            \
+  diagnostic(ccstr, TestMethodName, NULL,                                   \
+          "Name of test method ")                                           \
                                                                             \
   diagnostic(ccstr, PauseAtStartupFile, NULL,                               \
           "The file to create and for whose removal to await when pausing " \

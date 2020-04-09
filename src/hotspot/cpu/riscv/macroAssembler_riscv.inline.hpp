@@ -55,35 +55,40 @@ inline int MacroAssembler::get_ld_largeoffset_offset(address a) {
   }
 }
 
-inline void MacroAssembler::round_to(Register r, int modulus) {
+inline void MacroAssembler::round_up_to(Register r, int modulus) {
   assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
   addi(r, r, modulus-1);
-  clrrdi(r, r, log2_long((jlong)modulus));
+  andi(r, r, ~(modulus - 1));
+}
+
+inline void MacroAssembler::round_down_to(Register r, int modulus) {
+  assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
+  andi(r, r, ~(modulus - 1));
 }
 
 // Move register if destination register and target register are different.
-inline void MacroAssembler::mr_if_needed(Register rd, Register rs) {
-  if (rs != rd) mr(rd, rs);
+inline void MacroAssembler::mv_if_needed(Register rd, Register rs) {
+  if (rs != rd) mv(rd, rs);
 }
-inline void MacroAssembler::fmr_if_needed(FloatRegister rd, FloatRegister rs) {
-  if (rs != rd) fmr(rd, rs);
+inline void MacroAssembler::fmv_if_needed(FloatRegister rd, FloatRegister rs) {
+  if (rs != rd) fmr_PPC(rd, rs);
 }
 inline void MacroAssembler::endgroup_if_needed(bool needed) {
   if (needed) {
-    endgroup();
+    endgroup_PPC();
   }
 }
 
 inline void MacroAssembler::membar(int bits) {
-  // Comment: Usage of elemental_membar(bits) is not recommended for Power 8.
-  // If elemental_membar(bits) is used, disable optimization of acquire-release
+  // Comment: Usage of elemental_membar_PPC(bits) is not recommended for Power 8.
+  // If elemental_membar_PPC(bits) is used, disable optimization of acquire-release
   // (Matcher::post_membar_release where we use RISCV64_ONLY(xop == Op_MemBarRelease ||))!
-  if (bits & StoreLoad) { sync(); }
-  else if (bits) { lwsync(); }
+  if (bits & StoreLoad) { sync_PPC(); }
+  else if (bits) { lwsync_PPC(); }
 }
-inline void MacroAssembler::release() { membar(LoadStore | StoreStore); }
-inline void MacroAssembler::acquire() { membar(LoadLoad | LoadStore); }
-inline void MacroAssembler::fence()   { membar(LoadLoad | LoadStore | StoreLoad | StoreStore); }
+inline void MacroAssembler::release() { Assembler::fence(Assembler::RW_OP, Assembler::W_OP); }
+inline void MacroAssembler::acquire() { Assembler::fence(Assembler::R_OP, Assembler::RW_OP); }
+inline void MacroAssembler::fence()   { Assembler::fence(Assembler::RW_OP, Assembler::RW_OP); }
 
 // Address of the global TOC.
 inline address MacroAssembler::global_toc() {
@@ -184,7 +189,7 @@ inline void MacroAssembler::set_oop_constant(jobject obj, Register d) {
 
 inline void MacroAssembler::set_oop(AddressLiteral obj_addr, Register d) {
   assert(obj_addr.rspec().type() == relocInfo::oop_type, "must be an oop reloc");
-  load_const(d, obj_addr);
+  load_const_PPC(d, obj_addr);
 }
 
 inline void MacroAssembler::pd_patch_instruction(address branch, address target, const char* file, int line) {
@@ -247,16 +252,15 @@ inline void MacroAssembler::bne_far(ConditionRegister crx, Label& L, int optimiz
 inline void MacroAssembler::bns_far(ConditionRegister crx, Label& L, int optimize) { MacroAssembler::bc_far(bcondCRbiIs0, bi0(crx, summary_overflow), L, optimize); }
 
 inline address MacroAssembler::call_stub(Register function_entry) {
-  mtctr(function_entry);
-  bctrl();
+  jalr(function_entry);
   return pc();
 }
 
 inline void MacroAssembler::call_stub_and_return_to(Register function_entry, Register return_pc) {
   assert_different_registers(function_entry, return_pc);
-  mtlr(return_pc);
-  mtctr(function_entry);
-  bctr();
+  mtlr_PPC(return_pc);
+  mtctr_PPC(function_entry);
+  bctr_PPC();
 }
 
 // Get the pc where the last emitted call will return to.
@@ -268,9 +272,9 @@ inline address MacroAssembler::last_calls_return_pc() {
 inline void MacroAssembler::load_from_polling_page(Register polling_page_address, int offset) {
   if (SafepointMechanism::uses_thread_local_poll() && USE_POLL_BIT_ONLY) {
     int encoding = SafepointMechanism::poll_bit();
-    tdi(traptoGreaterThanUnsigned | traptoEqual, polling_page_address, encoding);
+    tdi_PPC(traptoGreaterThanUnsigned | traptoEqual, polling_page_address, encoding);
   } else {
-    ld(R0, offset, polling_page_address);
+    ld_PPC(R0, offset, polling_page_address);
   }
 }
 
@@ -278,17 +282,17 @@ inline void MacroAssembler::load_from_polling_page(Register polling_page_address
 
 inline void MacroAssembler::trap_null_check(Register a, trap_to_bits cmp) {
   assert(TrapBasedNullChecks, "sanity");
-  tdi(cmp, a/*reg a*/, 0);
+  tdi_PPC(cmp, a/*reg a*/, 0);
 }
 inline void MacroAssembler::trap_zombie_not_entrant() {
-  tdi(traptoUnconditional, 0/*reg 0*/, 1);
+  tdi_PPC(traptoUnconditional, 0/*reg 0*/, 1);
 }
 inline void MacroAssembler::trap_should_not_reach_here() {
-  tdi_unchecked(traptoUnconditional, 0/*reg 0*/, 2);
+  tdi_unchecked_PPC(traptoUnconditional, 0/*reg 0*/, 2);
 }
 
 inline void MacroAssembler::trap_ic_miss_check(Register a, Register b) {
-  td(traptoGreaterThanUnsigned | traptoLessThanUnsigned, a, b);
+  td_PPC(traptoGreaterThanUnsigned | traptoLessThanUnsigned, a, b);
 }
 
 // Do an explicit null check if access to a+offset will not raise a SIGSEGV.
@@ -304,11 +308,11 @@ inline void MacroAssembler::null_check_throw(Register a, int offset, Register te
       trap_null_check(a);
     } else {
       Label ok;
-      cmpdi(CCR0, a, 0);
-      bne(CCR0, ok);
+      cmpdi_PPC(CCR0, a, 0);
+      bne_PPC(CCR0, ok);
       load_const_optimized(temp_reg, exception_entry);
-      mtctr(temp_reg);
-      bctr();
+      mtctr_PPC(temp_reg);
+      bctr_PPC();
       bind(ok);
     }
   }
@@ -321,8 +325,8 @@ inline void MacroAssembler::null_check(Register a, int offset, Label *Lis_null) 
       trap_null_check(a);
     } else if (Lis_null){
       Label ok;
-      cmpdi(CCR0, a, 0);
-      beq(CCR0, *Lis_null);
+      cmpdi_PPC(CCR0, a, 0);
+      beq_PPC(CCR0, *Lis_null);
     }
   }
 }
@@ -380,11 +384,13 @@ inline void MacroAssembler::store_heap_oop(Register d, RegisterOrConstant offs, 
 inline Register MacroAssembler::encode_heap_oop_not_null(Register d, Register src) {
   Register current = (src != noreg) ? src : d; // Oop to be compressed is in d if no src provided.
   if (CompressedOops::base_overlaps()) {
-    sub_const_optimized(d, current, CompressedOops::base(), R0);
+    li(R30_TMP5, CompressedOops::base());
+    sub(d, current, R30_TMP5);
     current = d;
   }
   if (CompressedOops::shift() != 0) {
-    rldicl(d, current, 64-CompressedOops::shift(), 32);  // Clears the upper bits.
+    srli(d, current, CompressedOops::shift());
+    andi(d, d, (int) ((1U << 5) - 1));  // Clears the upper bits.
     current = d;
   }
   return current; // Encoded oop is in this register.
@@ -392,18 +398,11 @@ inline Register MacroAssembler::encode_heap_oop_not_null(Register d, Register sr
 
 inline Register MacroAssembler::encode_heap_oop(Register d, Register src) {
   if (CompressedOops::base() != NULL) {
-    if (VM_Version::has_isel()) {
-      cmpdi(CCR0, src, 0);
-      Register co = encode_heap_oop_not_null(d, src);
-      assert(co == d, "sanity");
-      isel_0(d, CCR0, Assembler::equal);
-    } else {
-      Label isNull;
-      or_(d, src, src); // move and compare 0
-      beq(CCR0, isNull);
-      encode_heap_oop_not_null(d, src);
-      bind(isNull);
-    }
+    Label isNull;
+    mv(d, src);
+    beqz(d, isNull);
+    encode_heap_oop_not_null(d, src);
+    bind(isNull);
     return d;
   } else {
     return encode_heap_oop_not_null(d, src);
@@ -413,18 +412,26 @@ inline Register MacroAssembler::encode_heap_oop(Register d, Register src) {
 inline Register MacroAssembler::decode_heap_oop_not_null(Register d, Register src) {
   if (CompressedOops::base_disjoint() && src != noreg && src != d &&
       CompressedOops::shift() != 0) {
-    load_const_optimized(d, CompressedOops::base(), R0);
-    rldimi(d, src, CompressedOops::shift(), 32-CompressedOops::shift());
+    li(d, CompressedOops::base());
+    unsigned long long mask = ((unsigned long long) ((1ULL << 32) - 1)) << CompressedOops::shift();
+    li(R30_TMP5, mask);
+    mv(R29_TMP4, src);
+    slli(R29_TMP4, R29_TMP4, CompressedOops::shift());
+    andr(R29_TMP4, R29_TMP4, R30_TMP5);
+    xori(R30_TMP5, R30_TMP5, -1);
+    andr(d, d, R30_TMP5);
+    orr(d, d, R29_TMP4);
     return d;
   }
 
   Register current = (src != noreg) ? src : d; // Compressed oop is in d if no src provided.
   if (CompressedOops::shift() != 0) {
-    sldi(d, current, CompressedOops::shift());
+    slli(d, current, CompressedOops::shift());
     current = d;
   }
   if (CompressedOops::base() != NULL) {
-    add_const_optimized(d, current, CompressedOops::base(), R0);
+    li(R30_TMP5, CompressedOops::base());
+    add(d, current, R30_TMP5);
     current = d;
   }
   return current; // Decoded oop is in this register.
@@ -432,47 +439,38 @@ inline Register MacroAssembler::decode_heap_oop_not_null(Register d, Register sr
 
 inline void MacroAssembler::decode_heap_oop(Register d) {
   Label isNull;
-  bool use_isel = false;
   if (CompressedOops::base() != NULL) {
-    cmpwi(CCR0, d, 0);
-    if (VM_Version::has_isel()) {
-      use_isel = true;
-    } else {
-      beq(CCR0, isNull);
-    }
+    beqz(d, isNull);
   }
   decode_heap_oop_not_null(d);
-  if (use_isel) {
-    isel_0(d, CCR0, Assembler::equal);
-  }
   bind(isNull);
 }
 
 // SIGTRAP-based range checks for arrays.
 inline void MacroAssembler::trap_range_check_l(Register a, Register b) {
-  tw (traptoLessThanUnsigned,                  a/*reg a*/, b/*reg b*/);
+  tw_PPC (traptoLessThanUnsigned,                  a/*reg a*/, b/*reg b*/);
 }
 inline void MacroAssembler::trap_range_check_l(Register a, int si16) {
-  twi(traptoLessThanUnsigned,                  a/*reg a*/, si16);
+  twi_PPC(traptoLessThanUnsigned,                  a/*reg a*/, si16);
 }
 inline void MacroAssembler::trap_range_check_le(Register a, int si16) {
-  twi(traptoEqual | traptoLessThanUnsigned,    a/*reg a*/, si16);
+  twi_PPC(traptoEqual | traptoLessThanUnsigned,    a/*reg a*/, si16);
 }
 inline void MacroAssembler::trap_range_check_g(Register a, int si16) {
-  twi(traptoGreaterThanUnsigned,               a/*reg a*/, si16);
+  twi_PPC(traptoGreaterThanUnsigned,               a/*reg a*/, si16);
 }
 inline void MacroAssembler::trap_range_check_ge(Register a, Register b) {
-  tw (traptoEqual | traptoGreaterThanUnsigned, a/*reg a*/, b/*reg b*/);
+  tw_PPC (traptoEqual | traptoGreaterThanUnsigned, a/*reg a*/, b/*reg b*/);
 }
 inline void MacroAssembler::trap_range_check_ge(Register a, int si16) {
-  twi(traptoEqual | traptoGreaterThanUnsigned, a/*reg a*/, si16);
+  twi_PPC(traptoEqual | traptoGreaterThanUnsigned, a/*reg a*/, si16);
 }
 
 // unsigned integer multiplication 64*64 -> 128 bits
 inline void MacroAssembler::multiply64(Register dest_hi, Register dest_lo,
                                        Register x, Register y) {
-  mulld(dest_lo, x, y);
-  mulhdu(dest_hi, x, y);
+  mulld_PPC(dest_lo, x, y);
+  mulhdu_PPC(dest_hi, x, y);
 }
 
 #endif // CPU_RISCV_MACROASSEMBLER_RISCV_INLINE_HPP

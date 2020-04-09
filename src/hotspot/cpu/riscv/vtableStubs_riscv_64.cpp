@@ -68,19 +68,19 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
   if (CountCompiledCalls) {
     start_pc = __ pc();
     int load_const_maxLen = 5*BytesPerInstWord;  // load_const generates 5 instructions. Assume that as max size for laod_const_optimized
-    int offs = __ load_const_optimized(R11_scratch1, SharedRuntime::nof_megamorphic_calls_addr(), R12_scratch2, true);
+    int offs = __ load_const_optimized(R5_scratch1, SharedRuntime::nof_megamorphic_calls_addr(), R6_scratch2, true);
     slop_delta  = load_const_maxLen - (__ pc() - start_pc);
     slop_bytes += slop_delta;
     assert(slop_delta >= 0, "negative slop(%d) encountered, adjust code size estimate!", slop_delta);
-    __ lwz(R12_scratch2, offs, R11_scratch1);
-    __ addi(R12_scratch2, R12_scratch2, 1);
-    __ stw(R12_scratch2, offs, R11_scratch1);
+    __ lwz_PPC(R6_scratch2, offs, R5_scratch1);
+    __ addi_PPC(R6_scratch2, R6_scratch2, 1);
+    __ stw_PPC(R6_scratch2, offs, R5_scratch1);
   }
 #endif
 
-  assert(VtableStub::receiver_location() == R3_ARG1->as_VMReg(), "receiver expected in R3_ARG1");
+  assert(VtableStub::receiver_location() == R3_ARG1_PPC->as_VMReg(), "receiver expected in R3_ARG1_PPC");
 
-  const Register rcvr_klass = R11_scratch1;
+  const Register rcvr_klass = R5_scratch1;
   address npe_addr = __ pc(); // npe = null pointer exception
   // check if we must do an explicit check (implicit checks disabled, offset too large).
   __ null_check(R3, oopDesc::klass_offset_in_bytes(), /*implicit only*/NULL);
@@ -91,12 +91,12 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
   if (DebugVtables) {
     Label L;
     // Check offset vs vtable length.
-    const Register vtable_len = R12_scratch2;
-    __ lwz(vtable_len, in_bytes(Klass::vtable_length_offset()), rcvr_klass);
-    __ cmpwi(CCR0, vtable_len, vtable_index*vtableEntry::size());
-    __ bge(CCR0, L);
-    __ li(R12_scratch2, vtable_index);
-    __ call_VM(noreg, CAST_FROM_FN_PTR(address, bad_compiled_vtable_index), R3_ARG1, R12_scratch2, false);
+    const Register vtable_len = R6_scratch2;
+    __ lwz_PPC(vtable_len, in_bytes(Klass::vtable_length_offset()), rcvr_klass);
+    __ cmpwi_PPC(CCR0, vtable_len, vtable_index*vtableEntry::size());
+    __ bge_PPC(CCR0, L);
+    __ li_PPC(R6_scratch2, vtable_index);
+    __ call_VM(noreg, CAST_FROM_FN_PTR(address, bad_compiled_vtable_index), R3_ARG1_PPC, R6_scratch2, false);
     __ bind(L);
   }
 #endif
@@ -105,13 +105,13 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
                      vtable_index*vtableEntry::size_in_bytes();
   int v_off        = entry_offset + vtableEntry::method_offset_in_bytes();
 
-  __ ld(R19_method, (RegisterOrConstant)v_off, rcvr_klass);
+  __ ld_PPC(R27_method, (RegisterOrConstant)v_off, rcvr_klass);
 
 #ifndef PRODUCT
   if (DebugVtables) {
     Label L;
-    __ cmpdi(CCR0, R19_method, 0);
-    __ bne(CCR0, L);
+    __ cmpdi_PPC(CCR0, R27_method, 0);
+    __ bne_PPC(CCR0, L);
     __ stop("Vtable entry is ZERO", 102);
     __ bind(L);
   }
@@ -121,10 +121,10 @@ VtableStub* VtableStubs::create_vtable_stub(int vtable_index) {
                               // if the vtable entry is null, the method is abstract
                               // NOTE: for vtable dispatches, the vtable entry will never be null.
 
-  __ null_check(R19_method, in_bytes(Method::from_compiled_offset()), /*implicit only*/NULL);
-  __ ld(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
-  __ mtctr(R12_scratch2);
-  __ bctr();
+  __ null_check(R27_method, in_bytes(Method::from_compiled_offset()), /*implicit only*/NULL);
+  __ ld_PPC(R6_scratch2, in_bytes(Method::from_compiled_offset()), R27_method);
+  __ mtctr_PPC(R6_scratch2);
+  __ bctr_PPC();
 
   masm->flush();
   bookkeeping(masm, tty, s, npe_addr, ame_addr, true, vtable_index, slop_bytes, 0);
@@ -155,49 +155,49 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
 #if (!defined(PRODUCT) && defined(COMPILER2))
   if (CountCompiledCalls) {
     start_pc = __ pc();
-    int offs = __ load_const_optimized(R11_scratch1, SharedRuntime::nof_megamorphic_calls_addr(), R12_scratch2, true);
+    int offs = __ load_const_optimized(R5_scratch1, SharedRuntime::nof_megamorphic_calls_addr(), R6_scratch2, true);
     slop_delta  = load_const_maxLen - (__ pc() - start_pc);
     slop_bytes += slop_delta;
     assert(slop_delta >= 0, "negative slop(%d) encountered, adjust code size estimate!", slop_delta);
-    __ lwz(R12_scratch2, offs, R11_scratch1);
-    __ addi(R12_scratch2, R12_scratch2, 1);
-    __ stw(R12_scratch2, offs, R11_scratch1);
+    __ lwz_PPC(R6_scratch2, offs, R5_scratch1);
+    __ addi_PPC(R6_scratch2, R6_scratch2, 1);
+    __ stw_PPC(R6_scratch2, offs, R5_scratch1);
   }
 #endif
 
-  assert(VtableStub::receiver_location() == R3_ARG1->as_VMReg(), "receiver expected in R3_ARG1");
+  assert(VtableStub::receiver_location() == R3_ARG1_PPC->as_VMReg(), "receiver expected in R3_ARG1_PPC");
 
   // Entry arguments:
-  //  R19_method: Interface
-  //  R3_ARG1:    Receiver
+  //  R27_method: Interface
+  //  R3_ARG1_PPC:    Receiver
 
   Label L_no_such_interface;
-  const Register rcvr_klass = R11_scratch1,
-                 interface  = R12_scratch2,
-                 tmp1       = R21_tmp1,
-                 tmp2       = R22_tmp2;
+  const Register rcvr_klass = R5_scratch1,
+                 interface  = R6_scratch2,
+                 tmp1       = R21_tmp1_PPC,
+                 tmp2       = R22_tmp2_PPC;
 
   address npe_addr = __ pc(); // npe = null pointer exception
-  __ null_check(R3_ARG1, oopDesc::klass_offset_in_bytes(), /*implicit only*/NULL);
-  __ load_klass(rcvr_klass, R3_ARG1);
+  __ null_check(R3_ARG1_PPC, oopDesc::klass_offset_in_bytes(), /*implicit only*/NULL);
+  __ load_klass(rcvr_klass, R3_ARG1_PPC);
 
   // Receiver subtype check against REFC.
-  __ ld(interface, CompiledICHolder::holder_klass_offset(), R19_method);
+  __ ld_PPC(interface, CompiledICHolder::holder_klass_offset(), R27_method);
   __ lookup_interface_method(rcvr_klass, interface, noreg,
                              R0, tmp1, tmp2,
                              L_no_such_interface, /*return_method=*/ false);
 
   // Get Method* and entrypoint for compiler
-  __ ld(interface, CompiledICHolder::holder_metadata_offset(), R19_method);
+  __ ld_PPC(interface, CompiledICHolder::holder_metadata_offset(), R27_method);
   __ lookup_interface_method(rcvr_klass, interface, itable_index,
-                             R19_method, tmp1, tmp2,
+                             R27_method, tmp1, tmp2,
                              L_no_such_interface, /*return_method=*/ true);
 
 #ifndef PRODUCT
   if (DebugVtables) {
     Label ok;
-    __ cmpd(CCR0, R19_method, 0);
-    __ bne(CCR0, ok);
+    __ cmpd_PPC(CCR0, R27_method, 0);
+    __ bne_PPC(CCR0, ok);
     __ stop("method is null", 103);
     __ bind(ok);
   }
@@ -207,10 +207,10 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   address ame_addr = __ pc(); // ame = abstract method error
 
   // Must do an explicit check if implicit checks are disabled.
-  __ null_check(R19_method, in_bytes(Method::from_compiled_offset()), &L_no_such_interface);
-  __ ld(R12_scratch2, in_bytes(Method::from_compiled_offset()), R19_method);
-  __ mtctr(R12_scratch2);
-  __ bctr();
+  __ null_check(R27_method, in_bytes(Method::from_compiled_offset()), &L_no_such_interface);
+  __ ld_PPC(R6_scratch2, in_bytes(Method::from_compiled_offset()), R27_method);
+  __ mtctr_PPC(R6_scratch2);
+  __ bctr_PPC();
 
   // Handle IncompatibleClassChangeError in itable stubs.
   // More detailed error message.
@@ -219,12 +219,12 @@ VtableStub* VtableStubs::create_itable_stub(int itable_index) {
   // dirty work.
   __ bind(L_no_such_interface);
   start_pc = __ pc();
-  __ load_const_optimized(R11_scratch1, SharedRuntime::get_handle_wrong_method_stub(), R12_scratch2);
+  __ load_const_optimized(R5_scratch1, SharedRuntime::get_handle_wrong_method_stub(), R6_scratch2);
   slop_delta  = load_const_maxLen - (__ pc() - start_pc);
   slop_bytes += slop_delta;
   assert(slop_delta >= 0, "negative slop(%d) encountered, adjust code size estimate!", slop_delta);
-  __ mtctr(R11_scratch1);
-  __ bctr();
+  __ mtctr_PPC(R5_scratch1);
+  __ bctr_PPC();
 
   masm->flush();
   bookkeeping(masm, tty, s, npe_addr, ame_addr, false, itable_index, slop_bytes, 0);

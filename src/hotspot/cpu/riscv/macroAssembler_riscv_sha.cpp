@@ -33,9 +33,9 @@ void MacroAssembler::sha256_deque(const VectorRegister src,
                                   const VectorRegister dst1,
                                   const VectorRegister dst2,
                                   const VectorRegister dst3) {
-  vsldoi (dst1, src, src, 12);
-  vsldoi (dst2, src, src, 8);
-  vsldoi (dst3, src, src, 4);
+  vsldoi_PPC (dst1, src, src, 12);
+  vsldoi_PPC (dst2, src, src, 8);
+  vsldoi_PPC (dst3, src, src, 4);
 }
 
 void MacroAssembler::sha256_round(const VectorRegister* hs,
@@ -61,18 +61,18 @@ void MacroAssembler::sha256_round(const VectorRegister* hs,
   VectorRegister vt2 = VR6;
   VectorRegister vt3 = VR7;
 
-  vsel       (ch,  g,   f, e);
-  vxor       (maj, a,   b);
-  vshasigmaw (bse, e,   1, 0xf);
-  vadduwm    (vt2, ch,  kpw);
-  vadduwm    (vt1, h,   bse);
-  vsel       (maj, b,   c, maj);
-  vadduwm    (vt3, vt1, vt2);
-  vshasigmaw (bsa, a,   1, 0);
-  vadduwm    (vt0, bsa, maj);
+  vsel_PPC       (ch,  g,   f, e);
+  vxor_PPC       (maj, a,   b);
+  vshasigmaw_PPC (bse, e,   1, 0xf);
+  vadduwm_PPC    (vt2, ch,  kpw);
+  vadduwm_PPC    (vt1, h,   bse);
+  vsel_PPC       (maj, b,   c, maj);
+  vadduwm_PPC    (vt3, vt1, vt2);
+  vshasigmaw_PPC (bsa, a,   1, 0);
+  vadduwm_PPC    (vt0, bsa, maj);
 
-  vadduwm    (d,   d,   vt3);
-  vadduwm    (h,   vt3, vt0);
+  vadduwm_PPC    (d,   d,   vt3);
+  vadduwm_PPC    (h,   vt3, vt0);
 
   // advance vector pointer to the next iteration
   h_cnt++;
@@ -88,19 +88,19 @@ void MacroAssembler::sha256_load_h_vec(const VectorRegister a,
   // labels
   Label sha256_aligned;
 
-  andi_  (tmp,  hptr, 0xf);
-  lvx    (a,    hptr);
-  addi   (tmp,  hptr, 16);
-  lvx    (e,    tmp);
-  beq    (CCR0, sha256_aligned);
+  andi__PPC  (tmp,  hptr, 0xf);
+  lvx_PPC    (a,    hptr);
+  addi_PPC   (tmp,  hptr, 16);
+  lvx_PPC    (e,    tmp);
+  beq_PPC    (CCR0, sha256_aligned);
 
   // handle unaligned accesses
-  load_perm(vRb, hptr);
-  addi   (tmp, hptr, 32);
-  vec_perm(a,   e,    vRb);
+  load_perm_PPC(vRb, hptr);
+  addi_PPC   (tmp, hptr, 32);
+  vec_perm_PPC(a,   e,    vRb);
 
-  lvx    (vt0,  tmp);
-  vec_perm(e,   vt0,  vRb);
+  lvx_PPC    (vt0,  tmp);
+  vec_perm_PPC(e,   vt0,  vRb);
 
   // aligned accesses
   bind(sha256_aligned);
@@ -119,56 +119,56 @@ void MacroAssembler::sha256_load_w_plus_k_vec(const Register buf_in,
   VectorRegister vt1 = VR1;
   VectorRegister vRb = VR6;
 
-  andi_ (tmp, buf_in, 0xF);
-  beq   (CCR0, w_aligned); // address ends with 0x0, not 0x8
+  andi__PPC (tmp, buf_in, 0xF);
+  beq_PPC   (CCR0, w_aligned); // address ends with 0x0, not 0x8
 
   // deal with unaligned addresses
-  lvx    (ws[0], buf_in);
-  load_perm(vRb, buf_in);
+  lvx_PPC    (ws[0], buf_in);
+  load_perm_PPC(vRb, buf_in);
 
   for (int n = 1; n < total_ws; n++) {
     VectorRegister w_cur = ws[n];
     VectorRegister w_prev = ws[n-1];
 
-    addi (tmp, buf_in, n * 16);
-    lvx  (w_cur, tmp);
-    vec_perm(w_prev, w_cur, vRb);
+    addi_PPC (tmp, buf_in, n * 16);
+    lvx_PPC  (w_cur, tmp);
+    vec_perm_PPC(w_prev, w_cur, vRb);
   }
-  addi   (tmp, buf_in, total_ws * 16);
-  lvx    (vt0, tmp);
-  vec_perm(ws[total_ws-1], vt0, vRb);
-  b      (after_w_load);
+  addi_PPC   (tmp, buf_in, total_ws * 16);
+  lvx_PPC    (vt0, tmp);
+  vec_perm_PPC(ws[total_ws-1], vt0, vRb);
+  b_PPC      (after_w_load);
 
   bind(w_aligned);
 
   // deal with aligned addresses
-  lvx(ws[0], buf_in);
+  lvx_PPC(ws[0], buf_in);
   for (int n = 1; n < total_ws; n++) {
     VectorRegister w = ws[n];
-    addi (tmp, buf_in, n * 16);
-    lvx  (w, tmp);
+    addi_PPC (tmp, buf_in, n * 16);
+    lvx_PPC  (w, tmp);
   }
 
   bind(after_w_load);
 
 #if defined(VM_LITTLE_ENDIAN)
   // Byte swapping within int values
-  li       (tmp, 8);
-  lvsl     (vt0, tmp);
-  vspltisb (vt1, 0xb);
-  vxor     (vt1, vt0, vt1);
+  li_PPC       (tmp, 8);
+  lvsl_PPC     (vt0, tmp);
+  vspltisb_PPC (vt1, 0xb);
+  vxor_PPC     (vt1, vt0, vt1);
   for (int n = 0; n < total_ws; n++) {
     VectorRegister w = ws[n];
-    vec_perm(w, w, vt1);
+    vec_perm_PPC(w, w, vt1);
   }
 #endif
 
   // Loading k, which is always aligned to 16-bytes
-  lvx    (kpws[0], k);
+  lvx_PPC    (kpws[0], k);
   for (int n = 1; n < total_kpws; n++) {
     VectorRegister kpw = kpws[n];
-    addi (tmp, k, 16 * n);
-    lvx  (kpw, tmp);
+    addi_PPC (tmp, k, 16 * n);
+    lvx_PPC  (kpw, tmp);
   }
 
   // Add w to K
@@ -177,7 +177,7 @@ void MacroAssembler::sha256_load_w_plus_k_vec(const Register buf_in,
     VectorRegister kpw = kpws[n];
     VectorRegister w   = ws[n];
 
-    vadduwm  (kpw, kpw, w);
+    vadduwm_PPC  (kpw, kpw, w);
   }
 }
 
@@ -201,91 +201,91 @@ void MacroAssembler::sha256_calc_4w(const VectorRegister w0,
   const VectorRegister  vt4  = VR4;
 
   // load to k[j]
-  lvx        (vt0, j,   k);
+  lvx_PPC        (vt0, j,   k);
 
   // advance j
-  addi       (j,   j,   16); // 16 bytes were read
+  addi_PPC       (j,   j,   16); // 16 bytes were read
 
 #if defined(VM_LITTLE_ENDIAN)
   // b = w[j-15], w[j-14], w[j-13], w[j-12]
-  vsldoi     (vt1, w1,  w0, 12);
+  vsldoi_PPC     (vt1, w1,  w0, 12);
 
   // c = w[j-7], w[j-6], w[j-5], w[j-4]
-  vsldoi     (vt2, w3,  w2, 12);
+  vsldoi_PPC     (vt2, w3,  w2, 12);
 
 #else
   // b = w[j-15], w[j-14], w[j-13], w[j-12]
-  vsldoi     (vt1, w0,  w1, 4);
+  vsldoi_PPC     (vt1, w0,  w1, 4);
 
   // c = w[j-7], w[j-6], w[j-5], w[j-4]
-  vsldoi     (vt2, w2,  w3, 4);
+  vsldoi_PPC     (vt2, w2,  w3, 4);
 #endif
 
   // d = w[j-2], w[j-1], w[j-4], w[j-3]
-  vsldoi     (vt3, w3,  w3, 8);
+  vsldoi_PPC     (vt3, w3,  w3, 8);
 
   // b = s0(w[j-15]) , s0(w[j-14]) , s0(w[j-13]) , s0(w[j-12])
-  vshasigmaw (vt1, vt1, 0,  0);
+  vshasigmaw_PPC (vt1, vt1, 0,  0);
 
   // d = s1(w[j-2]) , s1(w[j-1]) , s1(w[j-4]) , s1(w[j-3])
-  vshasigmaw (vt3, vt3, 0,  0xf);
+  vshasigmaw_PPC (vt3, vt3, 0,  0xf);
 
   // c = s0(w[j-15]) + w[j-7],
   //     s0(w[j-14]) + w[j-6],
   //     s0(w[j-13]) + w[j-5],
   //     s0(w[j-12]) + w[j-4]
-  vadduwm    (vt2, vt1, vt2);
+  vadduwm_PPC    (vt2, vt1, vt2);
 
   // c = s0(w[j-15]) + w[j-7] + w[j-16],
   //     s0(w[j-14]) + w[j-6] + w[j-15],
   //     s0(w[j-13]) + w[j-5] + w[j-14],
   //     s0(w[j-12]) + w[j-4] + w[j-13]
-  vadduwm    (vt2, vt2, w0);
+  vadduwm_PPC    (vt2, vt2, w0);
 
   // e = s0(w[j-15]) + w[j-7] + w[j-16] + s1(w[j-2]), // w[j]
   //     s0(w[j-14]) + w[j-6] + w[j-15] + s1(w[j-1]), // w[j+1]
   //     s0(w[j-13]) + w[j-5] + w[j-14] + s1(w[j-4]), // UNDEFINED
   //     s0(w[j-12]) + w[j-4] + w[j-13] + s1(w[j-3])  // UNDEFINED
-  vadduwm    (vt4, vt2, vt3);
+  vadduwm_PPC    (vt4, vt2, vt3);
 
   // At this point, e[0] and e[1] are the correct values to be stored at w[j]
   // and w[j+1].
   // e[2] and e[3] are not considered.
   // b = s1(w[j]) , s1(s(w[j+1]) , UNDEFINED , UNDEFINED
-  vshasigmaw (vt1, vt4, 0,  0xf);
+  vshasigmaw_PPC (vt1, vt4, 0,  0xf);
 
   // v5 = s1(w[j-2]) , s1(w[j-1]) , s1(w[j]) , s1(w[j+1])
 #if defined(VM_LITTLE_ENDIAN)
-  xxmrgld    (vst3, vsrt1, vst3);
+  xxmrgld_PPC    (vst3, vsrt1, vst3);
 #else
-  xxmrghd    (vst3, vst3, vsrt1);
+  xxmrghd_PPC    (vst3, vst3, vsrt1);
 #endif
 
   // c = s0(w[j-15]) + w[j-7] + w[j-16] + s1(w[j-2]), // w[j]
   //     s0(w[j-14]) + w[j-6] + w[j-15] + s1(w[j-1]), // w[j+1]
   //     s0(w[j-13]) + w[j-5] + w[j-14] + s1(w[j]),   // w[j+2]
   //     s0(w[j-12]) + w[j-4] + w[j-13] + s1(w[j+1])  // w[j+4]
-  vadduwm    (vt2, vt2, vt3);
+  vadduwm_PPC    (vt2, vt2, vt3);
 
   // Updating w0 to w3 to hold the new previous 16 values from w.
-  vmr        (w0,  w1);
-  vmr        (w1,  w2);
-  vmr        (w2,  w3);
-  vmr        (w3,  vt2);
+  vmr_PPC        (w0,  w1);
+  vmr_PPC        (w1,  w2);
+  vmr_PPC        (w2,  w3);
+  vmr_PPC        (w3,  vt2);
 
   // store k + w to v9 (4 values at once)
 #if defined(VM_LITTLE_ENDIAN)
-  vadduwm    (kpw0, vt2, vt0);
+  vadduwm_PPC    (kpw0, vt2, vt0);
 
-  vsldoi     (kpw1, kpw0, kpw0, 12);
-  vsldoi     (kpw2, kpw0, kpw0, 8);
-  vsldoi     (kpw3, kpw0, kpw0, 4);
+  vsldoi_PPC     (kpw1, kpw0, kpw0, 12);
+  vsldoi_PPC     (kpw2, kpw0, kpw0, 8);
+  vsldoi_PPC     (kpw3, kpw0, kpw0, 4);
 #else
-  vadduwm    (kpw3, vt2, vt0);
+  vadduwm_PPC    (kpw3, vt2, vt0);
 
-  vsldoi     (kpw2, kpw3, kpw3, 12);
-  vsldoi     (kpw1, kpw3, kpw3, 8);
-  vsldoi     (kpw0, kpw3, kpw3, 4);
+  vsldoi_PPC     (kpw2, kpw3, kpw3, 12);
+  vsldoi_PPC     (kpw1, kpw3, kpw3, 8);
+  vsldoi_PPC     (kpw0, kpw3, kpw3, 4);
 #endif
 }
 
@@ -313,52 +313,52 @@ void MacroAssembler::sha256_update_sha_state(const VectorRegister a,
   Label state_load_aligned;
 
   // Load hptr
-  andi_   (tmp, hptr, 0xf);
-  li      (of16, 16);
-  lvx     (vt0, hptr);
-  lvx     (vt5, of16, hptr);
-  beq     (CCR0, state_load_aligned);
+  andi__PPC   (tmp, hptr, 0xf);
+  li_PPC      (of16, 16);
+  lvx_PPC     (vt0, hptr);
+  lvx_PPC     (vt5, of16, hptr);
+  beq_PPC     (CCR0, state_load_aligned);
 
   // handle unaligned accesses
-  li      (of32, 32);
-  load_perm(vRb, hptr);
+  li_PPC      (of32, 32);
+  load_perm_PPC(vRb, hptr);
 
-  vec_perm(vt0, vt5,  vRb);        // vt0 = hptr[0]..hptr[3]
+  vec_perm_PPC(vt0, vt5,  vRb);        // vt0 = hptr[0]..hptr[3]
 
-  lvx     (vt1, hptr, of32);
-  vec_perm(vt5, vt1,  vRb);        // vt5 = hptr[4]..hptr[7]
+  lvx_PPC     (vt1, hptr, of32);
+  vec_perm_PPC(vt5, vt1,  vRb);        // vt5 = hptr[4]..hptr[7]
 
   // aligned accesses
   bind(state_load_aligned);
 
 #if defined(VM_LITTLE_ENDIAN)
-  vmrglw  (vt1, b_, a);            // vt1 = {a, b, ?, ?}
-  vmrglw  (vt2, d, c);             // vt2 = {c, d, ?, ?}
-  vmrglw  (vt3, f, e);             // vt3 = {e, f, ?, ?}
-  vmrglw  (vt4, h, g);             // vt4 = {g, h, ?, ?}
-  xxmrgld (vt1->to_vsr(), vt2->to_vsr(), vt1->to_vsr()); // vt1 = {a, b, c, d}
-  xxmrgld (vt3->to_vsr(), vt4->to_vsr(), vt3->to_vsr()); // vt3 = {e, f, g, h}
-  vadduwm (a,   vt0, vt1);         // a = {a+hptr[0], b+hptr[1], c+hptr[2], d+hptr[3]}
-  vadduwm (e,   vt5, vt3);         // e = {e+hptr[4], f+hptr[5], g+hptr[6], h+hptr[7]}
+  vmrglw_PPC  (vt1, b_, a);            // vt1 = {a, b, ?, ?}
+  vmrglw_PPC  (vt2, d, c);             // vt2 = {c, d, ?, ?}
+  vmrglw_PPC  (vt3, f, e);             // vt3 = {e, f, ?, ?}
+  vmrglw_PPC  (vt4, h, g);             // vt4 = {g, h, ?, ?}
+  xxmrgld_PPC (vt1->to_vsr(), vt2->to_vsr(), vt1->to_vsr()); // vt1 = {a, b, c, d}
+  xxmrgld_PPC (vt3->to_vsr(), vt4->to_vsr(), vt3->to_vsr()); // vt3 = {e, f, g, h}
+  vadduwm_PPC (a,   vt0, vt1);         // a = {a+hptr[0], b+hptr[1], c+hptr[2], d+hptr[3]}
+  vadduwm_PPC (e,   vt5, vt3);         // e = {e+hptr[4], f+hptr[5], g+hptr[6], h+hptr[7]}
 
   // Save hptr back, works for any alignment
-  xxswapd (vt0->to_vsr(), a->to_vsr());
-  stxvd2x (vt0->to_vsr(), hptr);
-  xxswapd (vt5->to_vsr(), e->to_vsr());
-  stxvd2x (vt5->to_vsr(), of16, hptr);
+  xxswapd_PPC (vt0->to_vsr(), a->to_vsr());
+  stxvd2x_PPC (vt0->to_vsr(), hptr);
+  xxswapd_PPC (vt5->to_vsr(), e->to_vsr());
+  stxvd2x_PPC (vt5->to_vsr(), of16, hptr);
 #else
-  vmrglw  (vt1, a, b_);            // vt1 = {a, b, ?, ?}
-  vmrglw  (vt2, c, d);             // vt2 = {c, d, ?, ?}
-  vmrglw  (vt3, e, f);             // vt3 = {e, f, ?, ?}
-  vmrglw  (vt4, g, h);             // vt4 = {g, h, ?, ?}
-  xxmrgld (vt1->to_vsr(), vt1->to_vsr(), vt2->to_vsr()); // vt1 = {a, b, c, d}
-  xxmrgld (vt3->to_vsr(), vt3->to_vsr(), vt4->to_vsr()); // vt3 = {e, f, g, h}
-  vadduwm (d,   vt0, vt1);         // d = {a+hptr[0], b+hptr[1], c+hptr[2], d+hptr[3]}
-  vadduwm (h,   vt5, vt3);         // h = {e+hptr[4], f+hptr[5], g+hptr[6], h+hptr[7]}
+  vmrglw_PPC  (vt1, a, b_);            // vt1 = {a, b, ?, ?}
+  vmrglw_PPC  (vt2, c, d);             // vt2 = {c, d, ?, ?}
+  vmrglw_PPC  (vt3, e, f);             // vt3 = {e, f, ?, ?}
+  vmrglw_PPC  (vt4, g, h);             // vt4 = {g, h, ?, ?}
+  xxmrgld_PPC (vt1->to_vsr(), vt1->to_vsr(), vt2->to_vsr()); // vt1 = {a, b, c, d}
+  xxmrgld_PPC (vt3->to_vsr(), vt3->to_vsr(), vt4->to_vsr()); // vt3 = {e, f, g, h}
+  vadduwm_PPC (d,   vt0, vt1);         // d = {a+hptr[0], b+hptr[1], c+hptr[2], d+hptr[3]}
+  vadduwm_PPC (h,   vt5, vt3);         // h = {e+hptr[4], f+hptr[5], g+hptr[6], h+hptr[7]}
 
   // Save hptr back, works for any alignment
-  stxvd2x (d->to_vsr(), hptr);
-  stxvd2x (h->to_vsr(), of16, hptr);
+  stxvd2x_PPC (d->to_vsr(), hptr);
+  stxvd2x_PPC (h->to_vsr(), of16, hptr);
 #endif
 }
 
@@ -382,10 +382,10 @@ static const uint32_t sha256_round_table[64] __attribute((aligned(16))) = {
 };
 static const uint32_t *sha256_round_consts = sha256_round_table;
 
-//   R3_ARG1   - byte[]  Input string with padding but in Big Endian
-//   R4_ARG2   - int[]   SHA.state (at first, the root of primes)
-//   R5_ARG3   - int     offset
-//   R6_ARG4   - int     limit
+//   R3_ARG1_PPC   - byte[]  Input string with padding but in Big Endian
+//   R4_ARG2_PPC   - int[]   SHA.state (at first, the root of primes)
+//   R5_ARG3_PPC   - int     offset
+//   R6_ARG4_PPC   - int     limit
 //
 //   Internal Register usage:
 //   R7        - k
@@ -409,10 +409,10 @@ void MacroAssembler::sha256(bool multi_block) {
   }
 #endif
 
-  Register buf_in = R3_ARG1;
-  Register state  = R4_ARG2;
-  Register ofs    = R5_ARG3;
-  Register limit  = R6_ARG4;
+  Register buf_in = R3_ARG1_PPC;
+  Register state  = R4_ARG2_PPC;
+  Register ofs    = R5_ARG3_PPC;
+  Register limit  = R6_ARG4_PPC;
 
   Label sha_loop, core_loop;
 
@@ -424,8 +424,8 @@ void MacroAssembler::sha256(bool multi_block) {
 
   for (int c = 0; c < nv_size; c++) {
     Register tmp = R8;
-    li  (tmp, (c - (nv_size)) * 16);
-    stvx(nv[c], tmp, R1);
+    li_PPC  (tmp, (c - (nv_size)) * 16);
+    stvx_PPC(nv[c], tmp, R1);
   }
 
   // Load hash state to registers
@@ -509,13 +509,13 @@ void MacroAssembler::sha256(bool multi_block) {
 
   Register tmp = R8;
   // loop the 16th to the 64th iteration by 8 steps
-  li   (tmp, (w_size - 16) / total_hs);
-  mtctr(tmp);
+  li_PPC   (tmp, (w_size - 16) / total_hs);
+  mtctr_PPC(tmp);
 
   // j will be aligned to 4 for loading words.
   // Whenever read, advance the pointer (e.g: when j is used in a function)
   Register j = R8;
-  li   (j, 16*4);
+  li_PPC   (j, 16*4);
 
   align(OptoLoopAlignment);
   bind(core_loop);
@@ -529,26 +529,26 @@ void MacroAssembler::sha256(bool multi_block) {
     sha256_round(hs, total_hs, h_cnt, kpw3);
   }
 
-  bdnz   (core_loop);
+  bdnz_PPC   (core_loop);
 
   // Update hash state
   sha256_update_sha_state(a, b, c, d, e, f, g, h, state);
 
   if (multi_block) {
-    addi(buf_in, buf_in, buf_size);
-    addi(ofs, ofs, buf_size);
-    cmplw(CCR0, ofs, limit);
-    ble(CCR0, sha_loop);
+    addi_PPC(buf_in, buf_in, buf_size);
+    addi_PPC(ofs, ofs, buf_size);
+    cmplw_PPC(CCR0, ofs, limit);
+    ble_PPC(CCR0, sha_loop);
 
     // return ofs
-    mr(R3_RET, ofs);
+    mr_PPC(R3_RET_PPC, ofs);
   }
 
   // Restore non-volatile registers
   for (int c = 0; c < nv_size; c++) {
     Register tmp = R8;
-    li  (tmp, (c - (nv_size)) * 16);
-    lvx(nv[c], tmp, R1);
+    li_PPC  (tmp, (c - (nv_size)) * 16);
+    lvx_PPC(nv[c], tmp, R1);
   }
 }
 
@@ -565,31 +565,31 @@ void MacroAssembler::sha512_load_w_vec(const Register buf_in,
   VectorRegister aux = VR9;
   Label is_aligned, after_alignment;
 
-  andi_  (tmp, buf_in, 0xF);
-  beq    (CCR0, is_aligned); // address ends with 0x0, not 0x8
+  andi__PPC  (tmp, buf_in, 0xF);
+  beq_PPC    (CCR0, is_aligned); // address ends with 0x0, not 0x8
 
   // deal with unaligned addresses
-  lvx    (ws[0], buf_in);
-  load_perm(vRb, buf_in);
+  lvx_PPC    (ws[0], buf_in);
+  load_perm_PPC(vRb, buf_in);
 
   for (int n = 1; n < total_ws; n++) {
     VectorRegister w_cur = ws[n];
     VectorRegister w_prev = ws[n-1];
-    addi (tmp, buf_in, n * 16);
-    lvx  (w_cur, tmp);
-    vec_perm(w_prev, w_cur, vRb);
+    addi_PPC (tmp, buf_in, n * 16);
+    lvx_PPC  (w_cur, tmp);
+    vec_perm_PPC(w_prev, w_cur, vRb);
   }
-  addi   (tmp, buf_in, total_ws * 16);
-  lvx    (aux, tmp);
-  vec_perm(ws[total_ws-1], aux, vRb);
-  b      (after_alignment);
+  addi_PPC   (tmp, buf_in, total_ws * 16);
+  lvx_PPC    (aux, tmp);
+  vec_perm_PPC(ws[total_ws-1], aux, vRb);
+  b_PPC      (after_alignment);
 
   bind(is_aligned);
-  lvx  (ws[0], buf_in);
+  lvx_PPC  (ws[0], buf_in);
   for (int n = 1; n < total_ws; n++) {
     VectorRegister w = ws[n];
-    addi (tmp, buf_in, n * 16);
-    lvx  (w, tmp);
+    addi_PPC (tmp, buf_in, n * 16);
+    lvx_PPC  (w, tmp);
   }
 
   bind(after_alignment);
@@ -621,8 +621,8 @@ void MacroAssembler::sha512_update_sha_state(const Register state,
   VectorRegister vRb = VR8;
   VectorRegister aux = VR9;
 
-  andi_(tmp, state, 0xf);
-  beq(CCR0, state_save_aligned);
+  andi__PPC(tmp, state, 0xf);
+  beq_PPC(CCR0, state_save_aligned);
   // deal with unaligned addresses
 
   {
@@ -634,59 +634,59 @@ void MacroAssembler::sha512_update_sha_state(const Register state,
     VectorRegister f = hs[5];
     VectorRegister g = hs[6];
     VectorRegister h = hs[7];
-    load_perm(vRb, state);
-    lvx    (ini_a, state);
-    addi   (addr, state, 16);
+    load_perm_PPC(vRb, state);
+    lvx_PPC    (ini_a, state);
+    addi_PPC   (addr, state, 16);
 
-    lvx    (ini_c, addr);
-    addi   (addr, state, 32);
-    vec_perm(ini_a, ini_c, vRb);
+    lvx_PPC    (ini_c, addr);
+    addi_PPC   (addr, state, 32);
+    vec_perm_PPC(ini_a, ini_c, vRb);
 
-    lvx    (ini_e, addr);
-    addi   (addr, state, 48);
-    vec_perm(ini_c, ini_e, vRb);
+    lvx_PPC    (ini_e, addr);
+    addi_PPC   (addr, state, 48);
+    vec_perm_PPC(ini_c, ini_e, vRb);
 
-    lvx    (ini_g, addr);
-    addi   (addr, state, 64);
-    vec_perm(ini_e, ini_g, vRb);
+    lvx_PPC    (ini_g, addr);
+    addi_PPC   (addr, state, 64);
+    vec_perm_PPC(ini_e, ini_g, vRb);
 
-    lvx    (aux, addr);
-    vec_perm(ini_g, aux, vRb);
+    lvx_PPC    (aux, addr);
+    vec_perm_PPC(ini_g, aux, vRb);
 
 #if defined(VM_LITTLE_ENDIAN)
-    xxmrgld(a->to_vsr(), b_->to_vsr(), a->to_vsr());
-    xxmrgld(c->to_vsr(), d->to_vsr(), c->to_vsr());
-    xxmrgld(e->to_vsr(), f->to_vsr(), e->to_vsr());
-    xxmrgld(g->to_vsr(), h->to_vsr(), g->to_vsr());
+    xxmrgld_PPC(a->to_vsr(), b_->to_vsr(), a->to_vsr());
+    xxmrgld_PPC(c->to_vsr(), d->to_vsr(), c->to_vsr());
+    xxmrgld_PPC(e->to_vsr(), f->to_vsr(), e->to_vsr());
+    xxmrgld_PPC(g->to_vsr(), h->to_vsr(), g->to_vsr());
 #else
-    xxmrgld(b_->to_vsr(), a->to_vsr(), b_->to_vsr());
-    xxmrgld(d->to_vsr(), c->to_vsr(), d->to_vsr());
-    xxmrgld(f->to_vsr(), e->to_vsr(), f->to_vsr());
-    xxmrgld(h->to_vsr(), g->to_vsr(), h->to_vsr());
+    xxmrgld_PPC(b_->to_vsr(), a->to_vsr(), b_->to_vsr());
+    xxmrgld_PPC(d->to_vsr(), c->to_vsr(), d->to_vsr());
+    xxmrgld_PPC(f->to_vsr(), e->to_vsr(), f->to_vsr());
+    xxmrgld_PPC(h->to_vsr(), g->to_vsr(), h->to_vsr());
 #endif
 
     for (int n = start_idx; n < total_hs; n += 2) {
       VectorRegister h_cur = hs[n];
       VectorRegister ini_cur = inis[n/2];
 
-      vaddudm(h_cur, ini_cur, h_cur);
+      vaddudm_PPC(h_cur, ini_cur, h_cur);
     }
 
     for (int n = start_idx; n < total_hs; n += 2) {
       VectorRegister h_cur = hs[n];
 
-      mfvrd  (tmp, h_cur);
+      mfvrd_PPC  (tmp, h_cur);
 #if defined(VM_LITTLE_ENDIAN)
-      std    (tmp, 8*n + 8, state);
+      std_PPC    (tmp, 8*n + 8, state);
 #else
-      std    (tmp, 8*n - 8, state);
+      std_PPC    (tmp, 8*n - 8, state);
 #endif
-      vsldoi (aux, h_cur, h_cur, 8);
-      mfvrd  (tmp, aux);
-      std    (tmp, 8*n + 0, state);
+      vsldoi_PPC (aux, h_cur, h_cur, 8);
+      mfvrd_PPC  (tmp, aux);
+      std_PPC    (tmp, 8*n + 0, state);
     }
 
-    b      (after_state_save_aligned);
+    b_PPC      (after_state_save_aligned);
   }
 
   bind(state_save_aligned);
@@ -702,29 +702,29 @@ void MacroAssembler::sha512_update_sha_state(const Register state,
       VectorRegister ini_cur = inis[n/2];
 
       if (n/2 == 0) {
-        lvx(ini_cur, state);
+        lvx_PPC(ini_cur, state);
       } else {
-        addi(addr, state, (n/2) * 16);
-        lvx(ini_cur, addr);
+        addi_PPC(addr, state, (n/2) * 16);
+        lvx_PPC(ini_cur, addr);
       }
-      xxmrgld(h_cur->to_vsr(), h_next->to_vsr(), h_cur->to_vsr());
+      xxmrgld_PPC(h_cur->to_vsr(), h_next->to_vsr(), h_cur->to_vsr());
     }
 
     for (int n = start_idx; n < total_hs; n += 2) {
       VectorRegister h_cur = hs[n];
       VectorRegister ini_cur = inis[n/2];
 
-      vaddudm(h_cur, ini_cur, h_cur);
+      vaddudm_PPC(h_cur, ini_cur, h_cur);
     }
 
     for (int n = start_idx; n < total_hs; n += 2) {
       VectorRegister h_cur = hs[n];
 
       if (n/2 == 0) {
-        stvx(h_cur, state);
+        stvx_PPC(h_cur, state);
       } else {
-        addi(addr, state, (n/2) * 16);
-        stvx(h_cur, addr);
+        addi_PPC(addr, state, (n/2) * 16);
+        stvx_PPC(h_cur, addr);
       }
     }
   }
@@ -754,17 +754,17 @@ void MacroAssembler::sha512_round(const VectorRegister* hs,
   const VectorRegister tmp1 = VR24;
   const VectorRegister tmp2 = VR25;
 
-  vsel      (Ch,   g,    f,   e);
-  vxor      (Maj,  a,    b);
-  vshasigmad(bse,  e,    1,   0xf);
-  vaddudm   (tmp2, Ch,   kpw);
-  vaddudm   (tmp1, h,    bse);
-  vsel      (Maj,  b,    c,   Maj);
-  vaddudm   (tmp1, tmp1, tmp2);
-  vshasigmad(bsa,  a,    1,   0);
-  vaddudm   (tmp2, bsa,  Maj);
-  vaddudm   (d,    d,    tmp1);
-  vaddudm   (h,    tmp1, tmp2);
+  vsel_PPC      (Ch,   g,    f,   e);
+  vxor_PPC      (Maj,  a,    b);
+  vshasigmad_PPC(bse,  e,    1,   0xf);
+  vaddudm_PPC   (tmp2, Ch,   kpw);
+  vaddudm_PPC   (tmp1, h,    bse);
+  vsel_PPC      (Maj,  b,    c,   Maj);
+  vaddudm_PPC   (tmp1, tmp1, tmp2);
+  vshasigmad_PPC(bsa,  a,    1,   0);
+  vaddudm_PPC   (tmp2, bsa,  Maj);
+  vaddudm_PPC   (d,    d,    tmp1);
+  vaddudm_PPC   (h,    tmp1, tmp2);
 
   // advance vector pointer to the next iteration
   h_cnt++;
@@ -790,53 +790,53 @@ void MacroAssembler::sha512_calc_2w(const VectorRegister w0,
   const VectorRegister VR_d = VR23;
 
   // load to k[j]
-  lvx        (VR_a, j,    k);
+  lvx_PPC        (VR_a, j,    k);
   // advance j
-  addi       (j,    j,    16); // 16 bytes were read
+  addi_PPC       (j,    j,    16); // 16 bytes were read
 
 #if defined(VM_LITTLE_ENDIAN)
   // v6 = w[j-15], w[j-14]
-  vperm      (VR_b, w1,   w0,  vRb);
+  vperm_PPC      (VR_b, w1,   w0,  vRb);
   // v12 = w[j-7], w[j-6]
-  vperm      (VR_c, w5,   w4,  vRb);
+  vperm_PPC      (VR_c, w5,   w4,  vRb);
 #else
   // v6 = w[j-15], w[j-14]
-  vperm      (VR_b, w0,   w1,  vRb);
+  vperm_PPC      (VR_b, w0,   w1,  vRb);
   // v12 = w[j-7], w[j-6]
-  vperm      (VR_c, w4,   w5,  vRb);
+  vperm_PPC      (VR_c, w4,   w5,  vRb);
 #endif
 
   // v6 = s0(w[j-15]) , s0(w[j-14])
-  vshasigmad (VR_b, VR_b,    0,   0);
+  vshasigmad_PPC (VR_b, VR_b,    0,   0);
   // v5 = s1(w[j-2]) , s1(w[j-1])
-  vshasigmad (VR_d, w7,      0,   0xf);
+  vshasigmad_PPC (VR_d, w7,      0,   0xf);
   // v6 = s0(w[j-15]) + w[j-7] , s0(w[j-14]) + w[j-6]
-  vaddudm    (VR_b, VR_b, VR_c);
+  vaddudm_PPC    (VR_b, VR_b, VR_c);
   // v8 = s1(w[j-2]) + w[j-16] , s1(w[j-1]) + w[j-15]
-  vaddudm    (VR_d, VR_d, w0);
+  vaddudm_PPC    (VR_d, VR_d, w0);
   // v9 = s0(w[j-15]) + w[j-7] + w[j-16] + s1(w[j-2]), // w[j]
   //      s0(w[j-14]) + w[j-6] + w[j-15] + s1(w[j-1]), // w[j+1]
-  vaddudm    (VR_c, VR_d, VR_b);
+  vaddudm_PPC    (VR_c, VR_d, VR_b);
   // Updating w0 to w7 to hold the new previous 16 values from w.
-  vmr        (w0,   w1);
-  vmr        (w1,   w2);
-  vmr        (w2,   w3);
-  vmr        (w3,   w4);
-  vmr        (w4,   w5);
-  vmr        (w5,   w6);
-  vmr        (w6,   w7);
-  vmr        (w7,   VR_c);
+  vmr_PPC        (w0,   w1);
+  vmr_PPC        (w1,   w2);
+  vmr_PPC        (w2,   w3);
+  vmr_PPC        (w3,   w4);
+  vmr_PPC        (w4,   w5);
+  vmr_PPC        (w5,   w6);
+  vmr_PPC        (w6,   w7);
+  vmr_PPC        (w7,   VR_c);
 
 #if defined(VM_LITTLE_ENDIAN)
   // store k + w to kpw0 (2 values at once)
-  vaddudm    (kpw0, VR_c, VR_a);
+  vaddudm_PPC    (kpw0, VR_c, VR_a);
   // kpw1 holds (k + w)[1]
-  vsldoi     (kpw1, kpw0, kpw0, 8);
+  vsldoi_PPC     (kpw1, kpw0, kpw0, 8);
 #else
   // store k + w to kpw0 (2 values at once)
-  vaddudm    (kpw1, VR_c, VR_a);
+  vaddudm_PPC    (kpw1, VR_c, VR_a);
   // kpw1 holds (k + w)[1]
-  vsldoi     (kpw0, kpw1, kpw1, 8);
+  vsldoi_PPC     (kpw0, kpw1, kpw1, 8);
 #endif
 }
 
@@ -858,36 +858,36 @@ void MacroAssembler::sha512_load_h_vec(const Register state,
   Register tmp       = R8;
   Label state_aligned, after_state_aligned;
 
-  andi_(tmp, state, 0xf);
-  beq(CCR0, state_aligned);
+  andi__PPC(tmp, state, 0xf);
+  beq_PPC(CCR0, state_aligned);
 
   // deal with unaligned addresses
   VectorRegister aux = VR9;
 
-  lvx(hs[start_idx], state);
-  load_perm(vRb, state);
+  lvx_PPC(hs[start_idx], state);
+  load_perm_PPC(vRb, state);
 
   for (int n = start_idx + 2; n < total_hs; n += 2) {
     VectorRegister h_cur   = hs[n];
     VectorRegister h_prev2 = hs[n - 2];
-    addi(addr, state, (n/2) * 16);
-    lvx(h_cur, addr);
-    vec_perm(h_prev2, h_cur, vRb);
+    addi_PPC(addr, state, (n/2) * 16);
+    lvx_PPC(h_cur, addr);
+    vec_perm_PPC(h_prev2, h_cur, vRb);
   }
-  addi(addr, state, (total_hs/2) * 16);
-  lvx    (aux, addr);
-  vec_perm(hs[total_hs - 2 + start_idx], aux, vRb);
-  b      (after_state_aligned);
+  addi_PPC(addr, state, (total_hs/2) * 16);
+  lvx_PPC    (aux, addr);
+  vec_perm_PPC(hs[total_hs - 2 + start_idx], aux, vRb);
+  b_PPC      (after_state_aligned);
 
   bind(state_aligned);
 
   // deal with aligned addresses
-  lvx(hs[start_idx], state);
+  lvx_PPC(hs[start_idx], state);
 
   for (int n = start_idx + 2; n < total_hs; n += 2) {
     VectorRegister h_cur = hs[n];
-    addi(addr, state, (n/2) * 16);
-    lvx(h_cur, addr);
+    addi_PPC(addr, state, (n/2) * 16);
+    lvx_PPC(h_cur, addr);
   }
 
   bind(after_state_aligned);
@@ -937,10 +937,10 @@ static const uint64_t sha512_round_table[80] __attribute((aligned(16))) = {
 };
 static const uint64_t *sha512_round_consts = sha512_round_table;
 
-//   R3_ARG1   - byte[]  Input string with padding but in Big Endian
-//   R4_ARG2   - int[]   SHA.state (at first, the root of primes)
-//   R5_ARG3   - int     offset
-//   R6_ARG4   - int     limit
+//   R3_ARG1_PPC   - byte[]  Input string with padding but in Big Endian
+//   R4_ARG2_PPC   - int[]   SHA.state (at first, the root of primes)
+//   R5_ARG3_PPC   - int     offset
+//   R6_ARG4_PPC   - int     limit
 //
 //   Internal Register usage:
 //   R7 R8 R9  - volatile temporaries
@@ -964,10 +964,10 @@ void MacroAssembler::sha512(bool multi_block) {
   }
 #endif
 
-  Register buf_in = R3_ARG1;
-  Register state  = R4_ARG2;
-  Register ofs    = R5_ARG3;
-  Register limit  = R6_ARG4;
+  Register buf_in = R3_ARG1_PPC;
+  Register state  = R4_ARG2_PPC;
+  Register ofs    = R5_ARG3_PPC;
+  Register limit  = R6_ARG4_PPC;
 
   Label sha_loop, core_loop;
 
@@ -979,8 +979,8 @@ void MacroAssembler::sha512(bool multi_block) {
 
   for (int c = 0; c < nv_size; c++) {
     Register idx = R7;
-    li  (idx, (c - (nv_size)) * 16);
-    stvx(nv[c], idx, R1);
+    li_PPC  (idx, (c - (nv_size)) * 16);
+    stvx_PPC(nv[c], idx, R1);
   }
 
   // Load hash state to registers
@@ -1017,7 +1017,7 @@ void MacroAssembler::sha512(bool multi_block) {
     VectorRegister h_cur = hs[n + 1];
     VectorRegister h_next = hs[n];
 #endif
-    vsldoi (h_next, h_cur, h_cur, 8);
+    vsldoi_PPC (h_next, h_cur, h_cur, 8);
   }
 
   // Load 16 elements from w out of the loop.
@@ -1041,33 +1041,33 @@ void MacroAssembler::sha512(bool multi_block) {
   VectorRegister vsp32 = VR19;
   VectorRegister shiftarg = VR9;
 
-  vspltisw(vsp16,    8);
-  vspltisw(shiftarg, 1);
-  vsl     (vsp16,    vsp16, shiftarg);
-  vsl     (vsp32,    vsp16, shiftarg);
+  vspltisw_PPC(vsp16,    8);
+  vspltisw_PPC(shiftarg, 1);
+  vsl_PPC     (vsp16,    vsp16, shiftarg);
+  vsl_PPC     (vsp32,    vsp16, shiftarg);
 
   VectorRegister vsp8 = VR9;
-  vspltish(vsp8,     8);
+  vspltish_PPC(vsp8,     8);
 
   // Convert input from Big Endian to Little Endian
   for (int c = 0; c < total_ws; c++) {
     VectorRegister w = ws[c];
-    vrlh  (w, w, vsp8);
+    vrlh_PPC  (w, w, vsp8);
   }
   for (int c = 0; c < total_ws; c++) {
     VectorRegister w = ws[c];
-    vrlw  (w, w, vsp16);
+    vrlw_PPC  (w, w, vsp16);
   }
   for (int c = 0; c < total_ws; c++) {
     VectorRegister w = ws[c];
-    vrld  (w, w, vsp32);
+    vrld_PPC  (w, w, vsp32);
   }
 #endif
 
   Register Rb        = R10;
   VectorRegister vRb = VR8;
-  li      (Rb, 8);
-  load_perm(vRb, Rb);
+  li_PPC      (Rb, 8);
+  load_perm_PPC(vRb, Rb);
 
   VectorRegister kplusw0 = VR18;
   VectorRegister kplusw1 = VR19;
@@ -1078,17 +1078,17 @@ void MacroAssembler::sha512(bool multi_block) {
     VectorRegister w = ws[n];
 
     if (n == 0) {
-      lvx  (kplusw0, k);
+      lvx_PPC  (kplusw0, k);
     } else {
-      addi (addr, k, n * 16);
-      lvx  (kplusw0, addr);
+      addi_PPC (addr, k, n * 16);
+      lvx_PPC  (kplusw0, addr);
     }
 #if defined(VM_LITTLE_ENDIAN)
-    vaddudm(kplusw0, kplusw0, w);
-    vsldoi (kplusw1, kplusw0, kplusw0, 8);
+    vaddudm_PPC(kplusw0, kplusw0, w);
+    vsldoi_PPC (kplusw1, kplusw0, kplusw0, 8);
 #else
-    vaddudm(kplusw1, kplusw0, w);
-    vsldoi (kplusw0, kplusw1, kplusw1, 8);
+    vaddudm_PPC(kplusw1, kplusw0, w);
+    vsldoi_PPC (kplusw0, kplusw1, kplusw1, 8);
 #endif
 
     sha512_round(hs, total_hs, h_cnt, kplusw0);
@@ -1096,12 +1096,12 @@ void MacroAssembler::sha512(bool multi_block) {
   }
 
   Register tmp       = R8;
-  li    (tmp, (w_size-16)/total_hs);
-  mtctr (tmp);
+  li_PPC    (tmp, (w_size-16)/total_hs);
+  mtctr_PPC (tmp);
   // j will be aligned to 4 for loading words.
   // Whenever read, advance the pointer (e.g: when j is used in a function)
   Register j = tmp;
-  li     (j, 8*16);
+  li_PPC     (j, 8*16);
 
   align(OptoLoopAlignment);
   bind(core_loop);
@@ -1113,24 +1113,24 @@ void MacroAssembler::sha512(bool multi_block) {
     sha512_round(hs, total_hs, h_cnt, kplusw1);
   }
 
-  bdnz   (core_loop);
+  bdnz_PPC   (core_loop);
 
   sha512_update_sha_state(state, hs, total_hs);
 
   if (multi_block) {
-    addi(buf_in, buf_in, buf_size);
-    addi(ofs, ofs, buf_size);
-    cmplw(CCR0, ofs, limit);
-    ble(CCR0, sha_loop);
+    addi_PPC(buf_in, buf_in, buf_size);
+    addi_PPC(ofs, ofs, buf_size);
+    cmplw_PPC(CCR0, ofs, limit);
+    ble_PPC(CCR0, sha_loop);
 
     // return ofs
-    mr(R3_RET, ofs);
+    mr_PPC(R3_RET_PPC, ofs);
   }
 
   // Restore non-volatile registers
   for (int c = 0; c < nv_size; c++) {
     Register idx = R7;
-    li  (idx, (c - (nv_size)) * 16);
-    lvx(nv[c], idx, R1);
+    li_PPC  (idx, (c - (nv_size)) * 16);
+    lvx_PPC(nv[c], idx, R1);
   }
 }

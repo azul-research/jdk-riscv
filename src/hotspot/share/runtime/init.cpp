@@ -45,8 +45,6 @@
 #include "services/memTracker.hpp"
 #include "utilities/macros.hpp"
 
-#include <csignal>
-
 // Initialization done by VM thread in vm_init_globals()
 void check_ThreadShadow();
 void eventlog_init();
@@ -106,11 +104,6 @@ void vm_init_globals() {
 
 
 jint init_globals() {
-
-  if (BreakAtStartup) {
-      std::raise(SIGTRAP);
-  }
-
   HandleMark hm;
   management_init();
   bytecodes_init();

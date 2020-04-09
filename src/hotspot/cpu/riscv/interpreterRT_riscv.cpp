@@ -40,9 +40,9 @@
 
 // Access macros for Java and C arguments.
 // The first Java argument is at index -1.
-#define locals_j_arg_at(index)    (Interpreter::local_offset_in_bytes(index)), R18_locals
+#define locals_j_arg_at(index)    (Interpreter::local_offset_in_bytes(index)), R26_locals
 // The first C argument is at index 0.
-#define sp_c_arg_at(index)        ((index)*wordSize + _abi(carg_1)), R1_SP
+#define sp_c_arg_at(index)        ((index)*wordSize + _abi_PPC(carg_1)), R1_SP_PPC
 
 // Implementation of SignatureHandlerGenerator
 
@@ -56,9 +56,9 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_int() {
   Argument jni_arg(jni_offset());
   Register r = jni_arg.is_register() ? jni_arg.as_register() : R0;
 
-  __ lwa(r, locals_j_arg_at(offset())); // sign extension of integer
+  __ lwa_PPC(r, locals_j_arg_at(offset())); // sign extension of integer
   if (DEBUG_ONLY(true ||) !jni_arg.is_register()) {
-    __ std(r, sp_c_arg_at(jni_arg.number()));
+    __ std_PPC(r, sp_c_arg_at(jni_arg.number()));
   }
 }
 
@@ -66,52 +66,52 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_long() {
   Argument jni_arg(jni_offset());
   Register r = jni_arg.is_register() ? jni_arg.as_register() : R0;
 
-  __ ld(r, locals_j_arg_at(offset()+1)); // long resides in upper slot
+  __ ld_PPC(r, locals_j_arg_at(offset()+1)); // long resides in upper slot
   if (DEBUG_ONLY(true ||) !jni_arg.is_register()) {
-    __ std(r, sp_c_arg_at(jni_arg.number()));
+    __ std_PPC(r, sp_c_arg_at(jni_arg.number()));
   }
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
   FloatRegister fp_reg = (_num_used_fp_arg_regs < 13/*max_fp_register_arguments*/)
-                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1->encoding())
+                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1_PPC->encoding())
                          : F0;
 
-  __ lfs(fp_reg, locals_j_arg_at(offset()));
+  __ lfs_PPC(fp_reg, locals_j_arg_at(offset()));
   if (DEBUG_ONLY(true ||) jni_offset() > 8) {
-    __ stfs(fp_reg, sp_c_arg_at(jni_offset()));
+    __ stfs_PPC(fp_reg, sp_c_arg_at(jni_offset()));
   }
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
   FloatRegister fp_reg = (_num_used_fp_arg_regs < 13/*max_fp_register_arguments*/)
-                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1->encoding())
+                         ? as_FloatRegister((_num_used_fp_arg_regs++) + F1_ARG1_PPC->encoding())
                          : F0;
 
-  __ lfd(fp_reg, locals_j_arg_at(offset()+1));
+  __ lfd_PPC(fp_reg, locals_j_arg_at(offset()+1));
   if (DEBUG_ONLY(true ||) jni_offset() > 8) {
-    __ stfd(fp_reg, sp_c_arg_at(jni_offset()));
+    __ stfd_PPC(fp_reg, sp_c_arg_at(jni_offset()));
   }
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_object() {
   Argument jni_arg(jni_offset());
-  Register r = jni_arg.is_register() ? jni_arg.as_register() : R11_scratch1;
+  Register r = jni_arg.is_register() ? jni_arg.as_register() : R5_scratch1;
 
   // The handle for a receiver will never be null.
   bool do_NULL_check = offset() != 0 || is_static();
 
   Label do_null;
   if (do_NULL_check) {
-    __ ld(R0, locals_j_arg_at(offset()));
-    __ cmpdi(CCR0, R0, 0);
-    __ li(r, 0);
-    __ beq(CCR0, do_null);
+    __ ld_PPC(R0, locals_j_arg_at(offset()));
+    __ cmpdi_PPC(CCR0, R0, 0);
+    __ li_PPC(r, 0);
+    __ beq_PPC(CCR0, do_null);
   }
-  __ addir(r, locals_j_arg_at(offset()));
+  __ addir_PPC(r, locals_j_arg_at(offset()));
   __ bind(do_null);
   if (DEBUG_ONLY(true ||) !jni_arg.is_register()) {
-    __ std(r, sp_c_arg_at(jni_arg.number()));
+    __ std_PPC(r, sp_c_arg_at(jni_arg.number()));
   }
 }
 
@@ -120,8 +120,8 @@ void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprin
   iterate(fingerprint);
 
   // Return the result handler.
-  __ load_const(R3_RET, AbstractInterpreter::result_handler(method()->result_type()));
-  __ blr();
+  __ load_const_PPC(R3_RET_PPC, AbstractInterpreter::result_handler(method()->result_type()));
+  __ blr_PPC();
 
   __ flush();
 }
@@ -131,13 +131,6 @@ void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprin
 // Implementation of SignatureHandlerLibrary
 
 void SignatureHandlerLibrary::pd_set_handler(address handler) {
-#if !defined(ABI_ELFv2)
-  // patch fd here.
-  FunctionDescriptor* fd = (FunctionDescriptor*) handler;
-
-  fd->set_entry(handler + (int)sizeof(FunctionDescriptor));
-  assert(fd->toc() == (address)0xcafe, "need to adjust TOC here");
-#endif
 }
 
 

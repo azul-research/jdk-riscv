@@ -41,7 +41,7 @@
 
 
 void C1_MacroAssembler::inline_cache_check(Register receiver, Register iCache) {
-  const Register temp_reg = R12_scratch2;
+  const Register temp_reg = R6_scratch2;
   Label Lmiss;
 
   verify_oop(receiver);
@@ -52,13 +52,13 @@ void C1_MacroAssembler::inline_cache_check(Register receiver, Register iCache) {
     trap_ic_miss_check(temp_reg, iCache);
   } else {
     Label Lok;
-    cmpd(CCR0, temp_reg, iCache);
-    beq(CCR0, Lok);
+    cmpd_PPC(CCR0, temp_reg, iCache);
+    beq_PPC(CCR0, Lok);
     bind(Lmiss);
     //load_const_optimized(temp_reg, SharedRuntime::get_ic_miss_stub(), R0);
     calculate_address_from_global_toc(temp_reg, SharedRuntime::get_ic_miss_stub(), true, true, false);
-    mtctr(temp_reg);
-    bctr();
+    mtctr_PPC(temp_reg);
+    bctr_PPC();
     align(32, 12);
     bind(Lok);
   }
@@ -73,13 +73,13 @@ void C1_MacroAssembler::explicit_null_check(Register base) {
 void C1_MacroAssembler::build_frame(int frame_size_in_bytes, int bang_size_in_bytes) {
   // Avoid stack bang as first instruction. It may get overwritten by patch_verified_entry.
   const Register return_pc = R20;
-  mflr(return_pc);
+  mflr_PPC(return_pc);
 
   // Make sure there is enough stack space for this method's activation.
   assert(bang_size_in_bytes >= frame_size_in_bytes, "stack bang size incorrect");
   generate_stack_overflow_check(bang_size_in_bytes);
 
-  std(return_pc, _abi(lr), R1_SP);     // SP->lr = return_pc
+  std_PPC(return_pc, _abi_PPC(lr), R1_SP_PPC);     // SP->lr = return_pc
   push_frame(frame_size_in_bytes, R0); // SP -= frame_size_in_bytes
 }
 
@@ -98,22 +98,22 @@ void C1_MacroAssembler::lock_object(Register Rmark, Register Roop, Register Rbox
   // The following move must be the first instruction of emitted since debug
   // information may be generated for it.
   // Load object header.
-  ld(Rmark, oopDesc::mark_offset_in_bytes(), Roop);
+  ld_PPC(Rmark, oopDesc::mark_offset_in_bytes(), Roop);
 
   verify_oop(Roop);
 
   // Save object being locked into the BasicObjectLock...
-  std(Roop, BasicObjectLock::obj_offset_in_bytes(), Rbox);
+  std_PPC(Roop, BasicObjectLock::obj_offset_in_bytes(), Rbox);
 
   if (UseBiasedLocking) {
     biased_locking_enter(CCR0, Roop, Rmark, Rscratch, R0, done, &slow_int);
   }
 
   // ... and mark it unlocked.
-  ori(Rmark, Rmark, markOopDesc::unlocked_value);
+  ori_PPC(Rmark, Rmark, markOopDesc::unlocked_value);
 
   // Save unlocked object header into the displaced header location on the stack.
-  std(Rmark, BasicLock::displaced_header_offset_in_bytes(), Rbox);
+  std_PPC(Rmark, BasicLock::displaced_header_offset_in_bytes(), Rbox);
 
   // Compare object markOop with Rmark and if equal exchange Rscratch with object markOop.
   assert(oopDesc::mark_offset_in_bytes() == 0, "cas must take a zero displacement");
@@ -129,18 +129,18 @@ void C1_MacroAssembler::lock_object(Register Rmark, Register Roop, Register Rbox
            /*check without membar and ldarx first*/true);
   // If compare/exchange succeeded we found an unlocked object and we now have locked it
   // hence we are done.
-  b(done);
+  b_PPC(done);
 
   bind(slow_int);
-  b(slow_case); // far
+  b_PPC(slow_case); // far
 
   bind(cas_failed);
   // We did not find an unlocked object so see if this is a recursive case.
-  sub(Rscratch, Rscratch, R1_SP);
+  sub_PPC(Rscratch, Rscratch, R1_SP_PPC);
   load_const_optimized(R0, (~(os::vm_page_size()-1) | markOopDesc::lock_mask_in_place));
-  and_(R0/*==0?*/, Rscratch, R0);
-  std(R0/*==0, perhaps*/, BasicLock::displaced_header_offset_in_bytes(), Rbox);
-  bne(CCR0, slow_int);
+  and__PPC(R0/*==0?*/, Rscratch, R0);
+  std_PPC(R0/*==0, perhaps*/, BasicLock::displaced_header_offset_in_bytes(), Rbox);
+  bne_PPC(CCR0, slow_int);
 
   bind(done);
 }
@@ -156,17 +156,17 @@ void C1_MacroAssembler::unlock_object(Register Rmark, Register Roop, Register Rb
 
   if (UseBiasedLocking) {
     // Load the object out of the BasicObjectLock.
-    ld(Roop, BasicObjectLock::obj_offset_in_bytes(), Rbox);
+    ld_PPC(Roop, BasicObjectLock::obj_offset_in_bytes(), Rbox);
     verify_oop(Roop);
     biased_locking_exit(CCR0, Roop, R0, done);
   }
   // Test first it it is a fast recursive unlock.
-  ld(Rmark, BasicLock::displaced_header_offset_in_bytes(), Rbox);
-  cmpdi(CCR0, Rmark, 0);
-  beq(CCR0, done);
+  ld_PPC(Rmark, BasicLock::displaced_header_offset_in_bytes(), Rbox);
+  cmpdi_PPC(CCR0, Rmark, 0);
+  beq_PPC(CCR0, done);
   if (!UseBiasedLocking) {
     // Load object.
-    ld(Roop, BasicObjectLock::obj_offset_in_bytes(), Rbox);
+    ld_PPC(Roop, BasicObjectLock::obj_offset_in_bytes(), Rbox);
     verify_oop(Roop);
   }
 
@@ -181,9 +181,9 @@ void C1_MacroAssembler::unlock_object(Register Rmark, Register Roop, Register Rb
            MacroAssembler::cmpxchgx_hint_release_lock(),
            noreg,
            &slow_int);
-  b(done);
+  b_PPC(done);
   bind(slow_int);
-  b(slow_case); // far
+  b_PPC(slow_case); // far
 
   // Done
   bind(done);
@@ -213,14 +213,14 @@ void C1_MacroAssembler::try_allocate(
 void C1_MacroAssembler::initialize_header(Register obj, Register klass, Register len, Register t1, Register t2) {
   assert_different_registers(obj, klass, len, t1, t2);
   if (UseBiasedLocking && !len->is_valid()) {
-    ld(t1, in_bytes(Klass::prototype_header_offset()), klass);
+    ld_PPC(t1, in_bytes(Klass::prototype_header_offset()), klass);
   } else {
     load_const_optimized(t1, (intx)markOopDesc::prototype());
   }
-  std(t1, oopDesc::mark_offset_in_bytes(), obj);
+  std_PPC(t1, oopDesc::mark_offset_in_bytes(), obj);
   store_klass(obj, klass);
   if (len->is_valid()) {
-    stw(len, arrayOopDesc::length_offset_in_bytes(), obj);
+    stw_PPC(len, arrayOopDesc::length_offset_in_bytes(), obj);
   } else if (UseCompressedClassPointers) {
     // Otherwise length is in the class gap.
     store_klass_gap(obj);
@@ -230,7 +230,7 @@ void C1_MacroAssembler::initialize_header(Register obj, Register klass, Register
 
 void C1_MacroAssembler::initialize_body(Register base, Register index) {
   assert_different_registers(base, index);
-  srdi(index, index, LogBytesPerWord);
+  srdi_PPC(index, index, LogBytesPerWord);
   clear_memory_doubleword(base, index);
 }
 
@@ -245,7 +245,7 @@ void C1_MacroAssembler::initialize_body(Register obj, Register tmp1, Register tm
     const Register base_ptr = tmp1,
                    cnt_dwords = tmp2;
 
-    addi(base_ptr, obj, hdr_size_in_bytes); // Compute address of first element.
+    addi_PPC(base_ptr, obj, hdr_size_in_bytes); // Compute address of first element.
     clear_memory_doubleword(base_ptr, cnt_dwords, R0, index);
   }
 }
@@ -266,7 +266,7 @@ void C1_MacroAssembler::allocate_object(
   if (!is_simm16(obj_size * wordSize)) {
     // Would need to use extra register to load
     // object size => go the slow case for now.
-    b(slow_case);
+    b_PPC(slow_case);
     return;
   }
   try_allocate(obj, noreg, obj_size * wordSize, t2, t3, slow_case);
@@ -288,11 +288,11 @@ void C1_MacroAssembler::initialize_object(
 
 #ifdef ASSERT
   {
-    lwz(t1, in_bytes(Klass::layout_helper_offset()), klass);
+    lwz_PPC(t1, in_bytes(Klass::layout_helper_offset()), klass);
     if (var_size_in_bytes != noreg) {
-      cmpw(CCR0, t1, var_size_in_bytes);
+      cmpw_PPC(CCR0, t1, var_size_in_bytes);
     } else {
-      cmpwi(CCR0, t1, con_size_in_bytes);
+      cmpwi_PPC(CCR0, t1, con_size_in_bytes);
     }
     asm_assert_eq("bad size in initialize_object", 0x753);
   }
@@ -301,8 +301,8 @@ void C1_MacroAssembler::initialize_object(
   // Initialize body.
   if (var_size_in_bytes != noreg) {
     // Use a loop.
-    addi(t1, obj, hdr_size_in_bytes);                // Compute address of first element.
-    addi(t2, var_size_in_bytes, -hdr_size_in_bytes); // Compute size of body.
+    addi_PPC(t1, obj, hdr_size_in_bytes);                // Compute address of first element.
+    addi_PPC(t2, var_size_in_bytes, -hdr_size_in_bytes); // Compute size of body.
     initialize_body(t1, t2);
   } else if (con_size_in_bytes > hdr_size_in_bytes) {
     // Use a loop.
@@ -344,7 +344,7 @@ void C1_MacroAssembler::allocate_array(
     if (max_tlab < max_length) { max_length = max_tlab; }
   }
   load_const_optimized(t1, max_length);
-  cmpld(CCR0, len, t1);
+  cmpld_PPC(CCR0, len, t1);
   bc_far_optimized(Assembler::bcondCRbiIs1, bi0(CCR0, Assembler::greater), slow_case);
 
   // compute array size
@@ -355,11 +355,11 @@ void C1_MacroAssembler::allocate_array(
   const Register arr_size = t1;
   Register arr_len_in_bytes = len;
   if (elt_size != 1) {
-    sldi(t1, len, log2_elt_size);
+    sldi_PPC(t1, len, log2_elt_size);
     arr_len_in_bytes = t1;
   }
-  addi(arr_size, arr_len_in_bytes, hdr_size * wordSize + MinObjAlignmentInBytesMask); // Add space for header & alignment.
-  clrrdi(arr_size, arr_size, LogMinObjAlignmentInBytes);                              // Align array size.
+  addi_PPC(arr_size, arr_len_in_bytes, hdr_size * wordSize + MinObjAlignmentInBytesMask); // Add space for header & alignment.
+  clrrdi_PPC(arr_size, arr_size, LogMinObjAlignmentInBytes);                              // Align array size.
 
   // Allocate space & initialize header.
   if (UseTLAB) {
@@ -372,8 +372,8 @@ void C1_MacroAssembler::allocate_array(
   // Initialize body.
   const Register base  = t2;
   const Register index = t3;
-  addi(base, obj, hdr_size * wordSize);               // compute address of first element
-  addi(index, arr_size, -(hdr_size * wordSize));      // compute index = number of bytes to clear
+  addi_PPC(base, obj, hdr_size * wordSize);               // compute address of first element
+  addi_PPC(index, arr_size, -(hdr_size * wordSize));      // compute index = number of bytes to clear
   initialize_body(base, index);
 
   if (CURRENT_ENV->dtrace_alloc_probes()) {
@@ -390,13 +390,13 @@ void C1_MacroAssembler::allocate_array(
 #ifndef PRODUCT
 
 void C1_MacroAssembler::verify_stack_oop(int stack_offset) {
-  verify_oop_addr((RegisterOrConstant)(stack_offset + STACK_BIAS), R1_SP, "broken oop in stack slot");
+  verify_oop_addr((RegisterOrConstant)(stack_offset + STACK_BIAS), R1_SP_PPC, "broken oop in stack slot");
 }
 
 void C1_MacroAssembler::verify_not_null_oop(Register r) {
   Label not_null;
-  cmpdi(CCR0, r, 0);
-  bne(CCR0, not_null);
+  cmpdi_PPC(CCR0, r, 0);
+  bne_PPC(CCR0, not_null);
   stop("non-null oop required");
   bind(not_null);
   if (!VerifyOops) return;
@@ -411,18 +411,14 @@ void C1_MacroAssembler::null_check(Register r, Label* Lnull) {
   } else { // explicit
     //const address exception_entry = Runtime1::entry_for(Runtime1::throw_null_pointer_exception_id);
     assert(Lnull != NULL, "must have Label for explicit check");
-    cmpdi(CCR0, r, 0);
+    cmpdi_PPC(CCR0, r, 0);
     bc_far_optimized(Assembler::bcondCRbiIs1, bi0(CCR0, Assembler::equal), *Lnull);
   }
 }
 
 address C1_MacroAssembler::call_c_with_frame_resize(address dest, int frame_resize) {
   if (frame_resize) { resize_frame(-frame_resize, R0); }
-#if defined(ABI_ELFv2)
   address return_pc = call_c(dest, relocInfo::runtime_call_type);
-#else
-  address return_pc = call_c(CAST_FROM_FN_PTR(FunctionDescriptor*, dest), relocInfo::runtime_call_type);
-#endif
   if (frame_resize) { resize_frame(frame_resize, R0); }
   return return_pc;
 }

@@ -56,9 +56,11 @@ int Assembler::patched_branch(int dest_pos, int inst, int inst_pos) {
   int m = 0; // mask for displacement field
   int v = 0; // new value for displacement field
 
-  switch (inv_op_riscv(inst)) {
-  case b_op:  m = li(-1); v = li(disp(dest_pos, inst_pos)); break;
-  case bc_op: m = bd(-1); v = bd(disp(dest_pos, inst_pos)); break;
+  int inv_op = get_opcode(inst);
+  switch (inv_op) {
+    case BRANCH_RV_OPCODE: m = immb(-2); v = immb(disp(dest_pos, inst_pos)); break;
+    case   JALR_RV_OPCODE: m = immi(-1); v = immi(disp(dest_pos, inst_pos)); break;
+    case    JAL_RV_OPCODE: m = immj(-2); v = immj(disp(dest_pos, inst_pos)); break;
     default: ShouldNotReachHere();
   }
   return inst & ~m | v;
@@ -68,7 +70,7 @@ int Assembler::patched_branch(int dest_pos, int inst, int inst_pos) {
 // the branch inst at offset pos.
 int Assembler::branch_destination(int inst, int pos) {
   int r = 0;
-  switch (inv_op_riscv(inst)) {
+  switch (get_opcode(inst)) {
     case b_op:  r = bxx_destination_offset(inst, pos); break;
     case bc_op: r = inv_bd_field(inst, pos); break;
     default: ShouldNotReachHere();
@@ -77,19 +79,39 @@ int Assembler::branch_destination(int inst, int pos) {
 }
 
 // Low-level andi-one-instruction-macro.
-void Assembler::andi(Register a, Register s, const long ui16) {
+void Assembler::andi_PPC(Register a, Register s, const long ui16) {
   if (is_power_of_2_long(((jlong) ui16)+1)) {
     // pow2minus1
-    clrldi(a, s, 64-log2_long((((jlong) ui16)+1)));
+    clrldi_PPC(a, s, 64-log2_long((((jlong) ui16)+1)));
   } else if (is_power_of_2_long((jlong) ui16)) {
     // pow2
-    rlwinm(a, s, 0, 31-log2_long((jlong) ui16), 31-log2_long((jlong) ui16));
+    rlwinm_PPC(a, s, 0, 31-log2_long((jlong) ui16), 31-log2_long((jlong) ui16));
   } else if (is_power_of_2_long((jlong)-ui16)) {
     // negpow2
-    clrrdi(a, s, log2_long((jlong)-ui16));
+    clrrdi_PPC(a, s, log2_long((jlong)-ui16));
   } else {
     assert(is_uimm(ui16, 16), "must be 16-bit unsigned immediate");
-    andi_(a, s, ui16);
+    andi__PPC(a, s, ui16);
+  }
+}
+
+// RegisterOrConstant version.
+void Assembler::ld_PPC(Register d, RegisterOrConstant roc, Register s1) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
+      Assembler::ld_PPC(d, simm16_rest, d);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      Assembler::ld_PPC(d, roc.as_constant(), s1);
+    } else {
+      load_const_optimized(d, roc.as_constant());
+      Assembler::ldx_PPC(d, d, s1);
+    }
+  } else {
+    if (s1 == noreg)
+      Assembler::ld_PPC(d, 0, roc.as_register());
+    else
+      Assembler::ldx_PPC(d, roc.as_register(), s1);
   }
 }
 
@@ -97,199 +119,293 @@ void Assembler::andi(Register a, Register s, const long ui16) {
 void Assembler::ld(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
-      int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
-      Assembler::ld(d, simm16_rest, d);
+      li(d, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      ld(d, d, simm16_rest);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::ld(d, roc.as_constant(), s1);
+      ld(d, s1, roc.as_constant());
     } else {
-      load_const_optimized(d, roc.as_constant());
-      Assembler::ldx(d, d, s1);
+      li(d, roc.as_constant());
+      add(d, d, s1);
+      ld(d, d, 0);
     }
   } else {
     if (s1 == noreg)
-      Assembler::ld(d, 0, roc.as_register());
-    else
-      Assembler::ldx(d, roc.as_register(), s1);
+      ld(d, roc.as_register(), 0);
+    else {
+      add(d, roc.as_register(), s1);
+      ld(d, d, 0);
+    }
   }
 }
 
-void Assembler::lwa(Register d, RegisterOrConstant roc, Register s1) {
+void Assembler::lwa_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
-      Assembler::lwa(d, simm16_rest, d);
+      Assembler::lwa_PPC(d, simm16_rest, d);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::lwa(d, roc.as_constant(), s1);
+      Assembler::lwa_PPC(d, roc.as_constant(), s1);
     } else {
       load_const_optimized(d, roc.as_constant());
-      Assembler::lwax(d, d, s1);
+      Assembler::lwax_PPC(d, d, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::lwa(d, 0, roc.as_register());
+      Assembler::lwa_PPC(d, 0, roc.as_register());
     else
-      Assembler::lwax(d, roc.as_register(), s1);
+      Assembler::lwax_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::lwz(Register d, RegisterOrConstant roc, Register s1) {
+void Assembler::lwz_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
-      Assembler::lwz(d, simm16_rest, d);
+      Assembler::lwz_PPC(d, simm16_rest, d);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::lwz(d, roc.as_constant(), s1);
+      Assembler::lwz_PPC(d, roc.as_constant(), s1);
     } else {
       load_const_optimized(d, roc.as_constant());
-      Assembler::lwzx(d, d, s1);
+      Assembler::lwzx_PPC(d, d, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::lwz(d, 0, roc.as_register());
+      Assembler::lwz_PPC(d, 0, roc.as_register());
     else
-      Assembler::lwzx(d, roc.as_register(), s1);
+      Assembler::lwzx_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::lha(Register d, RegisterOrConstant roc, Register s1) {
+void Assembler::lwu(Register d, RegisterOrConstant roc, Register s1) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      li(d, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      lwu(d, d, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      lwu(d, s1, roc.as_constant());
+    } else {
+      li(d, roc.as_constant());
+      add(d, d, s1);
+      lwu(d, d, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      lwu(d, roc.as_register(), 0);
+    else {
+      add(d, roc.as_register(), s1);
+      lwu(d, d, 0);
+    }
+  }
+}
+
+void Assembler::lha_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
-      Assembler::lha(d, simm16_rest, d);
+      Assembler::lha_PPC(d, simm16_rest, d);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::lha(d, roc.as_constant(), s1);
+      Assembler::lha_PPC(d, roc.as_constant(), s1);
     } else {
       load_const_optimized(d, roc.as_constant());
-      Assembler::lhax(d, d, s1);
+      Assembler::lhax_PPC(d, d, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::lha(d, 0, roc.as_register());
+      Assembler::lha_PPC(d, 0, roc.as_register());
     else
-      Assembler::lhax(d, roc.as_register(), s1);
+      Assembler::lhax_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::lhz(Register d, RegisterOrConstant roc, Register s1) {
+void Assembler::lhz_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
-      Assembler::lhz(d, simm16_rest, d);
+      Assembler::lhz_PPC(d, simm16_rest, d);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::lhz(d, roc.as_constant(), s1);
+      Assembler::lhz_PPC(d, roc.as_constant(), s1);
     } else {
       load_const_optimized(d, roc.as_constant());
-      Assembler::lhzx(d, d, s1);
+      Assembler::lhzx_PPC(d, d, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::lhz(d, 0, roc.as_register());
+      Assembler::lhz_PPC(d, 0, roc.as_register());
     else
-      Assembler::lhzx(d, roc.as_register(), s1);
+      Assembler::lhzx_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::lbz(Register d, RegisterOrConstant roc, Register s1) {
+void Assembler::lbz_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       int simm16_rest = load_const_optimized(d, roc.as_constant(), noreg, true);
-      Assembler::lbz(d, simm16_rest, d);
+      Assembler::lbz_PPC(d, simm16_rest, d);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::lbz(d, roc.as_constant(), s1);
+      Assembler::lbz_PPC(d, roc.as_constant(), s1);
     } else {
       load_const_optimized(d, roc.as_constant());
-      Assembler::lbzx(d, d, s1);
+      Assembler::lbzx_PPC(d, d, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::lbz(d, 0, roc.as_register());
+      Assembler::lbz_PPC(d, 0, roc.as_register());
     else
-      Assembler::lbzx(d, roc.as_register(), s1);
+      Assembler::lbzx_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::std(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+void Assembler::std_PPC(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       int simm16_rest = load_const_optimized(tmp, roc.as_constant(), noreg, true);
-      Assembler::std(d, simm16_rest, tmp);
+      Assembler::std_PPC(d, simm16_rest, tmp);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::std(d, roc.as_constant(), s1);
+      Assembler::std_PPC(d, roc.as_constant(), s1);
     } else {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       load_const_optimized(tmp, roc.as_constant());
-      Assembler::stdx(d, tmp, s1);
+      Assembler::stdx_PPC(d, tmp, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::std(d, 0, roc.as_register());
+      Assembler::std_PPC(d, 0, roc.as_register());
     else
-      Assembler::stdx(d, roc.as_register(), s1);
+      Assembler::stdx_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::stw(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+void Assembler::sd(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      sd(d, tmp, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      sd(d, s1, roc.as_constant());
+    } else {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      add(tmp, tmp, s1);
+      sd(d, tmp, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      sd(d, roc.as_register(), 0);
+    else {
+      add(tmp, roc.as_register(), s1);
+      sd(d, tmp, 0);
+    }
+  }
+}
+
+void Assembler::stw_PPC(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       int simm16_rest = load_const_optimized(tmp, roc.as_constant(), noreg, true);
-      Assembler::stw(d, simm16_rest, tmp);
+      Assembler::stw_PPC(d, simm16_rest, tmp);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::stw(d, roc.as_constant(), s1);
+      Assembler::stw_PPC(d, roc.as_constant(), s1);
     } else {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       load_const_optimized(tmp, roc.as_constant());
-      Assembler::stwx(d, tmp, s1);
+      Assembler::stwx_PPC(d, tmp, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::stw(d, 0, roc.as_register());
+      Assembler::stw_PPC(d, 0, roc.as_register());
     else
-      Assembler::stwx(d, roc.as_register(), s1);
+      Assembler::stwx_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::sth(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+void Assembler::sw(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+  if (roc.is_constant()) {
+    if (s1 == noreg) {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      int simm16_rest = roc.as_constant() & 0xFFFF;
+      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
+        simm16_rest = 0;
+      sw(d, tmp, simm16_rest);
+    } else if (is_simm(roc.as_constant(), 16)) {
+      sw(d, s1, roc.as_constant());
+    } else {
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
+      li(tmp, roc.as_constant());
+      add(tmp, tmp, s1);
+      sw(d, tmp, 0);
+    }
+  } else {
+    if (s1 == noreg)
+      sw(d, roc.as_register(), 0);
+    else {
+      add(tmp, roc.as_register(), s1);
+      sw(d, tmp, 0);
+    }
+  }
+}
+
+void Assembler::sth_PPC(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       int simm16_rest = load_const_optimized(tmp, roc.as_constant(), noreg, true);
-      Assembler::sth(d, simm16_rest, tmp);
+      Assembler::sth_PPC(d, simm16_rest, tmp);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::sth(d, roc.as_constant(), s1);
+      Assembler::sth_PPC(d, roc.as_constant(), s1);
     } else {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       load_const_optimized(tmp, roc.as_constant());
-      Assembler::sthx(d, tmp, s1);
+      Assembler::sthx_PPC(d, tmp, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::sth(d, 0, roc.as_register());
+      Assembler::sth_PPC(d, 0, roc.as_register());
     else
-      Assembler::sthx(d, roc.as_register(), s1);
+      Assembler::sthx_PPC(d, roc.as_register(), s1);
   }
 }
 
-void Assembler::stb(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
+void Assembler::stb_PPC(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       int simm16_rest = load_const_optimized(tmp, roc.as_constant(), noreg, true);
-      Assembler::stb(d, simm16_rest, tmp);
+      Assembler::stb_PPC(d, simm16_rest, tmp);
     } else if (is_simm(roc.as_constant(), 16)) {
-      Assembler::stb(d, roc.as_constant(), s1);
+      Assembler::stb_PPC(d, roc.as_constant(), s1);
     } else {
       guarantee(tmp != noreg, "Need tmp reg to encode large constants");
       load_const_optimized(tmp, roc.as_constant());
-      Assembler::stbx(d, tmp, s1);
+      Assembler::stbx_PPC(d, tmp, s1);
     }
   } else {
     if (s1 == noreg)
-      Assembler::stb(d, 0, roc.as_register());
+      Assembler::stb_PPC(d, 0, roc.as_register());
     else
-      Assembler::stbx(d, roc.as_register(), s1);
+      Assembler::stbx_PPC(d, roc.as_register(), s1);
   }
+}
+
+void Assembler::add_PPC(Register d, RegisterOrConstant roc, Register s1) {
+  if (roc.is_constant()) {
+    intptr_t c = roc.as_constant();
+    assert(is_simm(c, 16), "too big");
+    addi_PPC(d, s1, (int)c);
+  }
+  else add_PPC(d, roc.as_register(), s1);
 }
 
 void Assembler::add(Register d, RegisterOrConstant roc, Register s1) {
@@ -301,46 +417,69 @@ void Assembler::add(Register d, RegisterOrConstant roc, Register s1) {
   else add(d, roc.as_register(), s1);
 }
 
-void Assembler::subf(Register d, RegisterOrConstant roc, Register s1) {
+void Assembler::subf_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     intptr_t c = roc.as_constant();
     assert(is_simm(-c, 16), "too big");
-    addi(d, s1, (int)-c);
+    addi_PPC(d, s1, (int)-c);
   }
-  else subf(d, roc.as_register(), s1);
+  else subf_PPC(d, roc.as_register(), s1);
 }
 
-void Assembler::cmpd(ConditionRegister d, RegisterOrConstant roc, Register s1) {
+void Assembler::cmpd_PPC(ConditionRegister d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
     intptr_t c = roc.as_constant();
     assert(is_simm(c, 16), "too big");
-    cmpdi(d, s1, (int)c);
+    cmpdi_PPC(d, s1, (int)c);
   }
-  else cmpd(d, roc.as_register(), s1);
+  else cmpd_PPC(d, roc.as_register(), s1);
 }
 
 // Load a 64 bit constant. Patchable.
-void Assembler::load_const(Register d, long x, Register tmp) {
+void Assembler::load_const_PPC(Register d, long x, Register tmp) {
   // 64-bit value: x = xa xb xc xd
   int xa = (x >> 48) & 0xffff;
   int xb = (x >> 32) & 0xffff;
   int xc = (x >> 16) & 0xffff;
   int xd = (x >>  0) & 0xffff;
   if (tmp == noreg) {
-    Assembler::lis( d, (int)(short)xa);
-    Assembler::ori( d, d, (unsigned int)xb);
-    Assembler::sldi(d, d, 32);
-    Assembler::oris(d, d, (unsigned int)xc);
-    Assembler::ori( d, d, (unsigned int)xd);
+    Assembler::lis_PPC( d, (int)(short)xa);
+    Assembler::ori_PPC( d, d, (unsigned int)xb);
+    Assembler::sldi_PPC(d, d, 32);
+    Assembler::oris_PPC(d, d, (unsigned int)xc);
+    Assembler::ori_PPC( d, d, (unsigned int)xd);
   } else {
     // exploit instruction level parallelism if we have a tmp register
     assert_different_registers(d, tmp);
-    Assembler::lis(tmp, (int)(short)xa);
-    Assembler::lis(d, (int)(short)xc);
-    Assembler::ori(tmp, tmp, (unsigned int)xb);
-    Assembler::ori(d, d, (unsigned int)xd);
-    Assembler::insrdi(d, tmp, 32, 0);
+    Assembler::lis_PPC(tmp, (int)(short)xa);
+    Assembler::lis_PPC(d, (int)(short)xc);
+    Assembler::ori_PPC(tmp, tmp, (unsigned int)xb);
+    Assembler::ori_PPC(d, d, (unsigned int)xd);
+    Assembler::insrdi_PPC(d, tmp, 32, 0);
   }
+}
+
+void Assembler::li(Register d, void* addr) {
+  li(d, (long)(unsigned long)addr);
+}
+
+void Assembler::li(Register d, long imm) { // TODO optimize
+  unsigned long uimm = imm;
+
+  // Accurate copying by 11 bits.
+  int remBit = ((uimm & 0xffffffff00000000) != 0) ? 53 : 21;
+  short part = (uimm >> remBit) & 0x7FF;
+  addi(d, R0_ZERO, part);
+  slli(d, d, 11);
+
+  for (remBit -= 11; remBit > 0; remBit -= 11) {
+    part = (uimm >> remBit) & 0x7FF;
+    if (part != 0) addi(d, d, part);
+    slli(d, d, remBit >= 11 ? 11 : remBit);
+  }
+
+  part = uimm & ((1 << (remBit + 11)) - 1);
+  if (part != 0) addi(d, d, part);
 }
 
 // Load a 64 bit constant, optimized, not identifyable.
@@ -357,7 +496,7 @@ int Assembler::load_const_optimized(Register d, long x, Register tmp, bool retur
   rem = (rem >> 16) + ((unsigned short)xd >> 15); // Compensation for sign extend.
 
   if (rem == 0) { // opt 1: simm16
-    li(d, xd);
+    li_PPC(d, xd);
     return 0;
   }
 
@@ -370,8 +509,8 @@ int Assembler::load_const_optimized(Register d, long x, Register tmp, bool retur
 
   if (d == R0) { // Can't use addi.
     if (is_simm(x, 32)) { // opt 2: simm32
-      lis(d, x >> 16);
-      if (xd) ori(d, d, (unsigned short)xd);
+      lis_PPC(d, x >> 16);
+      if (xd) ori_PPC(d, d, (unsigned short)xd);
     } else {
       // 64-bit value: x = xa xb xc xd
       xa = (x >> 48) & 0xffff;
@@ -380,34 +519,34 @@ int Assembler::load_const_optimized(Register d, long x, Register tmp, bool retur
       bool xa_loaded = (xb & 0x8000) ? (xa != -1) : (xa != 0);
       if (tmp == noreg || (xc == 0 && xd == 0)) {
         if (xa_loaded) {
-          lis(d, xa);
-          if (xb) { ori(d, d, (unsigned short)xb); }
+          lis_PPC(d, xa);
+          if (xb) { ori_PPC(d, d, (unsigned short)xb); }
         } else {
-          li(d, xb);
+          li_PPC(d, xb);
         }
-        sldi(d, d, 32);
-        if (xc) { oris(d, d, (unsigned short)xc); }
-        if (xd) { ori( d, d, (unsigned short)xd); }
+        sldi_PPC(d, d, 32);
+        if (xc) { oris_PPC(d, d, (unsigned short)xc); }
+        if (xd) { ori_PPC( d, d, (unsigned short)xd); }
       } else {
         // Exploit instruction level parallelism if we have a tmp register.
         bool xc_loaded = (xd & 0x8000) ? (xc != -1) : (xc != 0);
         if (xa_loaded) {
-          lis(tmp, xa);
+          lis_PPC(tmp, xa);
         }
         if (xc_loaded) {
-          lis(d, xc);
+          lis_PPC(d, xc);
         }
         if (xa_loaded) {
-          if (xb) { ori(tmp, tmp, (unsigned short)xb); }
+          if (xb) { ori_PPC(tmp, tmp, (unsigned short)xb); }
         } else {
-          li(tmp, xb);
+          li_PPC(tmp, xb);
         }
         if (xc_loaded) {
-          if (xd) { ori(d, d, (unsigned short)xd); }
+          if (xd) { ori_PPC(d, d, (unsigned short)xd); }
         } else {
-          li(d, xd);
+          li_PPC(d, xd);
         }
-        insrdi(d, tmp, 32, 0);
+        insrdi_PPC(d, tmp, 32, 0);
       }
     }
     return retval;
@@ -417,7 +556,7 @@ int Assembler::load_const_optimized(Register d, long x, Register tmp, bool retur
   rem = (rem >> 16) + ((unsigned short)xc >> 15); // Compensation for sign extend.
 
   if (rem == 0) { // opt 2: simm32
-    lis(d, xc);
+    lis_PPC(d, xc);
   } else { // High 32 bits needed.
 
     if (tmp != noreg  && (int)x != 0) { // opt 3: We have a temp reg.
@@ -427,19 +566,19 @@ int Assembler::load_const_optimized(Register d, long x, Register tmp, bool retur
       bool xa_loaded = (xb & 0x8000) ? (xa != -1) : (xa != 0);
       bool return_xd = false;
 
-      if (xa_loaded) { lis(tmp, xa); }
-      if (xc) { lis(d, xc); }
+      if (xa_loaded) { lis_PPC(tmp, xa); }
+      if (xc) { lis_PPC(d, xc); }
       if (xa_loaded) {
-        if (xb) { ori(tmp, tmp, (unsigned short)xb); } // No addi, we support tmp == R0.
+        if (xb) { ori_PPC(tmp, tmp, (unsigned short)xb); } // No addi, we support tmp == R0.
       } else {
-        li(tmp, xb);
+        li_PPC(tmp, xb);
       }
       if (xc) {
-        if (xd) { addi(d, d, xd); }
+        if (xd) { addi_PPC(d, d, xd); }
       } else {
-        li(d, xd);
+        li_PPC(d, xd);
       }
-      insrdi(d, tmp, 32, 0);
+      insrdi_PPC(d, tmp, 32, 0);
       return retval;
     }
 
@@ -450,16 +589,16 @@ int Assembler::load_const_optimized(Register d, long x, Register tmp, bool retur
 
     // opt 4: avoid adding 0
     if (xa) { // Highest 16-bit needed?
-      lis(d, xa);
-      if (xb) { addi(d, d, xb); }
+      lis_PPC(d, xa);
+      if (xb) { addi_PPC(d, d, xb); }
     } else {
-      li(d, xb);
+      li_PPC(d, xb);
     }
-    sldi(d, d, 32);
-    if (xc) { addis(d, d, xc); }
+    sldi_PPC(d, d, 32);
+    if (xc) { addis_PPC(d, d, xc); }
   }
 
-  if (xd) { addi(d, d, xd); }
+  if (xd) { addi_PPC(d, d, xd); }
   return retval;
 }
 
@@ -473,13 +612,13 @@ int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp,
   rem = (rem >> 16) + ((unsigned short)xd >> 15);
   if (rem == 0) {
     if (xd == 0) {
-      if (d != s) { mr(d, s); }
+      if (d != s) { mr_PPC(d, s); }
       return 0;
     }
     if (return_simm16_rest && (d == s)) {
       return xd;
     }
-    addi(d, s, xd);
+    addi_PPC(d, s, xd);
     return 0;
   }
 
@@ -488,7 +627,7 @@ int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp,
     short xc = rem & 0xFFFF; // 2nd 16-bit chunk.
     rem = (rem >> 16) + ((unsigned short)xc >> 15);
     if (rem == 0) {
-      addis(d, s, xc);
+      addis_PPC(d, s, xc);
       return 0;
     }
   }
@@ -502,7 +641,7 @@ int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp,
     tmp2 = tmp;
   }
   int simm16_rest = load_const_optimized(tmp1, x, tmp2, return_simm16_rest);
-  add(d, tmp1, s);
+  add_PPC(d, tmp1, s);
   return simm16_rest;
 }
 
@@ -510,270 +649,270 @@ int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp,
 // Test of riscv assembler.
 void Assembler::test_asm() {
   // RISCV 1, section 3.3.8, Fixed-Point Arithmetic Instructions
-  addi(   R0,  R1,  10);
-  addis(  R5,  R2,  11);
-  addic_( R3,  R31, 42);
-  subfic( R21, R12, 2112);
-  add(    R3,  R2,  R1);
-  add_(   R11, R22, R30);
-  subf(   R7,  R6,  R5);
-  subf_(  R8,  R9,  R4);
-  addc(   R11, R12, R13);
-  addc_(  R14, R14, R14);
-  subfc(  R15, R16, R17);
-  subfc_( R18, R20, R19);
-  adde(   R20, R22, R24);
-  adde_(  R29, R27, R26);
-  subfe(  R28, R1,  R0);
-  subfe_( R21, R11, R29);
-  neg(    R21, R22);
-  neg_(   R13, R23);
-  mulli(  R0,  R11, -31);
-  mulld(  R1,  R18, R21);
-  mulld_( R2,  R17, R22);
-  mullw(  R3,  R16, R23);
-  mullw_( R4,  R15, R24);
-  divd(   R5,  R14, R25);
-  divd_(  R6,  R13, R26);
-  divw(   R7,  R12, R27);
-  divw_(  R8,  R11, R28);
+  addi_PPC(   R0,  R1,  10);
+  addis_PPC(  R5,  R2,  11);
+  addic__PPC( R3,  R31, 42);
+  subfic_PPC( R21, R12, 2112);
+  add_PPC(    R3,  R2,  R1);
+  add__PPC(   R11, R22, R30);
+  subf_PPC(   R7,  R6,  R5);
+  subf__PPC(  R8,  R9,  R4);
+  addc_PPC(   R11, R12, R13);
+  addc__PPC(  R14, R14, R14);
+  subfc_PPC(  R15, R16, R17);
+  subfc__PPC( R18, R20, R19);
+  adde_PPC(   R20, R22, R24);
+  adde__PPC(  R29, R27, R26);
+  subfe_PPC(  R28, R1,  R0);
+  subfe__PPC( R21, R11, R29);
+  neg_PPC(    R21, R22);
+  neg__PPC(   R13, R23);
+  mulli_PPC(  R0,  R11, -31);
+  mulld_PPC(  R1,  R18, R21);
+  mulld__PPC( R2,  R17, R22);
+  mullw_PPC(  R3,  R16, R23);
+  mullw__PPC( R4,  R15, R24);
+  divd_PPC(   R5,  R14, R25);
+  divd__PPC(  R6,  R13, R26);
+  divw_PPC(   R7,  R12, R27);
+  divw__PPC(  R8,  R11, R28);
 
-  li(     R3, -4711);
+  li_PPC(     R3, -4711);
 
   // RISCV 1, section 3.3.9, Fixed-Point Compare Instructions
-  cmpi(   CCR7,  0, R27, 4711);
-  cmp(    CCR0, 1, R14, R11);
-  cmpli(  CCR5,  1, R17, 45);
-  cmpl(   CCR3, 0, R9,  R10);
+  cmpi_PPC(   CCR7,  0, R27, 4711);
+  cmp_PPC(    CCR0, 1, R14, R11);
+  cmpli_PPC(  CCR5,  1, R17, 45);
+  cmpl_PPC(   CCR3, 0, R9,  R10);
 
-  cmpwi(  CCR7,  R27, 4711);
-  cmpw(   CCR0, R14, R11);
-  cmplwi( CCR5,  R17, 45);
-  cmplw(  CCR3, R9,  R10);
+  cmpwi_PPC(  CCR7,  R27, 4711);
+  cmpw_PPC(   CCR0, R14, R11);
+  cmplwi_PPC( CCR5,  R17, 45);
+  cmplw_PPC(  CCR3, R9,  R10);
 
-  cmpdi(  CCR7,  R27, 4711);
-  cmpd(   CCR0, R14, R11);
-  cmpldi( CCR5,  R17, 45);
-  cmpld(  CCR3, R9,  R10);
+  cmpdi_PPC(  CCR7,  R27, 4711);
+  cmpd_PPC(   CCR0, R14, R11);
+  cmpldi_PPC( CCR5,  R17, 45);
+  cmpld_PPC(  CCR3, R9,  R10);
 
   // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
-  andi_(  R4,  R5,  0xff);
-  andis_( R12, R13, 0x7b51);
-  ori(    R1,  R4,  13);
-  oris(   R3,  R5,  177);
-  xori(   R7,  R6,  51);
-  xoris(  R29, R0,  1);
-  andr(   R17, R21, R16);
-  and_(   R3,  R5,  R15);
-  orr(    R2,  R1,  R9);
-  or_(    R17, R15, R11);
-  xorr(   R19, R18, R10);
-  xor_(   R31, R21, R11);
-  nand(   R5,  R7,  R3);
-  nand_(  R3,  R1,  R0);
-  nor(    R2,  R3,  R5);
-  nor_(   R3,  R6,  R8);
-  andc(   R25, R12, R11);
-  andc_(  R24, R22, R21);
-  orc(    R20, R10, R12);
-  orc_(   R22, R2,  R13);
+  andi__PPC(  R4,  R5,  0xff);
+  andis__PPC( R12, R13, 0x7b51);
+  ori_PPC(    R1,  R4,  13);
+  oris_PPC(   R3,  R5,  177);
+  xori_PPC(   R7,  R6,  51);
+  xoris_PPC(  R29, R0,  1);
+  andr_PPC(   R17, R21, R16);
+  and__PPC(   R3,  R5,  R15);
+  orr_PPC(    R2,  R1,  R9);
+  or__PPC(    R17, R15, R11);
+  xorr_PPC(   R19, R18, R10);
+  xor__PPC(   R31, R21, R11);
+  nand_PPC(   R5,  R7,  R3);
+  nand__PPC(  R3,  R1,  R0);
+  nor_PPC(    R2,  R3,  R5);
+  nor__PPC(   R3,  R6,  R8);
+  andc_PPC(   R25, R12, R11);
+  andc__PPC(  R24, R22, R21);
+  orc_PPC(    R20, R10, R12);
+  orc__PPC(   R22, R2,  R13);
 
-  nop();
+  nop_PPC();
 
   // RISCV 1, section 3.3.12, Fixed-Point Rotate and Shift Instructions
-  sld(    R5,  R6,  R8);
-  sld_(   R3,  R5,  R9);
-  slw(    R2,  R1,  R10);
-  slw_(   R6,  R26, R16);
-  srd(    R16, R24, R8);
-  srd_(   R21, R14, R7);
-  srw(    R22, R25, R29);
-  srw_(   R5,  R18, R17);
-  srad(   R7,  R11, R0);
-  srad_(  R9,  R13, R1);
-  sraw(   R7,  R15, R2);
-  sraw_(  R4,  R17, R3);
-  sldi(   R3,  R18, 63);
-  sldi_(  R2,  R20, 30);
-  slwi(   R1,  R21, 30);
-  slwi_(  R7,  R23, 8);
-  srdi(   R0,  R19, 2);
-  srdi_(  R12, R24, 5);
-  srwi(   R13, R27, 6);
-  srwi_(  R14, R29, 7);
-  sradi(  R15, R30, 9);
-  sradi_( R16, R31, 19);
-  srawi(  R17, R31, 15);
-  srawi_( R18, R31, 12);
+  sld_PPC(    R5,  R6,  R8);
+  sld__PPC(   R3,  R5,  R9);
+  slw_PPC(    R2,  R1,  R10);
+  slw__PPC(   R6,  R26, R16);
+  srd_PPC(    R16, R24, R8);
+  srd__PPC(   R21, R14, R7);
+  srw_PPC(    R22, R25, R29);
+  srw__PPC(   R5,  R18, R17);
+  srad_PPC(   R7,  R11, R0);
+  srad__PPC(  R9,  R13, R1);
+  sraw_PPC(   R7,  R15, R2);
+  sraw__PPC(  R4,  R17, R3);
+  sldi_PPC(   R3,  R18, 63);
+  sldi__PPC(  R2,  R20, 30);
+  slwi_PPC(   R1,  R21, 30);
+  slwi__PPC(  R7,  R23, 8);
+  srdi_PPC(   R0,  R19, 2);
+  srdi__PPC(  R12, R24, 5);
+  srwi_PPC(   R13, R27, 6);
+  srwi__PPC(  R14, R29, 7);
+  sradi_PPC(  R15, R30, 9);
+  sradi__PPC( R16, R31, 19);
+  srawi_PPC(  R17, R31, 15);
+  srawi__PPC( R18, R31, 12);
 
-  clrrdi( R3, R30, 5);
-  clrldi( R9, R10, 11);
+  clrrdi_PPC( R3, R30, 5);
+  clrldi_PPC( R9, R10, 11);
 
-  rldicr( R19, R20, 13, 15);
-  rldicr_(R20, R20, 16, 14);
-  rldicl( R21, R21, 30, 33);
-  rldicl_(R22, R1,  20, 25);
-  rlwinm( R23, R2,  25, 10, 11);
-  rlwinm_(R24, R3,  12, 13, 14);
+  rldicr_PPC( R19, R20, 13, 15);
+  rldicr__PPC(R20, R20, 16, 14);
+  rldicl_PPC( R21, R21, 30, 33);
+  rldicl__PPC(R22, R1,  20, 25);
+  rlwinm_PPC( R23, R2,  25, 10, 11);
+  rlwinm__PPC(R24, R3,  12, 13, 14);
 
   // RISCV 1, section 3.3.2 Fixed-Point Load Instructions
-  lwzx(   R3,  R5, R7);
-  lwz(    R11,  0, R1);
-  lwzu(   R31, -4, R11);
+  lwzx_PPC(   R3,  R5, R7);
+  lwz_PPC(    R11,  0, R1);
+  lwzu_PPC(   R31, -4, R11);
 
-  lwax(   R3,  R5, R7);
-  lwa(    R31, -4, R11);
-  lhzx(   R3,  R5, R7);
-  lhz(    R31, -4, R11);
-  lhzu(   R31, -4, R11);
+  lwax_PPC(   R3,  R5, R7);
+  lwa_PPC(    R31, -4, R11);
+  lhzx_PPC(   R3,  R5, R7);
+  lhz_PPC(    R31, -4, R11);
+  lhzu_PPC(   R31, -4, R11);
 
 
-  lhax(   R3,  R5, R7);
-  lha(    R31, -4, R11);
-  lhau(   R11,  0, R1);
+  lhax_PPC(   R3,  R5, R7);
+  lha_PPC(    R31, -4, R11);
+  lhau_PPC(   R11,  0, R1);
 
-  lbzx(   R3,  R5, R7);
-  lbz(    R31, -4, R11);
-  lbzu(   R11,  0, R1);
+  lbzx_PPC(   R3,  R5, R7);
+  lbz_PPC(    R31, -4, R11);
+  lbzu_PPC(   R11,  0, R1);
 
-  ld(     R31, -4, R11);
-  ldx(    R3,  R5, R7);
-  ldu(    R31, -4, R11);
+  ld_PPC(     R31, -4, R11);
+  ldx_PPC(    R3,  R5, R7);
+  ldu_PPC(    R31, -4, R11);
 
   //  RISCV 1, section 3.3.3 Fixed-Point Store Instructions
-  stwx(   R3,  R5, R7);
-  stw(    R31, -4, R11);
-  stwu(   R11,  0, R1);
+  stwx_PPC(   R3,  R5, R7);
+  stw_PPC(    R31, -4, R11);
+  stwu_PPC(   R11,  0, R1);
 
-  sthx(   R3,  R5, R7 );
-  sth(    R31, -4, R11);
-  sthu(   R31, -4, R11);
+  sthx_PPC(   R3,  R5, R7 );
+  sth_PPC(    R31, -4, R11);
+  sthu_PPC(   R31, -4, R11);
 
-  stbx(   R3,  R5, R7);
-  stb(    R31, -4, R11);
-  stbu(   R31, -4, R11);
+  stbx_PPC(   R3,  R5, R7);
+  stb_PPC(    R31, -4, R11);
+  stbu_PPC(   R31, -4, R11);
 
-  std(    R31, -4, R11);
-  stdx(   R3,  R5, R7);
-  stdu(   R31, -4, R11);
+  std_PPC(    R31, -4, R11);
+  stdx_PPC(   R3,  R5, R7);
+  stdu_PPC(   R31, -4, R11);
 
  // RISCV 1, section 3.3.13 Move To/From System Register Instructions
-  mtlr(   R3);
-  mflr(   R3);
-  mtctr(  R3);
-  mfctr(  R3);
-  mtcrf(  0xff, R15);
-  mtcr(   R15);
-  mtcrf(  0x03, R15);
-  mtcr(   R15);
-  mfcr(   R15);
+  mtlr_PPC(   R3);
+  mflr_PPC(   R3);
+  mtctr_PPC(  R3);
+  mfctr_PPC(  R3);
+  mtcrf_PPC(  0xff, R15);
+  mtcr_PPC(   R15);
+  mtcrf_PPC(  0x03, R15);
+  mtcr_PPC(   R15);
+  mfcr_PPC(   R15);
 
  // RISCV 1, section 2.4.1 Branch Instructions
   Label lbl1, lbl2, lbl3;
   bind(lbl1);
 
-  b(pc());
-  b(pc() - 8);
-  b(lbl1);
-  b(lbl2);
-  b(lbl3);
+  b_PPC(pc());
+  b_PPC(pc() - 8);
+  b_PPC(lbl1);
+  b_PPC(lbl2);
+  b_PPC(lbl3);
 
-  bl(pc() - 8);
-  bl(lbl1);
-  bl(lbl2);
+  bl_PPC(pc() - 8);
+  bl_PPC(lbl1);
+  bl_PPC(lbl2);
 
-  bcl(4, 10, pc() - 8);
-  bcl(4, 10, lbl1);
-  bcl(4, 10, lbl2);
+  bcl_PPC(4, 10, pc() - 8);
+  bcl_PPC(4, 10, lbl1);
+  bcl_PPC(4, 10, lbl2);
 
-  bclr( 4, 6, 0);
-  bclrl(4, 6, 0);
+  bclr_PPC( 4, 6, 0);
+  bclrl_PPC(4, 6, 0);
 
   bind(lbl2);
 
-  bcctr( 4, 6, 0);
-  bcctrl(4, 6, 0);
+  bcctr_PPC( 4, 6, 0);
+  bcctrl_PPC(4, 6, 0);
 
-  blt(CCR0, lbl2);
-  bgt(CCR1, lbl2);
-  beq(CCR2, lbl2);
-  bso(CCR3, lbl2);
-  bge(CCR4, lbl2);
-  ble(CCR5, lbl2);
-  bne(CCR6, lbl2);
-  bns(CCR7, lbl2);
+  blt_PPC(CCR0, lbl2);
+  bgt_PPC(CCR1, lbl2);
+  beq_PPC(CCR2, lbl2);
+  bso_PPC(CCR3, lbl2);
+  bge_PPC(CCR4, lbl2);
+  ble_PPC(CCR5, lbl2);
+  bne_PPC(CCR6, lbl2);
+  bns_PPC(CCR7, lbl2);
 
-  bltl(CCR0, lbl2);
-  bgtl(CCR1, lbl2);
-  beql(CCR2, lbl2);
-  bsol(CCR3, lbl2);
-  bgel(CCR4, lbl2);
-  blel(CCR5, lbl2);
-  bnel(CCR6, lbl2);
-  bnsl(CCR7, lbl2);
-  blr();
+  bltl_PPC(CCR0, lbl2);
+  bgtl_PPC(CCR1, lbl2);
+  beql_PPC(CCR2, lbl2);
+  bsol_PPC(CCR3, lbl2);
+  bgel_PPC(CCR4, lbl2);
+  blel_PPC(CCR5, lbl2);
+  bnel_PPC(CCR6, lbl2);
+  bnsl_PPC(CCR7, lbl2);
+  blr_PPC();
 
-  sync();
-  icbi( R1, R2);
-  dcbst(R2, R3);
+  sync_PPC();
+  icbi_PPC( R1, R2);
+  dcbst_PPC(R2, R3);
 
   // FLOATING POINT instructions riscv.
   // RISCV 1, section 4.6.2 Floating-Point Load Instructions
-  lfs( F1, -11, R3);
-  lfsu(F2, 123, R4);
-  lfsx(F3, R5,  R6);
-  lfd( F4, 456, R7);
-  lfdu(F5, 789, R8);
-  lfdx(F6, R10, R11);
+  lfs_PPC( F1, -11, R3);
+  lfsu_PPC(F2, 123, R4);
+  lfsx_PPC(F3, R5,  R6);
+  lfd_PPC( F4, 456, R7);
+  lfdu_PPC(F5, 789, R8);
+  lfdx_PPC(F6, R10, R11);
 
   // RISCV 1, section 4.6.3 Floating-Point Store Instructions
-  stfs(  F7,  876, R12);
-  stfsu( F8,  543, R13);
-  stfsx( F9,  R14, R15);
-  stfd(  F10, 210, R16);
-  stfdu( F11, 111, R17);
-  stfdx( F12, R18, R19);
+  stfs_PPC(  F7,  876, R12);
+  stfsu_PPC( F8,  543, R13);
+  stfsx_PPC( F9,  R14, R15);
+  stfd_PPC(  F10, 210, R16);
+  stfdu_PPC( F11, 111, R17);
+  stfdx_PPC( F12, R18, R19);
 
   // RISCV 1, section 4.6.4 Floating-Point Move Instructions
-  fmr(   F13, F14);
-  fmr_(  F14, F15);
-  fneg(  F16, F17);
-  fneg_( F18, F19);
-  fabs(  F20, F21);
-  fabs_( F22, F23);
-  fnabs( F24, F25);
-  fnabs_(F26, F27);
+  fmr_PPC(   F13, F14);
+  fmr__PPC(  F14, F15);
+  fneg_PPC(  F16, F17);
+  fneg__PPC( F18, F19);
+  fabs_PPC(  F20, F21);
+  fabs__PPC( F22, F23);
+  fnabs_PPC( F24, F25);
+  fnabs__PPC(F26, F27);
 
   // RISCV 1, section 4.6.5.1 Floating-Point Elementary Arithmetic
   // Instructions
-  fadd(  F28, F29, F30);
-  fadd_( F31, F0,  F1);
-  fadds( F2,  F3,  F4);
-  fadds_(F5,  F6,  F7);
-  fsub(  F8,  F9,  F10);
-  fsub_( F11, F12, F13);
-  fsubs( F14, F15, F16);
-  fsubs_(F17, F18, F19);
-  fmul(  F20, F21, F22);
-  fmul_( F23, F24, F25);
-  fmuls( F26, F27, F28);
-  fmuls_(F29, F30, F31);
-  fdiv(  F0,  F1,  F2);
-  fdiv_( F3,  F4,  F5);
-  fdivs( F6,  F7,  F8);
-  fdivs_(F9,  F10, F11);
+  fadd_PPC(  F28, F29, F30);
+  fadd__PPC( F31, F0,  F1);
+  fadds_PPC( F2,  F3,  F4);
+  fadds__PPC(F5,  F6,  F7);
+  fsub_PPC(  F8,  F9,  F10);
+  fsub__PPC( F11, F12, F13);
+  fsubs_PPC( F14, F15, F16);
+  fsubs__PPC(F17, F18, F19);
+  fmul_PPC(  F20, F21, F22);
+  fmul__PPC( F23, F24, F25);
+  fmuls_PPC( F26, F27, F28);
+  fmuls__PPC(F29, F30, F31);
+  fdiv_PPC(  F0,  F1,  F2);
+  fdiv__PPC( F3,  F4,  F5);
+  fdivs_PPC( F6,  F7,  F8);
+  fdivs__PPC(F9,  F10, F11);
 
   // RISCV 1, section 4.6.6 Floating-Point Rounding and Conversion
   // Instructions
-  frsp(  F12, F13);
-  fctid( F14, F15);
-  fctidz(F16, F17);
-  fctiw( F18, F19);
-  fctiwz(F20, F21);
-  fcfid( F22, F23);
+  frsp_PPC(  F12, F13);
+  fctid_PPC( F14, F15);
+  fctidz_PPC(F16, F17);
+  fctiw_PPC( F18, F19);
+  fctiwz_PPC(F20, F21);
+  fcfid_PPC( F22, F23);
 
   // RISCV 1, section 4.6.7 Floating-Point Compare Instructions
-  fcmpu( CCR7, F24, F25);
+  fcmpu_PPC( CCR7, F24, F25);
 
   tty->print_cr("\ntest_asm disassembly (0x%lx 0x%lx):", p2i(code()->insts_begin()), p2i(code()->insts_end()));
   code()->decode();

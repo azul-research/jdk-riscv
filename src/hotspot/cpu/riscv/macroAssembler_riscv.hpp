@@ -53,15 +53,16 @@ class MacroAssembler: public Assembler {
   inline static bool is_ld_largeoffset(address a);
   inline static int get_ld_largeoffset_offset(address a);
 
-  inline void round_to(Register r, int modulus);
+  inline void round_up_to(Register r, int modulus);
+  inline void round_down_to(Register r, int modulus);
 
   // Load/store with type given by parameter.
   void load_sized_value( Register dst, RegisterOrConstant offs, Register base, size_t size_in_bytes, bool is_signed);
   void store_sized_value(Register dst, RegisterOrConstant offs, Register base, size_t size_in_bytes);
 
   // Move register if destination register and target register are different
-  inline void mr_if_needed(Register rd, Register rs);
-  inline void fmr_if_needed(FloatRegister rd, FloatRegister rs);
+  inline void mv_if_needed(Register rd, Register rs);
+  inline void fmv_if_needed(FloatRegister rd, FloatRegister rs);
   // This is dedicated for emitting scheduled mach nodes. For better
   // readability of the ad file I put it here.
   // Endgroups are not needed if
@@ -261,9 +262,11 @@ class MacroAssembler: public Assembler {
   //
 
   // some ABI-related functions
+  void save_abi_frame(Register dst, int offset);
+  void restore_abi_frame(Register dst, int offset);
   void save_nonvolatile_gprs(   Register dst_base, int offset);
   void restore_nonvolatile_gprs(Register src_base, int offset);
-  enum { num_volatile_regs = 11 + 14 }; // GPR + FPR
+  enum { num_volatile_regs = 16 + 20 }; // GPR + FPR
   void save_volatile_gprs(   Register dst_base, int offset);
   void restore_volatile_gprs(Register src_base, int offset);
   void save_LR_CR(   Register tmp);     // tmp contains LR on return.
@@ -278,12 +281,12 @@ class MacroAssembler: public Assembler {
   void resize_frame_absolute(Register addr, Register tmp1, Register tmp2);
 
   // Push a frame of size bytes.
-  void push_frame(Register bytes, Register tmp);
+  void push_frame(Register bytes);
 
   // Push a frame of size `bytes'. No abi space provided.
   void push_frame(unsigned int bytes, Register tmp);
 
-  // Push a frame of size `bytes' plus abi_reg_args on top.
+  // Push a frame of size `bytes' plus abi_reg_args_ppc on top.
   void push_frame_reg_args(unsigned int bytes, Register tmp);
 
   // Setup up a new C frame with a spill area for non-volatile GPRs and additional
@@ -300,40 +303,21 @@ class MacroAssembler: public Assembler {
  private:
   address _last_calls_return_pc;
 
-#if defined(ABI_ELFv2)
   // Generic version of a call to C function.
   // Updates and returns _last_calls_return_pc.
   address branch_to(Register function_entry, bool and_link);
-#else
-  // Generic version of a call to C function via a function descriptor
-  // with variable support for C calling conventions (TOC, ENV, etc.).
-  // updates and returns _last_calls_return_pc.
-  address branch_to(Register function_descriptor, bool and_link, bool save_toc_before_call,
-                    bool restore_toc_after_call, bool load_toc_of_callee, bool load_env_of_callee);
-#endif
 
  public:
 
   // Get the pc where the last call will return to. returns _last_calls_return_pc.
   inline address last_calls_return_pc();
 
-#if defined(ABI_ELFv2)
   // Call a C function via a function descriptor and use full C
   // calling conventions. Updates and returns _last_calls_return_pc.
   address call_c(Register function_entry);
   // For tail calls: only branch, don't link, so callee returns to caller of this function.
   address call_c_and_return_to_caller(Register function_entry);
   address call_c(address function_entry, relocInfo::relocType rt);
-#else
-  // Call a C function via a function descriptor and use full C
-  // calling conventions. Updates and returns _last_calls_return_pc.
-  address call_c(Register function_descriptor);
-  // For tail calls: only branch, don't link, so callee returns to caller of this function.
-  address call_c_and_return_to_caller(Register function_descriptor);
-  address call_c(const FunctionDescriptor* function_descriptor, relocInfo::relocType rt);
-  address call_c_using_toc(const FunctionDescriptor* function_descriptor, relocInfo::relocType rt,
-                           Register toc);
-#endif
 
  protected:
 
@@ -367,7 +351,7 @@ class MacroAssembler: public Assembler {
 
  public:
   // Call into the VM.
-  // Passes the thread pointer (in R3_ARG1) as a prepended argument.
+  // Passes the thread pointer (in R3_ARG1_PPC) as a prepended argument.
   // Makes sure oop return values are visible to the GC.
   void call_VM(Register oop_result, address entry_point, bool check_exceptions = true);
   void call_VM(Register oop_result, address entry_point, Register arg_1, bool check_exceptions = true);
@@ -375,7 +359,7 @@ class MacroAssembler: public Assembler {
   void call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg3, bool check_exceptions = true);
   void call_VM_leaf(address entry_point);
   void call_VM_leaf(address entry_point, Register arg_1);
-  void call_VM_leaf(address entry_point, Register arg_1, Register arg_2);
+  void call_VM_leaf(address entry_point, Register arg_0, Register arg_1);
   void call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3);
 
   // Call a stub function via a function descriptor, but don't save
@@ -654,12 +638,12 @@ class MacroAssembler: public Assembler {
   // thread-local information).
 
   // Support for last Java frame (but use call_VM instead where possible):
-  // access R16_thread->last_Java_sp.
-  void set_last_Java_frame(Register last_java_sp, Register last_Java_pc);
-  void reset_last_Java_frame(void);
-  void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1);
+  // access R24_thread->last_Java_sp.
+  void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Register last_Java_pc);
+  void reset_last_Java_frame();
+  void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register fp, Register tmp1);
 
-  // Read vm result from thread: oop_result = R16_thread->result;
+  // Read vm result from thread: oop_result = R24_thread->result;
   void get_vm_result  (Register oop_result);
   void get_vm_result_2(Register metadata_result);
 
@@ -902,18 +886,18 @@ class MacroAssembler: public Assembler {
 
  private:
   void asm_assert_mems_zero(bool check_equal, int size, int mem_offset, Register mem_base,
-                            const char* msg, int id);
+                            const char* msg, int id, Register tmp);
 
  public:
 
-  void asm_assert_mem8_is_zero(int mem_offset, Register mem_base, const char* msg, int id) {
-    asm_assert_mems_zero(true,  8, mem_offset, mem_base, msg, id);
+  void asm_assert_mem8_is_zero(int mem_offset, Register mem_base, const char* msg, int id, Register tmp = R6_scratch2) {
+    asm_assert_mems_zero(true,  8, mem_offset, mem_base, msg, id, tmp);
   }
-  void asm_assert_mem8_isnot_zero(int mem_offset, Register mem_base, const char* msg, int id) {
-    asm_assert_mems_zero(false, 8, mem_offset, mem_base, msg, id);
+  void asm_assert_mem8_isnot_zero(int mem_offset, Register mem_base, const char* msg, int id, Register tmp = R6_scratch2) {
+    asm_assert_mems_zero(false, 8, mem_offset, mem_base, msg, id, tmp);
   }
 
-  // Verify R16_thread contents.
+  // Verify R24_thread contents.
   void verify_thread();
 
   // Emit code to verify that reg contains a valid oop if +VerifyOops is set.

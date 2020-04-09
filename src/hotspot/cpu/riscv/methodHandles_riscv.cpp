@@ -55,7 +55,7 @@ void MethodHandles::load_klass_from_Class(MacroAssembler* _masm, Register klass_
     verify_klass(_masm, klass_reg, SystemDictionary::WK_KLASS_ENUM_NAME(java_lang_Class),
                  temp_reg, temp2_reg, "MH argument is a Class");
   }
-  __ ld(klass_reg, java_lang_Class::klass_offset_in_bytes(), klass_reg);
+  __ ld_PPC(klass_reg, java_lang_Class::klass_offset_in_bytes(), klass_reg);
 }
 
 #ifdef ASSERT
@@ -78,16 +78,16 @@ void MethodHandles::verify_klass(MacroAssembler* _masm,
   Label L_ok, L_bad;
   BLOCK_COMMENT("verify_klass {");
   __ verify_oop(obj_reg);
-  __ cmpdi(CCR0, obj_reg, 0);
-  __ beq(CCR0, L_bad);
+  __ cmpdi_PPC(CCR0, obj_reg, 0);
+  __ beq_PPC(CCR0, L_bad);
   __ load_klass(temp_reg, obj_reg);
   __ load_const_optimized(temp2_reg, (address) klass_addr);
-  __ ld(temp2_reg, 0, temp2_reg);
-  __ cmpd(CCR0, temp_reg, temp2_reg);
-  __ beq(CCR0, L_ok);
-  __ ld(temp_reg, klass->super_check_offset(), temp_reg);
-  __ cmpd(CCR0, temp_reg, temp2_reg);
-  __ beq(CCR0, L_ok);
+  __ ld_PPC(temp2_reg, 0, temp2_reg);
+  __ cmpd_PPC(CCR0, temp_reg, temp2_reg);
+  __ beq_PPC(CCR0, L_ok);
+  __ ld_PPC(temp_reg, klass->super_check_offset(), temp_reg);
+  __ cmpd_PPC(CCR0, temp_reg, temp2_reg);
+  __ beq_PPC(CCR0, L_ok);
   __ BIND(L_bad);
   __ stop(error_message);
   __ BIND(L_ok);
@@ -100,10 +100,10 @@ void MethodHandles::verify_ref_kind(MacroAssembler* _masm, int ref_kind, Registe
   __ load_sized_value(temp, NONZERO(java_lang_invoke_MemberName::flags_offset_in_bytes()), member_reg,
                       sizeof(u4), /*is_signed*/ false);
   // assert(sizeof(u4) == sizeof(java.lang.invoke.MemberName.flags), "");
-  __ srwi( temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_SHIFT);
-  __ andi(temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_MASK);
-  __ cmpwi(CCR1, temp, ref_kind);
-  __ beq(CCR1, L);
+  __ srwi_PPC( temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_SHIFT);
+  __ andi_PPC(temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_MASK);
+  __ cmpwi_PPC(CCR1, temp, ref_kind);
+  __ beq_PPC(CCR1, L);
   { char* buf = NEW_C_HEAP_ARRAY(char, 100, mtInternal);
     jio_snprintf(buf, 100, "verify_ref_kind expected %x", ref_kind);
     if (ref_kind == JVM_REF_invokeVirtual ||
@@ -121,7 +121,7 @@ void MethodHandles::verify_ref_kind(MacroAssembler* _masm, int ref_kind, Registe
 void MethodHandles::jump_from_method_handle(MacroAssembler* _masm, Register method, Register target, Register temp,
                                             bool for_compiler_entry) {
   Label L_no_such_method;
-  assert(method == R19_method, "interpreter calling convention");
+  assert(method == R27_method, "interpreter calling convention");
   assert_different_registers(method, target, temp);
 
   if (!for_compiler_entry && JvmtiExport::can_post_interpreter_events()) {
@@ -130,34 +130,34 @@ void MethodHandles::jump_from_method_handle(MacroAssembler* _masm, Register meth
     // compiled code in threads for which the event is enabled.  Check here for
     // interp_only_mode if these events CAN be enabled.
     __ verify_thread();
-    __ lwz(temp, in_bytes(JavaThread::interp_only_mode_offset()), R16_thread);
-    __ cmplwi(CCR0, temp, 0);
-    __ beq(CCR0, run_compiled_code);
+    __ lwz_PPC(temp, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
+    __ cmplwi_PPC(CCR0, temp, 0);
+    __ beq_PPC(CCR0, run_compiled_code);
     // Null method test is replicated below in compiled case,
     // it might be able to address across the verify_thread()
-    __ cmplwi(CCR0, R19_method, 0);
-    __ beq(CCR0, L_no_such_method);
-    __ ld(target, in_bytes(Method::interpreter_entry_offset()), R19_method);
-    __ mtctr(target);
-    __ bctr();
+    __ cmplwi_PPC(CCR0, R27_method, 0);
+    __ beq_PPC(CCR0, L_no_such_method);
+    __ ld_PPC(target, in_bytes(Method::interpreter_entry_offset()), R27_method);
+    __ mtctr_PPC(target);
+    __ bctr_PPC();
     __ BIND(run_compiled_code);
   }
 
   // Compiled case, either static or fall-through from runtime conditional
-  __ cmplwi(CCR0, R19_method, 0);
-  __ beq(CCR0, L_no_such_method);
+  __ cmplwi_PPC(CCR0, R27_method, 0);
+  __ beq_PPC(CCR0, L_no_such_method);
 
   const ByteSize entry_offset = for_compiler_entry ? Method::from_compiled_offset() :
                                                      Method::from_interpreted_offset();
-  __ ld(target, in_bytes(entry_offset), R19_method);
-  __ mtctr(target);
-  __ bctr();
+  __ ld_PPC(target, in_bytes(entry_offset), R27_method);
+  __ mtctr_PPC(target);
+  __ bctr_PPC();
 
   __ bind(L_no_such_method);
   assert(StubRoutines::throw_AbstractMethodError_entry() != NULL, "not yet generated!");
   __ load_const_optimized(target, StubRoutines::throw_AbstractMethodError_entry());
-  __ mtctr(target);
-  __ bctr();
+  __ mtctr_PPC(target);
+  __ bctr_PPC();
 }
 
 
@@ -169,7 +169,7 @@ void MethodHandles::jump_to_lambda_form(MacroAssembler* _masm,
   // This is the initial entry point of a lazy method handle.
   // After type checking, it picks up the invoker from the LambdaForm.
   assert_different_registers(recv, method_temp, temp2);  // temp3 is only passed on
-  assert(method_temp == R19_method, "required register for loading method");
+  assert(method_temp == R27_method, "required register for loading method");
 
   // Load the invoker, as MH -> MH.form -> LF.vmentry
   __ verify_oop(recv);
@@ -182,18 +182,18 @@ void MethodHandles::jump_to_lambda_form(MacroAssembler* _masm,
   __ load_heap_oop(method_temp, NONZERO(java_lang_invoke_MemberName::method_offset_in_bytes()), method_temp,
                    temp2, noreg, false, IS_NOT_NULL);
   __ verify_oop(method_temp);
-  __ ld(method_temp, NONZERO(java_lang_invoke_ResolvedMethodName::vmtarget_offset_in_bytes()), method_temp);
+  __ ld_PPC(method_temp, NONZERO(java_lang_invoke_ResolvedMethodName::vmtarget_offset_in_bytes()), method_temp);
 
   if (VerifyMethodHandles && !for_compiler_entry) {
     // Make sure recv is already on stack.
-    __ ld(temp2, in_bytes(Method::const_offset()), method_temp);
+    __ ld_PPC(temp2, in_bytes(Method::const_offset()), method_temp);
     __ load_sized_value(temp2, in_bytes(ConstMethod::size_of_parameters_offset()), temp2,
                         sizeof(u2), /*is_signed*/ false);
     // assert(sizeof(u2) == sizeof(ConstMethod::_size_of_parameters), "");
     Label L;
-    __ ld(temp2, __ argument_offset(temp2, temp2, 0), R15_esp);
-    __ cmpd(CCR1, temp2, recv);
-    __ beq(CCR1, L);
+    __ ld_PPC(temp2, __ argument_offset(temp2, temp2, 0), R23_esp);
+    __ cmpd_PPC(CCR1, temp2, recv);
+    __ beq_PPC(CCR1, L);
     __ stop("receiver not on stack");
     __ BIND(L);
   }
@@ -218,7 +218,7 @@ address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* 
     return NULL;
   }
 
-  Register argbase    = R15_esp; // parameter (preserved)
+  Register argbase    = R23_esp; // parameter (preserved)
   Register argslot    = R3;
   Register temp1      = R6;
   Register param_size = R7;
@@ -232,10 +232,10 @@ address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* 
 
     Label L;
     BLOCK_COMMENT("verify_intrinsic_id {");
-    __ load_sized_value(temp1, Method::intrinsic_id_offset_in_bytes(), R19_method,
+    __ load_sized_value(temp1, Method::intrinsic_id_offset_in_bytes(), R27_method,
                         sizeof(u2), /*is_signed*/ false);
-    __ cmpwi(CCR1, temp1, (int) iid);
-    __ beq(CCR1, L);
+    __ cmpwi_PPC(CCR1, temp1, (int) iid);
+    __ beq_PPC(CCR1, L);
     if (iid == vmIntrinsics::_linkToVirtual ||
         iid == vmIntrinsics::_linkToSpecial) {
       // could do this for all kinds, but would explode assembly code size
@@ -250,7 +250,7 @@ address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* 
   int ref_kind = signature_polymorphic_intrinsic_ref_kind(iid);
   assert(ref_kind != 0 || iid == vmIntrinsics::_invokeBasic, "must be _invokeBasic or a linkTo intrinsic");
   if (ref_kind == 0 || MethodHandles::ref_kind_has_receiver(ref_kind)) {
-    __ ld(param_size, in_bytes(Method::const_offset()), R19_method);
+    __ ld_PPC(param_size, in_bytes(Method::const_offset()), R27_method);
     __ load_sized_value(param_size, in_bytes(ConstMethod::size_of_parameters_offset()), param_size,
                         sizeof(u2), /*is_signed*/ false);
     // assert(sizeof(u2) == sizeof(ConstMethod::_size_of_parameters), "");
@@ -260,13 +260,13 @@ address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* 
 
   Register tmp_mh = noreg;
   if (!is_signature_polymorphic_static(iid)) {
-    __ ld(tmp_mh = temp1, __ argument_offset(param_size, param_size, 0), argbase);
+    __ ld_PPC(tmp_mh = temp1, __ argument_offset(param_size, param_size, 0), argbase);
     DEBUG_ONLY(param_size = noreg);
   }
 
   if (TraceMethodHandles) {
     if (tmp_mh != noreg) {
-      __ mr(R23_method_handle, tmp_mh);  // make stub happy
+      __ mr_PPC(R23_method_handle_PPC, tmp_mh);  // make stub happy
     }
     trace_method_handle_interpreter_entry(_masm, iid);
   }
@@ -279,12 +279,12 @@ address MethodHandles::generate_method_handle_interpreter_entry(MacroAssembler* 
     Register tmp_recv = noreg;
     if (MethodHandles::ref_kind_has_receiver(ref_kind)) {
       // Load the receiver (not the MH; the actual MemberName's receiver) up from the interpreter stack.
-      __ ld(tmp_recv = temp1, __ argument_offset(param_size, param_size, 0), argbase);
+      __ ld_PPC(tmp_recv = temp1, __ argument_offset(param_size, param_size, 0), argbase);
       DEBUG_ONLY(param_size = noreg);
     }
-    Register R19_member = R19_method;  // MemberName ptr; incoming method ptr is dead now
-    __ ld(R19_member, RegisterOrConstant((intptr_t)8), argbase);
-    __ add(argbase, Interpreter::stackElementSize, argbase);
+    Register R19_member = R27_method;  // MemberName ptr; incoming method ptr is dead now
+    __ ld_PPC(R19_member, RegisterOrConstant((intptr_t)8), argbase);
+    __ add_PPC(argbase, Interpreter::stackElementSize, argbase);
     generate_method_handle_dispatch(_masm, iid, tmp_recv, R19_member, not_for_compiler_entry);
   }
 
@@ -297,16 +297,16 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
                                                     Register member_reg,
                                                     bool for_compiler_entry) {
   assert(is_signature_polymorphic(iid), "expected invoke iid");
-  Register temp1 = (for_compiler_entry ? R25_tmp5 : R7);
-  Register temp2 = (for_compiler_entry ? R22_tmp2 : R8);
-  Register temp3 = (for_compiler_entry ? R23_tmp3 : R9);
-  Register temp4 = (for_compiler_entry ? R24_tmp4 : R10);
+  Register temp1 = (for_compiler_entry ? R25_tmp5_PPC : R7);
+  Register temp2 = (for_compiler_entry ? R22_tmp2_PPC : R8);
+  Register temp3 = (for_compiler_entry ? R23_tmp3_PPC : R9);
+  Register temp4 = (for_compiler_entry ? R24_tmp4_PPC : R10);
   if (receiver_reg != noreg)  assert_different_registers(temp1, temp2, temp3, temp4, receiver_reg);
   if (member_reg   != noreg)  assert_different_registers(temp1, temp2, temp3, temp4, member_reg);
 
   if (iid == vmIntrinsics::_invokeBasic) {
     // indirect through MH.form.vmentry.vmtarget
-    jump_to_lambda_form(_masm, receiver_reg, R19_method, temp1, temp2, for_compiler_entry);
+    jump_to_lambda_form(_masm, receiver_reg, R27_method, temp1, temp2, for_compiler_entry);
   } else {
     // The method is a member invoker used by direct method handles.
     if (VerifyMethodHandles) {
@@ -369,18 +369,18 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
       if (VerifyMethodHandles) {
         verify_ref_kind(_masm, JVM_REF_invokeSpecial, member_reg, temp2);
       }
-      __ load_heap_oop(R19_method, NONZERO(java_lang_invoke_MemberName::method_offset_in_bytes()), member_reg,
+      __ load_heap_oop(R27_method, NONZERO(java_lang_invoke_MemberName::method_offset_in_bytes()), member_reg,
                        temp3, noreg, false, IS_NOT_NULL);
-      __ ld(R19_method, NONZERO(java_lang_invoke_ResolvedMethodName::vmtarget_offset_in_bytes()), R19_method);
+      __ ld_PPC(R27_method, NONZERO(java_lang_invoke_ResolvedMethodName::vmtarget_offset_in_bytes()), R27_method);
       break;
 
     case vmIntrinsics::_linkToStatic:
       if (VerifyMethodHandles) {
         verify_ref_kind(_masm, JVM_REF_invokeStatic, member_reg, temp2);
       }
-      __ load_heap_oop(R19_method, NONZERO(java_lang_invoke_MemberName::method_offset_in_bytes()), member_reg,
+      __ load_heap_oop(R27_method, NONZERO(java_lang_invoke_MemberName::method_offset_in_bytes()), member_reg,
                        temp3, noreg, false, IS_NOT_NULL);
-      __ ld(R19_method, NONZERO(java_lang_invoke_ResolvedMethodName::vmtarget_offset_in_bytes()), R19_method);
+      __ ld_PPC(R27_method, NONZERO(java_lang_invoke_ResolvedMethodName::vmtarget_offset_in_bytes()), R27_method);
       break;
 
     case vmIntrinsics::_linkToVirtual:
@@ -394,12 +394,12 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
 
       // pick out the vtable index from the MemberName, and then we can discard it:
       Register temp2_index = temp2;
-      __ ld(temp2_index, NONZERO(java_lang_invoke_MemberName::vmindex_offset_in_bytes()), member_reg);
+      __ ld_PPC(temp2_index, NONZERO(java_lang_invoke_MemberName::vmindex_offset_in_bytes()), member_reg);
 
       if (VerifyMethodHandles) {
         Label L_index_ok;
-        __ cmpdi(CCR1, temp2_index, 0);
-        __ bge(CCR1, L_index_ok);
+        __ cmpdi_PPC(CCR1, temp2_index, 0);
+        __ bge_PPC(CCR1, L_index_ok);
         __ stop("no virtual index");
         __ BIND(L_index_ok);
       }
@@ -408,7 +408,7 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
       // at this point.  And VerifyMethodHandles has already checked clazz, if needed.
 
       // get target Method* & entry point
-      __ lookup_virtual_method(temp1_recv_klass, temp2_index, R19_method);
+      __ lookup_virtual_method(temp1_recv_klass, temp2_index, R27_method);
       break;
     }
 
@@ -426,12 +426,12 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
       load_klass_from_Class(_masm, temp2_intf, temp3, temp4);
       __ verify_klass_ptr(temp2_intf);
 
-      Register vtable_index = R19_method;
-      __ ld(vtable_index, NONZERO(java_lang_invoke_MemberName::vmindex_offset_in_bytes()), member_reg);
+      Register vtable_index = R27_method;
+      __ ld_PPC(vtable_index, NONZERO(java_lang_invoke_MemberName::vmindex_offset_in_bytes()), member_reg);
       if (VerifyMethodHandles) {
         Label L_index_ok;
-        __ cmpdi(CCR1, vtable_index, 0);
-        __ bge(CCR1, L_index_ok);
+        __ cmpdi_PPC(CCR1, vtable_index, 0);
+        __ bge_PPC(CCR1, L_index_ok);
         __ stop("invalid vtable index for MH.invokeInterface");
         __ BIND(L_index_ok);
       }
@@ -439,7 +439,7 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
       // given intf, index, and recv klass, dispatch to the implementation method
       __ lookup_interface_method(temp1_recv_klass, temp2_intf,
                                  // note: next two args must be the same:
-                                 vtable_index, R19_method,
+                                 vtable_index, R27_method,
                                  temp3, temp4,
                                  L_incompatible_class_change_error);
       break;
@@ -451,20 +451,20 @@ void MethodHandles::generate_method_handle_dispatch(MacroAssembler* _masm,
     }
 
     // Live at this point:
-    //   R19_method
+    //   R27_method
     //   O5_savedSP (if interpreted)
 
     // After figuring out which concrete method to call, jump into it.
     // Note that this works in the interpreter with no data motion.
     // But the compiled version will require that rcx_recv be shifted out.
-    __ verify_method_ptr(R19_method);
-    jump_from_method_handle(_masm, R19_method, temp1, temp2, for_compiler_entry);
+    __ verify_method_ptr(R27_method);
+    jump_from_method_handle(_masm, R27_method, temp1, temp2, for_compiler_entry);
 
     if (iid == vmIntrinsics::_linkToInterface) {
       __ BIND(L_incompatible_class_change_error);
       __ load_const_optimized(temp1, StubRoutines::throw_IncompatibleClassChangeError_entry());
-      __ mtctr(temp1);
-      __ bctr();
+      __ mtctr_PPC(temp1);
+      __ bctr_PPC();
     }
   }
 }
@@ -477,17 +477,17 @@ void trace_method_handle_stub(const char* adaptername,
 
   bool has_mh = (strstr(adaptername, "/static") == NULL &&
                  strstr(adaptername, "linkTo") == NULL);    // static linkers don't have MH
-  const char* mh_reg_name = has_mh ? "R23_method_handle" : "G23";
+  const char* mh_reg_name = has_mh ? "R23_method_handle_PPC" : "G23";
   tty->print_cr("MH %s %s=" INTPTR_FORMAT " sp=" INTPTR_FORMAT,
                 adaptername, mh_reg_name, p2i(mh), p2i(entry_sp));
 
   if (Verbose) {
     tty->print_cr("Registers:");
-    const int abi_offset = frame::abi_reg_args_size / 8;
+    const int abi_offset = frame::abi_reg_args_ppc_size / 8;
     for (int i = R3->encoding(); i <= R12->encoding(); i++) {
       Register r = as_Register(i);
       int count = i - R3->encoding();
-      // The registers are stored in reverse order on the stack (by save_volatile_gprs(R1_SP, abi_reg_args_size)).
+      // The registers are stored in reverse order on the stack (by save_volatile_gprs(R1_SP_PPC, abi_reg_args_ppc_size)).
       tty->print("%3s=" PTR_FORMAT, r->name(), saved_regs[abi_offset + count]);
       if ((count + 1) % 4 == 0) {
         tty->cr();
@@ -525,7 +525,7 @@ void trace_method_handle_stub(const char* adaptername,
       // Safely create a frame and call frame::describe.
       intptr_t *dump_sp = trace_calling_frame.sender_sp();
 
-      frame dump_frame = frame(dump_sp);
+      frame dump_frame = frame(dump_sp, NULL /* FIXME_RISCV fp */);
       dump_frame.describe(values, 1);
 
       values.describe(-1, saved_regs, "raw top of stack");
@@ -551,20 +551,20 @@ void MethodHandles::trace_method_handle(MacroAssembler* _masm, const char* adapt
 
   const Register tmp = R11; // Will be preserved.
   const int nbytes_save = MacroAssembler::num_volatile_regs * 8;
-  __ save_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  __ save_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   __ save_LR_CR(tmp); // save in old frame
 
-  __ mr(R5_ARG3, R1_SP);     // saved_sp
+  __ mr_PPC(R5_ARG3_PPC, R1_SP_PPC);     // saved_sp
   __ push_frame_reg_args(nbytes_save, tmp);
 
-  __ load_const_optimized(R3_ARG1, (address)adaptername, tmp);
-  __ mr(R4_ARG2, R23_method_handle);
-  __ mr(R6_ARG4, R1_SP);
+  __ load_const_optimized(R3_ARG1_PPC, (address)adaptername, tmp);
+  __ mr_PPC(R4_ARG2_PPC, R23_method_handle_PPC);
+  __ mr_PPC(R6_ARG4_PPC, R1_SP_PPC);
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, trace_method_handle_stub));
 
   __ pop_frame();
   __ restore_LR_CR(tmp);
-  __ restore_volatile_gprs(R1_SP, -nbytes_save); // except R0
+  __ restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 
   BLOCK_COMMENT("} trace_method_handle");
 }

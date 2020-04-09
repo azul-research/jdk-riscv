@@ -58,12 +58,12 @@
 // This code is entered with a jmp.
 //
 // Arguments:
-//   R3_ARG1: exception oop
-//   R4_ARG2: exception pc
+//   R3_ARG1_PPC: exception oop
+//   R4_ARG2_PPC: exception pc
 //
 // Results:
-//   R3_ARG1: exception oop
-//   R4_ARG2: exception pc in caller
+//   R3_ARG1_PPC: exception oop
+//   R4_ARG2_PPC: exception pc in caller
 //   destination: exception handler of caller
 //
 // Note: the exception pc MUST be at a call (precise debug information)
@@ -77,37 +77,32 @@ void OptoRuntime::generate_exception_blob() {
 
   address start = __ pc();
 
-  int frame_size_in_bytes = frame::abi_reg_args_size;
+  int frame_size_in_bytes = frame::abi_reg_args_ppc_size;
   OopMap* map = new OopMap(frame_size_in_bytes / sizeof(jint), 0);
 
   // Exception pc is 'return address' for stack walker.
-  __ std(R4_ARG2/*exception pc*/, _abi(lr), R1_SP);
+  __ std_PPC(R4_ARG2_PPC/*exception pc*/, _abi_PPC(lr), R1_SP_PPC);
 
   // Store the exception in the Thread object.
-  __ std(R3_ARG1/*exception oop*/, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
-  __ std(R4_ARG2/*exception pc*/,  in_bytes(JavaThread::exception_pc_offset()),  R16_thread);
+  __ std_PPC(R3_ARG1_PPC/*exception oop*/, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
+  __ std_PPC(R4_ARG2_PPC/*exception pc*/,  in_bytes(JavaThread::exception_pc_offset()),  R24_thread);
 
   // Save callee-saved registers.
   // Push a C frame for the exception blob. It is needed for the C call later on.
-  __ push_frame_reg_args(0, R11_scratch1);
+  __ push_frame_reg_args(0, R5_scratch1);
 
   // This call does all the hard work. It checks if an exception handler
   // exists in the method.
   // If so, it returns the handler address.
   // If not, it prepares for stack-unwinding, restoring the callee-save
   // registers of the frame being removed.
-  __ set_last_Java_frame(/*sp=*/R1_SP, noreg);
+  __ set_last_Java_frame(/*sp=*/R1_SP_PPC, noreg);
 
-  __ mr(R3_ARG1, R16_thread);
-#if defined(ABI_ELFv2)
+  __ mr_PPC(R3_ARG1_PPC, R24_thread);
   __ call_c((address) OptoRuntime::handle_exception_C, relocInfo::none);
-#else
-  __ call_c(CAST_FROM_FN_PTR(FunctionDescriptor*, OptoRuntime::handle_exception_C),
-            relocInfo::none);
-#endif
   address calls_return_pc = __ last_calls_return_pc();
 # ifdef ASSERT
-  __ cmpdi(CCR0, R3_RET, 0);
+  __ cmpdi_PPC(CCR0, R3_RET_PPC, 0);
   __ asm_assert_ne("handle_exception_C must not return NULL", 0x601);
 # endif
 
@@ -119,30 +114,30 @@ void OptoRuntime::generate_exception_blob() {
   OopMapSet* oop_maps = new OopMapSet();
   oop_maps->add_gc_map(calls_return_pc - start, map);
 
-  __ mtctr(R3_RET); // Move address of exception handler to SR_CTR.
+  __ mtctr_PPC(R3_RET_PPC); // Move address of exception handler to SR_CTR.
   __ reset_last_Java_frame();
   __ pop_frame();
 
   // We have a handler in register SR_CTR (could be deopt blob).
 
   // Get the exception oop.
-  __ ld(R3_ARG1, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ ld_PPC(R3_ARG1_PPC, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
 
   // Get the exception pc in case we are deoptimized.
-  __ ld(R4_ARG2, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
+  __ ld_PPC(R4_ARG2_PPC, in_bytes(JavaThread::exception_pc_offset()), R24_thread);
 
   // Reset thread values.
-  __ li(R0, 0);
+  __ li_PPC(R0, 0);
 #ifdef ASSERT
-  __ std(R0, in_bytes(JavaThread::exception_handler_pc_offset()), R16_thread);
-  __ std(R0, in_bytes(JavaThread::exception_pc_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_handler_pc_offset()), R24_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_pc_offset()), R24_thread);
 #endif
   // Clear the exception oop so GC no longer processes it as a root.
-  __ std(R0, in_bytes(JavaThread::exception_oop_offset()), R16_thread);
+  __ std_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
 
   // Move exception pc into SR_LR.
-  __ mtlr(R4_ARG2);
-  __ bctr();
+  __ mtlr_PPC(R4_ARG2_PPC);
+  __ bctr_PPC();
 
   // Make sure all code is generated.
   masm->flush();

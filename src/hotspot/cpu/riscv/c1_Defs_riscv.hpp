@@ -47,7 +47,7 @@ enum {
 // registers
 enum {
   pd_nof_cpu_regs_frame_map = 32,              // Number of registers used during code emission.
-  pd_nof_caller_save_cpu_regs_frame_map = 27,  // Number of cpu registers killed by calls. (At least R3_ARG1 ... R10_ARG8, but using all like C2.)
+  pd_nof_caller_save_cpu_regs_frame_map = 27,  // Number of cpu registers killed by calls. (At least R3_ARG1_PPC ... R10_ARG8_PPC, but using all like C2.)
   pd_nof_cpu_regs_reg_alloc = 27,              // Number of registers that are visible to register allocator.
   pd_nof_cpu_regs_linearscan = 32,             // Number of registers visible linear scan.
   pd_first_callee_saved_reg = pd_nof_caller_save_cpu_regs_frame_map,

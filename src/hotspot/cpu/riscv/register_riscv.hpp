@@ -687,135 +687,272 @@ class ConcreteRegisterImpl : public AbstractRegisterImpl {
 };
 
 // Common register declarations used in assembler code.
-REGISTER_DECLARATION(Register,      R0_SCRATCH, R0);  // volatile
-REGISTER_DECLARATION(Register,      R1_SP,      R1);  // non-volatile
-REGISTER_DECLARATION(Register,      R2_TOC,     R2);  // volatile
-REGISTER_DECLARATION(Register,      R3_RET,     R3);  // volatile
-REGISTER_DECLARATION(Register,      R3_ARG1,    R3);  // volatile
-REGISTER_DECLARATION(Register,      R4_ARG2,    R4);  // volatile
-REGISTER_DECLARATION(Register,      R5_ARG3,    R5);  // volatile
-REGISTER_DECLARATION(Register,      R6_ARG4,    R6);  // volatile
-REGISTER_DECLARATION(Register,      R7_ARG5,    R7);  // volatile
-REGISTER_DECLARATION(Register,      R8_ARG6,    R8);  // volatile
-REGISTER_DECLARATION(Register,      R9_ARG7,    R9);  // volatile
-REGISTER_DECLARATION(Register,      R10_ARG8,   R10); // volatile
-REGISTER_DECLARATION(FloatRegister, F0_SCRATCH, F0);  // volatile
-REGISTER_DECLARATION(FloatRegister, F1_RET,     F1);  // volatile
-REGISTER_DECLARATION(FloatRegister, F1_ARG1,    F1);  // volatile
-REGISTER_DECLARATION(FloatRegister, F2_ARG2,    F2);  // volatile
-REGISTER_DECLARATION(FloatRegister, F3_ARG3,    F3);  // volatile
-REGISTER_DECLARATION(FloatRegister, F4_ARG4,    F4);  // volatile
-REGISTER_DECLARATION(FloatRegister, F5_ARG5,    F5);  // volatile
-REGISTER_DECLARATION(FloatRegister, F6_ARG6,    F6);  // volatile
-REGISTER_DECLARATION(FloatRegister, F7_ARG7,    F7);  // volatile
-REGISTER_DECLARATION(FloatRegister, F8_ARG8,    F8);  // volatile
-REGISTER_DECLARATION(FloatRegister, F9_ARG9,    F9);  // volatile
-REGISTER_DECLARATION(FloatRegister, F10_ARG10,  F10); // volatile
-REGISTER_DECLARATION(FloatRegister, F11_ARG11,  F11); // volatile
-REGISTER_DECLARATION(FloatRegister, F12_ARG12,  F12); // volatile
-REGISTER_DECLARATION(FloatRegister, F13_ARG13,  F13); // volatile
+REGISTER_DECLARATION(Register,      R0_SCRATCH_PPC, R0);  // volatile
+REGISTER_DECLARATION(Register,      R1_SP_PPC,      R1);  // non-volatile
+REGISTER_DECLARATION(Register,      R2_TOC_PPC,     R2);  // volatile
+REGISTER_DECLARATION(Register,      R3_RET_PPC,     R3);  // volatile
+REGISTER_DECLARATION(Register,      R3_ARG1_PPC,    R3);  // volatile
+REGISTER_DECLARATION(Register,      R4_ARG2_PPC,    R4);  // volatile
+REGISTER_DECLARATION(Register,      R5_ARG3_PPC,    R5);  // volatile
+REGISTER_DECLARATION(Register,      R6_ARG4_PPC,    R6);  // volatile
+REGISTER_DECLARATION(Register,      R7_ARG5_PPC,    R7);  // volatile
+REGISTER_DECLARATION(Register,      R8_ARG6_PPC,    R8);  // volatile
+REGISTER_DECLARATION(Register,      R9_ARG7_PPC,    R9);  // volatile
+REGISTER_DECLARATION(Register,      R10_ARG8_PPC,   R10); // volatile
+REGISTER_DECLARATION(FloatRegister, F0_SCRATCH_PPC, F0);  // volatile
+REGISTER_DECLARATION(FloatRegister, F1_RET_PPC,     F1);  // volatile
+REGISTER_DECLARATION(FloatRegister, F1_ARG1_PPC,    F1);  // volatile
+REGISTER_DECLARATION(FloatRegister, F2_ARG2_PPC,    F2);  // volatile
+REGISTER_DECLARATION(FloatRegister, F3_ARG3_PPC,    F3);  // volatile
+REGISTER_DECLARATION(FloatRegister, F4_ARG4_PPC,    F4);  // volatile
+REGISTER_DECLARATION(FloatRegister, F5_ARG5_PPC,    F5);  // volatile
+REGISTER_DECLARATION(FloatRegister, F6_ARG6_PPC,    F6);  // volatile
+REGISTER_DECLARATION(FloatRegister, F7_ARG7_PPC,    F7);  // volatile
+REGISTER_DECLARATION(FloatRegister, F8_ARG8_PPC,    F8);  // volatile
+REGISTER_DECLARATION(FloatRegister, F9_ARG9_PPC,    F9);  // volatile
+REGISTER_DECLARATION(FloatRegister, F10_ARG10_PPC,  F10); // volatile
+REGISTER_DECLARATION(FloatRegister, F11_ARG11_PPC,  F11); // volatile
+REGISTER_DECLARATION(FloatRegister, F12_ARG12_PPC,  F12); // volatile
+REGISTER_DECLARATION(FloatRegister, F13_ARG13_PPC,  F13); // volatile
 
 #ifndef DONT_USE_REGISTER_DEFINES
-#define R0_SCRATCH         AS_REGISTER(Register, R0)
-#define R1_SP              AS_REGISTER(Register, R1)
-#define R2_TOC             AS_REGISTER(Register, R2)
-#define R3_RET             AS_REGISTER(Register, R3)
-#define R3_ARG1            AS_REGISTER(Register, R3)
-#define R4_ARG2            AS_REGISTER(Register, R4)
-#define R5_ARG3            AS_REGISTER(Register, R5)
-#define R6_ARG4            AS_REGISTER(Register, R6)
-#define R7_ARG5            AS_REGISTER(Register, R7)
-#define R8_ARG6            AS_REGISTER(Register, R8)
-#define R9_ARG7            AS_REGISTER(Register, R9)
-#define R10_ARG8           AS_REGISTER(Register, R10)
-#define F0_SCRATCH         AS_REGISTER(FloatRegister, F0)
-#define F1_RET             AS_REGISTER(FloatRegister, F1)
-#define F1_ARG1            AS_REGISTER(FloatRegister, F1)
-#define F2_ARG2            AS_REGISTER(FloatRegister, F2)
-#define F3_ARG3            AS_REGISTER(FloatRegister, F3)
-#define F4_ARG4            AS_REGISTER(FloatRegister, F4)
-#define F5_ARG5            AS_REGISTER(FloatRegister, F5)
-#define F6_ARG6            AS_REGISTER(FloatRegister, F6)
-#define F7_ARG7            AS_REGISTER(FloatRegister, F7)
-#define F8_ARG8            AS_REGISTER(FloatRegister, F8)
-#define F9_ARG9            AS_REGISTER(FloatRegister, F9)
-#define F10_ARG10          AS_REGISTER(FloatRegister, F10)
-#define F11_ARG11          AS_REGISTER(FloatRegister, F11)
-#define F12_ARG12          AS_REGISTER(FloatRegister, F12)
-#define F13_ARG13          AS_REGISTER(FloatRegister, F13)
-#endif
-
-// Register declarations to be used in frame manager assembly code.
-// Use only non-volatile registers in order to keep values across C-calls.
-REGISTER_DECLARATION(Register, R14_bcp,        R14);
-REGISTER_DECLARATION(Register, R15_esp,        R15);
-REGISTER_DECLARATION(FloatRegister, F15_ftos,  F15);
-REGISTER_DECLARATION(Register, R16_thread,     R16);      // address of current thread
-REGISTER_DECLARATION(Register, R17_tos,        R17);      // address of Java tos (prepushed).
-REGISTER_DECLARATION(Register, R18_locals,     R18);      // address of first param slot (receiver).
-REGISTER_DECLARATION(Register, R19_method,     R19);      // address of current method
-#ifndef DONT_USE_REGISTER_DEFINES
-#define R14_bcp           AS_REGISTER(Register, R14)
-#define R15_esp           AS_REGISTER(Register, R15)
-#define F15_ftos          AS_REGISTER(FloatRegister, F15)
-#define R16_thread        AS_REGISTER(Register, R16)
-#define R17_tos           AS_REGISTER(Register, R17)
-#define R18_locals        AS_REGISTER(Register, R18)
-#define R19_method        AS_REGISTER(Register, R19)
-#define R21_sender_SP     AS_REGISTER(Register, R21)
-#define R23_method_handle AS_REGISTER(Register, R23)
+#define R0_SCRATCH_PPC         AS_REGISTER(Register, R0)
+#define R1_SP_PPC              AS_REGISTER(Register, R1)
+#define R2_TOC_PPC             AS_REGISTER(Register, R2)
+#define R3_RET_PPC             AS_REGISTER(Register, R3)
+#define R3_ARG1_PPC            AS_REGISTER(Register, R3)
+#define R4_ARG2_PPC            AS_REGISTER(Register, R4)
+#define R5_ARG3_PPC            AS_REGISTER(Register, R5)
+#define R6_ARG4_PPC            AS_REGISTER(Register, R6)
+#define R7_ARG5_PPC            AS_REGISTER(Register, R7)
+#define R8_ARG6_PPC            AS_REGISTER(Register, R8)
+#define R9_ARG7_PPC            AS_REGISTER(Register, R9)
+#define R10_ARG8_PPC           AS_REGISTER(Register, R10)
+#define F0_SCRATCH_PPC         AS_REGISTER(FloatRegister, F0)
+#define F1_RET_PPC             AS_REGISTER(FloatRegister, F1)
+#define F1_ARG1_PPC            AS_REGISTER(FloatRegister, F1)
+#define F2_ARG2_PPC            AS_REGISTER(FloatRegister, F2)
+#define F3_ARG3_PPC            AS_REGISTER(FloatRegister, F3)
+#define F4_ARG4_PPC            AS_REGISTER(FloatRegister, F4)
+#define F5_ARG5_PPC            AS_REGISTER(FloatRegister, F5)
+#define F6_ARG6_PPC            AS_REGISTER(FloatRegister, F6)
+#define F7_ARG7_PPC            AS_REGISTER(FloatRegister, F7)
+#define F8_ARG8_PPC            AS_REGISTER(FloatRegister, F8)
+#define F9_ARG9_PPC            AS_REGISTER(FloatRegister, F9)
+#define F10_ARG10_PPC          AS_REGISTER(FloatRegister, F10)
+#define F11_ARG11_PPC          AS_REGISTER(FloatRegister, F11)
+#define F12_ARG12_PPC          AS_REGISTER(FloatRegister, F12)
+#define F13_ARG13_PPC          AS_REGISTER(FloatRegister, F13)
 #endif
 
 // Temporary registers to be used within frame manager. We can use
 // the non-volatiles because the call stub has saved them.
 // Use only non-volatile registers in order to keep values across C-calls.
-REGISTER_DECLARATION(Register, R21_tmp1, R21);
-REGISTER_DECLARATION(Register, R22_tmp2, R22);
-REGISTER_DECLARATION(Register, R23_tmp3, R23);
-REGISTER_DECLARATION(Register, R24_tmp4, R24);
-REGISTER_DECLARATION(Register, R25_tmp5, R25);
-REGISTER_DECLARATION(Register, R26_tmp6, R26);
-REGISTER_DECLARATION(Register, R27_tmp7, R27);
-REGISTER_DECLARATION(Register, R28_tmp8, R28);
-REGISTER_DECLARATION(Register, R29_tmp9, R29);
-REGISTER_DECLARATION(Register, R24_dispatch_addr,     R24);
-REGISTER_DECLARATION(Register, R25_templateTableBase, R25);
-REGISTER_DECLARATION(Register, R26_monitor,           R26);
-REGISTER_DECLARATION(Register, R27_constPoolCache,    R27);
-REGISTER_DECLARATION(Register, R28_mdx,               R28);
+REGISTER_DECLARATION(Register, R21_tmp1_PPC, R21);
+REGISTER_DECLARATION(Register, R22_tmp2_PPC, R22);
+REGISTER_DECLARATION(Register, R23_tmp3_PPC, R23);
+REGISTER_DECLARATION(Register, R24_tmp4_PPC, R24);
+REGISTER_DECLARATION(Register, R25_tmp5_PPC, R25);
+REGISTER_DECLARATION(Register, R26_tmp6_PPC, R26);
+REGISTER_DECLARATION(Register, R27_tmp7_PPC, R27);
+REGISTER_DECLARATION(Register, R28_tmp8_PPC, R28);
+REGISTER_DECLARATION(Register, R29_tmp9_PPC, R29);
+REGISTER_DECLARATION(Register, R24_dispatch_addr_PPC,     R24);
+REGISTER_DECLARATION(Register, R26_monitor_PPC,           R26);
+REGISTER_DECLARATION(Register, R27_constPoolCache_PPC,    R27);
+REGISTER_DECLARATION(Register, R28_mdx_PPC,               R28);
 
-REGISTER_DECLARATION(Register, R19_inline_cache_reg, R19);
-REGISTER_DECLARATION(Register, R29_TOC, R29);
+REGISTER_DECLARATION(Register, R19_inline_cache_reg_PPC, R19);
 
 #ifndef DONT_USE_REGISTER_DEFINES
-#define R21_tmp1         AS_REGISTER(Register, R21)
-#define R22_tmp2         AS_REGISTER(Register, R22)
-#define R23_tmp3         AS_REGISTER(Register, R23)
-#define R24_tmp4         AS_REGISTER(Register, R24)
-#define R25_tmp5         AS_REGISTER(Register, R25)
-#define R26_tmp6         AS_REGISTER(Register, R26)
-#define R27_tmp7         AS_REGISTER(Register, R27)
-#define R28_tmp8         AS_REGISTER(Register, R28)
-#define R29_tmp9         AS_REGISTER(Register, R29)
+#define R21_tmp1_PPC         AS_REGISTER(Register, R21)
+#define R22_tmp2_PPC         AS_REGISTER(Register, R22)
+#define R23_tmp3_PPC         AS_REGISTER(Register, R23)
+#define R24_tmp4_PPC         AS_REGISTER(Register, R24)
+#define R25_tmp5_PPC         AS_REGISTER(Register, R25)
+#define R26_tmp6_PPC         AS_REGISTER(Register, R26)
+#define R27_tmp7_PPC         AS_REGISTER(Register, R27)
+#define R28_tmp8_PPC         AS_REGISTER(Register, R28)
+#define R29_tmp9_PPC         AS_REGISTER(Register, R29)
 //    Lmonitors  : monitor pointer
 //    LcpoolCache: constant pool cache
 //    mdx: method data index
-#define R24_dispatch_addr     AS_REGISTER(Register, R24)
-#define R25_templateTableBase AS_REGISTER(Register, R25)
-#define R26_monitor           AS_REGISTER(Register, R26)
-#define R27_constPoolCache    AS_REGISTER(Register, R27)
-#define R28_mdx               AS_REGISTER(Register, R28)
+#define R23_method_handle_PPC     AS_REGISTER(Register, R23)
+#define R24_dispatch_addr_PPC     AS_REGISTER(Register, R24)
+#define R26_monitor_PPC           AS_REGISTER(Register, R26)
+#define R27_constPoolCache_PPC    AS_REGISTER(Register, R27)
+#define R28_mdx_PPC               AS_REGISTER(Register, R28)
+#endif
 
-#define R19_inline_cache_reg AS_REGISTER(Register, R19)
-#define R29_TOC AS_REGISTER(Register, R29)
+// Temporary registers to be used within frame manager. We can use
+// the non-volatiles because the call stub has saved them.
+// Use only non-volatile registers in order to keep values across C-calls.
+REGISTER_DECLARATION(Register, R19_templateTableBase,   R19);
+REGISTER_DECLARATION(Register, R20_TOC,                 R20);
+REGISTER_DECLARATION(Register, R21_sender_SP,           R21);
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R19_templateTableBase   AS_REGISTER(Register, R19)
+#define R20_TOC                 AS_REGISTER(Register, R20)
+#define R21_sender_SP           AS_REGISTER(Register, R21)
 #endif
 
 // Scratch registers are volatile.
-REGISTER_DECLARATION(Register, R11_scratch1, R11);
-REGISTER_DECLARATION(Register, R12_scratch2, R12);
+REGISTER_DECLARATION(Register, R5_scratch1, R5);
+REGISTER_DECLARATION(Register, R6_scratch2, R6);
 #ifndef DONT_USE_REGISTER_DEFINES
-#define R11_scratch1   AS_REGISTER(Register, R11)
-#define R12_scratch2   AS_REGISTER(Register, R12)
+#define R5_scratch1   AS_REGISTER(Register, R5)
+#define R6_scratch2   AS_REGISTER(Register, R6)
+#endif
+
+
+// Register declarations to be used in frame manager assembly code.
+// Use only callee save registers in order to keep values across C-calls.
+REGISTER_DECLARATION(Register, R22_bcp,        R22);
+REGISTER_DECLARATION(Register, R23_esp,        R23);
+REGISTER_DECLARATION(FloatRegister, F23_ftos,  F23);
+REGISTER_DECLARATION(Register, R24_thread,     R24);      // address of current thread
+REGISTER_DECLARATION(Register, R25_tos,        R25);      // address of Java tos (prepushed).
+REGISTER_DECLARATION(Register, R26_locals,     R26);      // address of first param slot (receiver).
+REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current method
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R22_bcp           AS_REGISTER(Register, R22)
+#define R23_esp           AS_REGISTER(Register, R23)
+#define F23_ftos          AS_REGISTER(FloatRegister, F23)
+#define R24_thread        AS_REGISTER(Register, R24)
+#define R25_tos           AS_REGISTER(Register, R25)
+#define R26_locals        AS_REGISTER(Register, R26)
+#define R27_method        AS_REGISTER(Register, R27)
+#endif
+
+#ifndef DONT_USE_REGISTER_DEFINES
+//    Lmonitors  : monitor pointer
+//    LcpoolCache: constant pool cache
+//    mdx: method data index
+#define R28_monitor           AS_REGISTER(Register, R28)
+#define R29_mdx               AS_REGISTER(Register, R29)
+#define R9_constPoolCache     AS_REGISTER(Register, R9)
+#endif
+
+// Common register declarations used in assembler code.
+REGISTER_DECLARATION(Register, R0_ZERO,  R0);  // saver: n/a
+REGISTER_DECLARATION(Register, R1_RA,    R1);  // saver: caller
+REGISTER_DECLARATION(Register, R2_SP,    R2);  // saver: callee
+REGISTER_DECLARATION(Register, R5_TMP0,  R5);  // saver: caller
+REGISTER_DECLARATION(Register, R6_TMP1,  R6);  // saver: caller
+REGISTER_DECLARATION(Register, R7_TMP2,  R7);  // saver: caller
+REGISTER_DECLARATION(Register, R8_FP,    R8);  // saver: callee
+REGISTER_DECLARATION(Register, R10_RET1, R10); // saver: caller
+REGISTER_DECLARATION(Register, R10_ARG0, R10); // saver: caller
+REGISTER_DECLARATION(Register, R11_RET2, R11); // saver: caller
+REGISTER_DECLARATION(Register, R11_ARG1, R11); // saver: caller
+REGISTER_DECLARATION(Register, R12_ARG2, R12); // saver: caller
+REGISTER_DECLARATION(Register, R13_ARG3, R13); // saver: caller
+REGISTER_DECLARATION(Register, R14_ARG4, R14); // saver: caller
+REGISTER_DECLARATION(Register, R15_ARG5, R15); // saver: caller
+REGISTER_DECLARATION(Register, R16_ARG6, R16); // saver: caller
+REGISTER_DECLARATION(Register, R17_ARG7, R17); // saver: caller
+REGISTER_DECLARATION(Register, R18_S2,   R18); // saver: callee
+// R19_S3 - R27_S11
+REGISTER_DECLARATION(Register, R28_TMP3, R28); // saver: caller
+REGISTER_DECLARATION(Register, R29_TMP4, R29); // saver: caller
+REGISTER_DECLARATION(Register, R30_TMP5, R30); // saver: caller
+REGISTER_DECLARATION(Register, R31_TMP6, R31); // saver: caller
+
+REGISTER_DECLARATION(FloatRegister, F0_TMP0,   F0);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F1_TMP1,   F1);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F2_TMP2,   F2);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F3_TMP3,   F3);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F4_TMP4,   F4);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F5_TMP5,   F5);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F6_TMP6,   F6);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F7_TMP7,   F7);  // saver: caller
+REGISTER_DECLARATION(FloatRegister, F8_S0,     F8);  // saver: callee
+REGISTER_DECLARATION(FloatRegister, F9_S1,     F9);  // saver: callee
+REGISTER_DECLARATION(FloatRegister, F10_RET,   F10); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F10_ARG0,  F10); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F11_RET1,  F11); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F11_ARG1,  F11); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F12_ARG2,  F12); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F13_ARG3,  F13); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F14_ARG4,  F14); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F15_ARG5,  F15); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F16_ARG6,  F16); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F17_ARG7,  F17); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F18_S2,    F18); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F19_S3,    F19); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F20_S4,    F20); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F21_S5,    F21); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F22_S6,    F22); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F24_S8,    F24); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F25_S9,    F25); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F26_S10,   F26); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F27_S11,   F27); // saver: callee
+REGISTER_DECLARATION(FloatRegister, F28_TMP8,  F28); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F29_TMP9,  F29); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F30_TMP10, F30); // saver: caller
+REGISTER_DECLARATION(FloatRegister, F31_TMP11, F31); // saver: caller
+
+#ifndef DONT_USE_REGISTER_DEFINES
+#define R0_ZERO   AS_REGISTER(Register, R0)
+#define R1_RA    AS_REGISTER(Register, R1)
+#define R2_SP     AS_REGISTER(Register, R2)
+#define R5_TMP0   AS_REGISTER(Register, R5)
+#define R6_TMP1   AS_REGISTER(Register, R6)
+#define R7_TMP2   AS_REGISTER(Register, R7)
+#define R8_FP     AS_REGISTER(Register, R8)
+#define R9_S1     AS_REGISTER(Register, R9)
+#define R10_RET1  AS_REGISTER(Register, R10)
+#define R10_ARG0  AS_REGISTER(Register, R10)
+#define R11_RET2  AS_REGISTER(Register, R11)
+#define R11_ARG1  AS_REGISTER(Register, R11)
+#define R12_ARG2  AS_REGISTER(Register, R12)
+#define R13_ARG3  AS_REGISTER(Register, R13)
+#define R14_ARG4  AS_REGISTER(Register, R14)
+#define R15_ARG5  AS_REGISTER(Register, R15)
+#define R16_ARG6  AS_REGISTER(Register, R16)
+#define R17_ARG7  AS_REGISTER(Register, R17)
+#define R18_S2    AS_REGISTER(Register, R18)
+#define R19_S3    AS_REGISTER(Register, R19)
+#define R20_S4    AS_REGISTER(Register, R20)
+#define R21_S5    AS_REGISTER(Register, R21)
+#define R28_TMP3  AS_REGISTER(Register, R28)
+#define R29_TMP4  AS_REGISTER(Register, R29)
+#define R30_TMP5  AS_REGISTER(Register, R30)
+#define R31_TMP6  AS_REGISTER(Register, R31)
+
+#define F0_TMP0   AS_REGISTER(FloatRegister, F0)
+#define F1_TMP1   AS_REGISTER(FloatRegister, F1)
+#define F2_TMP2   AS_REGISTER(FloatRegister, F2)
+#define F3_TMP3   AS_REGISTER(FloatRegister, F3)
+#define F4_TMP4   AS_REGISTER(FloatRegister, F4)
+#define F5_TMP5   AS_REGISTER(FloatRegister, F5)
+#define F6_TMP6   AS_REGISTER(FloatRegister, F6)
+#define F7_TMP7   AS_REGISTER(FloatRegister, F7)
+#define F8_S0     AS_REGISTER(FloatRegister, F8)
+#define F9_S1     AS_REGISTER(FloatRegister, F9)
+#define F10_RET   AS_REGISTER(FloatRegister, F10)
+#define F10_ARG0  AS_REGISTER(FloatRegister, F10)
+#define F11_RET1  AS_REGISTER(FloatRegister, F11)
+#define F11_ARG1  AS_REGISTER(FloatRegister, F11)
+#define F12_ARG2  AS_REGISTER(FloatRegister, F12)
+#define F13_ARG3  AS_REGISTER(FloatRegister, F13)
+#define F14_ARG4  AS_REGISTER(FloatRegister, F14)
+#define F15_ARG5  AS_REGISTER(FloatRegister, F15)
+#define F16_ARG6  AS_REGISTER(FloatRegister, F16)
+#define F17_ARG7  AS_REGISTER(FloatRegister, F17)
+#define F18_S2    AS_REGISTER(FloatRegister, F18)
+#define F19_S3    AS_REGISTER(FloatRegister, F19)
+#define F20_S4    AS_REGISTER(FloatRegister, F20)
+#define F21_S5    AS_REGISTER(FloatRegister, F21)
+#define F22_S6    AS_REGISTER(FloatRegister, F22)
+#define F24_S8    AS_REGISTER(FloatRegister, F24)
+#define F25_S9    AS_REGISTER(FloatRegister, F25)
+#define F26_S10   AS_REGISTER(FloatRegister, F26)
+#define F27_S11   AS_REGISTER(FloatRegister, F27)
+#define F28_TMP8  AS_REGISTER(FloatRegister, F28)
+#define F29_TMP9  AS_REGISTER(FloatRegister, F29)
+#define F30_TMP10 AS_REGISTER(FloatRegister, F30)
+#define F31_TMP11 AS_REGISTER(FloatRegister, F31)
 #endif
 
 #endif // CPU_RISCV_REGISTER_RISCV_HPP

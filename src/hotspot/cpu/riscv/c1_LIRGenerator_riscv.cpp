@@ -169,11 +169,11 @@ LIR_Address* LIRGenerator::generate_address(LIR_Opr base, LIR_Opr index,
     if (large_disp != 0) {
       LIR_Opr tmp = new_pointer_register();
       if (Assembler::is_simm16(large_disp)) {
-        __ add(index, LIR_OprFact::intptrConst(large_disp), tmp);
+        __ add_PPC(index, LIR_OprFact::intptrConst(large_disp), tmp);
         index = tmp;
       } else {
         __ move(LIR_OprFact::intptrConst(large_disp), tmp);
-        __ add(tmp, index, tmp);
+        __ add_PPC(tmp, index, tmp);
         index = tmp;
       }
       large_disp = 0;
@@ -212,10 +212,10 @@ LIR_Address* LIRGenerator::emit_array_address(LIR_Opr array_opr, LIR_Opr index_o
     } else {
       base_opr = new_pointer_register();
       if (Assembler::is_simm16(array_offset)) {
-        __ add(array_opr, LIR_OprFact::intptrConst(array_offset), base_opr);
+        __ add_PPC(array_opr, LIR_OprFact::intptrConst(array_offset), base_opr);
       } else {
         __ move(LIR_OprFact::intptrConst(array_offset), base_opr);
-        __ add(base_opr, array_opr, base_opr);
+        __ add_PPC(base_opr, array_opr, base_opr);
       }
     }
   } else {
@@ -231,9 +231,9 @@ LIR_Address* LIRGenerator::emit_array_address(LIR_Opr array_opr, LIR_Opr index_o
     assert (index_opr->is_register(), "Must be register");
     if (shift > 0) {
       __ shift_left(index_opr, shift, base_opr);
-      __ add(base_opr, array_opr, base_opr);
+      __ add_PPC(base_opr, array_opr, base_opr);
     } else {
-      __ add(index_opr, array_opr, base_opr);
+      __ add_PPC(index_opr, array_opr, base_opr);
     }
   }
   return new LIR_Address(base_opr, offset, type);
@@ -269,7 +269,7 @@ void LIRGenerator::increment_counter(address counter, BasicType type, int step) 
 void LIRGenerator::increment_counter(LIR_Address* addr, int step) {
   LIR_Opr temp = new_register(addr->type());
   __ move(addr, temp);
-  __ add(temp, load_immediate(step, addr->type()), temp);
+  __ add_PPC(temp, load_immediate(step, addr->type()), temp);
   __ move(temp, addr);
 }
 
@@ -277,7 +277,7 @@ void LIRGenerator::increment_counter(LIR_Address* addr, int step) {
 void LIRGenerator::cmp_mem_int(LIR_Condition condition, LIR_Opr base, int disp, int c, CodeEmitInfo* info) {
   LIR_Opr tmp = FrameMap::R0_opr;
   __ load(new LIR_Address(base, disp, T_INT), tmp, info);
-  __ cmp(condition, tmp, c);
+  __ cmp_PPC(condition, tmp, c);
 }
 
 
@@ -285,7 +285,7 @@ void LIRGenerator::cmp_reg_mem(LIR_Condition condition, LIR_Opr reg, LIR_Opr bas
                                int disp, BasicType type, CodeEmitInfo* info) {
   LIR_Opr tmp = FrameMap::R0_opr;
   __ load(new LIR_Address(base, disp, type), tmp, info);
-  __ cmp(condition, reg, tmp);
+  __ cmp_PPC(condition, reg, tmp);
 }
 
 
@@ -293,11 +293,11 @@ bool LIRGenerator::strength_reduce_multiply(LIR_Opr left, int c, LIR_Opr result,
   assert(left != result, "should be different registers");
   if (is_power_of_2(c + 1)) {
     __ shift_left(left, log2_int(c + 1), result);
-    __ sub(result, left, result);
+    __ sub_PPC(result, left, result);
     return true;
   } else if (is_power_of_2(c - 1)) {
     __ shift_left(left, log2_int(c - 1), result);
-    __ add(result, left, result);
+    __ add_PPC(result, left, result);
     return true;
   }
   return false;
@@ -438,7 +438,7 @@ void LIRGenerator::do_ArithmeticOp_Long(ArithmeticOp* x) {
     LIR_Opr divisor = right.result();
     if (divisor->is_register()) {
       CodeEmitInfo* null_check_info = state_for(x);
-      __ cmp(lir_cond_equal, divisor, LIR_OprFact::longConst(0));
+      __ cmp_PPC(lir_cond_equal, divisor, LIR_OprFact::longConst(0));
       __ branch(lir_cond_equal, T_LONG, new DivByZeroStub(null_check_info));
     } else {
       jlong const_divisor = divisor->as_constant_ptr()->as_jlong();
@@ -492,7 +492,7 @@ void LIRGenerator::do_ArithmeticOp_Int(ArithmeticOp* x) {
     LIR_Opr divisor = right.result();
     if (divisor->is_register()) {
       CodeEmitInfo* null_check_info = state_for(x);
-      __ cmp(lir_cond_equal, divisor, LIR_OprFact::intConst(0));
+      __ cmp_PPC(lir_cond_equal, divisor, LIR_OprFact::intConst(0));
       __ branch(lir_cond_equal, T_INT, new DivByZeroStub(null_check_info));
     } else {
       jint const_divisor = divisor->as_constant_ptr()->as_jint();
@@ -1165,7 +1165,7 @@ void LIRGenerator::do_If(If* x) {
     __ safepoint(safepoint_poll_register(), state_for(x, x->state_before()));
   }
 
-  __ cmp(lir_cond(cond), left, right);
+  __ cmp_PPC(lir_cond(cond), left, right);
   // Generate branch profiling. Profiling code doesn't kill flags.
   profile_branch(x, cond);
   move_to_phi(x->state());
@@ -1180,7 +1180,7 @@ void LIRGenerator::do_If(If* x) {
 
 
 LIR_Opr LIRGenerator::getThreadPointer() {
-  return FrameMap::as_pointer_opr(R16_thread);
+  return FrameMap::as_pointer_opr(R24_thread);
 }
 
 
@@ -1255,7 +1255,7 @@ void LIRGenerator::do_update_CRC32(Intrinsic* x) {
         LIR_Opr tmp = new_register(T_LONG);
         __ convert(Bytecodes::_i2l, index, tmp);
         index = tmp;
-        __ add(index, LIR_OprFact::intptrConst(offset), index);
+        __ add_PPC(index, LIR_OprFact::intptrConst(offset), index);
         a = new LIR_Address(base_op, index, T_BYTE);
       } else {
         a = new LIR_Address(base_op, offset, T_BYTE);
@@ -1309,7 +1309,7 @@ void LIRGenerator::do_update_CRC32C(Intrinsic* x) {
       LIR_Opr tmpB = new_register(T_INT);
       __ move(end.result(), tmpA);
       __ move(off.result(), tmpB);
-      __ sub(tmpA, tmpB, tmpA);
+      __ sub_PPC(tmpA, tmpB, tmpA);
       len = tmpA;
 
       LIR_Opr index = off.result();
@@ -1325,7 +1325,7 @@ void LIRGenerator::do_update_CRC32C(Intrinsic* x) {
         LIR_Opr tmp = new_register(T_LONG);
         __ convert(Bytecodes::_i2l, index, tmp);
         index = tmp;
-        __ add(index, LIR_OprFact::intptrConst(offset), index);
+        __ add_PPC(index, LIR_OprFact::intptrConst(offset), index);
         a = new LIR_Address(base_op, index, T_BYTE);
       } else {
         a = new LIR_Address(base_op, offset, T_BYTE);

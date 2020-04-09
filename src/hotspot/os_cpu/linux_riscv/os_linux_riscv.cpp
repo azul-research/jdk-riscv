@@ -108,38 +108,32 @@ address os::Linux::ucontext_get_pc(const ucontext_t * uc) {
   // - if uc was filled by getcontext(), it is undefined - getcontext() does not fill
   //   it because the volatile registers are not needed to make setcontext() work.
   //   Hopefully it was zero'd out beforehand.
-// FIXME_RISCV begin check correctness
   guarantee(uc->uc_mcontext.__gregs != NULL, "only use ucontext_get_pc in sigaction context");
-  return (address)uc->uc_mcontext.__gregs[0/*PC*/];
-// FIXME_RISCV end
+  return (address)uc->uc_mcontext.__gregs[0/*REG_PC*/];
 }
 
 // modify PC in ucontext.
 // Note: Only use this for an ucontext handed down to a signal handler. See comment
 // in ucontext_get_pc.
 void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
-// FIXME_RISCV begin check correctness
   guarantee(uc->uc_mcontext.__gregs != NULL, "only use ucontext_set_pc in sigaction context");
-  uc->uc_mcontext.__gregs[0] = (unsigned long)pc;
-// FIXME_RISCV end
+  uc->uc_mcontext.__gregs[0/*REG_PC*/] = (unsigned long)pc;
 }
 
-static address ucontext_get_lr(const ucontext_t * uc) {
-  tty->print_cr("%s was called. Returned NULL", __func__);
-  return NULL; // FIXME_RISCV (address)uc->uc_mcontext.regs->link;
+static address ucontext_get_ra(const ucontext_t * uc) {
+  return (address)uc->uc_mcontext.__gregs[1/*REG_RA*/];
 }
 
 intptr_t* os::Linux::ucontext_get_sp(const ucontext_t * uc) {
-  return (intptr_t*)uc->uc_mcontext.__gregs[2/*SP*/]; // FIXME_RISCV check correctness
+  return (intptr_t*)uc->uc_mcontext.__gregs[2/*REG_SP*/];
 }
 
 intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
-  return (intptr_t*)uc->uc_mcontext.__gregs[8/*FP*/]; // FIXME_RISCV check correctness
+  return (intptr_t*)uc->uc_mcontext.__gregs[8/*REG_FP*/];
 }
 
 static unsigned long ucontext_get_trap(const ucontext_t * uc) {
-  tty->print_cr("%s was called. ", __func__);
-  return 42;//uc->uc_mcontext.regs->trap; // FIXME_RISCV
+  return 0;//uc->uc_mcontext.regs->trap; // FIXME_RISCV
 }
 
 ExtendedPC os::fetch_frame_from_context(const void* ucVoid,
@@ -166,7 +160,7 @@ frame os::fetch_frame_from_context(const void* ucVoid) {
   intptr_t* sp;
   intptr_t* fp;
   ExtendedPC epc = fetch_frame_from_context(ucVoid, &sp, &fp);
-  return frame(sp, epc.pc());
+  return frame(sp, fp, epc.pc());
 }
 
 bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t* uc, frame* fr) {
@@ -192,8 +186,9 @@ bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t*
       return false;
     } else {
       intptr_t* sp = os::Linux::ucontext_get_sp(uc);
-      address lr = ucontext_get_lr(uc);
-      *fr = frame(sp, lr);
+      intptr_t* fp = os::Linux::ucontext_get_fp(uc);
+      address ra = ucontext_get_ra(uc);
+      *fr = frame(sp, fp, ra);
       if (!fr->is_java_frame()) {
         assert(fr->safe_for_sender(thread), "Safety check");
         assert(!fr->is_first_frame(), "Safety check");
@@ -208,16 +203,16 @@ bool os::Linux::get_frame_at_stack_banging_point(JavaThread* thread, ucontext_t*
 frame os::get_sender_for_C_frame(frame* fr) {
   if (*fr->sp() == 0) {
     // fr is the last C frame
-    return frame(NULL, NULL);
+    return frame(NULL, NULL, (address) NULL);
   }
-  return frame(fr->sender_sp(), fr->sender_pc());
+  return frame(fr->sender_sp(), NULL /* FIXME_RISCV fr->sender_sp() */, fr->sender_pc());
 }
 
 
 frame os::current_frame() {
   intptr_t* csp = (intptr_t*) *((intptr_t*) os::current_stack_pointer());
   // hack.
-  frame topframe(csp, (address)0x8);
+  frame topframe(csp, NULL /* FIXME_RISCV current fp */ , (address)0x8);
   // Return sender of sender of current topframe which hopefully
   // both have pc != NULL.
   frame tmp = os::get_sender_for_C_frame(&topframe);
@@ -585,7 +580,7 @@ void os::print_context(outputStream *st, const void *context) {
 */// FIXME_RISCV end
     st->cr();
   for (int i = 0; i < 32; i++) {
-    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.__gregs[i]); // FIXME_RISCV check correctness
+    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.__gregs[i]);
     if (i % 3 == 2) st->cr();
   }
   st->cr();

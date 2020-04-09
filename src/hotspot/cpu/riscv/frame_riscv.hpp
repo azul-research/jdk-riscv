@@ -28,226 +28,179 @@
 
 #include "runtime/synchronizer.hpp"
 
-  //  C frame layout on RISCV-64.
-  //
-  //  In this figure the stack grows upwards, while memory grows
-  //  downwards. See "64-bit PowerPC ELF ABI Supplement Version 1.7",
-  //  IBM Corp. (2003-10-29)
-  //  (http://math-atlas.sourceforge.net/devel/assembly/RISCV-elf64abi-1.7.pdf).
-  //
-  //  Square brackets denote stack regions possibly larger
-  //  than a single 64 bit slot.
-  //
-  //  STACK:
-  //    0       [C_FRAME]               <-- SP after prolog (mod 16 = 0)
-  //            [C_FRAME]               <-- SP before prolog
-  //            ...
-  //            [C_FRAME]
-  //
-  //  C_FRAME:
-  //    0       [ABI_REG_ARGS]
-  //    112     CARG_9: outgoing arg 9 (arg_1 ... arg_8 via gpr_3 ... gpr_{10})
-  //            ...
-  //    40+M*8  CARG_M: outgoing arg M (M is the maximum of outgoing args taken over all call sites in the procedure)
-  //            local 1
-  //            ...
-  //            local N
-  //            spill slot for vector reg (16 bytes aligned)
-  //            ...
-  //            spill slot for vector reg
-  //            alignment       (4 or 12 bytes)
-  //    V       SR_VRSAVE
-  //    V+4     spill slot for GR
-  //    ...     ...
-  //            spill slot for GR
-  //            spill slot for FR
-  //            ...
-  //            spill slot for FR
-  //
-  //  ABI_48:
-  //    0       caller's SP
-  //    8       space for condition register (CR) for next call
-  //    16      space for link register (LR) for next call
-  //    24      reserved
-  //    32      reserved
-  //    40      space for TOC (=R2) register for next call
-  //
-  //  ABI_REG_ARGS:
-  //    0       [ABI_48]
-  //    48      CARG_1: spill slot for outgoing arg 1. used by next callee.
-  //    ...     ...
-  //    104     CARG_8: spill slot for outgoing arg 8. used by next callee.
-  //
+/* RISC-V C stack frames layout:
+
+      +->          .
+      |   +=================+   |
+      |   | return address  |   |
+      |   |   previous fp ------+
+      |   | saved registers |
+      |   | local variables |
+      |   |       ...       | <-+
+      |   +=================+   |
+      |   | return address  |   |
+      +------ previous fp   |   |
+          | saved registers |   |
+          | local variables |   |
+  $fp --> |       ...       |   |
+          +=================+   |
+          | return address  |   |
+          |   previous fp ------+
+          | saved registers |
+  $sp --> | local variables |
+          +-----------------+
+              stack grows
+                  down
+                   |
+                   V
+
+
+  Java entry frame layout:
+
+   fp --> |       ...       |   |
+          +=================+   |
+          | return address  |   |   }
+          |   previous fp ------+   }  frame_abi
+          +-----------------+
+          |                 |       }
+          | saved registers |       }  spill_nonvolatiles
+          |                 |       }
+          +-----------------+
+          |                 |       }
+          |  frame locals   |       }  entry_frame_locals
+          |                 |       }
+          +-----------------+
+          |   argument 0    |
+          |       ...       |
+   sp --> |   argument n    |
+          +=================+ <-- esp (it's equals to SP or SP + 8, depends on )
+                   |
+                   V
+
+
+  Parent Java frame layout:
+
+          |       ...       |   |
+          +=================+   |
+          | return address  |   |   }
+          |   previous fp ------+   }  frame_abi
+          +-----------------+
+          |                 |       }
+          |   ijava state   |       }  ijava_state
+          |                 |       }
+          +-----------------+
+          |                 |       }
+          |    monitors     |       }  (optional)
+          |                 |       }
+          +-----------------+
+          |                 |
+          |   used part of  |
+          |  operand stack  |
+          |                 |
+          +-----------------+
+locals--> |   argument 0    |       }
+          |       ...       |       }
+          |   argument n    |       }  arguments and locals of
+          +-----------------+       }     the next method
+          |                 |       }
+          |      locals     |       }
+          |                 |       }
+          +=================+
+                   |
+                   V
+
+
+  Top Java frame layout:
+
+locals--> |   argument 0    |
+          |       ...       |
+          |   argument n    |
+          |-----------------|
+          |                 |
+          |     locals      |
+  fp -->  |                 |   |
+          +=================+   |
+          | return address  |   |   }
+          |   previous fp ------+   }  frame_abi
+          +-----------------+
+          |                 |       }
+          |   ijava state   |       }  ijava_state
+          |                 |       }
+          +-----------------+
+          |                 |       }
+          |    monitors     |       }  (optional)
+monitor-> |                 |       }
+          +-----------------+
+          |                 |
+          |   used part of  |
+          |  operand stack  |
+          |                 |
+          +-----------------+
+  esp --> |       ___       |
+          |                 |
+          |                 |
+   sp --> +=================+
+                   |
+                   V
+
+*/
 
  public:
 
-  // C frame layout
   static const int alignment_in_bytes = 16;
 
-  // ABI_MINFRAME:
-  struct abi_minframe {
-    uint64_t callers_sp;
-    uint64_t cr;                                  //_16
-    uint64_t lr;
-#if !defined(ABI_ELFv2)
-    uint64_t reserved1;                           //_16
-    uint64_t reserved2;
-#endif
-    uint64_t toc;                                 //_16
-    // nothing to add here!
-    // aligned to frame::alignment_in_bytes (16)
+  struct abi_frame {
+      uint64_t fp;
+      uint64_t ra; //_16
+  };
+
+  struct spill_nonvolatiles {
+    double f27;
+    double f26;                                   //_16
+    double f25;
+    double f24;                                   //_16
+    double f23;
+    double f22;                                   //_16
+    double f21;
+    double f20;                                   //_16
+    double f19;
+    double f18;                                   //_16
+    double f9;
+    double f8;                                    //_16
+
+    uint64_t r27;
+    uint64_t r26;                                 //_16
+    uint64_t r25;
+    uint64_t r24;                                 //_16
+    uint64_t r23;
+    uint64_t r22;                                 //_16
+    uint64_t r21;
+    uint64_t r20;                                 //_16
+    uint64_t r19;
+    uint64_t r18;                                 //_16
+    uint64_t r9;
+    uint64_t r2;                                  //_16
+  };
+
+  struct entry_frame_locals {
+    uint64_t call_wrapper_address;
+    uint64_t result_address;                      //_16
+    uint64_t result_type;
+    uint64_t arguments_tos_address;               //_16
   };
 
   enum {
-    abi_minframe_size = sizeof(abi_minframe)
-  };
-
-  struct abi_reg_args : abi_minframe {
-    uint64_t carg_1;
-    uint64_t carg_2;                              //_16
-    uint64_t carg_3;
-    uint64_t carg_4;                              //_16
-    uint64_t carg_5;
-    uint64_t carg_6;                              //_16
-    uint64_t carg_7;
-    uint64_t carg_8;                              //_16
-    // aligned to frame::alignment_in_bytes (16)
-  };
-
-  enum {
-    abi_reg_args_size = sizeof(abi_reg_args)
+    abi_frame_size = sizeof(abi_frame),
+    spill_nonvolatiles_size = sizeof(spill_nonvolatiles),
+    entry_frame_locals_size = sizeof(entry_frame_locals),
+    entry_frame_size = abi_frame_size + spill_nonvolatiles_size + entry_frame_locals_size,
   };
 
   #define _abi(_component) \
-          (offset_of(frame::abi_reg_args, _component))
+         (int) (-frame::abi_frame_size + offset_of(frame::abi_frame, _component))
 
-  struct abi_reg_args_spill : abi_reg_args {
-    // additional spill slots
-    uint64_t spill_ret;
-    uint64_t spill_fret;                          //_16
-    // aligned to frame::alignment_in_bytes (16)
-  };
-
-  enum {
-    abi_reg_args_spill_size = sizeof(abi_reg_args_spill)
-  };
-
-  #define _abi_reg_args_spill(_component) \
-          (offset_of(frame::abi_reg_args_spill, _component))
-
-  // non-volatile GPRs:
-
-  struct spill_nonvolatiles {
-    uint64_t r14;
-    uint64_t r15;                                 //_16
-    uint64_t r16;
-    uint64_t r17;                                 //_16
-    uint64_t r18;
-    uint64_t r19;                                 //_16
-    uint64_t r20;
-    uint64_t r21;                                 //_16
-    uint64_t r22;
-    uint64_t r23;                                 //_16
-    uint64_t r24;
-    uint64_t r25;                                 //_16
-    uint64_t r26;
-    uint64_t r27;                                 //_16
-    uint64_t r28;
-    uint64_t r29;                                 //_16
-    uint64_t r30;
-    uint64_t r31;                                 //_16
-
-    double f14;
-    double f15;
-    double f16;
-    double f17;
-    double f18;
-    double f19;
-    double f20;
-    double f21;
-    double f22;
-    double f23;
-    double f24;
-    double f25;
-    double f26;
-    double f27;
-    double f28;
-    double f29;
-    double f30;
-    double f31;
-
-    // aligned to frame::alignment_in_bytes (16)
-  };
-
-  enum {
-    spill_nonvolatiles_size = sizeof(spill_nonvolatiles)
-  };
-
-  #define _spill_nonvolatiles_neg(_component) \
-     (int)(-frame::spill_nonvolatiles_size + offset_of(frame::spill_nonvolatiles, _component))
-
-  // Frame layout for the Java template interpreter on RISCV64.
-  //
-  // In these figures the stack grows upwards, while memory grows
-  // downwards. Square brackets denote regions possibly larger than
-  // single 64 bit slots.
-  //
-  //  STACK (interpreter is active):
-  //    0       [TOP_IJAVA_FRAME]
-  //            [PARENT_IJAVA_FRAME]
-  //            ...
-  //            [PARENT_IJAVA_FRAME]
-  //            [ENTRY_FRAME]
-  //            [C_FRAME]
-  //            ...
-  //            [C_FRAME]
-  //
-  //  With the following frame layouts:
-  //  TOP_IJAVA_FRAME:
-  //    0       [TOP_IJAVA_FRAME_ABI]
-  //            alignment (optional)
-  //            [operand stack]
-  //            [monitors] (optional)
-  //            [IJAVA_STATE]
-  //            note: own locals are located in the caller frame.
-  //
-  //  PARENT_IJAVA_FRAME:
-  //    0       [PARENT_IJAVA_FRAME_ABI]
-  //            alignment (optional)
-  //            [callee's Java result]
-  //            [callee's locals w/o arguments]
-  //            [outgoing arguments]
-  //            [used part of operand stack w/o arguments]
-  //            [monitors] (optional)
-  //            [IJAVA_STATE]
-  //
-  //  ENTRY_FRAME:
-  //    0       [PARENT_IJAVA_FRAME_ABI]
-  //            alignment (optional)
-  //            [callee's Java result]
-  //            [callee's locals w/o arguments]
-  //            [outgoing arguments]
-  //            [ENTRY_FRAME_LOCALS]
-
-  struct parent_ijava_frame_abi : abi_minframe {
-  };
-
-  enum {
-    parent_ijava_frame_abi_size = sizeof(parent_ijava_frame_abi)
-  };
-
-#define _parent_ijava_frame_abi(_component) \
-        (offset_of(frame::parent_ijava_frame_abi, _component))
-
-  struct top_ijava_frame_abi : abi_reg_args {
-  };
-
-  enum {
-    top_ijava_frame_abi_size = sizeof(top_ijava_frame_abi)
-  };
-
-#define _top_ijava_frame_abi(_component) \
-        (offset_of(frame::top_ijava_frame_abi, _component))
+  #define _entry_frame_locals(_component) \
+        (int) (-frame::entry_frame_size + offset_of(frame::entry_frame_locals, _component))
 
   struct ijava_state {
 #ifdef ASSERT
@@ -270,30 +223,82 @@
   };
 
   enum {
-    ijava_state_size = sizeof(ijava_state)
+    ijava_state_size = sizeof(ijava_state),
+    frame_header_size = abi_frame_size + ijava_state_size
   };
 
-#define _ijava_state_neg(_component) \
-        (int) (-frame::ijava_state_size + offset_of(frame::ijava_state, _component))
 
-  // ENTRY_FRAME
+#define _ijava_state(_component) \
+        (int) (-frame::frame_header_size + offset_of(frame::ijava_state, _component))
 
-  struct entry_frame_locals {
-    uint64_t call_wrapper_address;
-    uint64_t result_address;                      //_16
-    uint64_t result_type;
-    uint64_t arguments_tos_address;               //_16
+
+
+
+// PPC STRUCTURES:
+
+  struct abi_minframe_ppc { // FIXME_RISCV this structure must be removed
+    uint64_t callers_sp;
+    uint64_t cr;                                  //_16
+    uint64_t lr;
+    uint64_t toc;                                 //_16
+    // nothing to add here!
     // aligned to frame::alignment_in_bytes (16)
-    uint64_t r[spill_nonvolatiles_size/sizeof(uint64_t)];
   };
+
+  enum { // FIXME_RISCV this enum must be removed
+    abi_minframe_ppc_size = sizeof(abi_minframe_ppc)
+  };
+
+
+  struct abi_reg_args_ppc : abi_minframe_ppc { // FIXME_RISCV this structure must be removed
+    uint64_t carg_1;
+    uint64_t carg_2;                              //_16
+    uint64_t carg_3;
+    uint64_t carg_4;                              //_16
+    uint64_t carg_5;
+    uint64_t carg_6;                              //_16
+    uint64_t carg_7;
+    uint64_t carg_8;                              //_16
+    // aligned to frame::alignment_in_bytes (16)
+  };
+
+  enum { // FIXME_RISCV this enum must be removed
+    abi_reg_args_ppc_size = sizeof(abi_reg_args_ppc)
+  };
+
+
+  struct abi_reg_args_spill_ppc : abi_reg_args_ppc { // FIXME_RISCV this structure must be removed
+    // additional spill slots
+    uint64_t spill_ret;
+    uint64_t spill_fret;                          //_16
+    // aligned to frame::alignment_in_bytes (16)
+  };
+
+  enum { // FIXME_RISCV this enum must be removed
+    abi_reg_args_spill_ppc_size = sizeof(abi_reg_args_spill_ppc)
+  };
+
+  // FIXME_RISCV this macro must be removed
+  #define _abi_reg_args_spill_ppc(_component) \
+          (offset_of(frame::abi_reg_args_spill_ppc, _component))
+
+
+  // FIXME_RISCV this define must be removed
+  #define _abi_PPC(_component) \
+          (offset_of(frame::abi_reg_args_ppc, _component))
+
+  // Frame layout for the Java template interpreter on PPC64.
+  //
+  // In these figures the stack grows upwards, while memory grows
+  // downwards. Square brackets denote regions possibly larger than
+  // single 64 bit slots.
+
+  struct parent_ijava_frame_abi : abi_minframe_ppc {};
+  struct top_ijava_frame_abi : abi_minframe_ppc {};
 
   enum {
-    entry_frame_locals_size = sizeof(entry_frame_locals)
+    parent_ijava_frame_abi_size = sizeof(parent_ijava_frame_abi)
   };
-
-  #define _entry_frame_locals_neg(_component) \
-    (int)(-frame::entry_frame_locals_size + offset_of(frame::entry_frame_locals, _component))
-
 
   //  Frame layout for JIT generated methods
   //
@@ -372,8 +377,8 @@
   intptr_t* fp() const { return _fp; }
 
   // Accessors for ABIs
-  inline abi_minframe* own_abi()     const { return (abi_minframe*) _sp; }
-  inline abi_minframe* callers_abi() const { return (abi_minframe*) _fp; }
+  inline abi_frame* own_abi()     const { return (abi_frame*) (_fp - abi_frame_size); }
+  inline abi_frame* callers_abi() const { return (abi_frame*) (own_abi()->fp - abi_frame_size); }
 
  private:
 
@@ -383,9 +388,9 @@
  public:
 
   // Constructors
-  inline frame(intptr_t* sp);
-  inline frame(intptr_t* sp, address pc);
-  inline frame(intptr_t* sp, address pc, intptr_t* unextended_sp);
+  inline frame(intptr_t* sp, intptr_t* fp);
+  inline frame(intptr_t* sp, intptr_t* fp, address pc);
+  inline frame(intptr_t* sp, intptr_t* fp, address pc, intptr_t* unextended_sp);
 
  private:
 

@@ -8,6 +8,8 @@
 [The RISC-V Instruction Set Manual](https://riscv.org/specifications/)  
 [RISC-V asm manual](https://github.com/riscv/riscv-asm-manual/blob/master/riscv-asm.md)
 
+[Debugging instructions](./dev-riscv/docs/debugging-with-gdb.md)
+
 ## Process
 
 Main branch is `riscv`. `master` branch must remain unchanged.

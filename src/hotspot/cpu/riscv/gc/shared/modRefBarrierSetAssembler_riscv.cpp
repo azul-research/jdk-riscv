@@ -36,10 +36,10 @@ void ModRefBarrierSetAssembler::arraycopy_prologue(MacroAssembler* masm, Decorat
 
     bool checkcast = (decorators & ARRAYCOPY_CHECKCAST) != 0;
     if (!checkcast) {
-      assert_different_registers(dst, count, R9_ARG7, R10_ARG8);
+      assert_different_registers(dst, count, R9_ARG7_PPC, R10_ARG8_PPC);
       // Save some arguments for epilogue, e.g. disjoint_long_copy_core destroys them.
-      __ mr(R9_ARG7, dst);
-      __ mr(R10_ARG8, count);
+      __ mr_PPC(R9_ARG7_PPC, dst);
+      __ mr_PPC(R10_ARG8_PPC, count);
     }
   }
 }
@@ -49,7 +49,7 @@ void ModRefBarrierSetAssembler::arraycopy_epilogue(MacroAssembler* masm, Decorat
   if (type == T_OBJECT) {
     bool checkcast = (decorators & ARRAYCOPY_CHECKCAST) != 0;
     if (!checkcast) {
-      gen_write_ref_array_post_barrier(masm, decorators, R9_ARG7, R10_ARG8, preserve);
+      gen_write_ref_array_post_barrier(masm, decorators, R9_ARG7_PPC, R10_ARG8_PPC, preserve);
     } else {
       gen_write_ref_array_post_barrier(masm, decorators, dst, count, preserve);
     }

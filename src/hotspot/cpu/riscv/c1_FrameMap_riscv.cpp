@@ -337,7 +337,7 @@ void FrameMap::initialize() {
   R30_metadata_opr = as_metadata_opr(R30);
   R31_metadata_opr = as_metadata_opr(R31);
 
-  SP_opr = as_pointer_opr(R1_SP);
+  SP_opr = as_pointer_opr(R1_SP_PPC);
 
   R0_long_opr = LIR_OprFact::double_cpu(cpu_reg2rnr(R0), cpu_reg2rnr(R0));
   R3_long_opr = LIR_OprFact::double_cpu(cpu_reg2rnr(R3), cpu_reg2rnr(R3));
@@ -358,7 +358,7 @@ void FrameMap::initialize() {
 
 
 Address FrameMap::make_new_address(ByteSize sp_offset) const {
-  return Address(R1_SP, STACK_BIAS + in_bytes(sp_offset));
+  return Address(R1_SP_PPC, STACK_BIAS + in_bytes(sp_offset));
 }
 
 
