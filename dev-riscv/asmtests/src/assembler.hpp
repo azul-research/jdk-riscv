@@ -70,7 +70,7 @@ enum {
 
 struct Assembler {
     std::FILE *output;
-    uint64_t _pc = 0x1000000;
+    uint64_t _pc = 0x1000000000000000ull; // 2**60 TODO: try to implement this better
 
     inline uint64_t pc() {
         return _pc;
@@ -82,6 +82,12 @@ struct Assembler {
     }
 
     inline void i(const char *instr, Register d, Register s, int imm) {
+        unsigned t = (unsigned)imm & 0xfff;
+        if (t >= 0x800) {
+            imm = (int)t - 0x1000;
+        } else {
+            imm = t;
+        }
         std::fprintf(output, "\"%s %s, %s, %d;\\n\"\n", instr, regnames[d], regnames[s], imm);
         _pc += 4;
     }
