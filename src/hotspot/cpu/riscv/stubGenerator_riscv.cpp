@@ -276,8 +276,7 @@ class StubGenerator: public StubCodeGenerator {
       // Just pop the topmost frame ...
       //
 
-      Label ret_is_object;
-      Label ret_is_long;
+      Label ret_is_object_or_long;
       Label ret_is_float;
       Label ret_is_double;
 
@@ -292,10 +291,9 @@ class StubGenerator: public StubCodeGenerator {
       __ ld(r_arg_result_type, R8_FP, _entry_frame_locals(result_type));
 
 
-      // pop frame and restore non-volatiles, SP and FP
+      // pop entry frame and restore non-volatiles, SP and FP
       __ mv(R2_SP, R8_FP);
-      __ ld(R1_RA, R8_FP, _abi(ra));
-      __ ld(R8_FP, R8_FP, _abi(fp));
+      __ restore_abi_frame(R8_FP, 0);
 
       // restore non-volatile registers
       __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
@@ -311,9 +309,9 @@ class StubGenerator: public StubCodeGenerator {
       // All non-volatiles have been restored at this point!!
 
       __ li(r_temp, T_OBJECT);
-      __ beq(r_arg_result_type, r_temp, ret_is_object);
+      __ beq(r_arg_result_type, r_temp, ret_is_object_or_long);
       __ li(r_temp, T_LONG);
-      __ beq(r_arg_result_type, r_temp, ret_is_long);
+      __ beq(r_arg_result_type, r_temp, ret_is_object_or_long);
       __ li(r_temp, T_FLOAT);
       __ beq(r_arg_result_type, r_temp, ret_is_float);
       __ li(r_temp, T_DOUBLE);
@@ -322,13 +320,8 @@ class StubGenerator: public StubCodeGenerator {
       __ sw(R10_RET1, r_arg_result_addr, 0);
       __ ret(); // return to caller
 
-      // case T_OBJECT:
-      __ bind(ret_is_object);
-      __ sd(R10_RET1, r_arg_result_addr, 0);
-      __ ret(); // return to caller
-
-      // case T_LONG:
-      __ bind(ret_is_long);
+      // case T_OBJECT, T_LONG:
+      __ bind(ret_is_object_or_long);
       __ sd(R10_RET1, r_arg_result_addr, 0);
       __ ret(); // return to caller
 
