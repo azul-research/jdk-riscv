@@ -315,11 +315,10 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ bind(loop_end);
 
-  __ pop_frame();
+  __ pop_C_frame();
   __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
-  __ restore_LR_CR(R0);
 
-  __ blr_PPC();
+  __ ret();
 
   Label move_int_arg, move_float_arg;
   __ bind(move_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
@@ -455,9 +454,8 @@ address TemplateInterpreterGenerator::generate_abstract_entry(void) {
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_AbstractMethodErrorWithMethod),
                   R24_thread, R27_method);
 
-  // Pop the C frame and restore LR.
-  __ pop_frame();
-  __ restore_LR_CR(R0);
+  // Pop the C frame and restore RA.
+  __ pop_C_frame();
 
   // Reset JavaFrameAnchor from call_VM_leaf above.
   __ reset_last_Java_frame();
@@ -466,8 +464,7 @@ address TemplateInterpreterGenerator::generate_abstract_entry(void) {
   // which will also pop our full frame off. Satisfy the interface of
   // SharedRuntime::generate_forward_exception()
   __ load_const_optimized(R5_scratch1, StubRoutines::forward_exception_entry(), R0);
-  __ mtctr_PPC(R5_scratch1);
-  __ bctr_PPC();
+  __ jr(R5_scratch1);
 
   return entry;
 }
@@ -1149,9 +1146,8 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
 
     __ call_VM_leaf(runtime_entry);
 
-    // Pop the C frame and restore LR.
-    __ pop_frame();
-    __ restore_LR_CR(R0);
+    // Pop the C frame and restore RA.
+    __ pop_C_frame();
   }
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
@@ -1561,12 +1557,11 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ lfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
   __ call_stub(result_handler_addr);
 
-  __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
+  __ pop_java_frame();
 
   // Must use the return pc which was loaded from the caller's frame
   // as the VM uses return-pc-patching for deoptimization.
-  __ mtlr_PPC(R0);
-  __ blr_PPC();
+  __ ret();
 
   //-----------------------------------------------------------------------------
   // An exception is pending. We call into the runtime only if the
@@ -1592,7 +1587,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address),
                   R24_thread,
                   return_pc /* return pc */);
-  __ merge_frames(/*top_frame_sp*/ R21_sender_SP, noreg, R5_scratch1, R6_scratch2);
+  __ pop_java_frame(false);
 
   // Load the PC of the the exception handler into LR.
   __ mtlr_PPC(R3_RET_PPC);
@@ -2065,9 +2060,8 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     // Return from the current method into the deoptimization blob. Will eventually
     // end up in the deopt interpeter entry, deoptimization prepared everything that
     // we will reexecute the call that called us.
-    __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*reload return_pc*/ return_pc, R5_scratch1, R6_scratch2);
-    __ mtlr_PPC(return_pc);
-    __ blr_PPC();
+    __ pop_java_frame();
+    __ ret();
 
     // The non-deoptimized case.
     __ bind(Lcaller_not_deoptimized);
@@ -2077,12 +2071,15 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     __ stw_PPC(R0, in_bytes(JavaThread::popframe_condition_offset()), R24_thread);
 
     // Get out of the current method and re-execute the call that called us.
-    __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ noreg, R5_scratch1, R6_scratch2);
+    // pop_java_frame(false) :
+    __ ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
+    __ ld(R8_FP, R8_FP, _abi(fp));
+    __ sub(R5_scratch1, R21_sender_SP, R2_SP); // size of pop frame
+    __ mv(R2_SP, R21_sender_SP);
 
-    __ restore_interpreter_state();
+    __ restore_interpreter_state(R5_scratch1);
     __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
     __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
-    
     if (ProfileInterpreter) {
       __ set_method_data_pointer_for_bcp();
       __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
@@ -2140,7 +2137,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address), R24_thread, return_pc);
 
     // Remove the current activation.
-    __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ noreg, R5_scratch1, R6_scratch2);
+    __ pop_java_frame(false);
 
     __ mr_PPC(R4_ARG2_PPC, return_pc);
     __ mtlr_PPC(R3_RET_PPC);

@@ -513,7 +513,7 @@ void RegisterSaver::restore_argument_registers_and_pop_frame(MacroAssembler*masm
         st_off -= wordSize;
       }
     }
-  __ pop_frame();
+  __ pop_C_frame();
 }
 
 // Restore the registers that might be holding a result.

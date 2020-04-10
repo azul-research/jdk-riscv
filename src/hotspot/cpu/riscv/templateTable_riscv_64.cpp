@@ -1787,13 +1787,11 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // OSR buffer is in ARG1.
 
       // Remove the interpreter frame.
-      __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
+      __ pop_java_frame();
 
       // Jump to the osr code.
       __ ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-      __ mtlr_PPC(R0);
-      __ mtctr_PPC(R5_scratch1);
-      __ bctr_PPC();
+      __ jr(R5_scratch1);
 
     } else {
 
@@ -1891,11 +1889,12 @@ void TemplateTable::ret() {
   locals_index(R5_scratch1);
   __ load_local_ptr(R25_tos, R5_scratch1, R5_scratch1);
 
-  __ profile_ret(vtos, R25_tos, R5_scratch1, R6_scratch2);
+// TODO_RISCV: following line
+//  __ profile_ret(vtos, R25_tos, R5_scratch1, R6_scratch2);
 
-  __ ld_PPC(R5_scratch1, in_bytes(Method::const_offset()), R27_method);
-  __ add_PPC(R5_scratch1, R25_tos, R5_scratch1);
-  __ addi_PPC(R22_bcp, R5_scratch1, in_bytes(ConstMethod::codes_offset()));
+  __ ld(R5_scratch1, R27_method, in_bytes(Method::const_offset()));
+  __ add(R5_scratch1, R25_tos, R5_scratch1);
+  __ addi(R22_bcp, R5_scratch1, in_bytes(ConstMethod::codes_offset()));
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -2164,6 +2163,7 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
+  tty->print_cr("return #%i: %p", state, __ pc());
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
@@ -2177,13 +2177,13 @@ void TemplateTable::_return(TosState state) {
 
     // Check if the method has the FINALIZER flag set and call into the VM to finalize in this case.
     assert(state == vtos, "only valid state");
-    __ ld_PPC(R25_tos, 0, R26_locals);
+    __ ld(R25_tos, R26_locals, 0);
 
     // Load klass of this obj.
     __ load_klass(Rklass, R25_tos);
-    __ lwz_PPC(Rklass_flags, in_bytes(Klass::access_flags_offset()), Rklass);
-    __ testbitdi_PPC(CCR0, R0, Rklass_flags, exact_log2(JVM_ACC_HAS_FINALIZER));
-    __ bfalse_PPC(CCR0, Lskip_register_finalizer);
+    __ lwu(Rklass_flags, Rklass, in_bytes(Klass::access_flags_offset()));
+    __ andi(Rscratch, Rklass_flags, exact_log2(JVM_ACC_HAS_FINALIZER));
+    __ beqz(Rscratch, Lskip_register_finalizer);
 
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::register_finalizer), R25_tos /* obj */);
 
@@ -2193,9 +2193,9 @@ void TemplateTable::_return(TosState state) {
 
   if (SafepointMechanism::uses_thread_local_poll() && _desc->bytecode() != Bytecodes::_return_register_finalizer) {
     Label no_safepoint;
-    __ ld_PPC(R5_scratch1, in_bytes(Thread::polling_page_offset()), R24_thread);
-    __ andi__PPC(R5_scratch1, R5_scratch1, SafepointMechanism::poll_bit());
-    __ beq_PPC(CCR0, no_safepoint);
+    __ ld(R5_scratch1, R24_thread, in_bytes(Thread::polling_page_offset()));
+    __ andi(R5_scratch1, R5_scratch1, SafepointMechanism::poll_bit());
+    __ beqz(R5_scratch1, no_safepoint);
     __ push(state);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::at_safepoint));
     __ pop(state);
@@ -2211,15 +2211,15 @@ void TemplateTable::_return(TosState state) {
     // since compiled code callers expect the result to already be narrowed.
     case itos: __ narrow(R25_tos); /* fall through */
     case ltos:
-    case atos: __ mr_PPC(R3_RET_PPC, R25_tos); break;
+    case atos: __ mv(R10_RET1, R25_tos); break;
     case ftos:
-    case dtos: __ fmr_PPC(F1_RET_PPC, F23_ftos); break;
+    case dtos: __ fmvd(F11_RET1, F23_ftos); break;
     case vtos: // This might be a constructor. Final fields (and volatile fields on RISCV64) need
                // to get visible before the reference to the object gets stored anywhere.
                __ membar(Assembler::StoreStore); break;
     default  : ShouldNotReachHere();
   }
-  __ blr_PPC();
+  __ ret();
 }
 
 // ============================================================================

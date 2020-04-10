@@ -961,9 +961,32 @@ void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
 }
 
 // Pop current C frame.
-void MacroAssembler::pop_frame() {
-  ld(R2_SP, R8_FP, _ijava_state(sender_sp));
+void MacroAssembler::pop_C_frame(bool restoreRA) {
+  mv(R2_SP, R8_FP);
+  if (restoreRA) {
+    ld(R1_RA, R8_FP, _abi(ra));
+  }
   ld(R8_FP, R8_FP, _abi(fp));
+}
+
+void MacroAssembler::pop_java_frame(bool restoreRA) {
+  ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
+  if (restoreRA) {
+    ld(R1_RA, R8_FP, _abi(ra));
+  }
+  ld(R8_FP, R8_FP, _abi(fp));
+  mv(R2_SP, R21_sender_SP);
+#ifdef ASSERT
+  {
+//    Label Lok;
+    // TODO_RISCV take registers for assert
+//    ld(Rscratch1, R8_FP, _ijava_state(ijava_reserved));
+//    li(Rscratch2, 0x5afe);
+//    beq(Rscratch1, Rscratch2, Lok);
+//    stop("frame corrupted (remove activation)", 0x5afe);
+//    bind(Lok);
+  }
+#endif
 }
 
 address MacroAssembler::branch_to(Register r_function_entry, bool and_link) {
@@ -1206,7 +1229,7 @@ void MacroAssembler::reserved_stack_check(Register return_pc) {
   // Enable reserved zone again, throw stack overflow exception.
   push_frame_reg_args(0, R0);
   call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), R24_thread);
-  pop_frame();
+  pop_C_frame(false);
   mtlr_PPC(return_pc);
   load_const_optimized(R0, StubRoutines::throw_delayed_StackOverflowError_entry());
   mtctr_PPC(R0);
@@ -3023,7 +3046,7 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src) {
   if (CompressedKlassPointers::shift() != 0 ||
       CompressedKlassPointers::base() == 0 && src != dst) {  // Move required.
     shifted_src = dst;
-    sldi_PPC(shifted_src, src, CompressedKlassPointers::shift());
+    slli(shifted_src, src, CompressedKlassPointers::shift());
   }
   if (CompressedKlassPointers::base() != 0) {
     add_const_optimized(dst, shifted_src, CompressedKlassPointers::base(), R0);
@@ -3031,12 +3054,16 @@ void MacroAssembler::decode_klass_not_null(Register dst, Register src) {
 }
 
 void MacroAssembler::load_klass(Register dst, Register src) {
+  // TODO_RISCV: add support for compressed class pointers
   if (UseCompressedClassPointers) {
+//    assert(!UseCompressedClassPointers, "RISCV port: compressed class pointers not supported");
+#if 0
     lwz_PPC(dst, oopDesc::klass_offset_in_bytes(), src);
     // Attention: no null check here!
     decode_klass_not_null(dst, dst);
+#endif
   } else {
-    ld_PPC(dst, oopDesc::klass_offset_in_bytes(), src);
+    ld(dst, src, oopDesc::klass_offset_in_bytes());
   }
 }
 
@@ -4784,8 +4811,7 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   // Call destination for its side effect.
   call_c(tmp);
 
-  pop_frame();
-  restore_LR_CR(tmp);
+  pop_C_frame();
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 # endif
 }
@@ -4811,8 +4837,7 @@ void MacroAssembler::verify_oop_addr(RegisterOrConstant offs, Register base, con
   // Call destination for its side effect.
   call_c(tmp);
 
-  pop_frame();
-  restore_LR_CR(tmp);
+  pop_C_frame();
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 }
 

@@ -198,8 +198,7 @@ void G1BarrierSetAssembler::g1_write_barrier_pre(MacroAssembler* masm, Decorator
   if (pre_val->is_volatile() && preloaded) { __ mr_PPC(pre_val, nv_save); } // restore
 
   if (needs_frame) {
-    __ pop_frame();
-    __ restore_LR_CR(tmp1);
+    __ pop_C_frame();
   }
 
   __ bind(filtered);

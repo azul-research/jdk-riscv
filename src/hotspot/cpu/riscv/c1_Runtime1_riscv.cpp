@@ -231,9 +231,7 @@ static void restore_live_registers(StubAssembler* sasm, Register result1, Regist
     }
   }
 
-  __ pop_frame();
-  __ ld_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
-  __ mtlr_PPC(R0);
+  __ pop_C_frame();
 }
 
 
@@ -493,10 +491,8 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         oop_maps = new OopMapSet();
         oop_maps->add_gc_map(call_offset, oop_map);
 
-        __ pop_frame();
-        __ ld_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
-        __ mtlr_PPC(R0);
-        __ blr_PPC();
+        __ pop_C_frame();
+        __ ret();
       }
       break;
 
@@ -824,9 +820,7 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     __ bctr_PPC();
     break;
   case handle_exception_from_callee_id: {
-    __ pop_frame();
-    __ ld_PPC(Rexception_pc, _abi_PPC(lr), R1_SP_PPC);
-    __ mtlr_PPC(Rexception_pc);
+    __ pop_C_frame();
     __ bctr_PPC();
     break;
   }

@@ -743,64 +743,43 @@ void InterpreterMacroAssembler::unlock_if_synchronized_method(TosState state,
   pop(state);
 }
 
-// Support function for remove_activation & Co.
-void InterpreterMacroAssembler::merge_frames(Register Rsender_sp, Register return_pc,
-                                             Register Rscratch1, Register Rscratch2) {
-  // Pop interpreter frame.
-  ld_PPC(Rscratch1, 0, R1_SP_PPC); // *SP
-  ld_PPC(Rsender_sp, _ijava_state(sender_sp), Rscratch1); // top_frame_sp
-  ld_PPC(Rscratch2, 0, Rscratch1); // **SP
-#ifdef ASSERT
-  {
-    Label Lok;
-    ld_PPC(R0, _ijava_state(ijava_reserved), Rscratch1);
-    cmpdi_PPC(CCR0, R0, 0x5afe);
-    beq_PPC(CCR0, Lok);
-    stop("frame corrupted (remove activation)", 0x5afe);
-    bind(Lok);
-  }
-#endif
-  if (return_pc!=noreg) {
-    ld_PPC(return_pc, _abi_PPC(lr), Rscratch1); // LR
-  }
-
-  // Merge top frames.
-  subf_PPC(Rscratch1, R1_SP_PPC, Rsender_sp); // top_frame_sp - SP
-  stdux_PPC(Rscratch2, R1_SP_PPC, Rscratch1); // atomically set *(SP = top_frame_sp) = **SP
-}
-
 void InterpreterMacroAssembler::narrow(Register result) {
   Register ret_type = R5_scratch1;
-  ld_PPC(R5_scratch1, in_bytes(Method::const_offset()), R27_method);
-  lbz_PPC(ret_type, in_bytes(ConstMethod::result_type_offset()), R5_scratch1);
+  Register scratch = R6_scratch2;
+  ld(R5_scratch1, R27_method, in_bytes(Method::const_offset()));
+  lbu(ret_type, R5_scratch1, in_bytes(ConstMethod::result_type_offset()));
 
-  Label notBool, notByte, notChar, done;
+  Label notBool, notByte, notChar, byteOne, shortOne, done;
 
   // common case first
-  cmpwi_PPC(CCR0, ret_type, T_INT);
-  beq_PPC(CCR0, done);
+  li(scratch, T_INT);
+  beq(scratch, ret_type, done);
 
-  cmpwi_PPC(CCR0, ret_type, T_BOOLEAN);
-  bne_PPC(CCR0, notBool);
-  andi_PPC(result, result, 0x1);
-  b_PPC(done);
+  li(scratch, T_BOOLEAN);
+  bne(scratch, ret_type, notBool);
+  andi(result, result, 0x1);
+  j(done);
 
   bind(notBool);
-  cmpwi_PPC(CCR0, ret_type, T_BYTE);
-  bne_PPC(CCR0, notByte);
-  extsb_PPC(result, result);
-  b_PPC(done);
+  li(scratch, T_BYTE);
+  bne(scratch, ret_type, notByte);
+  // sign-extend lower 8 bits
+  slli(result, result, 56);
+  srai(result, result, 56);
+  j(done);
 
   bind(notByte);
-  cmpwi_PPC(CCR0, ret_type, T_CHAR);
-  bne_PPC(CCR0, notChar);
-  andi_PPC(result, result, 0xffff);
-  b_PPC(done);
+  addi(scratch, R0, T_CHAR);
+  bne(scratch, ret_type, notChar);
+  // truncate all but lower 16 bits
+  slli(result, result, 48);
+  srli(result, result, 48);
+  j(done);
 
   bind(notChar);
-  // cmpwi_PPC(CCR0, ret_type, T_SHORT);  // all that's left
-  // bne_PPC(CCR0, done);
-  extsh_PPC(result, result);
+  // sign-extend lower 16 bits
+  slli(result, result, 48);
+  srai(result, result, 48);
 
   // Nothing to do for T_INT
   bind(done);
@@ -823,11 +802,14 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
                                                   bool throw_monitor_exception,
                                                   bool install_monitor_exception) {
   BLOCK_COMMENT("remove_activation {");
+#if 0 // TODO_RISCV
   unlock_if_synchronized_method(state, throw_monitor_exception, install_monitor_exception);
+#endif
 
   // Save result (push state before jvmti call and pop it afterwards) and notify jvmti.
   notify_method_exit(false, state, NotifyJVMTI, true);
 
+#if 0 // TODO_RISCV
   BLOCK_COMMENT("reserved_stack_check:");
   if (StackReservedPages > 0) {
     // Test if reserved zone needs to be enabled.
@@ -850,12 +832,12 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
 
     bind(no_reserved_zone_enabling);
   }
+#endif
 
   verify_oop(R25_tos, state);
   verify_thread();
 
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
-  mtlr_PPC(R0);
+  pop_java_frame();
   BLOCK_COMMENT("} remove_activation");
 }
 
@@ -1257,13 +1239,11 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
   // OSR buffer is in ARG1
 
   // Remove the interpreter frame.
-  merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
+  pop_java_frame();
 
   // Jump to the osr code.
   ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-  mtlr_PPC(R0);
-  mtctr_PPC(R5_scratch1);
-  bctr_PPC();
+  jr(R5_scratch1);
 
   align(32, 12);
   bind(overflow_with_error);
@@ -2065,9 +2045,9 @@ void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rd
 void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
                                                Register Rdst_address,
                                                Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  ld_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  ld(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2364,8 +2344,7 @@ void InterpreterMacroAssembler::verify_oop_or_return_address(Register reg, Regis
   mr_PPC(R3_ARG1_PPC, R27_method);
   call_c(Rtmp); // call C
 
-  pop_frame();
-  restore_LR_CR(Rtmp);
+  pop_C_frame();
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   b_PPC(skip);
 
@@ -2393,10 +2372,10 @@ void InterpreterMacroAssembler::notify_method_entry() {
   // the code to check if the event should be sent.
   if (JvmtiExport::can_post_interpreter_events()) {
     Label jvmti_post_done;
+    Register Rscratch = R5_scratch1;
 
-    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
-    cmpwi_PPC(CCR0, R0, 0);
-    beq_PPC(CCR0, jvmti_post_done);
+    lwu(Rscratch, R24_thread, in_bytes(JavaThread::interp_only_mode_offset()));
+    beqz(Rscratch, jvmti_post_done);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::post_method_entry),
             /*check_exceptions=*/true);
 
@@ -2428,10 +2407,10 @@ void InterpreterMacroAssembler::notify_method_exit(bool is_native_method, TosSta
   // the code to check if the event should be sent.
   if (mode == NotifyJVMTI && JvmtiExport::can_post_interpreter_events()) {
     Label jvmti_post_done;
+    Register Rscratch = R5_scratch1;
 
-    lwz_PPC(R0, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
-    cmpwi_PPC(CCR0, R0, 0);
-    beq_PPC(CCR0, jvmti_post_done);
+    lwu(Rscratch, R24_thread, in_bytes(JavaThread::interp_only_mode_offset()));
+    beqz(Rscratch, jvmti_post_done);
     if (!is_native_method) { push(state); } // Expose tos to GC.
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::post_method_exit),
             /*check_exceptions=*/check_exceptions);
