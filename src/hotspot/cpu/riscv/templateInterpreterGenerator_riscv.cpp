@@ -317,9 +317,8 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ pop_C_frame();
   __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
-  __ restore_LR_CR(R0);
 
-  __ blr_PPC();
+  __ ret();
 
   Label move_int_arg, move_float_arg;
   __ bind(move_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
@@ -455,9 +454,8 @@ address TemplateInterpreterGenerator::generate_abstract_entry(void) {
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_AbstractMethodErrorWithMethod),
                   R24_thread, R27_method);
 
-  // Pop the C frame and restore LR.
+  // Pop the C frame and restore RA.
   __ pop_C_frame();
-  __ restore_LR_CR(R0);
 
   // Reset JavaFrameAnchor from call_VM_leaf above.
   __ reset_last_Java_frame();
@@ -466,8 +464,7 @@ address TemplateInterpreterGenerator::generate_abstract_entry(void) {
   // which will also pop our full frame off. Satisfy the interface of
   // SharedRuntime::generate_forward_exception()
   __ load_const_optimized(R5_scratch1, StubRoutines::forward_exception_entry(), R0);
-  __ mtctr_PPC(R5_scratch1);
-  __ bctr_PPC();
+  __ jr(R5_scratch1);
 
   return entry;
 }
@@ -1149,9 +1146,8 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
 
     __ call_VM_leaf(runtime_entry);
 
-    // Pop the C frame and restore LR.
+    // Pop the C frame and restore RA.
     __ pop_C_frame();
-    __ restore_LR_CR(R0);
   }
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).

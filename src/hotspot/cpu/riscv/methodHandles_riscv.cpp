@@ -563,7 +563,6 @@ void MethodHandles::trace_method_handle(MacroAssembler* _masm, const char* adapt
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, trace_method_handle_stub));
 
   __ pop_C_frame();
-  __ restore_LR_CR(tmp);
   __ restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 
   BLOCK_COMMENT("} trace_method_handle");

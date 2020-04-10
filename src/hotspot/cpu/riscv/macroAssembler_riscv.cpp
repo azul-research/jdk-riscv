@@ -961,8 +961,11 @@ void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
 }
 
 // Pop current C frame.
-void MacroAssembler::pop_C_frame() {
+void MacroAssembler::pop_C_frame(bool restoreRA) {
   mv(R2_SP, R8_FP);
+  if (restoreRA) {
+    ld(R1_RA, R8_FP, _abi(ra));
+  }
   ld(R8_FP, R8_FP, _abi(fp));
 }
 
@@ -1226,7 +1229,7 @@ void MacroAssembler::reserved_stack_check(Register return_pc) {
   // Enable reserved zone again, throw stack overflow exception.
   push_frame_reg_args(0, R0);
   call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::enable_stack_reserved_zone), R24_thread);
-  pop_C_frame();
+  pop_C_frame(false);
   mtlr_PPC(return_pc);
   load_const_optimized(R0, StubRoutines::throw_delayed_StackOverflowError_entry());
   mtctr_PPC(R0);
@@ -4809,7 +4812,6 @@ void MacroAssembler::verify_oop(Register oop, const char* msg) {
   call_c(tmp);
 
   pop_C_frame();
-  restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 # endif
 }
@@ -4836,7 +4838,6 @@ void MacroAssembler::verify_oop_addr(RegisterOrConstant offs, Register base, con
   call_c(tmp);
 
   pop_C_frame();
-  restore_LR_CR(tmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 }
 

@@ -2356,7 +2356,6 @@ void InterpreterMacroAssembler::verify_oop_or_return_address(Register reg, Regis
   call_c(Rtmp); // call C
 
   pop_C_frame();
-  restore_LR_CR(Rtmp);
   restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
   b_PPC(skip);
 

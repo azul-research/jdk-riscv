@@ -1331,7 +1331,7 @@ void LIR_Assembler::return_op(LIR_Opr result) {
   if (Assembler::is_simm(frame_size, 16)) {
     __ addi_PPC(R1_SP_PPC, R1_SP_PPC, frame_size);
   } else {
-    __ pop_C_frame();
+    __ pop_C_frame(false);
   }
 
   if (SafepointMechanism::uses_thread_local_poll()) {

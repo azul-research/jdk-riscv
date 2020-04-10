@@ -434,7 +434,6 @@ class StubGenerator: public StubCodeGenerator {
     // Copy handler's address.
     __ mtctr_PPC(R3_RET_PPC);
     __ pop_C_frame();
-    __ restore_LR_CR(R0);
 
     // Set up the arguments for the exception handler:
     //  - R3_ARG1_PPC: exception oop
@@ -553,13 +552,10 @@ class StubGenerator: public StubCodeGenerator {
 #endif
 
     // Pop frame.
-    __ pop_C_frame();
-
-    __ restore_LR_CR(R5_scratch1);
+    __ pop_C_frame(false);
 
     __ load_const_PPC(R5_scratch1, StubRoutines::forward_exception_entry());
-    __ mtctr_PPC(R5_scratch1);
-    __ bctr_PPC();
+    __ jr(R5_scratch1);
 
     // Create runtime stub with OopMap.
     RuntimeStub* stub =
