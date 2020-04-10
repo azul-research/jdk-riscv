@@ -847,7 +847,7 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
   verify_oop(R25_tos, state);
   verify_thread();
 
-  pop_java_frame(true);
+  pop_java_frame();
   BLOCK_COMMENT("} remove_activation");
 }
 
@@ -1249,12 +1249,11 @@ void InterpreterMacroAssembler::test_backedge_count_for_osr(Register backedge_co
   // OSR buffer is in ARG1
 
   // Remove the interpreter frame.
-  pop_java_frame(true);
+  pop_java_frame();
 
   // Jump to the osr code.
   ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-  mtctr_PPC(R5_scratch1);
-  bctr_PPC();
+  jr(R5_scratch1);
 
   align(32, 12);
   bind(overflow_with_error);

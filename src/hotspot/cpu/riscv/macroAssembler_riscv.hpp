@@ -295,7 +295,7 @@ class MacroAssembler: public Assembler {
 
   // pop current C frame
   void pop_C_frame(bool restoreRA = true);
-  void pop_java_frame(bool setRA);
+  void pop_java_frame(bool restoreRA = true);
 
   //
   // Calls

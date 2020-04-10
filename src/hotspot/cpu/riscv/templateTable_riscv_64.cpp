@@ -1787,12 +1787,11 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // OSR buffer is in ARG1.
 
       // Remove the interpreter frame.
-      __ pop_java_frame(true);
+      __ pop_java_frame();
 
       // Jump to the osr code.
       __ ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-      __ mtctr_PPC(R5_scratch1);
-      __ bctr_PPC();
+      __ jr(R5_scratch1);
 
     } else {
 

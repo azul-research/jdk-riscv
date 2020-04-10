@@ -1557,11 +1557,11 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ lfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
   __ call_stub(result_handler_addr);
 
-  __ pop_java_frame(true);
+  __ pop_java_frame();
 
   // Must use the return pc which was loaded from the caller's frame
   // as the VM uses return-pc-patching for deoptimization.
-  __ blr_PPC();
+  __ ret();
 
   //-----------------------------------------------------------------------------
   // An exception is pending. We call into the runtime only if the
@@ -2060,8 +2060,8 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
     // Return from the current method into the deoptimization blob. Will eventually
     // end up in the deopt interpeter entry, deoptimization prepared everything that
     // we will reexecute the call that called us.
-    __ pop_java_frame(true);
-    __ blr_PPC();
+    __ pop_java_frame();
+    __ ret();
 
     // The non-deoptimized case.
     __ bind(Lcaller_not_deoptimized);
