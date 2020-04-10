@@ -2293,15 +2293,13 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   // Load 2 topmost expression stack values.
   __ ld(R13_ARG3, R23_esp, tsize*Interpreter::stackElementSize);
   __ ld(R12_ARG2, R23_esp, Interpreter::stackElementSize);
-  __ mv(R18_S2, R1_RA);
   __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::trace_bytecode), /* unused */ R11_ARG1, R12_ARG2, R13_ARG3, false);
-  __ mv(R1_RA, R18_S2); // FIXME_RISCV check usages of R18 or choose another one
   __ pop(state);
 
   if (TraceBytecodesAt > 0 && TraceBytecodesAt < max_intx) {
     __ bind(Lskip_vm_call);
   }
-  __ jr(R1_RA);
+  __ ret();
   BLOCK_COMMENT("} trace_code");
   return entry;
 }
