@@ -764,32 +764,22 @@ void InterpreterMacroAssembler::narrow(Register result) {
   li(scratch, T_BYTE);
   bne(scratch, ret_type, notByte);
   // sign-extend lower 8 bits
-  li(scratch, 0x80);
-  bge(result, scratch, byteOne);
-  andi(result, result, 0xff);
-  j(done);
-  bind(byteOne);
-  li(scratch, 0xffffff00);
-  orr(result, result, scratch);
+  slli(result, result, 56);
+  srai(result, result, 56);
   j(done);
 
   bind(notByte);
   addi(scratch, R0, T_CHAR);
   bne(scratch, ret_type, notChar);
-  li(scratch, 0xffff);
-  andr(result, result, scratch);
+  // truncate all but lower 16 bits
+  slli(result, result, 48);
+  srli(result, result, 48);
   j(done);
 
   bind(notChar);
   // sign-extend lower 16 bits
-  li(scratch, 0x8000);
-  bge(result, scratch, shortOne);
-  li(scratch, 0xffff);
-  andr(result, result, scratch);
-  j(done);
-  bind(shortOne);
-  li(scratch, 0xffff0000);
-  orr(result, result, scratch);
+  slli(result, result, 48);
+  srai(result, result, 48);
 
   // Nothing to do for T_INT
   bind(done);
