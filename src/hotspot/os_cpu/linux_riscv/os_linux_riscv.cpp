@@ -81,9 +81,18 @@ address os::current_stack_pointer() {
   intptr_t* csp;
 
   // copy stack pointer register value to scp:
-  __asm__ __volatile__ ("addi %0, sp, 0":"=r"(csp):);
+  __asm__ __volatile__ ("mv %0, sp":"=r"(csp):);
 
   return (address) csp;
+}
+
+address os::current_frame_pointer() {
+  intptr_t* cfp;
+
+  // copy stack pointer register value to scp:
+  __asm__ __volatile__ ("mv %0, fp":"=r"(cfp):);
+
+  return (address) cfp;
 }
 
 char* os::non_memory_address_word() {
@@ -205,14 +214,15 @@ frame os::get_sender_for_C_frame(frame* fr) {
     // fr is the last C frame
     return frame(NULL, NULL, (address) NULL);
   }
-  return frame(fr->sender_sp(), NULL /* FIXME_RISCV fr->sender_sp() */, fr->sender_pc());
+  return frame(fr->sender_sp(), fr->sender_fp(), fr->sender_pc());
 }
 
 
 frame os::current_frame() {
   intptr_t* csp = (intptr_t*) *((intptr_t*) os::current_stack_pointer());
+  intptr_t* cfp = (intptr_t*) *((intptr_t*) os::current_frame_pointer());
   // hack.
-  frame topframe(csp, NULL /* FIXME_RISCV current fp */ , (address)0x8);
+  frame topframe(csp, cfp, (address)0x8);
   // Return sender of sender of current topframe which hopefully
   // both have pc != NULL.
   frame tmp = os::get_sender_for_C_frame(&topframe);

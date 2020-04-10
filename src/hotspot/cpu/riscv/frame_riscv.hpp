@@ -425,6 +425,8 @@ monitor-> |                 |       }
     return (entry_frame_locals*) (((address) fp()) - entry_frame_locals_size);
   }
 
+  inline intptr_t* sender_fp() const { return (intptr_t*)own_abi()->fp; }
+
   enum {
     // normal return address is 1 bundle past PC
     pc_return_offset = 0

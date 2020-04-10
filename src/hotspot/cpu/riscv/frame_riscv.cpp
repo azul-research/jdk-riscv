@@ -208,7 +208,7 @@ frame frame::sender_for_entry_frame(RegisterMap *map) const {
 
 frame frame::sender_for_interpreter_frame(RegisterMap *map) const {
   // Pass callers initial_caller_sp as unextended_sp.
-  return frame(sender_sp(), NULL /* FIXME_RISCV sender_fp() */, sender_pc(), (intptr_t*)get_ijava_state()->sender_sp);
+  return frame(sender_sp(), sender_fp(), sender_pc(), (intptr_t*)get_ijava_state()->sender_sp);
 }
 
 frame frame::sender_for_compiled_frame(RegisterMap *map) const {
@@ -254,7 +254,7 @@ frame frame::sender(RegisterMap* map) const {
   }
   // Must be native-compiled frame, i.e. the marshaling code for native
   // methods that exists in the core system.
-  return frame(sender_sp(), NULL /* FIXME_RISCV sender_fp() */, sender_pc());
+  return frame(sender_sp(), sender_fp(), sender_pc());
 }
 
 void frame::patch_pc(Thread* thread, address pc) {
