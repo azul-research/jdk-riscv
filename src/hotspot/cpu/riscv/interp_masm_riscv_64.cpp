@@ -537,14 +537,13 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   // Writes:
   //   - Rres: Address that corresponds to the array index if check was successful.
   verify_oop(Rarray);
-  const Register Rlength   = R0;
+  const Register Rlength   = R5_scratch1;
   const Register RsxtIndex = Rtmp;
   Label LisNull, LnotOOR;
 
   // Array nullcheck
   if (!ImplicitNullChecks) {
-    cmpdi_PPC(CCR0, Rarray, 0);
-    beq_PPC(CCR0, LisNull);
+    beqz(Rarray, LisNull);
   } else {
     null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex);
   }
@@ -552,32 +551,30 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   // Rindex might contain garbage in upper bits (remember that we don't sign extend
   // during integer arithmetic operations). So kill them and put value into same register
   // where ArrayIndexOutOfBounds would expect the index in.
-  rldicl_PPC(RsxtIndex, Rindex, 0, 32); // zero extend 32 bit -> 64 bit
+  slli(Rindex, Rindex, 32);
+  srli(Rindex, Rindex, 32);
+  slli(RsxtIndex, Rindex, index_shift);
 
   // Index check
-  lwz_PPC(Rlength, arrayOopDesc::length_offset_in_bytes(), Rarray);
-  cmplw_PPC(CCR0, Rindex, Rlength);
-  sldi_PPC(RsxtIndex, RsxtIndex, index_shift);
-  blt_PPC(CCR0, LnotOOR);
-  // Index should be in R25_tos, array should be in R4_ARG2_PPC.
+  lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
+  blt(Rindex, Rlength, LnotOOR);
+  // Index should be in R25_tos, array should be in R12_ARG2.
   mv_if_needed(R25_tos, Rindex);
-  mv_if_needed(R4_ARG2_PPC, Rarray);
+  mv_if_needed(R12_ARG2, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
-  mtctr_PPC(Rtmp);
-  bctr_PPC();
+  jr(Rtmp);
 
   if (!ImplicitNullChecks) {
     bind(LisNull);
     load_dispatch_table(Rtmp, (address*)Interpreter::_throw_NullPointerException_entry);
-    mtctr_PPC(Rtmp);
-    bctr_PPC();
+    jr(Rtmp);
   }
 
   align(32, 16);
   bind(LnotOOR);
 
   // Calc address
-  add_PPC(Rres, RsxtIndex, Rarray);
+  add(Rres, RsxtIndex, Rarray);
 }
 
 void InterpreterMacroAssembler::index_check(Register array, Register index,
@@ -2030,9 +2027,9 @@ void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rds
 //   - Rdst_value
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rdst_address, Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  ld_PPC(Rdst_value, -8, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  lwu(Rdst_value, Rdst_address, -8);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2058,9 +2055,9 @@ void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
 void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
                                                  Register Rdst_address,
                                                  Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  lfs_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  flw(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2071,54 +2068,54 @@ void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
 void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
                                                   Register Rdst_address,
                                                   Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  lfd_PPC(Rdst_value, -8, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  fld(Rdst_value, Rdst_address, -8);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stw_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sw(Rvalue, Rindex, 0);
 }
 
 // Store a long value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  std_PPC(Rvalue, -8, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sd(Rvalue, Rindex, -8);
 }
 
 // Store an oop value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  std_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sd(Rvalue, Rindex, 0);
 }
 
-// Store an int value at local variable slot Rindex.
+// Store a float value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stfs_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  fsw(Rvalue, Rindex, 0);
 }
 
-// Store an int value at local variable slot Rindex.
+// Store a double value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stfd_PPC(Rvalue, -8, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  fsd(Rvalue, Rindex, -8);
 }
 
 // Read pending exception from thread and jump to interpreter.

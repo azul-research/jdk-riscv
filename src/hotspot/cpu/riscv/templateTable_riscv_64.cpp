@@ -168,19 +168,19 @@ void TemplateTable::shouldnotreachhere() {
 
 void TemplateTable::aconst_null() {
   transition(vtos, atos);
-  __ li_PPC(R25_tos, 0);
+  __ addi(R25_tos, R0_ZERO, 0);
 }
 
 void TemplateTable::iconst(int value) {
   transition(vtos, itos);
   assert(value >= -1 && value <= 5, "");
-  __ addi(R25_tos, R0, value);
+  __ addi(R25_tos, R0_ZERO, value);
 }
 
 void TemplateTable::lconst(int value) {
   transition(vtos, ltos);
   assert(value >= -1 && value <= 5, "");
-  __ li_PPC(R25_tos, value);
+  __ addi(R25_tos, R0_ZERO, value);
 }
 
 void TemplateTable::fconst(int value) {
@@ -191,18 +191,18 @@ void TemplateTable::fconst(int value) {
   switch (value) {
     default: ShouldNotReachHere();
     case 0: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&zero, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&zero, R6_scratch2, true);
+      __ flw(F23_ftos, R5_scratch1, off);
       break;
     }
     case 1: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&one, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&one, R6_scratch2, true);
+      __ flw(F23_ftos, R5_scratch1, off);
       break;
     }
     case 2: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&two, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&two, R6_scratch2, true);
+      __ flw(F23_ftos, R5_scratch1, off);
       break;
     }
   }
@@ -214,13 +214,13 @@ void TemplateTable::dconst(int value) {
   static double one  = 1.0;
   switch (value) {
     case 0: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&zero, R0, true);
-      __ lfd_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&zero, R6_scratch2, true);
+      __ fld(F23_ftos, R5_scratch1, off);
       break;
     }
     case 1: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&one, R0, true);
-      __ lfd_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&one, R6_scratch2, true);
+      __ fld(F23_ftos, R5_scratch1, off);
       break;
     }
     default: ShouldNotReachHere();
@@ -540,12 +540,12 @@ void TemplateTable::iload_internal(RewriteControl rc) {
 void TemplateTable::fast_iload2() {
   transition(vtos, itos);
 
-  __ lbz_PPC(R3_ARG1_PPC, 1, R22_bcp);
-  __ lbz_PPC(R25_tos, Bytecodes::length_for(Bytecodes::_iload) + 1, R22_bcp);
+  __ lbu(R7_TMP2, R22_bcp, 1);
+  __ lbu(R25_tos, R22_bcp, Bytecodes::length_for(Bytecodes::_iload) + 1);
 
-  __ load_local_int(R3_ARG1_PPC, R5_scratch1, R3_ARG1_PPC);
+  __ load_local_int(R7_TMP2, R5_scratch1, R7_TMP2);
   __ load_local_int(R25_tos, R6_scratch2, R25_tos);
-  __ push_i(R3_ARG1_PPC);
+  __ push_i(R7_TMP2);
 }
 
 void TemplateTable::fast_iload() {
@@ -639,41 +639,41 @@ void TemplateTable::wide_aload() {
 void TemplateTable::iaload() {
   transition(itos, itos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerInt, Rtemp, Rload_addr);
-  __ lwa_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_INT), Rload_addr);
+  __ lw(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_INT));
 }
 
 void TemplateTable::laload() {
   transition(itos, ltos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerLong, Rtemp, Rload_addr);
-  __ ld_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_LONG), Rload_addr);
+  __ ld(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_LONG));
 }
 
 void TemplateTable::faload() {
   transition(itos, ftos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerInt, Rtemp, Rload_addr);
-  __ lfs_PPC(F23_ftos, arrayOopDesc::base_offset_in_bytes(T_FLOAT), Rload_addr);
+  __ flw(F23_ftos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_FLOAT));
 }
 
 void TemplateTable::daload() {
   transition(itos, dtos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerLong, Rtemp, Rload_addr);
-  __ lfd_PPC(F23_ftos, arrayOopDesc::base_offset_in_bytes(T_DOUBLE), Rload_addr);
+  __ fld(F23_ftos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_DOUBLE));
 }
 
 void TemplateTable::aaload() {
@@ -681,50 +681,50 @@ void TemplateTable::aaload() {
 
   // tos: index
   // result tos: array
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC,
-                 Rtemp2     = R31;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3,
+                 Rtemp2     = R27; // TODO_RISCV: pick a more appropriate register?
   __ index_check(Rarray, R25_tos /* index */, UseCompressedOops ? 2 : LogBytesPerWord, Rtemp, Rload_addr);
   do_oop_load(_masm, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_OBJECT), R25_tos, Rtemp, Rtemp2,
               IS_ARRAY);
   __ verify_oop(R25_tos);
-  //__ dcbt_PPC(R25_tos); // prefetch
 }
 
 void TemplateTable::baload() {
   transition(itos, itos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3;
   __ index_check(Rarray, R25_tos /* index */, 0, Rtemp, Rload_addr);
-  __ lbz_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_BYTE), Rload_addr);
-  __ extsb_PPC(R25_tos, R25_tos);
+  __ lbu(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_BYTE));
+  __ slli(R25_tos, R25_tos, 56);
+  __ srai(R25_tos, R25_tos, 56);
 }
 
 void TemplateTable::caload() {
   transition(itos, itos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
-                 Rtemp      = R5_ARG3_PPC;
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
+                 Rtemp      = R13_ARG3;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerShort, Rtemp, Rload_addr);
-  __ lhz_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_CHAR), Rload_addr);
+  __ lhu(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_CHAR));
 }
 
 // Iload followed by caload frequent pair.
 void TemplateTable::fast_icaload() {
   transition(vtos, itos);
 
-  const Register Rload_addr = R3_ARG1_PPC,
-                 Rarray     = R4_ARG2_PPC,
+  const Register Rload_addr = R11_ARG1,
+                 Rarray     = R12_ARG2,
                  Rtemp      = R5_scratch1;
 
   locals_index(R25_tos);
   __ load_local_int(R25_tos, Rtemp, R25_tos);
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerShort, Rtemp, Rload_addr);
-  __ lhz_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_CHAR), Rload_addr);
+  __ lhu(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_CHAR));
 }
 
 void TemplateTable::saload() {
@@ -732,39 +732,40 @@ void TemplateTable::saload() {
 
   const Register Rload_addr = R5_scratch1,
                  Rarray     = R6_scratch2,
-                 Rtemp      = R3_ARG1_PPC;
+                 Rtemp      = R11_ARG1;
+
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerShort, Rtemp, Rload_addr);
-  __ lha_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_SHORT), Rload_addr);
+  __ lh(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_SHORT));
 }
 
 void TemplateTable::iload(int n) {
   transition(vtos, itos);
 
-  __ lwz_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ lwu(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::lload(int n) {
   transition(vtos, ltos);
 
-  __ ld_PPC(R25_tos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ ld(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n + 1));
 }
 
 void TemplateTable::fload(int n) {
   transition(vtos, ftos);
 
-  __ lfs_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ flw(F23_ftos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::dload(int n) {
   transition(vtos, dtos);
 
-  __ lfd_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ fld(F23_ftos, R26_locals, Interpreter::local_offset_in_bytes(n + 1));
 }
 
 void TemplateTable::aload(int n) {
   transition(vtos, atos);
 
-  __ ld_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ ld(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::aload_0() {
@@ -926,49 +927,52 @@ void TemplateTable::wide_astore() {
 void TemplateTable::iastore() {
   transition(itos, vtos);
 
-  const Register Rindex      = R3_ARG1_PPC,
-                 Rstore_addr = R4_ARG2_PPC,
-                 Rarray      = R5_ARG3_PPC,
-                 Rtemp       = R6_ARG4_PPC;
+  const Register Rindex      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
+                 Rarray      = R13_ARG3,
+                 Rtemp       = R14_ARG4;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
-  __ stw_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_INT), Rstore_addr);
+  __ sw(R25_tos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_INT));
   }
 
 void TemplateTable::lastore() {
   transition(ltos, vtos);
 
-  const Register Rindex      = R3_ARG1_PPC,
-                 Rstore_addr = R4_ARG2_PPC,
-                 Rarray      = R5_ARG3_PPC,
-                 Rtemp       = R6_ARG4_PPC;
+  const Register Rindex      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
+                 Rarray      = R13_ARG3,
+                 Rtemp       = R14_ARG4;
+
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerLong, Rtemp, Rstore_addr);
-  __ std_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_LONG), Rstore_addr);
+  __ sd(R25_tos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_LONG));
   }
 
 void TemplateTable::fastore() {
   transition(ftos, vtos);
 
-  const Register Rindex      = R3_ARG1_PPC,
-                 Rstore_addr = R4_ARG2_PPC,
-                 Rarray      = R5_ARG3_PPC,
-                 Rtemp       = R6_ARG4_PPC;
+  const Register Rindex      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
+                 Rarray      = R13_ARG3,
+                 Rtemp       = R14_ARG4;
+
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
-  __ stfs_PPC(F23_ftos, arrayOopDesc::base_offset_in_bytes(T_FLOAT), Rstore_addr);
+  __ fsw(F23_ftos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_FLOAT));
   }
 
 void TemplateTable::dastore() {
   transition(dtos, vtos);
 
-  const Register Rindex      = R3_ARG1_PPC,
-                 Rstore_addr = R4_ARG2_PPC,
-                 Rarray      = R5_ARG3_PPC,
-                 Rtemp       = R6_ARG4_PPC;
+  const Register Rindex      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
+                 Rarray      = R13_ARG3,
+                 Rtemp       = R14_ARG4;
+
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerLong, Rtemp, Rstore_addr);
-  __ stfd_PPC(F23_ftos, arrayOopDesc::base_offset_in_bytes(T_DOUBLE), Rstore_addr);
+  __ fsd(F23_ftos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_DOUBLE));
   }
 
 // Pop 3 values from the stack and...
@@ -1073,22 +1077,22 @@ void TemplateTable::sastore() {
 
 void TemplateTable::istore(int n) {
   transition(itos, vtos);
-  __ stw_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ sw(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::lstore(int n) {
   transition(ltos, vtos);
-  __ std_PPC(R25_tos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ sd(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n + 1));
 }
 
 void TemplateTable::fstore(int n) {
   transition(ftos, vtos);
-  __ stfs_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ fsw(F23_ftos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::dstore(int n) {
   transition(dtos, vtos);
-  __ stfd_PPC(F23_ftos, Interpreter::local_offset_in_bytes(n + 1), R26_locals);
+  __ fsd(F23_ftos, R26_locals,  Interpreter::local_offset_in_bytes(n + 1));
 }
 
 void TemplateTable::astore(int n) {
@@ -1096,25 +1100,25 @@ void TemplateTable::astore(int n) {
 
   __ pop_ptr();
   __ verify_oop_or_return_address(R25_tos, R5_scratch1);
-  __ std_PPC(R25_tos, Interpreter::local_offset_in_bytes(n), R26_locals);
+  __ sd(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::pop() {
   transition(vtos, vtos);
 
-  __ addi_PPC(R23_esp, R23_esp, Interpreter::stackElementSize);
+  __ addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
 void TemplateTable::pop2() {
   transition(vtos, vtos);
 
-  __ addi_PPC(R23_esp, R23_esp, Interpreter::stackElementSize * 2);
+  __ addi(R23_esp, R23_esp, Interpreter::stackElementSize * 2);
 }
 
 void TemplateTable::dup() {
   transition(vtos, vtos);
 
-  __ ld_PPC(R5_scratch1, Interpreter::stackElementSize, R23_esp);
+  __ ld(R5_scratch1, R23_esp, Interpreter::stackElementSize);
   __ push_ptr(R5_scratch1);
 }
 
@@ -1124,10 +1128,10 @@ void TemplateTable::dup_x1() {
   Register Ra = R5_scratch1,
            Rb = R6_scratch2;
   // stack: ..., a, b
-  __ ld_PPC(Rb, Interpreter::stackElementSize,     R23_esp);
-  __ ld_PPC(Ra, Interpreter::stackElementSize * 2, R23_esp);
-  __ std_PPC(Rb, Interpreter::stackElementSize * 2, R23_esp);
-  __ std_PPC(Ra, Interpreter::stackElementSize,     R23_esp);
+  __ ld(Rb, R23_esp, Interpreter::stackElementSize);
+  __ ld(Ra, R23_esp, Interpreter::stackElementSize * 2);
+  __ sd(Rb, R23_esp, Interpreter::stackElementSize * 2);
+  __ sd(Ra, R23_esp, Interpreter::stackElementSize);
   __ push_ptr(Rb);
   // stack: ..., b, a, b
 }
@@ -1137,17 +1141,17 @@ void TemplateTable::dup_x2() {
 
   Register Ra = R5_scratch1,
            Rb = R6_scratch2,
-           Rc = R3_ARG1_PPC;
+           Rc = R7_TMP2;
 
   // stack: ..., a, b, c
-  __ ld_PPC(Rc, Interpreter::stackElementSize,     R23_esp);  // load c
-  __ ld_PPC(Ra, Interpreter::stackElementSize * 3, R23_esp);  // load a
-  __ std_PPC(Rc, Interpreter::stackElementSize * 3, R23_esp); // store c in a
-  __ ld_PPC(Rb, Interpreter::stackElementSize * 2, R23_esp);  // load b
+  __ ld(Rc, R23_esp, Interpreter::stackElementSize);  // load c
+  __ ld(Ra, R23_esp, Interpreter::stackElementSize * 3);  // load a
+  __ sd(Rc, R23_esp, Interpreter::stackElementSize * 3); // store c in a
+  __ ld(Rb, R23_esp, Interpreter::stackElementSize * 2);  // load b
   // stack: ..., c, b, c
-  __ std_PPC(Ra, Interpreter::stackElementSize * 2, R23_esp); // store a in b
+  __ sd(Ra, R23_esp, Interpreter::stackElementSize * 2); // store a in b
   // stack: ..., c, a, c
-  __ std_PPC(Rb, Interpreter::stackElementSize,     R23_esp); // store b in c
+  __ sd(Rb, R23_esp, Interpreter::stackElementSize); // store b in c
   __ push_ptr(Rc);                                        // push c
   // stack: ..., c, a, b, c
 }
@@ -1158,8 +1162,8 @@ void TemplateTable::dup2() {
   Register Ra = R5_scratch1,
            Rb = R6_scratch2;
   // stack: ..., a, b
-  __ ld_PPC(Rb, Interpreter::stackElementSize,     R23_esp);
-  __ ld_PPC(Ra, Interpreter::stackElementSize * 2, R23_esp);
+  __ ld(Rb, R23_esp, Interpreter::stackElementSize);
+  __ ld(Ra, R23_esp, Interpreter::stackElementSize * 2);
   __ push_2ptrs(Ra, Rb);
   // stack: ..., a, b, a, b
 }
@@ -1171,12 +1175,12 @@ void TemplateTable::dup2_x1() {
            Rb = R6_scratch2,
            Rc = R3_ARG1_PPC;
   // stack: ..., a, b, c
-  __ ld_PPC(Rc, Interpreter::stackElementSize,     R23_esp);
-  __ ld_PPC(Rb, Interpreter::stackElementSize * 2, R23_esp);
-  __ std_PPC(Rc, Interpreter::stackElementSize * 2, R23_esp);
-  __ ld_PPC(Ra, Interpreter::stackElementSize * 3, R23_esp);
-  __ std_PPC(Ra, Interpreter::stackElementSize,     R23_esp);
-  __ std_PPC(Rb, Interpreter::stackElementSize * 3, R23_esp);
+  __ ld(Rc, R23_esp, Interpreter::stackElementSize);
+  __ ld(Rb, R23_esp, Interpreter::stackElementSize * 2);
+  __ sd(Rc, R23_esp, Interpreter::stackElementSize * 2);
+  __ ld(Ra, R23_esp, Interpreter::stackElementSize * 3);
+  __ sd(Ra, R23_esp, Interpreter::stackElementSize);
+  __ sd(Rb, R23_esp, Interpreter::stackElementSize * 3);
   // stack: ..., b, c, a
   __ push_2ptrs(Rb, Rc);
   // stack: ..., b, c, a, b, c
@@ -1187,17 +1191,17 @@ void TemplateTable::dup2_x2() {
 
   Register Ra = R5_scratch1,
            Rb = R6_scratch2,
-           Rc = R3_ARG1_PPC,
-           Rd = R4_ARG2_PPC;
+           Rc = R7_TMP2,
+           Rd = R28_TMP3;
   // stack: ..., a, b, c, d
-  __ ld_PPC(Rb, Interpreter::stackElementSize * 3, R23_esp);
-  __ ld_PPC(Rd, Interpreter::stackElementSize,     R23_esp);
-  __ std_PPC(Rb, Interpreter::stackElementSize,     R23_esp);  // store b in d
-  __ std_PPC(Rd, Interpreter::stackElementSize * 3, R23_esp);  // store d in b
-  __ ld_PPC(Ra, Interpreter::stackElementSize * 4, R23_esp);
-  __ ld_PPC(Rc, Interpreter::stackElementSize * 2, R23_esp);
-  __ std_PPC(Ra, Interpreter::stackElementSize * 2, R23_esp);  // store a in c
-  __ std_PPC(Rc, Interpreter::stackElementSize * 4, R23_esp);  // store c in a
+  __ ld(Rb, R23_esp, Interpreter::stackElementSize * 3);
+  __ ld(Rd, R23_esp, Interpreter::stackElementSize);
+  __ sd(Rb, R23_esp, Interpreter::stackElementSize);  // store b in d
+  __ sd(Rd, R23_esp, Interpreter::stackElementSize * 3);  // store d in b
+  __ ld(Ra, R23_esp, Interpreter::stackElementSize * 4);
+  __ ld(Rc, R23_esp, Interpreter::stackElementSize * 2);
+  __ sd(Ra, R23_esp, Interpreter::stackElementSize * 2);  // store a in c
+  __ sd(Rc, R23_esp, Interpreter::stackElementSize * 4);  // store c in a
   // stack: ..., c, d, a, b
   __ push_2ptrs(Rc, Rd);
   // stack: ..., c, d, a, b, c, d
@@ -1210,10 +1214,10 @@ void TemplateTable::swap() {
   Register Ra = R5_scratch1,
            Rb = R6_scratch2;
   // stack: ..., a, b
-  __ ld_PPC(Rb, Interpreter::stackElementSize,     R23_esp);
-  __ ld_PPC(Ra, Interpreter::stackElementSize * 2, R23_esp);
-  __ std_PPC(Rb, Interpreter::stackElementSize * 2, R23_esp);
-  __ std_PPC(Ra, Interpreter::stackElementSize,     R23_esp);
+  __ ld(Rb, R23_esp, Interpreter::stackElementSize);
+  __ ld(Ra, R23_esp, Interpreter::stackElementSize * 2);
+  __ sd(Rb, R23_esp, Interpreter::stackElementSize * 2);
+  __ sd(Ra, R23_esp, Interpreter::stackElementSize);
   // stack: ..., b, a
 }
 
