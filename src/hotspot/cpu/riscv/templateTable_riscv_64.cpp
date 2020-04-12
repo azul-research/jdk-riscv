@@ -2338,7 +2338,7 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
   // Access constant pool cache fields.
   const int index_offset  = in_bytes(cp_base_offset + ConstantPoolCacheEntry::f2_offset());
 
-  Register Rcache = R21_tmp1_PPC; // Note: same register as R21_sender_SP.
+  Register Rcache = R21_S5; // Note: same register as R21_sender_SP.
 
   if (is_invokevfinal) {
     assert(Ritable_index == noreg, "register not used");
@@ -2348,11 +2348,11 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
     resolve_cache_and_index(byte_no, Rcache, /* temp */ Rmethod, is_invokedynamic ? sizeof(u4) : sizeof(u2));
   }
 
-  __ ld_PPC(Rmethod, method_offset, Rcache);
-  __ ld_PPC(Rflags, flags_offset, Rcache);
+  __ ld(Rmethod, Rcache, method_offset);
+  __ ld(Rflags, Rcache, flags_offset);
 
   if (Ritable_index != noreg) {
-    __ ld_PPC(Ritable_index, index_offset, Rcache);
+    __ ld(Ritable_index, Rcache, index_offset);
   }
 }
 
@@ -3369,10 +3369,9 @@ void TemplateTable::prepare_invoke(int byte_no,
   const bool load_receiver       = (Rrecv != noreg);
   assert(load_receiver == (code != Bytecodes::_invokestatic && code != Bytecodes::_invokedynamic), "");
 
-  // FIXME_RISCV use different registers
-//  assert_different_registers(Rmethod, Rindex, Rflags, Rscratch);
-//  assert_different_registers(Rmethod, Rrecv, Rflags, Rscratch);
-//  assert_different_registers(Rret_addr, Rscratch);
+  assert_different_registers(Rmethod, Rindex, Rflags, Rscratch);
+  assert_different_registers(Rmethod, Rrecv, Rflags, Rscratch);
+  assert_different_registers(Rret_addr, Rscratch);
 
   load_invoke_cp_cache_entry(byte_no, Rmethod, Rindex, Rflags, is_invokevirtual, false, is_invokedynamic);
 
@@ -3380,6 +3379,7 @@ void TemplateTable::prepare_invoke(int byte_no,
 
   // Maybe push "appendix" to arguments.
   if (is_invokedynamic || is_invokehandle) {
+    __ unimplemented("unimplemented part of TemplateTable::prepare_invoke");
     Label Ldone;
     __ rldicl__PPC(R0, Rflags, 64-ConstantPoolCacheEntry::has_appendix_shift, 63);
     __ beq_PPC(CCR0, Ldone);
@@ -3394,6 +3394,7 @@ void TemplateTable::prepare_invoke(int byte_no,
 
   // Load receiver if needed (after appendix is pushed so parameter size is correct).
   if (load_receiver) {
+    __ unimplemented("unimplemented part of TemplateTable::prepare_invoke");
     const Register Rparam_count = Rscratch;
     __ andi(Rparam_count, Rflags, ConstantPoolCacheEntry::parameter_size_mask);
     __ load_receiver(Rparam_count, Rrecv);
@@ -3407,11 +3408,13 @@ void TemplateTable::prepare_invoke(int byte_no,
     address table_addr = (address) Interpreter::invoke_return_entry_table_for(code);
 
     // Get return type. It's coded into the upper 4 bits of the lower half of the 64 bit value.
-    __ rldicl_PPC(Rret_type, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
+    __ srli(Rret_type, Rflags, ConstantPoolCacheEntry::tos_state_shift);
+    __ andi(Rret_type, Rret_type, ConstantPoolCacheEntry::tos_state_mask);
     __ load_dispatch_table(Rtable_addr, (address*)table_addr);
-    __ sldi_PPC(Rret_type, Rret_type, LogBytesPerWord);
+    __ slli(Rret_type, Rret_type, LogBytesPerWord);
     // Get return address.
-    __ ldx_PPC(Rret_addr, Rtable_addr, Rret_type);
+    __ add(Rtable_addr, Rtable_addr, Rret_type);
+    __ ld(Rret_addr, Rtable_addr);
   }
 }
 
@@ -3530,11 +3533,13 @@ void TemplateTable::invokespecial(int byte_no) {
   /*assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
-  Register Rtable_addr = R3_ARG1_PPC,
-           Rret_addr   = R4_ARG2_PPC,
-           Rflags      = R5_ARG3_PPC,
-           Rreceiver   = R6_ARG4_PPC,
+  // FIXME_RISCV begin: check all registers
+  Register Rtable_addr = R10_ARG0,
+           Rret_addr   = R11_ARG1,
+           Rflags      = R12_ARG2,
+           Rreceiver   = R13_ARG3,
            Rmethod     = R31;
+  // FIXME_RISCV end
 
   prepare_invoke(byte_no, Rmethod, Rret_addr, noreg, Rreceiver, Rflags, R5_scratch1);
 
@@ -3551,15 +3556,17 @@ void TemplateTable::invokestatic(int byte_no) {
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
-  Register Rtable_addr = R3_ARG1_PPC,
-           Rret_addr   = R4_ARG2_PPC,
-           Rflags      = R5_ARG3_PPC;
+  Register Rtable_addr = R10_ARG0,
+           Rret_addr   = R11_ARG1,
+           Rflags      = R12_ARG2;
 
   prepare_invoke(byte_no, R27_method, Rret_addr, noreg, noreg, Rflags, R5_scratch1);
 
   __ profile_call(R5_scratch1, R6_scratch2);
   // Argument and return type profiling.
-  __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
+  // FIXME_RISCV
+  // __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
+
   __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
 }
 
@@ -3596,16 +3603,20 @@ void TemplateTable::invokeinterface(int byte_no) {
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
+
+  // FIXME_RISCV begin: check all registers
   const Register Rscratch1        = R5_scratch1,
                  Rscratch2        = R6_scratch2,
-                 Rmethod          = R6_ARG4_PPC,
-                 Rmethod2         = R9_ARG7_PPC,
-                 Rinterface_klass = R5_ARG3_PPC,
-                 Rret_addr        = R8_ARG6_PPC,
-                 Rindex           = R10_ARG8_PPC,
-                 Rreceiver        = R3_ARG1_PPC,
-                 Rrecv_klass      = R4_ARG2_PPC,
-                 Rflags           = R7_ARG5_PPC;
+                 Rmethod          = R13_ARG3,
+                 Rmethod2         = R16_ARG6,
+                 Rinterface_klass = R12_ARG2,
+                 Rret_addr        = R15_ARG5,
+                 Rindex           = R17_ARG7,
+                 Rreceiver        = R10_ARG0,
+                 Rrecv_klass      = R11_ARG1,
+                 Rflags           = R14_ARG4;
+
+  // FIXME_RISCV end
 
   prepare_invoke(byte_no, Rinterface_klass, Rret_addr, Rmethod, Rreceiver, Rflags, Rscratch1);
 

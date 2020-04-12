@@ -147,7 +147,7 @@ class StubGenerator: public StubCodeGenerator {
       __ addi(r_frame_size, r_frame_size, frame::entry_frame_size);
 
       // push ENTRY_FRAME
-      __ push_frame(r_frame_size);
+      __ push_frame(r_frame_size, r_temp);
 
       // initialize call_stub locals (step 1)
       __ sd(r_arg_call_wrapper_addr,
@@ -879,8 +879,11 @@ class StubGenerator: public StubCodeGenerator {
 
   inline void assert_positive_int(Register count) {
 #ifdef ASSERT
-    __ srdi__PPC(R0, count, 31);
-    __ asm_assert_eq("missing zero extend", 0xAFFE);
+    __ unimplemented("stubGenerator_riscv.cpp: assert_positive_int() not implemented");
+// FIXME_RISCV begin
+//  __ srdi__PPC(R0, count, 31);
+//  __ asm_assert_eq("missing zero extend", 0xAFFE);
+// FIXME_RISCV end
 #endif
   }
 
