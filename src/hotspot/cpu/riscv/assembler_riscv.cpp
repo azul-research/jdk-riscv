@@ -79,7 +79,7 @@ int Assembler::branch_destination(int inst, int pos) {
 }
 
 // Low-level andi-one-instruction-macro.
-void Assembler::andi(Register a, Register s, const long ui16) {
+void Assembler::andi_PPC(Register a, Register s, const long ui16) {
   if (is_power_of_2_long(((jlong) ui16)+1)) {
     // pow2minus1
     clrldi_PPC(a, s, 64-log2_long((((jlong) ui16)+1)));

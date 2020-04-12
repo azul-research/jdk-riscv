@@ -47,7 +47,8 @@ inline void frame::find_codeblob_and_set_pc_and_deopt_state(address pc) {
     _deopt_state = not_deoptimized;
   }
 
-  assert(((uint64_t)_sp & 0xf) == 0, "SP must be 16-byte aligned");
+  tty->print_cr("%s. There was assert about SP 16-byte align. SP: %" PRIx64, __func__, (uint64_t)_sp);
+  //assert(((uint64_t)_sp & 0xf) == 0, "SP must be 16-byte aligned"); FIXME_RISCV don't know rule about sp align
 }
 
 // Constructors
@@ -56,7 +57,7 @@ inline void frame::find_codeblob_and_set_pc_and_deopt_state(address pc) {
 inline frame::frame() : _sp(NULL), _pc(NULL), _cb(NULL),  _deopt_state(unknown), _unextended_sp(NULL), _fp(NULL) {}
 
 inline frame::frame(intptr_t* sp, intptr_t* fp) : _sp(sp), _unextended_sp(sp), _fp(fp) {
-  find_codeblob_and_set_pc_and_deopt_state((address)own_abi()->lr); // also sets _fp and adjusts _unextended_sp
+  find_codeblob_and_set_pc_and_deopt_state((address)own_abi()->ra); // also sets _fp and adjusts _unextended_sp
 }
 
 inline frame::frame(intptr_t* sp, intptr_t* fp, address pc) : _sp(sp), _unextended_sp(sp), _fp(fp) {
@@ -86,8 +87,8 @@ inline bool frame::is_older(intptr_t* id) const {
 }
 
 inline int frame::frame_size(RegisterMap* map) const {
-  // Stack grows towards smaller addresses on RISCV64: sender is at a higher address.
-  return sender_sp() - sp();
+  // Stack grows towards smaller addresses on RISCV64: fp is at a higher address.
+  return fp() - sp();
 }
 
 // Return the frame's stack pointer before it has been extended by a
@@ -99,20 +100,20 @@ inline intptr_t* frame::unextended_sp() const {
 
 // All frames have this field.
 inline address frame::sender_pc() const {
-  return (address)callers_abi()->lr;
+  return (address)callers_abi()->ra;
 }
 inline address* frame::sender_pc_addr() const {
-  return (address*)&(callers_abi()->lr);
+  return (address*)&(callers_abi()->ra);
 }
 
 // All frames have this field.
 inline intptr_t* frame::sender_sp() const {
-  return (intptr_t*)callers_abi();
+  return fp();
 }
 
 // All frames have this field.
 inline intptr_t* frame::link() const {
-  return (intptr_t*)callers_abi()->callers_sp;
+  return (intptr_t*)own_abi()->fp;
 }
 
 inline intptr_t* frame::real_fp() const {
@@ -122,7 +123,7 @@ inline intptr_t* frame::real_fp() const {
 // Template Interpreter frame value accessors.
 
 inline frame::ijava_state* frame::get_ijava_state() const {
-  return (ijava_state*) ((uintptr_t)fp() - ijava_state_size);
+  return (ijava_state*) ((uintptr_t)fp() - frame_header_size);
 }
 
 inline intptr_t** frame::interpreter_frame_locals_addr() const {

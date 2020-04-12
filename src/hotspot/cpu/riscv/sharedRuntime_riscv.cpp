@@ -513,7 +513,7 @@ void RegisterSaver::restore_argument_registers_and_pop_frame(MacroAssembler*masm
         st_off -= wordSize;
       }
     }
-  __ pop_frame();
+  __ pop_C_frame();
 }
 
 // Restore the registers that might be holding a result.
@@ -943,7 +943,7 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   assert_different_registers(sender_SP, code, ientry, return_pc, tmp);
 
   // Adapter needs TOP_IJAVA_FRAME_ABI.
-  const int adapter_size = frame::top_ijava_frame_abi_size +
+  const int adapter_size = /*frame::top_ijava_frame_abi_size TODO RISC-V*/ +
                            align_up(total_args_passed * wordSize, frame::alignment_in_bytes);
 
   // regular (verified) c2i entry point
@@ -2416,7 +2416,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
       break;
       }
     case T_CHAR: {                // unsigned result
-      __ andi(R3_RET_PPC, R3_RET_PPC, 0xffff);
+      __ andi_PPC(R3_RET_PPC, R3_RET_PPC, 0xffff);
       break;
       }
     case T_SHORT: {               // sign extension

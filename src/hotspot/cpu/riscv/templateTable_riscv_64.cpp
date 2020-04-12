@@ -392,7 +392,7 @@ void TemplateTable::condy_helper(Label& Done) {
 
   // VMr = obj = base address to find primitive value to push
   // VMr2 = flags = (tos, off) using format of CPCE::_flags
-  __ andi(off, flags, ConstantPoolCacheEntry::field_index_mask);
+  __ andi_PPC(off, flags, ConstantPoolCacheEntry::field_index_mask);
 
   // What sort of thing are we loading?
   __ rldicl_PPC(flags, flags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
@@ -1045,7 +1045,7 @@ void TemplateTable::bastore() {
   __ testbitdi_PPC(CCR0, R0, Rscratch, diffbit);
   Label L_skip;
   __ bfalse_PPC(CCR0, L_skip);
-  __ andi(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
+  __ andi_PPC(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
   __ bind(L_skip);
 
   __ index_check_without_pop(Rarray, Rindex, 0, Rscratch, Rarray);
@@ -1786,13 +1786,11 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       // OSR buffer is in ARG1.
 
       // Remove the interpreter frame.
-      __ merge_frames(/*top_frame_sp*/ R21_sender_SP, /*return_pc*/ R0, R5_scratch1, R6_scratch2);
+      __ pop_java_frame();
 
       // Jump to the osr code.
       __ ld_PPC(R5_scratch1, nmethod::osr_entry_point_offset(), osr_nmethod);
-      __ mtlr_PPC(R0);
-      __ mtctr_PPC(R5_scratch1);
-      __ bctr_PPC();
+      __ jr(R5_scratch1);
 
     } else {
 
@@ -1877,11 +1875,12 @@ void TemplateTable::ret() {
   locals_index(R5_scratch1);
   __ load_local_ptr(R25_tos, R5_scratch1, R5_scratch1);
 
-  __ profile_ret(vtos, R25_tos, R5_scratch1, R6_scratch2);
+// TODO_RISCV: following line
+//  __ profile_ret(vtos, R25_tos, R5_scratch1, R6_scratch2);
 
-  __ ld_PPC(R5_scratch1, in_bytes(Method::const_offset()), R27_method);
-  __ add_PPC(R5_scratch1, R25_tos, R5_scratch1);
-  __ addi_PPC(R22_bcp, R5_scratch1, in_bytes(ConstMethod::codes_offset()));
+  __ ld(R5_scratch1, R27_method, in_bytes(Method::const_offset()));
+  __ add(R5_scratch1, R25_tos, R5_scratch1);
+  __ addi(R22_bcp, R5_scratch1, in_bytes(ConstMethod::codes_offset()));
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -2150,9 +2149,7 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
-  if (state == vtos) {
-    tty->print_cr("_return: %p, state: %i", __ pc(), state);
-  }
+  tty->print_cr("return #%i: %p", state, __ pc());
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
@@ -2166,13 +2163,13 @@ void TemplateTable::_return(TosState state) {
 
     // Check if the method has the FINALIZER flag set and call into the VM to finalize in this case.
     assert(state == vtos, "only valid state");
-    __ ld_PPC(R25_tos, 0, R26_locals);
+    __ ld(R25_tos, R26_locals, 0);
 
     // Load klass of this obj.
     __ load_klass(Rklass, R25_tos);
-    __ lwz_PPC(Rklass_flags, in_bytes(Klass::access_flags_offset()), Rklass);
-    __ testbitdi_PPC(CCR0, R0, Rklass_flags, exact_log2(JVM_ACC_HAS_FINALIZER));
-    __ bfalse_PPC(CCR0, Lskip_register_finalizer);
+    __ lwu(Rklass_flags, Rklass, in_bytes(Klass::access_flags_offset()));
+    __ andi(Rscratch, Rklass_flags, exact_log2(JVM_ACC_HAS_FINALIZER));
+    __ beqz(Rscratch, Lskip_register_finalizer);
 
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::register_finalizer), R25_tos /* obj */);
 
@@ -2182,9 +2179,9 @@ void TemplateTable::_return(TosState state) {
 
   if (SafepointMechanism::uses_thread_local_poll() && _desc->bytecode() != Bytecodes::_return_register_finalizer) {
     Label no_safepoint;
-    __ ld_PPC(R5_scratch1, in_bytes(Thread::polling_page_offset()), R24_thread);
-    __ andi__PPC(R5_scratch1, R5_scratch1, SafepointMechanism::poll_bit());
-    __ beq_PPC(CCR0, no_safepoint);
+    __ ld(R5_scratch1, R24_thread, in_bytes(Thread::polling_page_offset()));
+    __ andi(R5_scratch1, R5_scratch1, SafepointMechanism::poll_bit());
+    __ beqz(R5_scratch1, no_safepoint);
     __ push(state);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::at_safepoint));
     __ pop(state);
@@ -2200,15 +2197,15 @@ void TemplateTable::_return(TosState state) {
     // since compiled code callers expect the result to already be narrowed.
     case itos: __ narrow(R25_tos); /* fall through */
     case ltos:
-    case atos: __ mr_PPC(R3_RET_PPC, R25_tos); break;
+    case atos: __ mv(R10_RET1, R25_tos); break;
     case ftos:
-    case dtos: __ fmr_PPC(F1_RET_PPC, F23_ftos); break;
+    case dtos: __ fmvd(F11_RET1, F23_ftos); break;
     case vtos: // This might be a constructor. Final fields (and volatile fields on RISCV64) need
                // to get visible before the reference to the object gets stored anywhere.
                __ membar(Assembler::StoreStore); break;
     default  : ShouldNotReachHere();
   }
-  __ blr_PPC();
+  __ ret();
 }
 
 // ============================================================================
@@ -2255,14 +2252,14 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
 #else
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
-  __ addi(R11_ARG1, R0, (int) code);
+  __ li(R11_ARG1, (int) code);
   __ beq(Rscratch, R11_ARG1, Lresolved);
 
   // Class initialization barrier slow path lands here as well.
   __ bind(L_clinit_barrier_slow);
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_from_cache);
-  __ addi(R11_ARG1, R0, (int) code);
+  __ li(R11_ARG1, (int) code);
   __ call_VM(noreg, entry, R11_ARG1, true);
 
   // Update registers with resolved info.
@@ -2839,14 +2836,16 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   __ andi(Rflags, Rflags, (1 << ConstantPoolCacheEntry::tos_state_bits) - 1);
 
 #ifdef ASSERT
+  // FIXME_RISCV
   Label LFlagInvalid;
-  __ addi(Rscratch2, R0_ZERO, number_of_states);
-  __ bge(Rflags, Rscratch2, LFlagInvalid);
+//  __ addi(Rscratch2, R0_ZERO, number_of_states);
+//  __ bge(Rflags, Rscratch2, LFlagInvalid);
 #endif
 
   // Load from branch table and dispatch (volatile case: one instruction ahead).
   __ slli(Rflags, Rflags, LogBytesPerWord);
   if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
+    // FIXME_RISCV
     //__ cmpwi_PPC(CR_is_vol, Rscratch, 1);  // Volatile?
   }
   __ slli(Rscratch, Rscratch, exact_log2(BytesPerInstWord)); // Volatile ? size of 1 instruction : 0.
@@ -3088,7 +3087,7 @@ void TemplateTable::fast_storefield(TosState state) {
       break;
 
     case Bytecodes::_fast_zputfield:
-      __ andi(R25_tos, R25_tos, 0x1);  // boolean is true if LSB is 1
+      __ andi_PPC(R25_tos, R25_tos, 0x1);  // boolean is true if LSB is 1
       // fall through to bputfield
     case Bytecodes::_fast_bputfield:
       __ stbx_PPC(R25_tos, Rclass_or_obj, Roffset);

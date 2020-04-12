@@ -981,12 +981,30 @@ class Assembler : public AbstractAssembler {
   enum Predict { pt = 1, pn = 0 }; // pt = predict taken
 
   //---<  calculate length of instruction  >---
-  // With RISCV64 being a RISC architecture, this always is BytesPerInstWord
-  // instruction must start at passed address
-  static unsigned int instr_len(unsigned char *instr) { return BytesPerInstWord; }
+  // RISCV specification V20190608, section 1.5, Figure 1.1, RISC-V instruction length encoding
+  // Only the 16-bit and 32-bit encodings are considered frozen at this time
+  static unsigned int instr_len(unsigned char *instr) {
+    unsigned char l = *instr;
+    if ((l & 0x7F) == 0x7F) { // xnnnxxxx x1111111
+      unsigned char h = *(instr + 1);
+      unsigned char nnn = (h >> 4) & 0x7;
+      return nnn == 7 ? instr_len_more192(l, h) : 80 + 16 * nnn;
+    }
+    return   ((l & 0x3F) == 0x3F) ? 64 // x0111111
+           : ((l & 0x1F) == 0x1F) ? 48 // xx011111
+           : ((l & 0x03) == 0x03) ? 32 // xxxbbb11 (bbb != 111)
+           : 16;                       // xxxxxxaa ( aa != 11 )
+    // TODO: illegal instructions lengths: [15:0] all zeros; [ILEN-1:0] all ones
+  }
+
+  static unsigned int instr_len_more192(unsigned char l, unsigned char h) {
+    tty->print_cr("%s not implemented", __func__);
+    exit(42);
+  }
 
   //---<  longest instructions  >---
-  static unsigned int instr_maxlen() { return BytesPerInstWord; }
+  // RISCV specification V20190608, section 1.5, Figure 1.1, Expanded Instruction-Length Encoding
+  static unsigned int instr_maxlen() { return 192; }
 
   // Test if x is within signed immediate range for nbits.
   static bool is_simm(int x, unsigned int nbits) {
@@ -1500,7 +1518,7 @@ class Assembler : public AbstractAssembler {
   inline void isel_0_PPC( Register d, ConditionRegister cr, Condition cc, Register b = noreg);
 
   // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
-         void andi(   Register a, Register s, long ui16);   // optimized version
+         void andi_PPC(   Register a, Register s, long ui16);   // optimized version
   inline void andi__PPC(  Register a, Register s, int ui16);
   inline void andis__PPC( Register a, Register s, int ui16);
   inline void ori_PPC(    Register a, Register s, int ui16);

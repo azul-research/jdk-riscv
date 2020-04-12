@@ -81,9 +81,18 @@ address os::current_stack_pointer() {
   intptr_t* csp;
 
   // copy stack pointer register value to scp:
-  __asm__ __volatile__ ("addi %0, sp, 0":"=r"(csp):);
+  __asm__ __volatile__ ("mv %0, sp":"=r"(csp):);
 
   return (address) csp;
+}
+
+address os::current_frame_pointer() {
+  intptr_t* cfp;
+
+  // copy stack pointer register value to scp:
+  __asm__ __volatile__ ("mv %0, fp":"=r"(cfp):);
+
+  return (address) cfp;
 }
 
 char* os::non_memory_address_word() {
@@ -108,21 +117,16 @@ address os::Linux::ucontext_get_pc(const ucontext_t * uc) {
   // - if uc was filled by getcontext(), it is undefined - getcontext() does not fill
   //   it because the volatile registers are not needed to make setcontext() work.
   //   Hopefully it was zero'd out beforehand.
-// FIXME_RISCV begin
-//  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_get_pc in sigaction context");
-  tty->print_cr("%s returned NULL", __func__);
-  return NULL;//(address)uc->uc_mcontext.regs->nip;
-// FIXME_RISCV end
+  guarantee(uc->uc_mcontext.__gregs != NULL, "only use ucontext_get_pc in sigaction context");
+  return (address)uc->uc_mcontext.__gregs[0/*REG_PC*/];
 }
 
 // modify PC in ucontext.
 // Note: Only use this for an ucontext handed down to a signal handler. See comment
 // in ucontext_get_pc.
 void os::Linux::ucontext_set_pc(ucontext_t * uc, address pc) {
-/* // FIXME_RISCV begin
-  guarantee(uc->uc_mcontext.regs != NULL, "only use ucontext_set_pc in sigaction context");
-  uc->uc_mcontext.regs->nip = (unsigned long)pc;
-*/// FIXME_RISCV end
+  guarantee(uc->uc_mcontext.__gregs != NULL, "only use ucontext_set_pc in sigaction context");
+  uc->uc_mcontext.__gregs[0/*REG_PC*/] = (unsigned long)pc;
 }
 
 static address ucontext_get_ra(const ucontext_t * uc) {
@@ -134,7 +138,7 @@ intptr_t* os::Linux::ucontext_get_sp(const ucontext_t * uc) {
 }
 
 intptr_t* os::Linux::ucontext_get_fp(const ucontext_t * uc) {
-  return (intptr_t*)uc->uc_mcontext.__gregs[1/*REG_SP*/];
+  return (intptr_t*)uc->uc_mcontext.__gregs[8/*REG_FP*/];
 }
 
 static unsigned long ucontext_get_trap(const ucontext_t * uc) {
@@ -210,14 +214,15 @@ frame os::get_sender_for_C_frame(frame* fr) {
     // fr is the last C frame
     return frame(NULL, NULL, (address) NULL);
   }
-  return frame(fr->sender_sp(), NULL /* FIXME_RISCV fr->sender_sp() */, fr->sender_pc());
+  return frame(fr->sender_sp(), fr->sender_fp(), fr->sender_pc());
 }
 
 
 frame os::current_frame() {
   intptr_t* csp = (intptr_t*) *((intptr_t*) os::current_stack_pointer());
+  intptr_t* cfp = (intptr_t*) *((intptr_t*) os::current_frame_pointer());
   // hack.
-  frame topframe(csp, NULL /* FIXME_RISCV current fp */ , (address)0x8);
+  frame topframe(csp, cfp, (address)0x8);
   // Return sender of sender of current topframe which hopefully
   // both have pc != NULL.
   frame tmp = os::get_sender_for_C_frame(&topframe);
@@ -416,9 +421,7 @@ JVM_handle_linux_signal(int sig,
           tty->print_cr("trap: zombie_not_entrant (%s)", (sig == SIGTRAP) ? "SIGTRAP" : "SIGILL");
         }
         stub = SharedRuntime::get_handle_wrong_method_stub();
-      }
-
-      else if (sig == ((SafepointMechanism::uses_thread_local_poll() && USE_POLL_BIT_ONLY) ? SIGTRAP : SIGSEGV) &&
+      } else if (sig == ((SafepointMechanism::uses_thread_local_poll() && USE_POLL_BIT_ONLY) ? SIGTRAP : SIGSEGV) &&
                // A linux-ppc64 kernel before 2.6.6 doesn't set si_addr on some segfaults
                // in 64bit mode (cf. http://www.kernel.org/pub/linux/kernel/v2.6/ChangeLog-2.6.6),
                // especially when we try to read from the safepoint polling page. So the check
@@ -485,9 +488,7 @@ JVM_handle_linux_signal(int sig,
           return true;
         }
       }
-    }
-
-    else { // thread->thread_state() != _thread_in_Java
+    } else { // thread->thread_state() != _thread_in_Java
       if (sig == SIGILL && VM_Version::is_determine_features_test_running()) {
         // SIGILL must be caused by VM_Version::determine_features().
         *(int *)pc = 0; // patch instruction to 0 to indicate that it causes a SIGILL,
@@ -582,14 +583,9 @@ void os::print_context(outputStream *st, const void *context) {
   const ucontext_t* uc = (const ucontext_t*)context;
 
   st->print_cr("Registers:");
-/* // FIXME_RISCV begin
-  st->print("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->nip);
-  st->print("lr =" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->link);
-  st->print("ctr=" INTPTR_FORMAT "  ", uc->uc_mcontext.regs->ctr);
-*/// FIXME_RISCV end
-    st->cr();
-  for (int i = 0; i < 32; i++) {
-//    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.regs->gpr[i]); // FIXME_RISCV
+  st->print_cr("pc =" INTPTR_FORMAT "  ", uc->uc_mcontext.__gregs[0]);
+  for (int i = 1; i < 32; i++) {
+    st->print("r%-2d=" INTPTR_FORMAT "  ", i, uc->uc_mcontext.__gregs[i]);
     if (i % 3 == 2) st->cr();
   }
   st->cr();
@@ -616,14 +612,11 @@ void os::print_register_info(outputStream *st, const void *context) {
   st->print_cr("Register to memory mapping:");
   st->cr();
 
-/* // FIXME_RISCV begin
-  st->print("pc ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->nip);
-  st->print("lr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->link);
-  st->print("ctr ="); print_location(st, (intptr_t)uc->uc_mcontext.regs->ctr);
-*/// FIXME_RISCV end
-    for (int i = 0; i < 32; i++) {
+  st->print("pc =");
+  print_location(st, uc->uc_mcontext.__gregs[0]);
+  for (int i = 1; i < 32; i++) {
     st->print("r%-2d=", i);
-//    print_location(st, uc->uc_mcontext.regs->gpr[i]); // FIXME_RISCV
+    print_location(st, uc->uc_mcontext.__gregs[i]);
   }
   st->cr();
 }

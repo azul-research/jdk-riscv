@@ -122,22 +122,22 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result,
 
 
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1) {
-  mr_if_needed(R4_ARG2_PPC, arg1);
+  mv_if_needed(R4_ARG2_PPC, arg1);
   return call_RT(oop_result1, metadata_result, entry, 1);
 }
 
 
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1, Register arg2) {
-  mr_if_needed(R4_ARG2_PPC, arg1);
-  mr_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
+  mv_if_needed(R4_ARG2_PPC, arg1);
+  mv_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
   return call_RT(oop_result1, metadata_result, entry, 2);
 }
 
 
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1, Register arg2, Register arg3) {
-  mr_if_needed(R4_ARG2_PPC, arg1);
-  mr_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
-  mr_if_needed(R6_ARG4_PPC, arg3); assert(arg3 != R4_ARG2_PPC && arg3 != R5_ARG3_PPC, "smashed argument");
+  mv_if_needed(R4_ARG2_PPC, arg1);
+  mv_if_needed(R5_ARG3_PPC, arg2); assert(arg2 != R4_ARG2_PPC, "smashed argument");
+  mv_if_needed(R6_ARG4_PPC, arg3); assert(arg3 != R4_ARG2_PPC && arg3 != R5_ARG3_PPC, "smashed argument");
   return call_RT(oop_result1, metadata_result, entry, 3);
 }
 
@@ -231,9 +231,7 @@ static void restore_live_registers(StubAssembler* sasm, Register result1, Regist
     }
   }
 
-  __ pop_frame();
-  __ ld_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
-  __ mtlr_PPC(R0);
+  __ pop_C_frame();
 }
 
 
@@ -493,10 +491,8 @@ OopMapSet* Runtime1::generate_code_for(StubID id, StubAssembler* sasm) {
         oop_maps = new OopMapSet();
         oop_maps->add_gc_map(call_offset, oop_map);
 
-        __ pop_frame();
-        __ ld_PPC(R0, _abi_PPC(lr), R1_SP_PPC);
-        __ mtlr_PPC(R0);
-        __ blr_PPC();
+        __ pop_C_frame();
+        __ ret();
       }
       break;
 
@@ -824,9 +820,7 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
     __ bctr_PPC();
     break;
   case handle_exception_from_callee_id: {
-    __ pop_frame();
-    __ ld_PPC(Rexception_pc, _abi_PPC(lr), R1_SP_PPC);
-    __ mtlr_PPC(Rexception_pc);
+    __ pop_C_frame();
     __ bctr_PPC();
     break;
   }

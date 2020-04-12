@@ -101,7 +101,7 @@ void MethodHandles::verify_ref_kind(MacroAssembler* _masm, int ref_kind, Registe
                       sizeof(u4), /*is_signed*/ false);
   // assert(sizeof(u4) == sizeof(java.lang.invoke.MemberName.flags), "");
   __ srwi_PPC( temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_SHIFT);
-  __ andi(temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_MASK);
+  __ andi_PPC(temp, temp, java_lang_invoke_MemberName::MN_REFERENCE_KIND_MASK);
   __ cmpwi_PPC(CCR1, temp, ref_kind);
   __ beq_PPC(CCR1, L);
   { char* buf = NEW_C_HEAP_ARRAY(char, 100, mtInternal);
@@ -524,8 +524,9 @@ void trace_method_handle_stub(const char* adaptername,
 
       // Safely create a frame and call frame::describe.
       intptr_t *dump_sp = trace_calling_frame.sender_sp();
+      intptr_t *dump_fp = trace_calling_frame.sender_fp();
 
-      frame dump_frame = frame(dump_sp, NULL /* FIXME_RISCV fp */);
+      frame dump_frame = frame(dump_sp, dump_fp);
       dump_frame.describe(values, 1);
 
       values.describe(-1, saved_regs, "raw top of stack");
@@ -562,8 +563,7 @@ void MethodHandles::trace_method_handle(MacroAssembler* _masm, const char* adapt
   __ mr_PPC(R6_ARG4_PPC, R1_SP_PPC);
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, trace_method_handle_stub));
 
-  __ pop_frame();
-  __ restore_LR_CR(tmp);
+  __ pop_C_frame();
   __ restore_volatile_gprs(R1_SP_PPC, -nbytes_save); // except R0
 
   BLOCK_COMMENT("} trace_method_handle");

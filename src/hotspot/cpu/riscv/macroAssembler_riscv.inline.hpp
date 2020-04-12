@@ -55,17 +55,22 @@ inline int MacroAssembler::get_ld_largeoffset_offset(address a) {
   }
 }
 
-inline void MacroAssembler::round_to(Register r, int modulus) {
+inline void MacroAssembler::round_up_to(Register r, int modulus) {
   assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
   addi(r, r, modulus-1);
   andi(r, r, ~(modulus - 1));
 }
 
+inline void MacroAssembler::round_down_to(Register r, int modulus) {
+  assert(is_power_of_2_long((jlong)modulus), "must be power of 2");
+  andi(r, r, ~(modulus - 1));
+}
+
 // Move register if destination register and target register are different.
-inline void MacroAssembler::mr_if_needed(Register rd, Register rs) {
+inline void MacroAssembler::mv_if_needed(Register rd, Register rs) {
   if (rs != rd) mv(rd, rs);
 }
-inline void MacroAssembler::fmr_if_needed(FloatRegister rd, FloatRegister rs) {
+inline void MacroAssembler::fmv_if_needed(FloatRegister rd, FloatRegister rs) {
   if (rs != rd) fmr_PPC(rd, rs);
 }
 inline void MacroAssembler::endgroup_if_needed(bool needed) {
@@ -75,11 +80,12 @@ inline void MacroAssembler::endgroup_if_needed(bool needed) {
 }
 
 inline void MacroAssembler::membar(int bits) {
-  // Comment: Usage of elemental_membar_PPC(bits) is not recommended for Power 8.
-  // If elemental_membar_PPC(bits) is used, disable optimization of acquire-release
-  // (Matcher::post_membar_release where we use RISCV64_ONLY(xop == Op_MemBarRelease ||))!
+  // TODO_RISCV: more fine-grained memory barrier
+  fence();
+#if 0
   if (bits & StoreLoad) { sync_PPC(); }
   else if (bits) { lwsync_PPC(); }
+#endif
 }
 inline void MacroAssembler::release() { Assembler::fence(Assembler::RW_OP, Assembler::W_OP); }
 inline void MacroAssembler::acquire() { Assembler::fence(Assembler::R_OP, Assembler::RW_OP); }
@@ -247,7 +253,7 @@ inline void MacroAssembler::bne_far(ConditionRegister crx, Label& L, int optimiz
 inline void MacroAssembler::bns_far(ConditionRegister crx, Label& L, int optimize) { MacroAssembler::bc_far(bcondCRbiIs0, bi0(crx, summary_overflow), L, optimize); }
 
 inline address MacroAssembler::call_stub(Register function_entry) {
-  jr(function_entry);
+  jalr(function_entry);
   return pc();
 }
 

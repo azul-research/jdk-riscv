@@ -53,15 +53,16 @@ class MacroAssembler: public Assembler {
   inline static bool is_ld_largeoffset(address a);
   inline static int get_ld_largeoffset_offset(address a);
 
-  inline void round_to(Register r, int modulus);
+  inline void round_up_to(Register r, int modulus);
+  inline void round_down_to(Register r, int modulus);
 
   // Load/store with type given by parameter.
   void load_sized_value( Register dst, RegisterOrConstant offs, Register base, size_t size_in_bytes, bool is_signed);
   void store_sized_value(Register dst, RegisterOrConstant offs, Register base, size_t size_in_bytes);
 
   // Move register if destination register and target register are different
-  inline void mr_if_needed(Register rd, Register rs);
-  inline void fmr_if_needed(FloatRegister rd, FloatRegister rs);
+  inline void mv_if_needed(Register rd, Register rs);
+  inline void fmv_if_needed(FloatRegister rd, FloatRegister rs);
   // This is dedicated for emitting scheduled mach nodes. For better
   // readability of the ad file I put it here.
   // Endgroups are not needed if
@@ -261,8 +262,8 @@ class MacroAssembler: public Assembler {
   //
 
   // some ABI-related functions
-  void save_fp_ra(   Register dst_base, int offset);
-  void restore_fp_ra(Register dst_base, int offset);
+  void save_abi_frame(Register dst, int offset);
+  void restore_abi_frame(Register dst, int offset);
   void save_nonvolatile_gprs(   Register dst_base, int offset);
   void restore_nonvolatile_gprs(Register src_base, int offset);
   enum { num_volatile_regs = 16 + 20 }; // GPR + FPR
@@ -280,7 +281,7 @@ class MacroAssembler: public Assembler {
   void resize_frame_absolute(Register addr, Register tmp1, Register tmp2);
 
   // Push a frame of size bytes.
-  void push_frame(Register bytes, Register tmp);
+  void push_frame(Register bytes);
 
   // Push a frame of size `bytes'. No abi space provided.
   void push_frame(unsigned int bytes, Register tmp);
@@ -293,7 +294,8 @@ class MacroAssembler: public Assembler {
   void push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp);
 
   // pop current C frame
-  void pop_frame();
+  void pop_C_frame(bool restoreRA = true);
+  void pop_java_frame(bool restoreRA = true);
 
   //
   // Calls
