@@ -281,7 +281,7 @@ class MacroAssembler: public Assembler {
   void resize_frame_absolute(Register addr, Register tmp1, Register tmp2);
 
   // Push a frame of size bytes.
-  void push_frame(Register bytes);
+  void push_frame(Register bytes, Register tmp);
 
   // Push a frame of size `bytes'. No abi space provided.
   void push_frame(unsigned int bytes, Register tmp);
@@ -880,10 +880,8 @@ class MacroAssembler: public Assembler {
   // Debugging
   //
 
-  // assert on cr0
-  void asm_assert(bool check_equal, const char* msg, int id);
-  void asm_assert_eq(const char* msg, int id) { asm_assert(true, msg, id); }
-  void asm_assert_ne(const char* msg, int id) { asm_assert(false, msg, id); }
+  void asm_assert_eq(Register r1, Register r2, const char* msg, int id);
+  void asm_assert_ne(Register r1, Register r2, const char* msg, int id);
 
  private:
   void asm_assert_mems_zero(bool check_equal, int size, int mem_offset, Register mem_base,
