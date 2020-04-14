@@ -2194,7 +2194,7 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 void InterpreterMacroAssembler::save_interpreter_state() {
   sd(R23_esp, R8_FP, _ijava_state(esp));
   sd(R22_bcp, R8_FP, _ijava_state(bcp));
-  sd(R28_monitor, R8_FP, _ijava_state(monitors));
+  sd(R18_monitor, R8_FP, _ijava_state(monitors));
   if (ProfileInterpreter) { sd(R29_mdx, R8_FP, _ijava_state(mdx)); }
   // Other entries should be unchanged.
 }
@@ -2209,7 +2209,7 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
     // Following ones are stack addresses and don't require reload.
     ld(R23_esp, R8_FP, _ijava_state(esp));
     ld(R26_locals, R8_FP, _ijava_state(locals));
-    ld(R28_monitor, R8_FP, _ijava_state(monitors));
+    ld(R18_monitor, R8_FP, _ijava_state(monitors));
 
   }
 #ifdef ASSERT

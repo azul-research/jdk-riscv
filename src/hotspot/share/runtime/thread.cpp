@@ -3738,9 +3738,8 @@ void thread_entry_point(JavaThread* thread, TRAPS) {
 }
 
 void print_jmm_test_results(TRAPS) {
-  //call_method("calcResults", T_VOID, CHECK);
+  call_method("calcResults", T_VOID, CHECK);
   Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
-  while (!get_bool_field(InstanceKlass::cast(klass), "calcFinished")) {}
 
   int errors = get_int_field(InstanceKlass::cast(klass), "errors");
   int side_by_side = get_int_field(InstanceKlass::cast(klass), "sideBySide");
@@ -3790,7 +3789,10 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
   if (TestJmm) {
     initialize_class(vmSymbols::java_lang_jmmtest_JmmTest(), CHECK);
-    Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, CHECK);
+    char *testMethods[2] = { "actor1", "actor2" };
+    JmmTest test("reset0", testMethods, 2, &print_jmm_test_results);
+    JmmTest::run_all(&test, 1, THREAD);
+    /*Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, CHECK);
     put_bool_field(InstanceKlass::cast(klass), "start0", false);
     put_bool_field(InstanceKlass::cast(klass), "calcFinished", false);
 
@@ -3803,7 +3805,7 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
     os::start_thread(thread2);
     os::start_thread(thread3);
     os::start_thread(thread4);
-    print_jmm_test_results(THREAD);
+    print_jmm_test_results(THREAD);*/
   }
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
 

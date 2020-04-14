@@ -4087,15 +4087,15 @@ void TemplateTable::athrow() {
 void TemplateTable::monitorenter() {
   transition(atos, vtos);
 
-  //__ verify_oop(R25_tos); FIXME_RISCV
+  __ verify_oop(R25_tos);
 
   Register Rcurrent_monitor  = R5_scratch1,
            Rcurrent_obj      = R6_scratch2,
            Robj_to_lock      = R25_tos,
-           Rscratch1         = R11_ARG1,
-           Rscratch2         = R12_ARG2,
-           Rscratch3         = R13_ARG3,
-           Rcurrent_obj_addr = R14_ARG4;
+           Rscratch1         = R10_ARG0,
+           Rscratch2         = R11_ARG1,
+           Rscratch3         = R12_ARG2,
+           Rcurrent_obj_addr = R13_ARG3;
 
   // ------------------------------------------------------------------------------
   // Null pointer exception.
@@ -4112,10 +4112,10 @@ void TemplateTable::monitorenter() {
     Register Rlimit = Rcurrent_monitor;
 
     // Set up search loop - start with topmost monitor.
-    __ addi(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
+    __ addi(Rcurrent_obj_addr, R18_monitor, BasicObjectLock::obj_offset_in_bytes());
 
     __ ld(Rlimit, R2_SP, 0);
-    __ addi(Rlimit, Rlimit, -(frame::ijava_state_size + frame::interpreter_frame_monitor_size_in_bytes() - BasicObjectLock::obj_offset_in_bytes())); // Monitor base
+    __ addi(Rlimit, Rlimit, -(frame::frame_header_size + frame::interpreter_frame_monitor_size_in_bytes() - BasicObjectLock::obj_offset_in_bytes())); // Monitor base
 
     // Check if any slot is present => short cut to allocation if not.
     __ bgt(Rcurrent_obj_addr, Rlimit, Lallocate_new);
@@ -4143,15 +4143,15 @@ void TemplateTable::monitorenter() {
   __ bind(Lexit);
 
   __ addi(Rcurrent_monitor, Rcurrent_obj_addr, -(frame::interpreter_frame_monitor_size() * wordSize) - BasicObjectLock::obj_offset_in_bytes());
-  __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, - frame::interpreter_frame_monitor_size() * wordSize);
+  __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, -frame::interpreter_frame_monitor_size() * wordSize);
   __ j(Lfound);
 
   // We didn't find a free BasicObjLock => allocate one.
   __ align(32, 12);
   __ bind(Lallocate_new);
   __ add_monitor_to_stack(false, Rscratch1, Rscratch2);
-  __ mv(Rcurrent_monitor, R26_monitor_PPC);
-  __ addi(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
+  __ mv(Rcurrent_monitor, R18_monitor);
+  __ addi(Rcurrent_obj_addr, R18_monitor, BasicObjectLock::obj_offset_in_bytes());
 
   // ------------------------------------------------------------------------------
   // We now have a slot to lock.
@@ -4190,14 +4190,14 @@ void TemplateTable::monitorexit() {
   // Null pointer check.
   //__ null_check_throw(Robj_to_lock, -1, R5_scratch1); FIXME_RISCV
 
-  __ bgt(R26_monitor_PPC, Rlimit, Lillegal_monitor_state);
+  __ bgt(R18_monitor, Rlimit, Lillegal_monitor_state);
 
   // Find the corresponding slot in the monitors stack section.
   {
     Label Lloop;
 
     // Start with topmost monitor.
-    __ addi(Rcurrent_obj_addr, R26_monitor_PPC, BasicObjectLock::obj_offset_in_bytes());
+    __ addi(Rcurrent_obj_addr, R18_monitor, BasicObjectLock::obj_offset_in_bytes());
     __ addi(Rlimit, Rlimit, BasicObjectLock::obj_offset_in_bytes());
     __ ld(Rcurrent_obj, Rcurrent_obj_addr, 0);
     __ addi(Rcurrent_obj_addr, Rcurrent_obj_addr, frame::interpreter_frame_monitor_size() * wordSize);
