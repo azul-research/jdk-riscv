@@ -209,6 +209,7 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   // Calc dispatch table address.
   load_dispatch_table(R5_scratch1, table);
 
+#if 0   // FIXME_RISCV: uncomment when safepoints are implemented
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
     address *sfpt_tbl = Interpreter::safept_table(state);
     if (table != sfpt_tbl) {
@@ -222,6 +223,7 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
       bind(dispatch);
     }
   }
+#endif
 
   slli(R6_scratch2, bytecode, LogBytesPerWord);
   add(R6_scratch2, R6_scratch2, R5_scratch1);

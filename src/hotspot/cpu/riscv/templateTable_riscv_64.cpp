@@ -1811,7 +1811,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
 
     __ bind(Lforward);
   }
-  __ dispatch_next(vtos, 0, /* FIXME_RISCV: safepoint poll needs to be true */ false);
+  __ dispatch_next(vtos, 0, true);
 }
 
 // Helper function for if_cmp* methods below.
@@ -2154,7 +2154,7 @@ void TemplateTable::fast_binaryswitch() {
 
   __ extsw_PPC(Rj, Rj);
   __ add_PPC(R22_bcp, Rj, R22_bcp);
-  __ dispatch_next(vtos, 0 , true);
+  __ dispatch_next(vtos, 0, true);
 }
 
 void TemplateTable::_return(TosState state) {
