@@ -463,186 +463,169 @@ void Assembler::li(Register d, void* addr) {
   li(d, (long)(unsigned long)addr);
 }
 
-void Assembler::li(Register d, long imm) { // TODO optimize
-  unsigned long uimm = imm;
 
-  // Accurate copying by 11 bits.
-  int remBit = ((uimm & 0xffffffff00000000) != 0) ? 53 : 21;
-  short part = (uimm >> remBit) & 0x7FF;
-  addi(d, R0_ZERO, part);
-  slli(d, d, 11);
+// load 64-bit immediate value
+void Assembler::li(Register d, long imm) {
+  // tty->print_cr("li %s, 0x%lx at %p", d->name(), (unsigned long)imm, pc());
 
-  for (remBit -= 11; remBit > 0; remBit -= 11) {
-    part = (uimm >> remBit) & 0x7FF;
-    if (part != 0) addi(d, d, part);
-    slli(d, d, remBit >= 11 ? 11 : remBit);
+  if (-0x800 <= imm && imm < 0x800) {
+    addi(d, R0_ZERO, imm);
+    return;
   }
 
-  part = uimm & ((1 << (remBit + 11)) - 1);
-  if (part != 0) addi(d, d, part);
+  long off = imm - (long)pc();
+
+  if (INT32_MIN <= off && off <= INT32_MAX) {
+    // load using AUIPC
+    unsigned long uoff = off;
+    unsigned long low = uoff & 0xfff;
+    unsigned long high = (uoff >> 12) & 0xfffff;
+    if (low >= 0x800) {
+      ++high;
+    }
+    auipc(d, high);
+    if (low) {
+      addi(d, d, low);
+    }
+    return;
+  }
+
+  unsigned long uimm = imm;
+  unsigned long value = uimm;
+
+  unsigned long sha = 0; // shift amount for final value
+  if (imm < INT32_MIN || imm > INT32_MAX) {
+    while (!(value & 1)) {
+      ++sha;
+      value >>= 1;
+    }
+  }
+
+  unsigned long low = value & 0xfff; // low section is 12 lowest bits
+  unsigned long mid = value >> 12; // mid section is 20+ following bits
+  if (low >= 0x800) {
+    ++mid;
+  }
+
+  unsigned long shb = 0; // shift amount for mid section
+  if (mid >= 0x100000 && !(mid >> 51)) {
+    while (!(mid & 1)) {
+      ++shb;
+      mid >>= 1;
+    }
+  }
+
+  unsigned long high = mid >> 20; // high section is remaining bits
+  mid &= 0xfffff;
+  if (mid >= 0x80000) {
+    ++high;
+  }
+  high &= 0xfffffffful;
+
+  if (!high) {
+    // load mid
+    if (mid) {
+      lui(d, mid);
+      if (shb) {
+        slli(d, d, shb);
+      }
+    }
+
+    // load low
+    if (low) {
+      addi(d, mid ? d : R0_ZERO, low);
+      if (sha) {
+        slli(d, d, sha);
+      }
+    }
+
+    return;
+  }
+
+  // load negative constant the dumb way
+
+  if (imm < 0) {
+    li(d, -imm);
+    sub(d, R0_ZERO, d);
+    return;
+  }
+
+  // when all else fails, load by parts
+
+  sha = 0;
+  while (!(uimm & 1)) {
+    ++sha;
+    uimm >>= 1;
+  }
+  low = uimm & 0xffful;
+  mid = uimm ^ low;
+  if (low >= 0x800) {
+    mid += 0x1000;
+  }
+  li(d, mid); // we zero lowest non-zero 12 bits, so recursion is finite
+  if (low) {
+    addi(d, d, low);
+  }
+  if (sha) {
+    slli(d, d, sha);
+  }
 }
 
 // Load a 64 bit constant, optimized, not identifyable.
-// Tmp can be used to increase ILP. Set return_simm16_rest=true to get a
-// 16 bit immediate offset.
-int Assembler::load_const_optimized(Register d, long x, Register tmp, bool return_simm16_rest) {
-  // Avoid accidentally trying to use R0 for indexed addressing.
+// Tmp can be used to increase ILP. Set return_simm12_rest=true to get a
+// 12 bit immediate offset.
+int Assembler::load_const_optimized(Register d, long imm, Register tmp, bool return_simm12_rest) {
+  // TODO_RISCV: utilize tmp register
   assert_different_registers(d, tmp);
 
-  short xa, xb, xc, xd; // Four 16-bit chunks of const.
-  long rem = x;         // Remaining part of const.
-
-  xd = rem & 0xFFFF;    // Lowest 16-bit chunk.
-  rem = (rem >> 16) + ((unsigned short)xd >> 15); // Compensation for sign extend.
-
-  if (rem == 0) { // opt 1: simm16
-    li_PPC(d, xd);
-    return 0;
-  }
-
   int retval = 0;
-  if (return_simm16_rest) {
-    retval = xd;
-    x = rem << 16;
-    xd = 0;
-  }
+  unsigned long uimm = imm;
 
-  if (d == R0) { // Can't use addi.
-    if (is_simm(x, 32)) { // opt 2: simm32
-      lis_PPC(d, x >> 16);
-      if (xd) ori_PPC(d, d, (unsigned short)xd);
-    } else {
-      // 64-bit value: x = xa xb xc xd
-      xa = (x >> 48) & 0xffff;
-      xb = (x >> 32) & 0xffff;
-      xc = (x >> 16) & 0xffff;
-      bool xa_loaded = (xb & 0x8000) ? (xa != -1) : (xa != 0);
-      if (tmp == noreg || (xc == 0 && xd == 0)) {
-        if (xa_loaded) {
-          lis_PPC(d, xa);
-          if (xb) { ori_PPC(d, d, (unsigned short)xb); }
-        } else {
-          li_PPC(d, xb);
-        }
-        sldi_PPC(d, d, 32);
-        if (xc) { oris_PPC(d, d, (unsigned short)xc); }
-        if (xd) { ori_PPC( d, d, (unsigned short)xd); }
-      } else {
-        // Exploit instruction level parallelism if we have a tmp register.
-        bool xc_loaded = (xd & 0x8000) ? (xc != -1) : (xc != 0);
-        if (xa_loaded) {
-          lis_PPC(tmp, xa);
-        }
-        if (xc_loaded) {
-          lis_PPC(d, xc);
-        }
-        if (xa_loaded) {
-          if (xb) { ori_PPC(tmp, tmp, (unsigned short)xb); }
-        } else {
-          li_PPC(tmp, xb);
-        }
-        if (xc_loaded) {
-          if (xd) { ori_PPC(d, d, (unsigned short)xd); }
-        } else {
-          li_PPC(d, xd);
-        }
-        insrdi_PPC(d, tmp, 32, 0);
-      }
-    }
+  if (!return_simm12_rest) {
+    li(d, imm);
     return retval;
   }
 
-  xc = rem & 0xFFFF; // Next 16-bit chunk.
-  rem = (rem >> 16) + ((unsigned short)xc >> 15); // Compensation for sign extend.
-
-  if (rem == 0) { // opt 2: simm32
-    lis_PPC(d, xc);
-  } else { // High 32 bits needed.
-
-    if (tmp != noreg  && (int)x != 0) { // opt 3: We have a temp reg.
-      // No carry propagation between xc and higher chunks here (use logical instructions).
-      xa = (x >> 48) & 0xffff;
-      xb = (x >> 32) & 0xffff; // No sign compensation, we use lis+ori or li to allow usage of R0.
-      bool xa_loaded = (xb & 0x8000) ? (xa != -1) : (xa != 0);
-      bool return_xd = false;
-
-      if (xa_loaded) { lis_PPC(tmp, xa); }
-      if (xc) { lis_PPC(d, xc); }
-      if (xa_loaded) {
-        if (xb) { ori_PPC(tmp, tmp, (unsigned short)xb); } // No addi, we support tmp == R0.
-      } else {
-        li_PPC(tmp, xb);
-      }
-      if (xc) {
-        if (xd) { addi_PPC(d, d, xd); }
-      } else {
-        li_PPC(d, xd);
-      }
-      insrdi_PPC(d, tmp, 32, 0);
-      return retval;
-    }
-
-    xb = rem & 0xFFFF; // Next 16-bit chunk.
-    rem = (rem >> 16) + ((unsigned short)xb >> 15); // Compensation for sign extend.
-
-    xa = rem & 0xFFFF; // Highest 16-bit chunk.
-
-    // opt 4: avoid adding 0
-    if (xa) { // Highest 16-bit needed?
-      lis_PPC(d, xa);
-      if (xb) { addi_PPC(d, d, xb); }
-    } else {
-      li_PPC(d, xb);
-    }
-    sldi_PPC(d, d, 32);
-    if (xc) { addis_PPC(d, d, xc); }
+  unsigned long low = uimm & 0xfff;
+  unsigned long high = uimm >> 12;
+  if (low >= 0x800) {
+    retval = (int)low - 0x1000;
+    ++high;
   }
-
-  if (xd) { addi_PPC(d, d, xd); }
+  li(d, high << 12);
   return retval;
 }
 
 // We emit only one addition to s to optimize latency.
-int Assembler::add_const_optimized(Register d, Register s, long x, Register tmp, bool return_simm16_rest) {
-  assert(s != R0 && s != tmp, "unsupported");
-  long rem = x;
+int Assembler::add_const_optimized(Register d, Register s, long imm, Register tmp, bool return_simm12_rest) {
+  assert(s != d || tmp != noreg, "unsupported");
+  assert(tmp != s, "tmp register should not be equal to src");
+  unsigned long uimm = imm;
 
-  // Case 1: Can use mr or addi.
-  short xd = rem & 0xFFFF; // Lowest 16-bit chunk.
-  rem = (rem >> 16) + ((unsigned short)xd >> 15);
-  if (rem == 0) {
-    if (xd == 0) {
-      if (d != s) { mr_PPC(d, s); }
-      return 0;
+  // small constant
+  if (-0x800 <= imm && imm < 0x800) {
+    if (return_simm12_rest && s == d) {
+      return imm;
     }
-    if (return_simm16_rest && (d == s)) {
-      return xd;
-    }
-    addi(d, s, xd);
+    addi(d, s, imm);
     return 0;
   }
 
-  // Case 2: Can use addis.
-  if (xd == 0) {
-    short xc = rem & 0xFFFF; // 2nd 16-bit chunk.
-    rem = (rem >> 16) + ((unsigned short)xc >> 15);
-    if (rem == 0) {
-      addis_PPC(d, s, xc);
-      return 0;
-    }
+  if (tmp == noreg) {
+    // use destination as temp register
+    tmp = d;
   }
 
-  // Other cases: load & add.
   Register tmp1 = tmp,
            tmp2 = noreg;
-  if ((d != tmp) && (d != s)) {
-    // Can use d.
+
+  if (d != tmp && d != s) {
     tmp1 = d;
     tmp2 = tmp;
   }
-  int simm16_rest = load_const_optimized(tmp1, x, tmp2, return_simm16_rest);
-  add_PPC(d, tmp1, s);
-  return simm16_rest;
+  int simm12_rest = load_const_optimized(tmp1, imm, tmp2, return_simm12_rest);
+  add(d, tmp1, s);
+  return simm12_rest;
 }
 
 #ifndef PRODUCT
