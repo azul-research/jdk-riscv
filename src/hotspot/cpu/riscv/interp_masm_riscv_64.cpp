@@ -239,7 +239,7 @@ void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rr
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  lw(r, R23_esp, Interpreter::stackElementSize);
+  ld(r, R23_esp, Interpreter::stackElementSize);
   addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
@@ -264,7 +264,7 @@ void InterpreterMacroAssembler::pop_d(FloatRegister f) {
 }
 
 void InterpreterMacroAssembler::push_i(Register r) {
-  sw(r, R23_esp, 0);
+  sd(r, R23_esp, 0);
   addi(R23_esp, R23_esp, -Interpreter::stackElementSize);
 }
 
@@ -2015,7 +2015,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
 void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rdst_address, Register Rindex) {
   slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
   sub(Rdst_address, R26_locals, Rdst_address);
-  lwu(Rdst_value, Rdst_address, 0);
+  lw(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.

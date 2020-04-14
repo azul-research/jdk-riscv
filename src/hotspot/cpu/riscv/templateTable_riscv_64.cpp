@@ -1811,7 +1811,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
 
     __ bind(Lforward);
   }
-  __ dispatch_next(vtos, 0, true);
+  __ dispatch_next(vtos, 0, /* FIXME_RISCV: safepoint poll needs to be true */ false);
 }
 
 // Helper function for if_cmp* methods below.
