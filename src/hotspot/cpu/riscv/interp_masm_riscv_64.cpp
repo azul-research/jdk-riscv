@@ -210,18 +210,17 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   load_dispatch_table(R5_scratch1, table);
 
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
-    unimplemented("generate_poll in dispatch_next is true", -1);
-//    address *sfpt_tbl = Interpreter::safept_table(state);
-//    if (table != sfpt_tbl) {
-//      Label dispatch;
-//      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R24_thread);
-//      // Armed page has poll_bit set, if poll bit is cleared just continue.
-//      andi__PPC(R0, R0, SafepointMechanism::poll_bit());
-//      beq_PPC(CCR0, dispatch);
-//      load_dispatch_table(R5_scratch1, sfpt_tbl);
-//      align(32, 16);
-//      bind(dispatch);
-//    }
+    address *sfpt_tbl = Interpreter::safept_table(state);
+    if (table != sfpt_tbl) {
+      Label dispatch;
+      ld(R6_scratch2, R24_thread, in_bytes(Thread::polling_page_offset()));
+      // Armed page has poll_bit set, if poll bit is cleared just continue.
+      andi(R6_scratch2, R6_scratch2, SafepointMechanism::poll_bit());
+      beqz(R6_scratch2, dispatch);
+      load_dispatch_table(R5_scratch1, sfpt_tbl);
+      align(32, 16);
+      bind(dispatch);
+    }
   }
 
   slli(R6_scratch2, bytecode, LogBytesPerWord);
@@ -229,8 +228,6 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   ld(R5_scratch1, R6_scratch2, 0);
 
   // Jump off!
-//  mtctr_PPC(R5_scratch1); FIXME_RISCV understand this
-//  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
   jr(R5_scratch1);
 }
 
@@ -242,7 +239,7 @@ void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rr
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  lwu(r, R23_esp, Interpreter::stackElementSize);
+  lw(r, R23_esp, Interpreter::stackElementSize);
   addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
@@ -347,14 +344,17 @@ void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp) Rtmp = R29_TMP4;
+
   if (is_signed == Signed) {
-    lb(R7_TMP2, R22_bcp, bcp_offset);
+    lb(Rtmp, R22_bcp, bcp_offset);
   } else {
-    lbu(R7_TMP2, R22_bcp, bcp_offset);
+    lbu(Rtmp, R22_bcp, bcp_offset);
   }
-  slli(R7_TMP2, R7_TMP2, 8);
+  slli(Rtmp, Rtmp, 8);
   lbu(Rdst, R22_bcp, bcp_offset + 1);
-  orr(Rdst, R7_TMP2, Rdst);
+  orr(Rdst, Rtmp, Rdst);
 #else
   // Read Java big endian format.
   if (is_signed == Signed) {
@@ -369,30 +369,27 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (bcp_offset) {
-    load_const_optimized(Rdst, bcp_offset);
-    lwbrx_PPC(Rdst, R22_bcp, Rdst);
-  } else {
-    lwbrx_PPC(Rdst, R22_bcp);
-  }
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp) Rtmp = R29_TMP4;
+
   if (is_signed == Signed) {
-    extsw_PPC(Rdst, Rdst);
+    lb(Rdst, R22_bcp, bcp_offset);
+  } else {
+    lbu(Rdst, R22_bcp, bcp_offset);
+  }
+
+  for (int i = 1; i <= 3; ++i) {
+    slli(Rdst, Rdst, 8);
+    lbu(Rtmp, R22_bcp, bcp_offset + i);
+    orr(Rdst, Rtmp, Rdst);
   }
 #else
   // Read Java big endian format.
-  if (bcp_offset & 3) { // Offset unaligned?
-    load_const_optimized(Rdst, bcp_offset);
-    if (is_signed == Signed) {
-      lwax_PPC(Rdst, R22_bcp, Rdst);
-    } else {
-      lwzx_PPC(Rdst, R22_bcp, Rdst);
-    }
+  // FIXME_RISCV: alignment problems might occur
+  if (is_signed == Signed) {
+    lw(Rdst, R22_bcp, bcp_offset);
   } else {
-    if (is_signed == Signed) {
-      lwa_PPC(Rdst, bcp_offset, R22_bcp);
-    } else {
-      lwz_PPC(Rdst, bcp_offset, R22_bcp);
-    }
+    lwu(Rdst, R22_bcp, bcp_offset);
   }
 #endif
 }
@@ -587,22 +584,22 @@ void InterpreterMacroAssembler::index_check(Register array, Register index,
 }
 
 void InterpreterMacroAssembler::get_const(Register Rdst) {
-  ld_PPC(Rdst, in_bytes(Method::const_offset()), R27_method);
+  ld(Rdst, R27_method, in_bytes(Method::const_offset()));
 }
 
 void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
   get_const(Rdst);
-  ld_PPC(Rdst, in_bytes(ConstMethod::constants_offset()), Rdst);
+  ld(Rdst, Rdst, in_bytes(ConstMethod::constants_offset()));
 }
 
 void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
   get_constant_pool(Rdst);
-  ld_PPC(Rdst, ConstantPool::cache_offset_in_bytes(), Rdst);
+  ld(Rdst, Rdst, ConstantPool::cache_offset_in_bytes());
 }
 
 void InterpreterMacroAssembler::get_cpool_and_tags(Register Rcpool, Register Rtags) {
   get_constant_pool(Rcpool);
-  ld_PPC(Rtags, ConstantPool::tags_offset_in_bytes(), Rcpool);
+  ld(Rtags, Rcpool, ConstantPool::tags_offset_in_bytes());
 }
 
 // Unlock if synchronized method.
@@ -2029,7 +2026,7 @@ void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rds
 void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rdst_address, Register Rindex) {
   slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
   sub(Rdst_address, R26_locals, Rdst_address);
-  lwu(Rdst_value, Rdst_address, -8);
+  ld(Rdst_value, Rdst_address, -8);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
