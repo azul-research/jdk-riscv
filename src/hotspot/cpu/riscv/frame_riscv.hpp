@@ -214,6 +214,7 @@ monitor-> |                 |       }
     uint64_t bcp;
     uint64_t esp;
     uint64_t mdx;
+    uint64_t saved_ra; // temporary solution for TraceByCodes
     uint64_t top_frame_sp; // Maybe define parent_frame_abi and move there.
     uint64_t sender_sp;
     // Slots only needed for native calls. Maybe better to move elsewhere.

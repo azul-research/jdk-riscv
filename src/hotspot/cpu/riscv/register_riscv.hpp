@@ -828,7 +828,7 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 //    Lmonitors  : monitor pointer
 //    LcpoolCache: constant pool cache
 //    mdx: method data index
-#define R28_monitor           AS_REGISTER(Register, R28)
+#define R18_monitor           AS_REGISTER(Register, R18)
 #define R29_mdx               AS_REGISTER(Register, R29)
 #define R9_constPoolCache     AS_REGISTER(Register, R9)
 #endif
@@ -851,7 +851,6 @@ REGISTER_DECLARATION(Register, R14_ARG4, R14); // saver: caller
 REGISTER_DECLARATION(Register, R15_ARG5, R15); // saver: caller
 REGISTER_DECLARATION(Register, R16_ARG6, R16); // saver: caller
 REGISTER_DECLARATION(Register, R17_ARG7, R17); // saver: caller
-REGISTER_DECLARATION(Register, R18_S2,   R18); // saver: callee
 // R19_S3 - R27_S11
 REGISTER_DECLARATION(Register, R28_TMP3, R28); // saver: caller
 REGISTER_DECLARATION(Register, R29_TMP4, R29); // saver: caller
@@ -911,10 +910,6 @@ REGISTER_DECLARATION(FloatRegister, F31_TMP11, F31); // saver: caller
 #define R15_ARG5  AS_REGISTER(Register, R15)
 #define R16_ARG6  AS_REGISTER(Register, R16)
 #define R17_ARG7  AS_REGISTER(Register, R17)
-#define R18_S2    AS_REGISTER(Register, R18)
-#define R19_S3    AS_REGISTER(Register, R19)
-#define R20_S4    AS_REGISTER(Register, R20)
-#define R21_S5    AS_REGISTER(Register, R21)
 #define R28_TMP3  AS_REGISTER(Register, R28)
 #define R29_TMP4  AS_REGISTER(Register, R29)
 #define R30_TMP5  AS_REGISTER(Register, R30)

@@ -205,24 +205,24 @@ void InterpreterMacroAssembler::load_dispatch_table(Register dst, address* table
 void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register bytecode,
                                                     address* table, bool generate_poll) {
   assert_different_registers(bytecode, R5_scratch1);
-
-  // Calc dispatch table address.
-  load_dispatch_table(R5_scratch1, table);
+  Label dispatch, skip;
 
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
-    unimplemented("generate_poll in dispatch_next is true", -1);
-//    address *sfpt_tbl = Interpreter::safept_table(state);
-//    if (table != sfpt_tbl) {
-//      Label dispatch;
-//      ld_PPC(R0, in_bytes(Thread::polling_page_offset()), R24_thread);
-//      // Armed page has poll_bit set, if poll bit is cleared just continue.
-//      andi__PPC(R0, R0, SafepointMechanism::poll_bit());
-//      beq_PPC(CCR0, dispatch);
-//      load_dispatch_table(R5_scratch1, sfpt_tbl);
-//      align(32, 16);
-//      bind(dispatch);
-//    }
+    address *sfpt_tbl = Interpreter::safept_table(state);
+    if (table != sfpt_tbl) {
+      ld(R5_scratch1, R24_thread, in_bytes(Thread::polling_page_offset()));
+      // Armed page has poll_bit qset, if poll bit is cleared just continue.
+      andi(R5_scratch1, R5_scratch1, (int) SafepointMechanism::poll_bit());
+      beqz(R5_scratch1, dispatch);
+      load_dispatch_table(R5_scratch1, sfpt_tbl);
+      j(skip);
+    }
   }
+
+  // Calc dispatch table address.
+  bind(dispatch);
+  load_dispatch_table(R5_scratch1, table);
+  bind(skip);
 
   slli(R6_scratch2, bytecode, LogBytesPerWord);
   add(R6_scratch2, R6_scratch2, R5_scratch1);
@@ -380,19 +380,12 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
   }
 #else
   // Read Java big endian format.
-  if (bcp_offset & 3) { // Offset unaligned?
-    load_const_optimized(Rdst, bcp_offset);
-    if (is_signed == Signed) {
-      lwax_PPC(Rdst, R22_bcp, Rdst);
-    } else {
-      lwzx_PPC(Rdst, R22_bcp, Rdst);
-    }
+  li(Rdst, bcp_offset);
+  add(Rdst, Rdst, R22_bcp);
+  if (is_signed == Signed) {
+    lw(Rdst, Rdst, 0);
   } else {
-    if (is_signed == Signed) {
-      lwa_PPC(Rdst, bcp_offset, R22_bcp);
-    } else {
-      lwz_PPC(Rdst, bcp_offset, R22_bcp);
-    }
+    lwu(Rdst, Rdst, 0);
   }
 #endif
 }
@@ -537,47 +530,44 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   // Writes:
   //   - Rres: Address that corresponds to the array index if check was successful.
   verify_oop(Rarray);
-  const Register Rlength   = R0;
+  const Register Rlength   = R6_scratch2;
   const Register RsxtIndex = Rtmp;
   Label LisNull, LnotOOR;
 
   // Array nullcheck
   if (!ImplicitNullChecks) {
-    cmpdi_PPC(CCR0, Rarray, 0);
-    beq_PPC(CCR0, LisNull);
+    beqz(Rarray, LisNull);
   } else {
-    null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex);
+    //null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex); FIXME_RISCV
   }
 
   // Rindex might contain garbage in upper bits (remember that we don't sign extend
   // during integer arithmetic operations). So kill them and put value into same register
   // where ArrayIndexOutOfBounds would expect the index in.
-  rldicl_PPC(RsxtIndex, Rindex, 0, 32); // zero extend 32 bit -> 64 bit
+  slli(RsxtIndex, Rindex, 32);
+  srli(RsxtIndex, RsxtIndex, 32); // zero extend 32 bit -> 64 bit
 
   // Index check
-  lwz_PPC(Rlength, arrayOopDesc::length_offset_in_bytes(), Rarray);
-  cmplw_PPC(CCR0, Rindex, Rlength);
-  sldi_PPC(RsxtIndex, RsxtIndex, index_shift);
-  blt_PPC(CCR0, LnotOOR);
+  lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
+
+  blt(RsxtIndex, Rlength, LnotOOR);
   // Index should be in R25_tos, array should be in R4_ARG2_PPC.
   mv_if_needed(R25_tos, Rindex);
-  mv_if_needed(R4_ARG2_PPC, Rarray);
+  mv_if_needed(R11_ARG1, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
-  mtctr_PPC(Rtmp);
-  bctr_PPC();
+  jalr(Rtmp);
 
   if (!ImplicitNullChecks) {
     bind(LisNull);
     load_dispatch_table(Rtmp, (address*)Interpreter::_throw_NullPointerException_entry);
-    mtctr_PPC(Rtmp);
-    bctr_PPC();
+    jalr(Rtmp);
   }
 
   align(32, 16);
   bind(LnotOOR);
-
+  slli(RsxtIndex, RsxtIndex, index_shift);
   // Calc address
-  add_PPC(Rres, RsxtIndex, Rarray);
+  add(Rres, RsxtIndex, Rarray);
 }
 
 void InterpreterMacroAssembler::index_check(Register array, Register index,
@@ -590,12 +580,12 @@ void InterpreterMacroAssembler::index_check(Register array, Register index,
 }
 
 void InterpreterMacroAssembler::get_const(Register Rdst) {
-  ld_PPC(Rdst, in_bytes(Method::const_offset()), R27_method);
+  ld(Rdst, R27_method, in_bytes(Method::const_offset()));
 }
 
 void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
   get_const(Rdst);
-  ld_PPC(Rdst, in_bytes(ConstMethod::constants_offset()), Rdst);
+  ld(Rdst, Rdst, in_bytes(ConstMethod::constants_offset()));
 }
 
 void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
@@ -605,7 +595,7 @@ void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
 
 void InterpreterMacroAssembler::get_cpool_and_tags(Register Rcpool, Register Rtags) {
   get_constant_pool(Rcpool);
-  ld_PPC(Rtags, ConstantPool::tags_offset_in_bytes(), Rcpool);
+  ld(Rtags, Rcpool, ConstantPool::tags_offset_in_bytes());
 }
 
 // Unlock if synchronized method.
@@ -1395,7 +1385,8 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
 
 // Count a taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register bumped_count) {
-  if (ProfileInterpreter) {
+  //FIXME RISCV
+  /*if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1407,12 +1398,13 @@ void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register 
     // The method data pointer needs to be updated to reflect the new target.
     update_mdp_by_offset(in_bytes(JumpData::displacement_offset()), scratch);
     bind (profile_continue);
-  }
+  }*/
 }
 
 // Count a not-taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Register scratch2) {
-  if (ProfileInterpreter) {
+  //FIXME RISCV
+  /*if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1425,7 +1417,7 @@ void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Regi
     // next bytecode.
     update_mdp_by_constant(in_bytes(BranchData::branch_data_size()));
     bind (profile_continue);
-  }
+  }*/
 }
 
 // Count a non-virtual call in the bytecodes.
@@ -1617,7 +1609,8 @@ void InterpreterMacroAssembler::profile_switch_case(Register index,
 }
 
 void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register Rscratch2) {
-  if (ProfileInterpreter) {
+  //FIXME_RISCV
+  /*if (ProfileInterpreter) {
     assert_different_registers(Rscratch1, Rscratch2);
     Label profile_continue;
 
@@ -1634,7 +1627,7 @@ void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register R
     update_mdp_by_constant(mdp_delta);
 
     bind (profile_continue);
-  }
+  }*/
 }
 
 void InterpreterMacroAssembler::record_klass_in_profile(Register Rreceiver,
@@ -2024,9 +2017,9 @@ void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rds
 //   - Rdst_value
 //   - Rdst_address
 void InterpreterMacroAssembler::load_local_long(Register Rdst_value, Register Rdst_address, Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  ld_PPC(Rdst_value, -8, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  ld(Rdst_value, Rdst_address, -8);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2052,9 +2045,9 @@ void InterpreterMacroAssembler::load_local_ptr(Register Rdst_value,
 void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
                                                  Register Rdst_address,
                                                  Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  lfs_PPC(Rdst_value, 0, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  flw(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2065,54 +2058,54 @@ void InterpreterMacroAssembler::load_local_float(FloatRegister Rdst_value,
 void InterpreterMacroAssembler::load_local_double(FloatRegister Rdst_value,
                                                   Register Rdst_address,
                                                   Register Rindex) {
-  sldi_PPC(Rdst_address, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rdst_address, Rdst_address, R26_locals);
-  lfd_PPC(Rdst_value, -8, Rdst_address);
+  slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
+  sub(Rdst_address, R26_locals, Rdst_address);
+  fld(Rdst_value, Rdst_address, -8);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_int(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stw_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sw(Rvalue, Rindex, 0);
 }
 
 // Store a long value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_long(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  std_PPC(Rvalue, -8, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sd(Rvalue, Rindex, -8);
 }
 
 // Store an oop value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  std_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  sd(Rvalue, Rindex, 0);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stfs_PPC(Rvalue, 0, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  fsw(Rvalue, Rindex, 0);
 }
 
 // Store an int value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {
-  sldi_PPC(Rindex, Rindex, Interpreter::logStackElementSize);
-  subf_PPC(Rindex, Rindex, R26_locals);
-  stfd_PPC(Rvalue, -8, Rindex);
+  slli(Rindex, Rindex, Interpreter::logStackElementSize);
+  sub(Rindex, R26_locals, Rindex);
+  fsd(Rvalue, Rindex, -8);
 }
 
 // Read pending exception from thread and jump to interpreter.
@@ -2174,9 +2167,9 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         Register arg_1, Register arg_2,
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
-  mv_if_needed(R4_ARG2_PPC, arg_1);
+  mv_if_needed(R11_ARG1, arg_1);
   assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_2);
+  mv_if_needed(R12_ARG2, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -2195,7 +2188,7 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
 void InterpreterMacroAssembler::save_interpreter_state() {
   sd(R23_esp, R8_FP, _ijava_state(esp));
   sd(R22_bcp, R8_FP, _ijava_state(bcp));
-  sd(R28_monitor, R8_FP, _ijava_state(monitors));
+  sd(R18_monitor, R8_FP, _ijava_state(monitors));
   if (ProfileInterpreter) { sd(R29_mdx, R8_FP, _ijava_state(mdx)); }
   // Other entries should be unchanged.
 }
@@ -2210,7 +2203,7 @@ void InterpreterMacroAssembler::restore_interpreter_state(bool bcp_and_mdx_only)
     // Following ones are stack addresses and don't require reload.
     ld(R23_esp, R8_FP, _ijava_state(esp));
     ld(R26_locals, R8_FP, _ijava_state(locals));
-    ld(R28_monitor, R8_FP, _ijava_state(monitors));
+    ld(R18_monitor, R8_FP, _ijava_state(monitors));
 
   }
 #ifdef ASSERT
