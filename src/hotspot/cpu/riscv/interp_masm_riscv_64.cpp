@@ -242,7 +242,7 @@ void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rr
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  ld(r, R23_esp, Interpreter::stackElementSize);
+  lw(r, R23_esp, Interpreter::stackElementSize);
   addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
@@ -267,7 +267,7 @@ void InterpreterMacroAssembler::pop_d(FloatRegister f) {
 }
 
 void InterpreterMacroAssembler::push_i(Register r) {
-  sd(r, R23_esp, 0);
+  sw(r, R23_esp, 0);
   addi(R23_esp, R23_esp, -Interpreter::stackElementSize);
 }
 
