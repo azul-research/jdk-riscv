@@ -132,23 +132,23 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register Rscratch1, Re
   }
 }
 
-void InterpreterMacroAssembler::check_and_handle_earlyret(Register scratch_reg) {
-  const Register Rthr_state_addr = scratch_reg;
+void InterpreterMacroAssembler::check_and_handle_earlyret(Register Rscratch1, Register Rscratch2) {
+  const Register Rthr_state_addr = Rscratch1;
   if (JvmtiExport::can_force_early_return()) {
+    untested("early return is not tested");
     Label Lno_early_ret;
-    ld_PPC(Rthr_state_addr, in_bytes(JavaThread::jvmti_thread_state_offset()), R24_thread);
-    cmpdi_PPC(CCR0, Rthr_state_addr, 0);
-    beq_PPC(CCR0, Lno_early_ret);
+    ld(Rthr_state_addr, R24_thread, in_bytes(JavaThread::jvmti_thread_state_offset()));
+    beqz(Rthr_state_addr, Lno_early_ret);
 
-    lwz_PPC(R0, in_bytes(JvmtiThreadState::earlyret_state_offset()), Rthr_state_addr);
-    cmpwi_PPC(CCR0, R0, JvmtiThreadState::earlyret_pending);
-    bne_PPC(CCR0, Lno_early_ret);
+    lwu(Rscratch2, in_bytes(JvmtiThreadState::earlyret_state_offset()), Rthr_state_addr);
+    // JvmtiThreadState::earlyret_pending is small enough to fit here
+    addi(Rscratch2, Rscratch2, -((int) JvmtiThreadState::earlyret_pending));
+    bnez(Rscratch2, Lno_early_ret);
 
     // Jump to Interpreter::_earlyret_entry.
-    lwz_PPC(R3_ARG1_PPC, in_bytes(JvmtiThreadState::earlyret_tos_offset()), Rthr_state_addr);
+    lwu(R10_ARG0, Rthr_state_addr, in_bytes(JvmtiThreadState::earlyret_tos_offset()));
     call_VM_leaf(CAST_FROM_FN_PTR(address, Interpreter::remove_activation_early_entry));
-    mtlr_PPC(R3_RET_PPC);
-    blr_PPC();
+    jr(R10_RET1);
 
     align(32, 12);
     bind(Lno_early_ret);

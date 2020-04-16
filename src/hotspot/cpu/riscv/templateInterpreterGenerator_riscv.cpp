@@ -616,21 +616,23 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     case ctos:
     case stos:
     case atos:
-    case itos: __ mr_PPC(R25_tos, R3_RET_PPC); break;   // RET -> TOS cache
-    case ftos:
-    case dtos: __ fmr_PPC(F23_ftos, F1_RET_PPC); break; // TOS cache -> GR_FRET
+    case itos: __ mv(R25_tos, R10_RET1); break;   // RET -> TOS cache
+    case ftos: __ fmvs(F23_ftos, F10_RET); break;
+    case dtos: __ fmvd(F23_ftos, F10_RET); break; // TOS cache -> GR_FRET
     case vtos: break;                           // Nothing to do, this was a void return.
     default  : ShouldNotReachHere();
   }
 
   __ restore_interpreter_state();
-  __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
-  __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+
+  // Resize frame to top_frame_sp
+  __ ld(R2_SP, _ijava_state(top_frame_sp), R8_FP);
 
   // Compiled code destroys templateTableBase, reload.
-  __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R6_scratch2);
+  __ li(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0));
 
   if (state == atos) {
+    __ unimplemented("return for atos is not implemented");
     __ profile_return_type(R3_RET_PPC, R5_scratch1, R6_scratch2);
   }
 
@@ -640,15 +642,15 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 
   // Get least significant byte of 64 bit value:
 #if defined(VM_LITTLE_ENDIAN)
-  __ lbz_PPC(size, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()), cache);
+  __ lbu(size, cache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()));
 #else
-  __ lbz_PPC(size, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()) + 7, cache);
+  __ lbu(size, cache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()) + 7);
 #endif
-  __ sldi_PPC(size, size, Interpreter::logStackElementSize);
-  __ add_PPC(R23_esp, R23_esp, size);
+  __ slli(size, size, Interpreter::logStackElementSize);
+  __ add(R23_esp, R23_esp, size);
 
- __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
- __ check_and_handle_earlyret(R5_scratch1);
+  __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
+  __ check_and_handle_earlyret(R5_scratch1, R6_scratch2);
 
   __ dispatch_next(state, step);
   return entry;
