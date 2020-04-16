@@ -32,7 +32,6 @@
   static void invokeinterface_object_method(Register Rrecv_klass, Register Rret, Register Rflags, Register Rindex, Register Rtemp, Register Rtemp2);
 
   // Branch_conditional which takes TemplateTable::Condition.
-  static void branch_conditional(ConditionRegister crx, TemplateTable::Condition cc, Label& L, bool invert = false);
   static void if_cmp_common(Condition cc, Register Rfirst, Register Rsecond, Register Rscratch1, Register Rscratch2);
 
 #endif // CPU_RISCV_TEMPLATETABLE_RISCV_HPP
