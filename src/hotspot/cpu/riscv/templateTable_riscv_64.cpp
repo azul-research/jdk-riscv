@@ -1961,9 +1961,7 @@ void TemplateTable::fast_linearswitch() {
   __ get_u4(Rcount, Rdef_offset_addr, BytesPerInt, InterpreterMacroAssembler::Unsigned);
   __ addi(Rcurrent_pair, Rdef_offset_addr, 2 * BytesPerInt); // Rcurrent_pair now points to first pair.
 
-  __ mtctr_PPC(Rcount);
-  __ cmpwi_PPC(CCR0, Rcount, 0);
-  __ bne_PPC(CCR0, Lloop_entry);
+  __ bnez(Rcount, Lloop_entry);
 
   // Default case
   __ bind(Ldefault_case);
@@ -1971,28 +1969,30 @@ void TemplateTable::fast_linearswitch() {
   if (ProfileInterpreter) {
     __ profile_switch_default(Rdef_offset_addr, Rcount/* scratch */);
   }
-  __ b_PPC(Lcontinue_execution);
+  __ j(Lcontinue_execution);
 
   // Next iteration
   __ bind(Lsearch_loop);
-  __ bdz_PPC(Ldefault_case);
-  __ addi_PPC(Rcurrent_pair, Rcurrent_pair, 2 * BytesPerInt);
+  __ addi(Rcount, Rcount, -1);
+  __ beqz(Rcount, Ldefault_case);
+  __ addi(Rcurrent_pair, Rcurrent_pair, 2 * BytesPerInt);
+
   __ bind(Lloop_entry);
-  __ get_u4(Rvalue, Rcurrent_pair, 0, InterpreterMacroAssembler::Unsigned);
-  __ cmpw_PPC(CCR0, Rvalue, Rcmp_value);
-  __ bne_PPC(CCR0, Lsearch_loop);
+  __ get_u4(Rvalue, Rcurrent_pair, 0, InterpreterMacroAssembler::Signed);
+  __ bne(Rvalue, Rcmp_value, Lsearch_loop);
 
   // Found, load offset.
   __ get_u4(Roffset, Rcurrent_pair, BytesPerInt, InterpreterMacroAssembler::Signed);
   // Calculate case index and profile
-  __ mfctr_PPC(Rcurrent_pair);
   if (ProfileInterpreter) {
-    __ sub_PPC(Rcurrent_pair, Rcount, Rcurrent_pair);
+    __ sub(Rcurrent_pair, Rcurrent_pair, Rdef_offset_addr);
+    __ addi(Rcurrent_pair, Rcurrent_pair, -2 * BytesPerInt);
+    __ srli(Rcurrent_pair, Rcurrent_pair, exact_log2(2 * BytesPerInt));
     __ profile_switch_case(Rcurrent_pair, Rcount /*scratch*/, Rdef_offset_addr/*scratch*/, Rscratch);
   }
 
   __ bind(Lcontinue_execution);
-  __ add_PPC(R22_bcp, Roffset, R22_bcp);
+  __ add(R22_bcp, Roffset, R22_bcp);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -2029,12 +2029,13 @@ void TemplateTable::fast_binaryswitch() {
   // }
 
   // register allocation
-  const Register Rkey     = R25_tos;          // already set (tosca)
-  const Register Rarray   = R3_ARG1_PPC;
-  const Register Ri       = R4_ARG2_PPC;
-  const Register Rj       = R5_ARG3_PPC;
-  const Register Rh       = R6_ARG4_PPC;
-  const Register Rscratch = R5_scratch1;
+  const Register Rkey      = R25_tos;          // already set (tosca)
+  const Register Rarray    = R10_ARG0;
+  const Register Ri        = R11_ARG1;
+  const Register Rj        = R12_ARG2;
+  const Register Rh        = R13_ARG3;
+  const Register Rscratch  = R5_scratch1;
+  const Register Rscratch2 = R6_scratch2;
 
   const int log_entry_size = 3;
   const int entry_size = 1 << log_entry_size;
@@ -2042,73 +2043,66 @@ void TemplateTable::fast_binaryswitch() {
   Label found;
 
   // Find Array start,
-  __ addi_PPC(Rarray, R22_bcp, 3 * BytesPerInt);
-  __ clrrdi_PPC(Rarray, Rarray, log2_long((jlong)BytesPerInt));
+  __ addi(Rarray, R22_bcp, 3 * BytesPerInt);
+  __ andi(Rarray, Rarray, -BytesPerInt);
 
-  // initialize i & j
-  __ li_PPC(Ri,0);
+  // initialize i and j
+  __ li(Ri, 0);
   __ get_u4(Rj, Rarray, -BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   // and start.
   Label entry;
-  __ b_PPC(entry);
+  __ j(entry);
 
   // binary search loop
   { Label loop;
     __ bind(loop);
     // int h = (i + j) >> 1;
-    __ srdi_PPC(Rh, Rh, 1);
+    __ add(Rh, Ri, Rj);
+    __ srli(Rh, Rh, 1);
     // if (key < array[h].fast_match()) {
     //   j = h;
     // } else {
     //   i = h;
     // }
-    __ sldi_PPC(Rscratch, Rh, log_entry_size);
-#if defined(VM_LITTLE_ENDIAN)
-    __ lwbrx_PPC(Rscratch, Rscratch, Rarray);
-#else
-    __ lwzx_PPC(Rscratch, Rscratch, Rarray);
-#endif
+    __ slli(Rscratch2, Rh, log_entry_size);
+    __ add(Rscratch2, Rscratch2, Rarray);
+    __ get_u4(Rscratch, Rscratch2, 0, InterpreterMacroAssembler::Signed);
 
     // if (key < current value)
     //   Rh = Rj
     // else
     //   Rh = Ri
     Label Lgreater;
-    __ cmpw_PPC(CCR0, Rkey, Rscratch);
-    __ bge_PPC(CCR0, Lgreater);
-    __ mr_PPC(Rj, Rh);
-    __ b_PPC(entry);
+    __ bge(Rkey, Rscratch, Lgreater);
+    __ mv(Rh, Rj);
+    __ j(entry);
     __ bind(Lgreater);
-    __ mr_PPC(Ri, Rh);
+    __ mv(Rh, Ri);
 
     // while (i+1 < j)
     __ bind(entry);
-    __ addi_PPC(Rscratch, Ri, 1);
-    __ cmpw_PPC(CCR0, Rscratch, Rj);
-    __ add_PPC(Rh, Ri, Rj); // start h = i + j >> 1;
-
-    __ blt_PPC(CCR0, loop);
+    __ addi(Rscratch, Ri, 1);
+    __ blt(Rscratch, Rj, loop);
   }
 
   // End of binary search, result index is i (must check again!).
   Label default_case;
   Label continue_execution;
   if (ProfileInterpreter) {
-    __ mr_PPC(Rh, Ri);              // Save index in i for profiling.
+    __ mv(Ri, Rh);              // Save index in i for profiling.
   }
   // Ri = value offset
-  __ sldi_PPC(Ri, Ri, log_entry_size);
-  __ add_PPC(Ri, Ri, Rarray);
+  __ slli(Ri, Ri, log_entry_size);
+  __ add(Ri, Ri, Rarray);
   __ get_u4(Rscratch, Ri, 0, InterpreterMacroAssembler::Unsigned);
 
   Label not_found;
   // Ri = offset offset
-  __ cmpw_PPC(CCR0, Rkey, Rscratch);
-  __ beq_PPC(CCR0, not_found);
+  __ beq(Rkey, Rscratch, not_found);
   // entry not found -> j = default offset
   __ get_u4(Rj, Rarray, -2 * BytesPerInt, InterpreterMacroAssembler::Unsigned);
-  __ b_PPC(default_case);
+  __ j(default_case);
 
   __ bind(not_found);
   // entry found -> j = offset
@@ -2116,7 +2110,7 @@ void TemplateTable::fast_binaryswitch() {
   __ get_u4(Rj, Ri, BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   if (ProfileInterpreter) {
-    __ b_PPC(continue_execution);
+    __ j(continue_execution);
   }
 
   __ bind(default_case); // fall through (if not profiling)
@@ -2124,8 +2118,7 @@ void TemplateTable::fast_binaryswitch() {
 
   __ bind(continue_execution);
 
-  __ extsw_PPC(Rj, Rj);
-  __ add_PPC(R22_bcp, Rj, R22_bcp);
+  __ add(R22_bcp, Rj, R22_bcp);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -2172,10 +2165,7 @@ void TemplateTable::_return(TosState state) {
   __ remove_activation(state, /* throw_monitor_exception */ true);
   // Restoration of lr done by remove_activation.
   switch (state) {
-    // Narrow result if state is itos but result type is smaller.
-    // Need to narrow in the return bytecode rather than in generate_return_entry
-    // since compiled code callers expect the result to already be narrowed.
-    case itos: __ narrow(R25_tos); /* fall through */
+    case itos:
     case ltos:
     case atos: __ mv(R10_RET1, R25_tos); break;
     case ftos:

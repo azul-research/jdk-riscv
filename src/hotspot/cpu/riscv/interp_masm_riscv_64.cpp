@@ -434,6 +434,7 @@ void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int b
 void InterpreterMacroAssembler::get_u4(Register Rdst, Register Rsrc, int offset,
                                        signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
+  assert_different_registers(Rdst, Rsrc);
   Register Rtmp = R30_TMP5;
   if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R29_TMP4;
   if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R28_TMP3;
