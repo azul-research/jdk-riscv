@@ -2994,9 +2994,8 @@ void MacroAssembler::get_vm_result_2(Register metadata_result) {
   //   metadata_result
   //   R24_thread->in_bytes(JavaThread::vm_result_2_offset())
 
-  ld_PPC(metadata_result, in_bytes(JavaThread::vm_result_2_offset()), R24_thread);
-  li_PPC(R0, 0);
-  std_PPC(R0, in_bytes(JavaThread::vm_result_2_offset()), R24_thread);
+  ld(metadata_result, R24_thread, in_bytes(JavaThread::vm_result_2_offset()));
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::vm_result_2_offset()));
 }
 
 Register MacroAssembler::encode_klass_not_null(Register dst, Register src) {

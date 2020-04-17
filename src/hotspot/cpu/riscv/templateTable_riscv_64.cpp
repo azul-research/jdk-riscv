@@ -93,12 +93,9 @@ Address TemplateTable::at_bcp(int offset) {
 // Patches the current bytecode (ptr to it located in bcp)
 // in the bytecode stream with a new one.
 void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Register Rtemp, bool load_bc_into_bc_reg /*=true*/, int byte_no) {
-  //FIXME_RISCV
-  return;
-
   // With sharing on, may need to test method flag.
   if (!RewriteBytecodes) return;
-  Label L_patch_done;
+  Label L_patch_done, L_zero;
 
   switch (new_bc) {
     case Bytecodes::_fast_aputfield:
@@ -121,21 +118,25 @@ void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Reg
       __ get_cache_and_index_at_bcp(Rtemp /* dst = cache */, 1);
       // ((*(cache+indices))>>((1+byte_no)*8))&0xFF:
 #if defined(VM_LITTLE_ENDIAN)
-      __ lbz_PPC(Rnew_bc, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 1 + byte_no, Rtemp);
+      __ lbu(Rnew_bc, Rtemp, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 1 + byte_no);
 #else
-      __ lbz_PPC(Rnew_bc, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (1 + byte_no), Rtemp);
+      __ lbu(Rnew_bc, Rtemp, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (1 + byte_no));
 #endif
-      __ cmpwi_PPC(CCR0, Rnew_bc, 0);
-      __ li_PPC(Rnew_bc, (unsigned int)(unsigned char)new_bc);
-      __ beq_PPC(CCR0, L_patch_done);
-      // __ isync_PPC(); // acquire not needed
+      __ beqz(Rnew_bc, L_zero);
+      __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
+      __ sb(Rnew_bc, R22_bcp, 0);
+      __ j(L_patch_done);
+
+      __ bind(L_zero);
+      __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
+      __ j(L_patch_done);
       break;
     }
 
     default:
       assert(byte_no == -1, "sanity");
       if (load_bc_into_bc_reg) {
-        __ li_PPC(Rnew_bc, (unsigned int)(unsigned char)new_bc);
+        __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
       }
   }
 
@@ -151,7 +152,7 @@ void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Reg
   }
 
   // Patch bytecode.
-  __ stb_PPC(Rnew_bc, 0, R22_bcp);
+  __ sb(Rnew_bc, R22_bcp, 0);
 
   __ bind(L_patch_done);
 }
@@ -245,7 +246,7 @@ void TemplateTable::ldc(bool wide) {
   Register Rscratch1 = R5_scratch1,
            Rscratch2 = R6_scratch2,
            Rscratch3 = R7_TMP2,
-           Rcpool    = R11_ARG1;
+           Rcpool    = R10_ARG0;
 
   transition(vtos, vtos);
   Label notInt, notFloat, isClass, exit;
@@ -320,6 +321,7 @@ void TemplateTable::fast_aldc(bool wide) {
   int index_size = wide ? sizeof(u2) : sizeof(u1);
   const Register Rscratch = R5_scratch1;
   Label is_null;
+  Label not_sentinel;
 
   // We are resolved if the resolved reference cache entry contains a
   // non-null object (CallSite, etc.)
@@ -327,27 +329,22 @@ void TemplateTable::fast_aldc(bool wide) {
   __ load_resolved_reference_at_index(R25_tos, Rscratch, &is_null);
 
   // Convert null sentinel to NULL.
-  int simm16_rest = __ load_const_optimized(Rscratch, Universe::the_null_sentinel_addr(), R0, true);
-  __ ld_PPC(Rscratch, simm16_rest, Rscratch);
-  __ cmpld_PPC(CCR0, R25_tos, Rscratch);
-  if (VM_Version::has_isel()) {
-    __ isel_0_PPC(R25_tos, CCR0, Assembler::equal);
-  } else {
-    Label not_sentinel;
-    __ bne_PPC(CCR0, not_sentinel);
-    __ li_PPC(R25_tos, 0);
-    __ bind(not_sentinel);
-  }
+  int simm12_rest = __ load_const_optimized(Rscratch, Universe::the_null_sentinel_addr(), noreg, true);
+  __ ld(Rscratch, Rscratch, simm12_rest);
+  __ bne(R25_tos, Rscratch, not_sentinel);
+  __ li(R25_tos, 0);
+  __ bind(not_sentinel);
+
   __ verify_oop(R25_tos);
   __ dispatch_epilog(atos, Bytecodes::length_for(bytecode()));
 
   __ bind(is_null);
-  __ load_const_optimized(R3_ARG1_PPC, (int)bytecode());
+  __ load_const_optimized(R10_ARG0, (int)bytecode());
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_ldc);
 
   // First time invocation - must resolve first.
-  __ call_VM(R25_tos, entry, R3_ARG1_PPC);
+  __ call_VM(R25_tos, entry, R10_ARG0);
   __ verify_oop(R25_tos);
 }
 
@@ -358,7 +355,7 @@ void TemplateTable::ldc2_w() {
   Register Rindex   = R5_scratch1,
            Rcpool   = R6_scratch2,
            Rscratch = R7_TMP2,
-           Rtag     = R11_ARG1;
+           Rtag     = R10_ARG0;
   __ get_cpool_and_tags(Rcpool, Rtag);
   __ get_2_byte_integer_at_bcp(1, Rindex, InterpreterMacroAssembler::Unsigned);
 
@@ -514,37 +511,36 @@ void TemplateTable::iload_internal(RewriteControl rc) {
   transition(vtos, itos);
 
   // Get the local value into tos
-  const Register Rindex = R22_tmp2_PPC;
+  const Register Rindex = R6_scratch2;
   locals_index(Rindex);
 
   // Rewrite iload,iload  pair into fast_iload2
   //         iload,caload pair into fast_icaload
   if (RewriteFrequentPairs && rc == may_rewrite) {
-    assert(false, "FIXME_RISCV: rewrite in iload unsupported");
     Label Lrewrite, Ldone;
-    Register Rnext_byte  = R3_ARG1_PPC,
-             Rrewrite_to = R6_ARG4_PPC,
+    Register Rnext_byte  = R10_ARG0,
+             Rrewrite_to = R13_ARG3,
              Rscratch    = R5_scratch1;
 
     // get next byte
-    __ lbz_PPC(Rnext_byte, Bytecodes::length_for(Bytecodes::_iload), R22_bcp);
+    __ lbu(Rnext_byte, R22_bcp, Bytecodes::length_for(Bytecodes::_iload));
 
     // if _iload, wait to rewrite to iload2. We only want to rewrite the
     // last two iloads in a pair. Comparing against fast_iload means that
     // the next bytecode is neither an iload or a caload, and therefore
     // an iload pair.
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_iload);
-    __ beq_PPC(CCR0, Ldone);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_iload);
+    __ beq(Rnext_byte, Rscratch, Ldone);
 
-    __ cmpwi_PPC(CCR1, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload2);
-    __ beq_PPC(CCR1, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload2);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_caload);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_icaload);
-    __ beq_PPC(CCR0, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_caload);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_icaload);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
 
     __ bind(Lrewrite);
     patch_bytecode(Bytecodes::_iload, Rrewrite_to, Rscratch, false);
@@ -695,7 +691,6 @@ void TemplateTable::daload() {
 }
 
 void TemplateTable::aaload() {
-  tty->print_cr("aaload: %p", __ pc());
   transition(itos, atos);
 
   // tos: index
@@ -813,30 +808,30 @@ void TemplateTable::aload_0_internal(RewriteControl rc) {
   if (RewriteFrequentPairs && rc == may_rewrite) {
 
     Label Lrewrite, Ldont_rewrite;
-    Register Rnext_byte  = R3_ARG1_PPC,
-             Rrewrite_to = R6_ARG4_PPC,
+    Register Rnext_byte  = R10_ARG0,
+             Rrewrite_to = R13_ARG3,
              Rscratch    = R5_scratch1;
 
     // Get next byte.
-    __ lbz_PPC(Rnext_byte, Bytecodes::length_for(Bytecodes::_aload_0), R22_bcp);
+    __ lbu(Rnext_byte, R22_bcp, Bytecodes::length_for(Bytecodes::_aload_0));
 
     // If _getfield, wait to rewrite. We only want to rewrite the last two bytecodes in a pair.
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_getfield);
-    __ beq_PPC(CCR0, Ldont_rewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_getfield);
+    __ beq(Rnext_byte, Rscratch, Ldont_rewrite);
 
-    __ cmpwi_PPC(CCR1, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_igetfield);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iaccess_0);
-    __ beq_PPC(CCR1, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_igetfield);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iaccess_0);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_agetfield);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aaccess_0);
-    __ beq_PPC(CCR0, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_agetfield);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aaccess_0);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ cmpwi_PPC(CCR1, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_fgetfield);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_faccess_0);
-    __ beq_PPC(CCR1, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_fgetfield);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_faccess_0);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aload_0);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aload_0);
 
     __ bind(Lrewrite);
     patch_bytecode(Bytecodes::_aload_0, Rrewrite_to, Rscratch, false);
@@ -1044,7 +1039,9 @@ void TemplateTable::bastore() {
 
   const Register Rindex   = R5_scratch1,
                  Rarray   = R6_scratch2,
-                 Rscratch = R3_ARG1_PPC;
+                 Rscratch = R10_ARG0;
+  Label L_skip;
+
   __ pop_i(Rindex);
   __ pop_ptr(Rarray);
   // tos: val
@@ -1052,16 +1049,17 @@ void TemplateTable::bastore() {
   // Need to check whether array is boolean or byte
   // since both types share the bastore bytecode.
   __ load_klass(Rscratch, Rarray);
-  __ lwz_PPC(Rscratch, in_bytes(Klass::layout_helper_offset()), Rscratch);
+  __ lwu(Rscratch, Rscratch, in_bytes(Klass::layout_helper_offset()));
   int diffbit = exact_log2(Klass::layout_helper_boolean_diffbit());
-  __ testbitdi_PPC(CCR0, R0, Rscratch, diffbit);
-  Label L_skip;
-  __ bfalse_PPC(CCR0, L_skip);
-  __ andi_PPC(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
+  __ srli(Rscratch, Rscratch, diffbit);
+  __ andi(Rscratch, Rscratch, 1);
+  __ beqz(Rscratch, L_skip);
+
+  __ andi(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
   __ bind(L_skip);
 
   __ index_check_without_pop(Rarray, Rindex, 0, Rscratch, Rarray);
-  __ stb_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_BYTE), Rarray);
+  __ sb(R25_tos, Rarray, arrayOopDesc::base_offset_in_bytes(T_BYTE));
 }
 
 void TemplateTable::castore() {
@@ -1679,7 +1677,6 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
   // It's much shorter and cleaner than intermingling with the
   // non-JSR normal-branch stuff occurring below.
   if (is_jsr) {
-    __ unimplemented("JSR branch is not implemented");
     // Compute return address as bci in Otos_i.
     __ ld(Rscratch1, R27_method, in_bytes(Method::const_offset()));
     __ addi(Rscratch2, R22_bcp, -in_bytes(ConstMethod::codes_offset()) + (is_wide ? 5 : 3));
@@ -1690,7 +1687,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
     // Push returnAddress for "ret" on stack.
     __ push_ptr(R25_tos);
     // And away we go!
-    __ dispatch_next(vtos, 0 ,true);
+    __ dispatch_next(vtos, 0, true);
     return;
   }
 
@@ -1878,7 +1875,7 @@ void TemplateTable::ret() {
 void TemplateTable::wide_ret() {
   transition(vtos, vtos);
 
-  const Register Rindex = R3_ARG1_PPC,
+  const Register Rindex = R10_ARG0,
                  Rscratch1 = R5_scratch1,
                  Rscratch2 = R6_scratch2;
 
@@ -1886,9 +1883,9 @@ void TemplateTable::wide_ret() {
   __ load_local_ptr(R25_tos, R25_tos, Rindex);
   __ profile_ret(vtos, R25_tos, Rscratch1, R6_scratch2);
   // Tos now contains the bci, compute the bcp from that.
-  __ ld_PPC(Rscratch1, in_bytes(Method::const_offset()), R27_method);
-  __ addi_PPC(Rscratch2, R25_tos, in_bytes(ConstMethod::codes_offset()));
-  __ add_PPC(R22_bcp, Rscratch1, Rscratch2);
+  __ ld(Rscratch1, R27_method, in_bytes(Method::const_offset()));
+  __ addi(Rscratch2, R25_tos, in_bytes(ConstMethod::codes_offset()));
+  __ add(R22_bcp, Rscratch1, Rscratch2);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -1896,41 +1893,34 @@ void TemplateTable::tableswitch() {
   transition(itos, vtos);
 
   Label Ldispatch, Ldefault_case;
-  Register Rlow_byte         = R3_ARG1_PPC,
+  Register Rlow_byte         = R10_ARG0,
            Rindex            = Rlow_byte,
-           Rhigh_byte        = R4_ARG2_PPC,
-           Rdef_offset_addr  = R5_ARG3_PPC, // is going to contain address of default offset
+           Rhigh_byte        = R11_ARG1,
+           Rdef_offset_addr  = R12_ARG2, // is going to contain address of default offset
            Rscratch1         = R5_scratch1,
            Rscratch2         = R6_scratch2,
-           Roffset           = R6_ARG4_PPC;
+           Roffset           = R14_ARG4;
 
   // Align bcp.
-  __ addi_PPC(Rdef_offset_addr, R22_bcp, BytesPerInt);
-  __ clrrdi_PPC(Rdef_offset_addr, Rdef_offset_addr, log2_long((jlong)BytesPerInt));
+  __ addi(Rdef_offset_addr, R22_bcp, BytesPerInt);
+  __ andi(Rdef_offset_addr, Rdef_offset_addr, -BytesPerInt); // clear low bits
 
   // Load lo & hi.
   __ get_u4(Rlow_byte, Rdef_offset_addr, BytesPerInt, InterpreterMacroAssembler::Unsigned);
   __ get_u4(Rhigh_byte, Rdef_offset_addr, 2 *BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   // Check for default case (=index outside [low,high]).
-  __ cmpw_PPC(CCR0, R25_tos, Rlow_byte);
-  __ cmpw_PPC(CCR1, R25_tos, Rhigh_byte);
-  __ blt_PPC(CCR0, Ldefault_case);
-  __ bgt_PPC(CCR1, Ldefault_case);
+  __ blt(R25_tos, Rlow_byte, Ldefault_case);
+  __ bgt(R25_tos, Rhigh_byte, Ldefault_case);
 
   // Lookup dispatch offset.
-  __ sub_PPC(Rindex, R25_tos, Rlow_byte);
-  __ extsw_PPC(Rindex, Rindex);
+  __ sub(Rindex, R25_tos, Rlow_byte);
   __ profile_switch_case(Rindex, Rhigh_byte /* scratch */, Rscratch1, Rscratch2);
-  __ sldi_PPC(Rindex, Rindex, LogBytesPerInt);
-  __ addi_PPC(Rindex, Rindex, 3 * BytesPerInt);
-#if defined(VM_LITTLE_ENDIAN)
-  __ lwbrx_PPC(Roffset, Rdef_offset_addr, Rindex);
-  __ extsw_PPC(Roffset, Roffset);
-#else
-  __ lwax_PPC(Roffset, Rdef_offset_addr, Rindex);
-#endif
-  __ b_PPC(Ldispatch);
+  __ slli(Rindex, Rindex, LogBytesPerInt);
+  __ addi(Rindex, Rindex, 3 * BytesPerInt);
+  __ add(Rdef_offset_addr, Rdef_offset_addr, Rindex);
+  __ get_u4(Roffset, Rdef_offset_addr, 0, InterpreterMacroAssembler::Signed);
+  __ j(Ldispatch);
 
   __ bind(Ldefault_case);
   __ profile_switch_default(Rhigh_byte, Rscratch1);
@@ -1938,7 +1928,7 @@ void TemplateTable::tableswitch() {
 
   __ bind(Ldispatch);
 
-  __ add_PPC(R22_bcp, Roffset, R22_bcp);
+  __ add(R22_bcp, Roffset, R22_bcp);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -1955,21 +1945,21 @@ void TemplateTable::fast_linearswitch() {
   transition(itos, vtos);
 
   Label Lloop_entry, Lsearch_loop, Lcontinue_execution, Ldefault_case;
-  Register Rcount           = R3_ARG1_PPC,
-           Rcurrent_pair    = R4_ARG2_PPC,
-           Rdef_offset_addr = R5_ARG3_PPC, // Is going to contain address of default offset.
+  Register Rcount           = R10_ARG0,
+           Rcurrent_pair    = R11_ARG1,
+           Rdef_offset_addr = R12_ARG2, // Is going to contain address of default offset.
            Roffset          = R31,     // Might need to survive C call.
            Rvalue           = R6_scratch2,
            Rscratch         = R5_scratch1,
            Rcmp_value       = R25_tos;
 
   // Align bcp.
-  __ addi_PPC(Rdef_offset_addr, R22_bcp, BytesPerInt);
-  __ clrrdi_PPC(Rdef_offset_addr, Rdef_offset_addr, log2_long((jlong)BytesPerInt));
+  __ addi(Rdef_offset_addr, R22_bcp, BytesPerInt);
+  __ andi(Rdef_offset_addr, Rdef_offset_addr, -BytesPerInt); // clear low bits
 
   // Setup loop counter and limit.
   __ get_u4(Rcount, Rdef_offset_addr, BytesPerInt, InterpreterMacroAssembler::Unsigned);
-  __ addi_PPC(Rcurrent_pair, Rdef_offset_addr, 2 * BytesPerInt); // Rcurrent_pair now points to first pair.
+  __ addi(Rcurrent_pair, Rdef_offset_addr, 2 * BytesPerInt); // Rcurrent_pair now points to first pair.
 
   __ mtctr_PPC(Rcount);
   __ cmpwi_PPC(CCR0, Rcount, 0);
@@ -2140,7 +2130,6 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
-  tty->print_cr("return #%i: %p", state, __ pc());
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation

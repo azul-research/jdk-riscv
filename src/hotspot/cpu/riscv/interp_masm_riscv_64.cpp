@@ -434,20 +434,26 @@ void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int b
 void InterpreterMacroAssembler::get_u4(Register Rdst, Register Rsrc, int offset,
                                        signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (offset) {
-    load_const_optimized(Rdst, offset);
-    lwbrx_PPC(Rdst, Rdst, Rsrc);
-  } else {
-    lwbrx_PPC(Rdst, Rsrc);
-  }
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R29_TMP4;
+  if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R28_TMP3;
+
   if (is_signed == Signed) {
-    extsw_PPC(Rdst, Rdst);
+    lb(Rdst, Rsrc, offset);
+  } else {
+    lbu(Rdst, Rsrc, offset);
+  }
+
+  for (int i = 1; i <= 3; ++i) {
+    slli(Rdst, Rdst, 8);
+    lbu(Rtmp, Rsrc, offset + i);
+    orr(Rdst, Rtmp, Rdst);
   }
 #else
   if (is_signed == Signed) {
-    lwa_PPC(Rdst, offset, Rsrc);
+    lw(Rdst, offset, Rsrc);
   } else {
-    lwz_PPC(Rdst, offset, Rsrc);
+    lwu(Rdst, offset, Rsrc);
   }
 #endif
 }
