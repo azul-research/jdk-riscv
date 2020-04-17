@@ -332,7 +332,7 @@ void TemplateTable::fast_aldc(bool wide) {
   int simm12_rest = __ load_const_optimized(Rscratch, Universe::the_null_sentinel_addr(), noreg, true);
   __ ld(Rscratch, Rscratch, simm12_rest);
   __ bne(R25_tos, Rscratch, not_sentinel);
-  __ li(R25_tos, 0);
+  __ li(R25_tos, 0L);
   __ bind(not_sentinel);
 
   __ verify_oop(R25_tos);
@@ -2047,7 +2047,7 @@ void TemplateTable::fast_binaryswitch() {
   __ andi(Rarray, Rarray, -BytesPerInt);
 
   // initialize i and j
-  __ li(Ri, 0);
+  __ li(Ri, 0L);
   __ get_u4(Rj, Rarray, -BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   // and start.
