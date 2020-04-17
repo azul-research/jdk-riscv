@@ -2070,15 +2070,15 @@ void TemplateTable::fast_binaryswitch() {
     __ get_u4(Rscratch, Rscratch2, 0, InterpreterMacroAssembler::Signed);
 
     // if (key < current value)
-    //   Rh = Rj
+    //   Rj = Rh
     // else
-    //   Rh = Ri
+    //   Ri = Rh
     Label Lgreater;
     __ bge(Rkey, Rscratch, Lgreater);
-    __ mv(Rh, Rj);
+    __ mv(Rj, Rh);
     __ j(entry);
     __ bind(Lgreater);
-    __ mv(Rh, Ri);
+    __ mv(Ri, Rh);
 
     // while (i+1 < j)
     __ bind(entry);
@@ -2090,7 +2090,7 @@ void TemplateTable::fast_binaryswitch() {
   Label default_case;
   Label continue_execution;
   if (ProfileInterpreter) {
-    __ mv(Ri, Rh);              // Save index in i for profiling.
+    __ mv(Rh, Ri);              // Save index in i for profiling.
   }
   // Ri = value offset
   __ slli(Ri, Ri, log_entry_size);
