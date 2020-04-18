@@ -2338,7 +2338,7 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
   // Access constant pool cache fields.
   const int index_offset  = in_bytes(cp_base_offset + ConstantPoolCacheEntry::f2_offset());
 
-  Register Rcache = R21_S5; // Note: same register as R21_sender_SP.
+  Register Rcache = R21; // Note: same register as R21_sender_SP.
 
   if (is_invokevfinal) {
     assert(Ritable_index == noreg, "register not used");
