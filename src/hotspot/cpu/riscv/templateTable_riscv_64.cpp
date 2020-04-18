@@ -4207,15 +4207,15 @@ void TemplateTable::wide() {
 
   const Register Rtable = R5_scratch1,
                  Rindex = R6_scratch2,
-                 Rtmp   = R0;
+                 Rtmp   = R7_TMP2;
 
-  __ lbz_PPC(Rindex, 1, R22_bcp);
+  __ lbu(Rindex, R22_bcp, 1);
 
   __ load_dispatch_table(Rtable, Interpreter::_wentry_point);
 
-  __ slwi_PPC(Rindex, Rindex, LogBytesPerWord);
-  __ ldx_PPC(Rtmp, Rtable, Rindex);
-  __ mtctr_PPC(Rtmp);
-  __ bctr_PPC();
+  __ slli(Rindex, Rindex, LogBytesPerWord);
+  __ add(Rtable, Rtable, Rindex);
+  __ ld(Rtmp, Rtable, 0);
+  __ jr(Rtmp);
   // Note: the bcp increment step is part of the individual wide bytecode implementations.
 }
