@@ -1815,11 +1815,11 @@ void TemplateTable::if_cmp_common(Condition cc, Register Rfirst, Register Rsecon
     case less_equal:    __ bgt(Rfirst, Rsecond, not_taken); break;
     case greater:       __ ble(Rfirst, Rsecond, not_taken); break;
     case greater_equal: __ blt(Rfirst, Rsecond, not_taken); break;
+  }
 
   branch(false, false);
   __ bind(not_taken);
   __ profile_not_taken_branch(Rscratch1, Rscratch2);
-  }
 }
 
 // Compare integer values with zero and fall through if CC holds, branch away otherwise.

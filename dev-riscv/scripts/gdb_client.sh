@@ -21,4 +21,4 @@ while getopts "hv:l:" opt; do
     esac
 done
 
-riscv64-unknown-linux-gnu-gdb /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java
+riscv64-unknown-linux-gnu-gdb -iex "set auto-load safe-path /" /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java
