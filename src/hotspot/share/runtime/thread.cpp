@@ -3773,9 +3773,9 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
       Method *testMethod = findTestMethod(InstanceKlass::cast(testKlass), TestMethodName);
       JavaCallArguments args;
-      JavaValue result(T_VOID);
+      JavaValue result(T_INT);
       JavaCalls::call(&result, testMethod, &args, CHECK);
-      fprintf(stderr, "Custom method call result: %d\n", 1/*result.get_jint()*/);
+      fprintf(stderr, "Custom method call result: %d\n", result.get_jint());
     } else {
       Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
       Method *method = InstanceKlass::cast(klass)->methods()->at(14);

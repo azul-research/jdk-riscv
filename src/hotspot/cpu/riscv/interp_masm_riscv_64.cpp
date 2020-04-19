@@ -546,6 +546,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   verify_oop(Rarray);
   const Register Rlength   = R6_scratch2;
   const Register RsxtIndex = Rtmp;
+  assert_different_registers(Rlength, Rarray, Rindex, Rtmp);
   Label LisNull, LnotOOR;
 
   // Array nullcheck
@@ -554,8 +555,6 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   } else {
     //null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex); FIXME_RISCV
   }
-
-  slli(RsxtIndex, Rindex, index_shift);
 
   // Index check
   lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
@@ -574,7 +573,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
 
   align(32, 16);
   bind(LnotOOR);
-  slli(RsxtIndex, RsxtIndex, index_shift);
+  slli(RsxtIndex, Rindex, index_shift);
   // Calc address
   add(Rres, RsxtIndex, Rarray);
 }
