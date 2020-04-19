@@ -27,7 +27,7 @@ while getopts "hdv:l" opt; do
 done
 
 executable="/jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java"
-args="-XX:+TraceBytecodes -XX:+Verbose -XX:+CallTestMethod -XX:TestMethodClass=java.lang.T1 -XX:TestMethodName=test -XX:+DisableClinit"
+args="-XX:+TraceBytecodes -XX:+Verbose -XX:+CallTestMethod -XX:TestMethodClass=java.lang.T1 -XX:TestMethodName=test -XX:+DisableClinit -XX:+ExitAfterTestMethod"
 
 if [ "x$debug" = "x" ]; then
     $executable $args
