@@ -49,7 +49,7 @@ class InterpreterMacroAssembler: public MacroAssembler {
 #define method_(field_name) R27_method, in_bytes(Method::field_name ## _offset())
 
   virtual void check_and_handle_popframe(Register scratch_reg, Register scratch_reg2);
-  virtual void check_and_handle_earlyret(Register scratch_reg);
+  virtual void check_and_handle_earlyret(Register scratch_reg, Register scratch_reg2);
 
   // Base routine for all dispatches.
   void dispatch_base(TosState state, address* table);

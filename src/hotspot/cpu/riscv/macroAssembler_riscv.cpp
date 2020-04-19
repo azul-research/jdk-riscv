@@ -921,17 +921,16 @@ void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Registe
 
   // compute offset w.r.t. current stack pointer
   // tmp_1 <- addr - SP (!)
-  subf_PPC(tmp1, R1_SP_PPC, addr);
+  sub(tmp1, addr, R2_SP);
 
   // atomically update SP keeping back link.
   resize_frame(tmp1/* offset */, tmp2/* tmp */);
 }
 
-void MacroAssembler::push_frame(Register bytes) {
-#if 0 // FIXME_RISCV how to check alignment?
-  assert(bytes != R0, "r0 not allowed here");
-  andi(R0, bytes, frame::alignment_in_bytes-1);
-  asm_assert_eq("push_frame(Reg, Reg): unaligned", 0x203);
+void MacroAssembler::push_frame(Register bytes, Register tmp) {
+#ifdef ASSERT
+  andi(tmp, bytes, frame::alignment_in_bytes-1);
+  asm_assert_eq(tmp, R0_ZERO, "push_frame(Reg, Reg): unaligned", 0x203);
 #endif
   mv(R8_FP, R2_SP);
   sub(R2_SP, R2_SP, bytes);
@@ -2650,8 +2649,9 @@ void MacroAssembler::rtm_inflated_locking(ConditionRegister flag,
     // Restore owner_addr_Reg
     ld_PPC(mark_word, oopDesc::mark_offset_in_bytes(), obj);
 #ifdef ASSERT
-    andi__PPC(R0, mark_word, markOopDesc::monitor_value);
-    asm_assert_ne("must be inflated", 0xa754); // Deflating only allowed at safepoint.
+//    FIXME_RISCV
+//    andi__PPC(R0, mark_word, markOopDesc::monitor_value);
+//    asm_assert_ne("must be inflated", 0xa754); // Deflating only allowed at safepoint.
 #endif
     addi_PPC(owner_addr_Reg, mark_word, owner_offset);
   }
@@ -4741,14 +4741,19 @@ void MacroAssembler::multiply_to_len(Register x, Register xlen,
   bind(L_done);
 }   // multiply_to_len
 
-void MacroAssembler::asm_assert(bool check_equal, const char *msg, int id) {
+void MacroAssembler::asm_assert_eq(Register r1, Register r2, const char* msg, int id) {
 #ifdef ASSERT
   Label ok;
-  if (check_equal) {
-    beq_PPC(CCR0, ok);
-  } else {
-    bne_PPC(CCR0, ok);
-  }
+  beq(r1, r2, ok);
+  stop(msg, id);
+  bind(ok);
+#endif
+}
+
+void MacroAssembler::asm_assert_ne(Register r1, Register r2, const char* msg, int id) {
+#ifdef ASSERT
+  Label ok;
+  bne(r1, r2, ok);
   stop(msg, id);
   bind(ok);
 #endif
