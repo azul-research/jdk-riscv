@@ -21,4 +21,4 @@ docker run --rm -it \
     /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java \
     -XX:+CallTestMethod -XX:+TraceBytecodes -XX:+Verbose \
     -XX:TestMethodClass=javafuzz.T1 -XX:TestMethodName=test \
-    -XX:+DisableClinit -XX:+ExitAfterTestMethod" || exit 1
+    -XX:+ExitAfterTestMethod" || exit 1

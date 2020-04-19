@@ -367,7 +367,7 @@ class Fuzz:
         self.emit_newline()
 
     def static_vars(self):
-        for i in range(random.randrange(MAX_STATIC_VARS)):
+        for i in range(random.randrange(MAX_STATIC_VARS + 1)):
             self.declare_var(True)
 
     def main(self):

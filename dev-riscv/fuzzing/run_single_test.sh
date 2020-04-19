@@ -23,7 +23,7 @@ docker run --rm -it \
     /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java \
     -XX:+CallTestMethod \
     -XX:TestMethodClass=javafuzz.T1 -XX:TestMethodName=test \
-    -XX:+DisableClinit -XX:+ExitAfterTestMethod" | sed -n 's/TestMethodValue [a-z]\+ //p' > output || exit 1
+    -XX:+ExitAfterTestMethod" | sed -n 's/TestMethodValue [a-z]\+ //p' > output || exit 1
 
 diff -w output answer || exit 1
 printf "OK "
