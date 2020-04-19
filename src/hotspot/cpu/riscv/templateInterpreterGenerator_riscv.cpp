@@ -1086,8 +1086,8 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
 
   // RISCV64 specific:
   switch (kind) {
-    case Interpreter::java_lang_math_sqrt: use_instruction = VM_Version::has_fsqrt(); break;
-    case Interpreter::java_lang_math_abs:  use_instruction = true; break;
+    case Interpreter::java_lang_math_sqrt:
+    case Interpreter::java_lang_math_abs : use_instruction = true;   break;
     case Interpreter::java_lang_math_fmaF:
     case Interpreter::java_lang_math_fmaD: use_instruction = UseFMA; break;
     default: break; // Fall back to runtime call.
@@ -1114,47 +1114,47 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
   address entry = __ pc();
 
   // Load arguments
-  assert(num_args <= 13, "passed in registers");
+  assert(num_args <= 8, "passed in registers");
   if (double_precision) {
     int offset = (2 * num_args - 1) * Interpreter::stackElementSize;
     for (int i = 0; i < num_args; ++i) {
-      __ lfd_PPC(as_FloatRegister(F1_ARG1_PPC->encoding() + i), offset, R23_esp);
+      __ fld(as_FloatRegister(F10_ARG0->encoding() + i), R23_esp, offset);
       offset -= 2 * Interpreter::stackElementSize;
     }
   } else {
     int offset = num_args * Interpreter::stackElementSize;
     for (int i = 0; i < num_args; ++i) {
-      __ lfs_PPC(as_FloatRegister(F1_ARG1_PPC->encoding() + i), offset, R23_esp);
+      __ flw(as_FloatRegister(F10_ARG0->encoding() + i), R23_esp, offset);
       offset -= Interpreter::stackElementSize;
     }
   }
 
+  int rm = Assembler::RNE;
+
   if (use_instruction) {
-    switch (kind) {
-      case Interpreter::java_lang_math_sqrt: __ fsqrt_PPC(F1_RET_PPC, F1);          break;
-      case Interpreter::java_lang_math_abs:  __ fabs_PPC(F1_RET_PPC, F1);           break;
-      case Interpreter::java_lang_math_fmaF: __ fmadds_PPC(F1_RET_PPC, F1, F2, F3); break;
-      case Interpreter::java_lang_math_fmaD: __ fmadd_PPC(F1_RET_PPC, F1, F2, F3);  break;
-      default: ShouldNotReachHere();
+    if (double_precision) {
+      switch (kind) {
+        case Interpreter::java_lang_math_sqrt: __ fsqrtd(F10_RET, F10_ARG0, rm);                      break;
+        case Interpreter::java_lang_math_abs:  __ fsgnjxd(F10_RET, F10_ARG0, F10_ARG0);               break;
+        case Interpreter::java_lang_math_fmaD: __ fmaddd(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
+        default: ShouldNotReachHere();
+      }
+    } else {
+      switch (kind) {
+        case Interpreter::java_lang_math_abs:  __ fsgnjxs(F10_RET, F10_ARG0, F10_ARG0);               break;
+        case Interpreter::java_lang_math_fmaF: __ fmadds(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
+        default: ShouldNotReachHere();
+      }
     }
   } else {
-    // Comment: Can use tail call if the unextended frame is always C ABI compliant:
-    //__ load_const_optimized(R6_scratch2, runtime_entry, R0);
-    //__ call_c_and_return_to_caller(R6_scratch2);
-
-    // Push a new C frame and save LR.
-    __ save_LR_CR(R0);
-    __ push_frame_reg_args(0, R5_scratch1);
-
+    __ sd(R1_RA, R8_FP, _ijava_state(saved_ra));
     __ call_VM_leaf(runtime_entry);
-
-    // Pop the C frame and restore RA.
-    __ pop_C_frame();
-  }
+    __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
+    }
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-  __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
-  __ blr_PPC();
+  __ mv(R2_SP, R21_sender_SP);
+  __ ret();
 
   __ flush();
 

@@ -217,6 +217,10 @@ void VM_Version::initialize() {
 
   assert(AllocatePrefetchStyle >= 0, "AllocatePrefetchStyle should be positive");
 
+  if (FLAG_IS_DEFAULT(UseFMA)) {
+    FLAG_SET_DEFAULT(UseFMA, true);
+  }
+
   /* // FIXME_RISCV begin
   // If running on Power8 or newer hardware, the implementation uses the available vector instructions.
   // In all other cases, the implementation uses only generally available instructions.
@@ -269,10 +273,6 @@ void VM_Version::initialize() {
   if (UseGHASHIntrinsics) {
     warning("GHASH intrinsics are not available on this CPU");
     FLAG_SET_DEFAULT(UseGHASHIntrinsics, false);
-  }
-
-  if (FLAG_IS_DEFAULT(UseFMA)) {
-    FLAG_SET_DEFAULT(UseFMA, true);
   }
 
   if (has_vshasig()) {
