@@ -2795,8 +2795,7 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
 
 #ifdef ASSERT
   // Make sure that there is at least one entry in the array.
-  __ cmpdi_PPC(CCR0, number_of_frames_reg, 0);
-  __ asm_assert_ne("array_size must be > 0", 0x205);
+  __ asm_assert_ne(number_of_frames_reg, R0_ZERO, "array_size must be > 0", 0x205);
 #endif
 
   // Now push the new interpreter frames.
@@ -3112,9 +3111,10 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // stack: (caller_of_deoptee, ...).
 
 #ifdef ASSERT
-  __ lwz_PPC(R22_tmp2_PPC, Deoptimization::UnrollBlock::unpack_kind_offset_in_bytes(), unroll_block_reg);
-  __ cmpdi_PPC(CCR0, R22_tmp2_PPC, (unsigned)Deoptimization::Unpack_uncommon_trap);
-  __ asm_assert_eq("SharedRuntime::generate_deopt_blob: expected Unpack_uncommon_trap", 0);
+// FIXME_RISCV
+//  __ lwz_PPC(R22_tmp2_PPC, Deoptimization::UnrollBlock::unpack_kind_offset_in_bytes(), unroll_block_reg);
+//  __ cmpdi_PPC(CCR0, R22_tmp2_PPC, (unsigned)Deoptimization::Unpack_uncommon_trap);
+//  __ asm_assert_eq("SharedRuntime::generate_deopt_blob: expected Unpack_uncommon_trap", 0);
 #endif
 
   // Allocate new interpreter frame(s) and possibly a c2i adapter
