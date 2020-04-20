@@ -76,7 +76,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   // area == 8. First we call InterpreterRuntime::get_result_handler
   // to copy the pointer to the signature string temporarily to the
   // first C-argument and to return the result_handler in
-  // R3_RET_PPC. Since native_entry will copy the jni-pointer to the
+  // R10_RET. Since native_entry will copy the jni-pointer to the
   // first C-argument slot later on, it is OK to occupy this slot
   // temporarilly. Then we copy the argument list on the java
   // expression stack into native varargs format on the native stack
@@ -84,17 +84,16 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   // the varargs vector will be sign-extended to 8 bytes.
   //
   // On entry:
-  //   R3_ARG1_PPC        - intptr_t*     Address of java argument list in memory.
-  //   R15_prev_state - BytecodeInterpreter* Address of interpreter state for
-  //     this method
+  //   R10_ARG0       - intptr_t*     Address of java argument list in memory.
+  //   R15_prev_state - BytecodeInterpreter* Address of interpreter state for this method
   //   R27_method
   //
   // On exit (just before return instruction):
-  //   R3_RET_PPC            - contains the address of the result_handler.
-  //   R4_ARG2_PPC           - is not updated for static methods and contains "this" otherwise.
-  //   R5_ARG3_PPC-R10_ARG8_PPC: - When the (i-2)th Java argument is not of type float or double,
-  //                       ARGi contains this argument. Otherwise, ARGi is not updated.
-  //   F1_ARG1_PPC-F13_ARG13_PPC - contain the first 13 arguments of type float or double.
+  //   R10_RET            - contains the address of the result_handler.
+  //   R11_ARG1           - is not updated for static methods and contains "this" otherwise.
+  //   R12_ARG2-R17_ARG7: - When the (i-2)th Java argument is not of type float or double,
+  //                        ARGi contains this argument. Otherwise, ARGi is not updated.
+  //   F10_ARG0-F17_ARG7: - contain the first 8 arguments of type float or double.
 
   const int LogSizeOfTwoInstructions = 3;
 
@@ -102,14 +101,14 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   const int max_fp_register_arguments  = 13;
   const int max_int_register_arguments = 6;  // first 2 are reserved
 
-  const Register arg_java       = R21_tmp1_PPC;
-  const Register arg_c          = R22_tmp2_PPC;
-  const Register signature      = R23_tmp3_PPC;  // is string
-  const Register sig_byte       = R24_tmp4_PPC;
-  const Register fpcnt          = R25_tmp5_PPC;
-  const Register argcnt         = R26_tmp6_PPC;
-  const Register intSlot        = R27_tmp7_PPC;
-  const Register target_sp      = R28_tmp8_PPC;
+  const Register arg_java       = R5_TMP0;
+  const Register arg_c          = R6_TMP1;
+  const Register signature      = R7_TMP2;  // is string
+  const Register sig_byte       = R28_TMP3;
+  const Register fpcnt          = R29_TMP4;
+  const Register argcnt         = R30_TMP5;
+  const Register intSlot        = R31_TMP6;
+  const Register target_sp      = R23_esp;
   const FloatRegister floatSlot = F0;
 
   address entry = __ pc();
@@ -798,12 +797,11 @@ void TemplateInterpreterGenerator::generate_counter_overflow(Label& continue_ent
   // Assumption: Caller must set the flag "do_not_unlock_if_sychronized" if the monitor of a sync'ed
   // method has not yet been created. Thus, no unlocking of a non-existing monitor can occur.
 
-  __ li_PPC(R4_ARG2_PPC, 0);
-  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::frequency_counter_overflow), R4_ARG2_PPC, true);
+  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::frequency_counter_overflow), R0, true);
 
   // Returns verified_entry_point or NULL.
   // We ignore it in any case.
-  __ b_PPC(continue_entry);
+  __ j(continue_entry);
 }
 
 // See if we've got enough room on the stack for locals plus overhead below
@@ -943,14 +941,16 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
  */
 
 void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals) {
-  Register new_FP          = R14_ARG4,
-           new_frame_size  = R15_ARG5,
-           Rconst_method   = R16_ARG6;
+  Register Rnew_FP          = R14_ARG4,
+           Rnew_frame_size  = R15_ARG5,
+           Rconst_method    = R16_ARG6;
 
-  assert_different_registers(Rsize_of_parameters, Rsize_of_locals, new_frame_size);
+  assert_different_registers(Rsize_of_parameters, Rsize_of_locals, Rnew_frame_size);
 
   __ ld(Rconst_method, method_(const));
   __ lhu(Rsize_of_parameters /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_parameters_offset()));
+
+  __ addi(Rnew_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
 
   if (native_call) { // FIXME_RISCV
     // If we're calling a native method, we reserve space for the worst-case signature
@@ -958,47 +958,47 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
     // We add two slots to the parameter_count, one for the jni
     // environment and one for a possible native mirror.
     Label skip_native_calculate_max_stack;
-    __ addi_PPC(new_frame_size, Rsize_of_parameters, 2);
-    __ cmpwi_PPC(CCR0, new_frame_size, Argument::n_register_parameters);
-    __ bge_PPC(CCR0, skip_native_calculate_max_stack);
-    __ li_PPC(new_frame_size, Argument::n_register_parameters);
+    __ addi(Rnew_frame_size, Rsize_of_parameters, 2);
+    __ li(R5_scratch1, Argument::n_register_parameters);
+    __ bge(Rnew_frame_size, R5_scratch1, skip_native_calculate_max_stack);
+    __ li(Rnew_frame_size, Argument::n_register_parameters);
     __ bind(skip_native_calculate_max_stack);
-    __ sldi_PPC(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
-    __ sldi_PPC(new_frame_size, new_frame_size, Interpreter::logStackElementSize);
+    __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
+    __ slli(Rnew_frame_size, Rnew_frame_size, Interpreter::logStackElementSize);
     assert(Rsize_of_locals == noreg, "Rsize_of_locals not initialized"); // Only relevant value is Rsize_of_parameters.
   } else {
     __ lhu(Rsize_of_locals /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_locals_offset()));
     __ slli(Rsize_of_locals, Rsize_of_locals, Interpreter::logStackElementSize);
 
-    __ lhu(new_frame_size, Rconst_method, in_bytes(ConstMethod::max_stack_offset()));
-    __ slli(new_frame_size, new_frame_size, Interpreter::logStackElementSize);
+    __ lhu(Rnew_frame_size, Rconst_method, in_bytes(ConstMethod::max_stack_offset()));
+    __ slli(Rnew_frame_size, Rnew_frame_size, Interpreter::logStackElementSize);
+
+    __ sub(Rnew_FP, Rnew_FP, Rsize_of_locals); // add size of all locals (includes parameters)
+    __ add(Rnew_FP, Rnew_FP, Rsize_of_parameters);
 
     __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
   }
 
   // Compute top frame size.
-  __ addi(new_frame_size, new_frame_size, frame::frame_header_size);
-  __ round_up_to(new_frame_size, frame::alignment_in_bytes);
+  __ addi(Rnew_frame_size, Rnew_frame_size, frame::frame_header_size);
+  __ round_up_to(Rnew_frame_size, frame::alignment_in_bytes);
 
-  // calculate new FP
-  __ addi(new_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
-  __ sub(new_FP, new_FP, Rsize_of_locals); // add size of all locals (includes parameters)
-  __ add(new_FP, new_FP, Rsize_of_parameters);
-  __ round_down_to(new_FP, frame::alignment_in_bytes);
+  // finish calculate new FP
+  __ round_down_to(Rnew_FP, frame::alignment_in_bytes);
 
   if (!native_call) {
     // Stack overflow check.
     // Native calls don't need the stack size check since they have no
     // expression stack and the arguments are already on the stack and
     // we only add a handful of words to the stack.
-    __ sub(R5_scratch1, new_FP, new_frame_size); // R5_scratch1 <- R2_SP shift after frame pushing.
+    __ sub(R5_scratch1, Rnew_FP, Rnew_frame_size); // R5_scratch1 <- R2_SP shift after frame pushing.
     generate_stack_overflow_check(R5_scratch1, R6_scratch2);
   }
 
   // Push new frame
-  __ save_abi_frame(new_FP, 0);
-  __ mv(R8_FP, new_FP);
-  __ sub(R2_SP, R8_FP, new_frame_size);
+  __ save_abi_frame(Rnew_FP, 0);
+  __ mv(R8_FP, Rnew_FP);
+  __ sub(R2_SP, R8_FP, Rnew_frame_size);
 
   // Set up registers.
   __ add(R26_locals, R23_esp, Rsize_of_parameters); // R26_locals should point to the first method argument(local 0).
@@ -1050,25 +1050,26 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // The signal handler does not save the interpreter state into the frame.
 #ifdef ASSERT
   // Fill remaining slots with constants.
-  __ li(R5_scratch1, 0x5afe);
-  __ li(R6_scratch2, 0xdead);
+  Register Rsafe = R5_scratch1, Rdead = R6_scratch2;
+  __ li(Rsafe, 0x5afe);
+  __ li(Rdead, 0xdead);
 #endif
   // We have to initialize some frame slots for native calls (accessed by GC).
   if (native_call) {
-    __ std_PPC(RXX_monitor, _ijava_state(monitors), R2_SP);
-    __ std_PPC(R22_bcp, _ijava_state(bcp), R2_SP);
-    if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R2_SP); }
+    __ sd(RXX_monitor, R8_FP, _ijava_state(monitors));
+    __ sd(R22_bcp, R8_FP, _ijava_state(bcp));
+    if (ProfileInterpreter) { __ sd(R28_mdx_PPC, R8_FP, _ijava_state(mdx)); }
   }
 #ifdef ASSERT
   else {
-    __ sd(R6_scratch2, R8_FP, _ijava_state(monitors));
-    __ sd(R6_scratch2, R8_FP, _ijava_state(bcp));
-    __ sd(R6_scratch2, R8_FP, _ijava_state(mdx));
+    __ sd(Rdead, R8_FP, _ijava_state(monitors));
+    __ sd(Rdead, R8_FP, _ijava_state(bcp));
+    __ sd(Rdead, R8_FP, _ijava_state(mdx));
   }
-  __ sd(R5_scratch1, R8_FP, _ijava_state(ijava_reserved));
-  __ sd(R6_scratch2, R8_FP, _ijava_state(esp));
-  __ sd(R6_scratch2, R8_FP, _ijava_state(lresult));
-  __ sd(R6_scratch2, R8_FP, _ijava_state(fresult));
+  __ sd(Rsafe, R8_FP, _ijava_state(ijava_reserved));
+  __ sd(Rdead, R8_FP, _ijava_state(esp));
+  __ sd(Rdead, R8_FP, _ijava_state(lresult));
+  __ sd(Rdead, R8_FP, _ijava_state(fresult));
 #endif
   __ sd(R0, R8_FP, _ijava_state(oop_tmp)); //TODO what is it?
   __ sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
@@ -1199,8 +1200,6 @@ void TemplateInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
 address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
-  __ illtrap();
-  return entry;
 
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
@@ -1215,15 +1214,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //     [  IJava (caller of JNI callee)  ]  <-- ASP
   //        ...
 
-  const Register signature_handler_fd = R5_scratch1;
-  const Register pending_exception    = R0;
-  const Register result_handler_addr  = R31;
-  const Register native_method_fd     = R5_scratch1;
-  const Register access_flags         = R22_tmp2_PPC;
-  const Register active_handles       = R5_scratch1; // R26_monitor_PPC saved to state.
-  const Register sync_state           = R6_scratch2;
-  const Register sync_state_addr      = sync_state;   // Address is dead after use.
-  const Register suspend_flags        = R5_scratch1;
+  const Register signature_handler_fd = R7_TMP2;
+  const Register result_handler_addr  = R23_esp;
+  const Register native_method_fd     = R7_TMP2;
+  const Register access_flags         = R25_tos;
 
   //=============================================================================
   // Allocate new frame and initialize interpreter state.
@@ -1236,15 +1230,17 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // a stack overflow.
   //generate_compute_interpreter_state(stack_overflow_return);
 
-  Register size_of_parameters = R22_tmp2_PPC;
+  Register size_of_parameters = R7_TMP2;
 
   generate_fixed_frame(true, size_of_parameters, noreg /* unused */);
+  tty->print_cr("native entry: %p", __ pc());
 
   //=============================================================================
   // Increment invocation counter. On overflow, entry to JNI method
   // will be compiled.
   Label invocation_counter_overflow, continue_after_compile;
   if (inc_counter) {
+    __ unimplemented("inc_counter is not supported yet in generate_native_entry");
     if (synchronized) {
       // Since at this point in the method invocation the exception handler
       // would try to exit the monitor of synchronized methods which hasn't
@@ -1254,8 +1250,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
       // check this thread local flag.
       // This flag has two effects, one is to force an unwind in the topmost
       // interpreter frame and not perform an unlock while doing so.
-      __ li_PPC(R0, 1);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ sb(R0_ZERO, thread_(do_not_unlock_if_synchronized));
     }
     generate_counter_incr(&invocation_counter_overflow, NULL, NULL);
 
@@ -1267,23 +1262,20 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   if (inc_counter) {
     // Reset the _do_not_unlock_if_synchronized flag.
     if (synchronized) {
-      __ li_PPC(R0, 0);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ sb(R0_ZERO, thread_(do_not_unlock_if_synchronized));
     }
   }
 
   // access_flags = method->access_flags();
   // Load access flags.
-  assert(access_flags->is_nonvolatile(),
-         "access_flags must be in a non-volatile register");
+  assert(access_flags->is_nonvolatile(), "access_flags must be in a non-volatile register");
   // Type check.
   assert(4 == sizeof(AccessFlags), "unexpected field size");
-  __ lwz_PPC(access_flags, method_PPC(access_flags));
+  __ lwu(access_flags, method_(access_flags));
 
   // We don't want to reload R27_method and access_flags after calls
   // to some helper functions.
-  assert(R27_method->is_nonvolatile(),
-         "R27_method must be a non-volatile register");
+  assert(R27_method->is_nonvolatile(), "R27_method must be a non-volatile register");
 
   // Check for synchronized methods. Must happen AFTER invocation counter
   // check, so method is not locked if counter overflows.
@@ -1292,8 +1284,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     lock_method(access_flags, R5_scratch1, R6_scratch2, true);
 
     // Update monitor in state.
-    __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-    __ std_PPC(R26_monitor_PPC, _ijava_state(monitors), R5_scratch1);
+    __ sd(R26_monitor_PPC, R8_FP, _ijava_state(monitors));
   }
 
   // jvmti/jvmpi support
@@ -1302,11 +1293,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //=============================================================================
   // Get and call the signature handler.
 
-  __ ld_PPC(signature_handler_fd, method_PPC(signature_handler));
+  __ ld(signature_handler_fd, method_(signature_handler));
   Label call_signature_handler;
 
-  __ cmpdi_PPC(CCR0, signature_handler_fd, 0);
-  __ bne_PPC(CCR0, call_signature_handler);
+  __ bnez(signature_handler_fd, call_signature_handler);
 
   // Method has never been called. Either generate a specialized
   // handler or point to the slow one.
@@ -1316,13 +1306,14 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Check for an exception while looking up the target method. If we
   // incurred one, bail.
-  __ ld_PPC(pending_exception, thread_PPC(pending_exception));
-  __ cmpdi_PPC(CCR0, pending_exception, 0);
-  __ bne_PPC(CCR0, exception_return_sync_check); // Has pending exception.
+  __ ld(R5_scratch1, thread_(pending_exception));
+  __ bnez(R5_scratch1, exception_return_sync_check); // Has pending exception.
 
   // Reload signature handler, it may have been created/assigned in the meanwhile.
-  __ ld_PPC(signature_handler_fd, method_PPC(signature_handler));
-  __ twi_0_PPC(signature_handler_fd); // Order wrt. load of klass mirror and entry point (isync is below).
+  __ ld(signature_handler_fd, method_PPC(signature_handler));
+
+//  __ twi_0_PPC(signature_handler_fd); // Order wrt. load of klass mirror and entry point (isync is below).
+  // TODO RISCV check what we need here
 
   BIND(call_signature_handler);
 
@@ -1335,7 +1326,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // anchor.
 
   // We have a TOP_IJAVA_FRAME here, which belongs to us.
-  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, noreg, R6_scratch2/*tmp*/);
+  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R2_SP, R8_FP, R5_scratch1);
 
   // Now the interpreter frame (and its call chain) have been
   // invalidated and flushed. We are now protected against eager
@@ -1346,8 +1337,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Call signature handler and pass locals address.
   //
   // Our signature handlers copy required arguments to the C stack
-  // (outgoing C args), R3_ARG1_PPC to R10_ARG8_PPC, and FARG1 to FARG13.
-  __ mr_PPC(R3_ARG1_PPC, R26_locals);
+  // (outgoing C args), R10_ARG0 to R17_ARG7, and F10_ARG0 to F17_ARG7.
+  __ mv(R10_ARG0, R26_locals);
+
+  tty->print_cr("signature handler: %p", __ pc());
 
   __ call_stub(signature_handler_fd);
 
@@ -1360,9 +1353,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
   // Save across call to native method.
-  __ mr_PPC(result_handler_addr, R3_RET_PPC);
+  __ mv(result_handler_addr, R10_RET1);
 
-  __ isync_PPC(); // Acquire signature handler before trying to fetch the native entry point and klass mirror.
+  __ acquire(); // Acquire signature handler before trying to fetch the native entry point and klass mirror.
 
   // Set up fixed parameters and call the native method.
   // If the method is static, get mirror into R4_ARG2_PPC.
@@ -1371,15 +1364,15 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     // Access_flags is non-volatile and still, no need to restore it.
 
     // Restore access flags.
-    __ testbitdi_PPC(CCR0, R0, access_flags, JVM_ACC_STATIC_BIT);
-    __ bfalse_PPC(CCR0, method_is_not_static);
+    __ li(R5_scratch1, JVM_ACC_STATIC_BIT);
+    __ andr(R5_scratch1, access_flags, R5_scratch1);
+    __ bnez(R5_scratch1, method_is_not_static);
 
-    __ ld_PPC(R5_scratch1, _abi_PPC(callers_sp), R1_SP_PPC);
     // Load mirror from interpreter frame.
-    __ ld_PPC(R6_scratch2, _ijava_state(mirror), R5_scratch1);
+    __ ld(R6_scratch2, R8_FP, _ijava_state(mirror));
     // R4_ARG2_PPC = &state->_oop_temp;
-    __ addi_PPC(R4_ARG2_PPC, R5_scratch1, _ijava_state(oop_tmp));
-    __ std_PPC(R6_scratch2/*mirror*/, _ijava_state(oop_tmp), R5_scratch1);
+    __ addi(R11_ARG1, R8_FP, _ijava_state(oop_tmp));
+    __ sd(R6_scratch2/*mirror*/, R8_FP, _ijava_state(oop_tmp));
     BIND(method_is_not_static);
   }
 
@@ -1389,10 +1382,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // register.
 
   // Pass JNIEnv address as first parameter.
-  __ addir_PPC(R3_ARG1_PPC, thread_PPC(jni_environment));
+  __ addi(R10_ARG0, R24_thread, in_bytes(JavaThread::jni_environment_offset()));
 
   // Load the native_method entry before we change the thread state.
-  __ ld_PPC(native_method_fd, method_PPC(native_function));
+  __ ld(native_method_fd, method_(native_function));
 
   //=============================================================================
   // Transition from _thread_in_Java to _thread_in_native. As soon as
@@ -1403,11 +1396,11 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // We use release_store_fence to update values like the thread state, where
   // we don't want the current thread to continue until all our prior memory
   // accesses (including the new thread state) are visible to other threads.
-  __ li_PPC(R0, _thread_in_native);
+  __ li(R5_scratch1, _thread_in_native);
   __ release();
 
   // TODO RISCV port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
-  __ stw_PPC(R0, thread_PPC(thread_state));
+  __ sw(R5_scratch1, thread_(thread_state));
 
   //=============================================================================
   // Call the native method. Argument registers must not have been
@@ -1415,11 +1408,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // ARG1 and ARG2 for static methods).
   __ call_c(native_method_fd);
 
-  __ li_PPC(R0, 0);
-  __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ std_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
-  __ stfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
-  __ std_PPC(R0/*mirror*/, _ijava_state(oop_tmp), R5_scratch1); // reset
+  __ sd(R10_RET1, R8_FP, _ijava_state(lresult));
+  __ fsd(F10_RET, R8_FP, _ijava_state(fresult));
+  __ sd(R0_ZERO/*mirror*/, R8_FP, _ijava_state(oop_tmp)); // reset
 
   // Note: C++ interpreter needs the following here:
   // The frame_manager_lr field, which we use for setting the last
@@ -1448,9 +1439,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // We use release_store_fence to update values like the thread state, where
   // we don't want the current thread to continue until all our prior memory
   // accesses (including the new thread state) are visible to other threads.
-  __ li_PPC(R0/*thread_state*/, _thread_in_native_trans);
+  __ li(R5_scratch1/*thread_state*/, _thread_in_native_trans);
   __ release();
-  __ stw_PPC(R0/*thread_state*/, thread_PPC(thread_state));
+  __ sw(R5_scratch1/*thread_state*/, thread_(thread_state));
   __ fence();
 
   // Now before we return to java we must look for a current safepoint
@@ -1464,23 +1455,21 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   Label do_safepoint, sync_check_done;
   // No synchronization in progress nor yet synchronized.
-  __ safepoint_poll(do_safepoint, sync_state);
+  __ safepoint_poll(do_safepoint, R5_scratch1);
 
   // Not suspended.
   // TODO RISCV port assert(4 == Thread::sz_suspend_flags(), "unexpected field size");
-  __ lwz_PPC(suspend_flags, thread_PPC(suspend_flags));
-  __ cmpwi_PPC(CCR1, suspend_flags, 0);
-  __ beq_PPC(CCR1, sync_check_done);
+  __ lwu(R5_scratch1, thread_(suspend_flags));
+  __ beqz(R5_scratch1, sync_check_done);
 
   __ bind(do_safepoint);
-  __ isync_PPC();
+  __ acquire();//isync_PPC(); TODO RISCV check this
   // Block. We do the call directly and leave the current
   // last_Java_frame setup undisturbed. We must save any possible
   // native result across the call. No oop is present.
 
-  __ mr_PPC(R3_ARG1_PPC, R24_thread);
-  __ call_c(CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans),
-            relocInfo::none);
+  __ mv(R10_ARG0, R24_thread);
+  __ call_c(CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans), relocInfo::none);
 
   __ bind(sync_check_done);
 
@@ -1506,14 +1495,13 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // We use release_store_fence to update values like the thread state, where
   // we don't want the current thread to continue until all our prior memory
   // accesses (including the new thread state) are visible to other threads.
-  __ li_PPC(R0/*thread_state*/, _thread_in_Java);
-  __ lwsync_PPC(); // Acquire safepoint and suspend state, release thread state.
-  __ stw_PPC(R0/*thread_state*/, thread_PPC(thread_state));
+  __ li(R5_scratch1/*thread_state*/, _thread_in_Java);
+  __ acquire();// lwsync_PPC(); // Acquire safepoint and suspend state, release thread state. //TODO RISCV check
+  __ sw(R5_scratch1/*thread_state*/, thread_(thread_state));
 
   if (CheckJNICalls) {
     // clear_pending_jni_exception_check
-    __ load_const_optimized(R0, 0L);
-    __ st_ptr_PPC(R0, JavaThread::pending_jni_exception_check_fn_offset(), R24_thread);
+    __ sd(R0_ZERO, thread_(pending_jni_exception_check_fn));
   }
 
   __ reset_last_Java_frame();
@@ -1539,24 +1527,21 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Reset active handles after returning from native.
   // thread->active_handles()->clear();
-  __ ld_PPC(active_handles, thread_PPC(active_handles));
+  __ ld(R5_scratch1, thread_(active_handles));
   // TODO RISCV port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
-  __ li_PPC(R0, 0);
-  __ stw_PPC(R0, JNIHandleBlock::top_offset_in_bytes(), active_handles);
+  __ sw(R0_ZERO, JNIHandleBlock::top_offset_in_bytes(), R5_scratch1);
 
   Label exception_return_sync_check_already_unlocked;
-  __ ld_PPC(R0/*pending_exception*/, thread_PPC(pending_exception));
-  __ cmpdi_PPC(CCR0, R0/*pending_exception*/, 0);
-  __ bne_PPC(CCR0, exception_return_sync_check_already_unlocked);
+  __ ld(R5_scratch1/*pending_exception*/, thread_(pending_exception));
+  __ bnez(R5_scratch1, exception_return_sync_check_already_unlocked);
 
   //-----------------------------------------------------------------------------
   // No exception pending.
 
   // Move native method result back into proper registers and return.
   // Invoke result handler (may unbox/promote).
-  __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ ld_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
-  __ lfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
+  __ ld(R3_RET_PPC, R8_FP, _ijava_state(lresult));
+  __ fld(F1_RET_PPC,  R8_FP, _ijava_state(fresult));
   __ call_stub(result_handler_addr);
 
   __ pop_java_frame();
@@ -1580,10 +1565,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   }
   BIND(exception_return_sync_check_already_unlocked);
 
-  const Register return_pc = R31;
+  const Register return_pc = R23_esp;
 
-  __ ld_PPC(return_pc, 0, R1_SP_PPC);
-  __ ld_PPC(return_pc, _abi_PPC(lr), return_pc);
+  assert(return_pc->is_nonvolatile(), "return_pc must be in a non-volatile register");
+  __ ld(return_pc, R8_FP, _abi(ra));
 
   // Get the address of the exception handler.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address),
@@ -1592,18 +1577,17 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ pop_java_frame(false);
 
   // Load the PC of the the exception handler into LR.
-  __ mtlr_PPC(R3_RET_PPC);
+  __ mv(R1_RA, R10_RET1);
 
-  // Load exception into R3_ARG1_PPC and clear pending exception in thread.
-  __ ld_PPC(R3_ARG1_PPC/*exception*/, thread_PPC(pending_exception));
-  __ li_PPC(R4_ARG2_PPC, 0);
-  __ std_PPC(R4_ARG2_PPC, thread_PPC(pending_exception));
+  // Load exception into R10_ARG0 and clear pending exception in thread.
+  __ ld(R10_ARG0/*exception*/, thread_(pending_exception));
+  __ sd(R0_ZERO, thread_(pending_exception));
 
   // Load the original return pc into R4_ARG2_PPC.
-  __ mr_PPC(R4_ARG2_PPC/*issuing_pc*/, return_pc);
+  __ mv(R11_ARG1/*issuing_pc*/, return_pc);
 
   // Return to exception handler.
-  __ blr_PPC();
+  __ ret();
 
   //=============================================================================
   // Counter overflow.
@@ -1617,6 +1601,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   return entry;
 }
+#pragma clang diagnostic pop
 
 // Generic interpreted method entry to (asm) interpreter.
 //
@@ -1645,7 +1630,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   __ beqz(Rnum, Lno_locals);
 
   // The zero locals loop.
-  __ bind(Lzero_loop);
+  _masm-> bind(Lzero_loop);
   __ sd(R0, Rslot_addr, 0);
   __ addi(Rslot_addr, Rslot_addr, -Interpreter::stackElementSize);
   __ addi(Rnum, Rnum, -1);

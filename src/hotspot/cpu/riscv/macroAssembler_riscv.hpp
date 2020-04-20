@@ -43,6 +43,10 @@ class MacroAssembler: public Assembler {
   // Optimized instruction emitters
   //
 
+
+  inline static int largeoffset_hi(int si31) { return (si31 + (1<<11)) >> 12; }
+  inline static int largeoffset_lo(int si31) { return si31 - (largeoffset_hi(si31) << 12); }
+
   inline static int largeoffset_si16_si16_hi(int si31) { return (si31 + (1<<15)) >> 16; }
   inline static int largeoffset_si16_si16_lo(int si31) { return si31 - (((si31 + (1<<15)) >> 16) << 16); }
 

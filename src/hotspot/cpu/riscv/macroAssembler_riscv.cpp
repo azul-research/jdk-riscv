@@ -1163,23 +1163,24 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
 
   long stdoffset = -offset;
 
-  if (is_simm(stdoffset, 16)) {
-    // Signed 16 bit offset, a simple std is ok.
+  if (is_simm(stdoffset, 12)) {
+    // Signed 12 bit offset, a simple sd is ok.
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld_PPC(R0, (int)(signed short)stdoffset, R1_SP_PPC);
+      ld(R0, R2_SP, (int)(signed short)stdoffset);
     } else {
-      std_PPC(R0,(int)(signed short)stdoffset, R1_SP_PPC);
+      sd(R0, R2_SP, (int)(signed short)stdoffset);
     }
   } else if (is_simm(stdoffset, 31)) {
-    const int hi = MacroAssembler::largeoffset_si16_si16_hi(stdoffset);
-    const int lo = MacroAssembler::largeoffset_si16_si16_lo(stdoffset);
+    const int hi = MacroAssembler::largeoffset_hi(stdoffset);
+    const int lo = MacroAssembler::largeoffset_lo(stdoffset);
 
     Register tmp = R11;
-    addis_PPC(tmp, R1_SP_PPC, hi);
+    lui(tmp, hi);
+    add(tmp, R2_SP, tmp);
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld_PPC(R0,  lo, tmp);
+      ld(R0, lo, tmp);
     } else {
-      std_PPC(R0, lo, tmp);
+      sd(R0, lo, tmp);
     }
   } else {
     ShouldNotReachHere();
@@ -2896,14 +2897,14 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
 
 void MacroAssembler::safepoint_poll(Label& slow_path, Register temp_reg) {
   if (SafepointMechanism::uses_thread_local_poll()) {
-    ld_PPC(temp_reg, in_bytes(Thread::polling_page_offset()), R24_thread);
     // Armed page has poll_bit set.
-    andi__PPC(temp_reg, temp_reg, SafepointMechanism::poll_bit());
+    ld(temp_reg, R24_thread, in_bytes(Thread::polling_page_offset()));
   } else {
-    lwz_PPC(temp_reg, (RegisterOrConstant)(intptr_t)SafepointSynchronize::address_of_state());
-    cmpwi_PPC(CCR0, temp_reg, SafepointSynchronize::_not_synchronized);
+    int off = load_const_optimized(temp_reg, SafepointSynchronize::address_of_state());
+    lwu(temp_reg, temp_reg, off);
   }
-  bne_PPC(CCR0, slow_path);
+  assert(SafepointSynchronize::_not_synchronized == 0, "Compare with zero should means this value");
+  bnez(temp_reg, slow_path);
 }
 
 void MacroAssembler::resolve_jobject(Register value, Register tmp1, Register tmp2, bool needs_frame) {
@@ -4775,9 +4776,9 @@ void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_of
   }
   Label ok;
   if (check_equal) {
-    beq(tmp, R0_ZERO, ok);
+    beqz(tmp, ok);
   } else {
-    bne(tmp, R0_ZERO, ok);
+    bnez(tmp, ok);
   }
   stop(msg, id);
   bind(ok);
