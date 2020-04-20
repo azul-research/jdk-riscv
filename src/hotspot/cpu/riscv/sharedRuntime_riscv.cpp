@@ -565,7 +565,7 @@ size_t SharedRuntime::trampoline_size() {
 
 void SharedRuntime::generate_trampoline(MacroAssembler *masm, address destination) {
   Register Rtemp = R12;
-  __ load_const_PPC(Rtemp, destination);
+  __ load_const(Rtemp, destination);
   __ mtctr_PPC(Rtemp);
   __ bctr_PPC();
 }

@@ -436,27 +436,8 @@ void Assembler::cmpd_PPC(ConditionRegister d, RegisterOrConstant roc, Register s
 }
 
 // Load a 64 bit constant. Patchable.
-void Assembler::load_const_PPC(Register d, long x, Register tmp) {
-  // 64-bit value: x = xa xb xc xd
-  int xa = (x >> 48) & 0xffff;
-  int xb = (x >> 32) & 0xffff;
-  int xc = (x >> 16) & 0xffff;
-  int xd = (x >>  0) & 0xffff;
-  if (tmp == noreg) {
-    Assembler::lis_PPC( d, (int)(short)xa);
-    Assembler::ori_PPC( d, d, (unsigned int)xb);
-    Assembler::sldi_PPC(d, d, 32);
-    Assembler::oris_PPC(d, d, (unsigned int)xc);
-    Assembler::ori_PPC( d, d, (unsigned int)xd);
-  } else {
-    // exploit instruction level parallelism if we have a tmp register
-    assert_different_registers(d, tmp);
-    Assembler::lis_PPC(tmp, (int)(short)xa);
-    Assembler::lis_PPC(d, (int)(short)xc);
-    Assembler::ori_PPC(tmp, tmp, (unsigned int)xb);
-    Assembler::ori_PPC(d, d, (unsigned int)xd);
-    Assembler::insrdi_PPC(d, tmp, 32, 0);
-  }
+void Assembler::load_const(Register d, long x, Register tmp) {
+  load_const_optimized(d, x, tmp, false);
 }
 
 void Assembler::li(Register d, void* addr) {

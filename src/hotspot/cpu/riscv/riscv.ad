@@ -1506,7 +1506,7 @@ void MachPrologNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
       ___(stdu) stdu_PPC(R1_SP_PPC, -offset, R1_SP_PPC);
     } else {
       long x = -offset;
-      // Had to insert load_const_PPC(tmp, -offset).
+      // Had to insert load_const(tmp, -offset).
       ___(addis)  lis_PPC( tmp, (int)((signed short)(((x >> 32) & 0xffff0000) >> 16)));
       ___(ori)    ori_PPC( tmp, tmp, ((x >> 32) & 0x0000ffff));
       ___(rldicr) sldi_PPC(tmp, tmp, 32);
@@ -1544,7 +1544,7 @@ uint MachPrologNode::size(PhaseRegAlloc *ra_) const {
 
 int MachPrologNode::reloc() const {
   // Return number of relocatable values contained in this instruction.
-  return 1; // 1 reloc entry for load_const_PPC(toc).
+  return 1; // 1 reloc entry for load_const(toc).
 }
 
 //=============================================================================
@@ -2132,7 +2132,7 @@ void MachUEPNode::emit(CodeBuffer &cbuf, PhaseRegAlloc *ra_) const {
 }
 
 #if 0 // TODO: RISCV port
-// Optimize UEP code on z (save a load_const_PPC() call in main path).
+// Optimize UEP code on z (save a load_const() call in main path).
 int MachUEPNode::ep_offset() {
   return 0;
 }

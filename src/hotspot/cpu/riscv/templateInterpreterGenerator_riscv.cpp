@@ -344,18 +344,17 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ fmr_PPC(F13_ARG13_PPC, floatSlot); __ b_PPC(loop_start);
 
   __ bind(move_intSlot_to_ARG);
-  __ sldi_PPC(R0, argcnt, LogSizeOfTwoInstructions);
-  __ load_const_PPC(R5_scratch1, move_int_arg); // Label must be bound here.
-  __ add_PPC(R5_scratch1, R0, R5_scratch1);
-  __ mtctr_PPC(R5_scratch1/*branch_target*/);
-  __ bctr_PPC();
+  __ slli(R5_scratch1, argcnt, LogSizeOfTwoInstructions);
+  __ load_const(R6_scratch2, move_int_arg); // Label must be bound here.
+  __ add(R6_scratch2, R5_scratch1, R6_scratch2);
+  __ jr(R6_scratch2/*branch_target*/);
+
   __ bind(move_floatSlot_to_FARG);
-  __ sldi_PPC(R0, fpcnt, LogSizeOfTwoInstructions);
-  __ addi_PPC(fpcnt, fpcnt, 1);
-  __ load_const_PPC(R5_scratch1, move_float_arg); // Label must be bound here.
-  __ add_PPC(R5_scratch1, R0, R5_scratch1);
-  __ mtctr_PPC(R5_scratch1/*branch_target*/);
-  __ bctr_PPC();
+  __ slli(R5_scratch1, fpcnt, LogSizeOfTwoInstructions);
+  __ addi(fpcnt, fpcnt, 1);
+  __ load_const(R6_scratch2, move_float_arg); // Label must be bound here.
+  __ add(R6_scratch2, R5_scratch1, R6_scratch2);
+  __ jr(R6_scratch2/*branch_target*/);
 
   return entry;
 }

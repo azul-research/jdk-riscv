@@ -1343,23 +1343,23 @@ inline void Assembler::vec_perm_PPC(VectorRegister dest, VectorRegister first, V
 #endif
 }
 
-inline void Assembler::load_const_PPC(Register d, void* x, Register tmp) {
-   load_const_PPC(d, (long)x, tmp);
+inline void Assembler::load_const(Register d, void* x, Register tmp) {
+  load_const(d, (long) x, tmp);
 }
 
 // Load a 64 bit constant encoded by a `Label'. This works for bound
 // labels as well as unbound ones. For unbound labels, the code will
 // be patched as soon as the label gets bound.
-inline void Assembler::load_const_PPC(Register d, Label& L, Register tmp) {
-  load_const_PPC(d, target(L), tmp);
+inline void Assembler::load_const(Register d, Label& L, Register tmp) {
+  load_const(d, target(L), tmp);
 }
 
 // Load a 64 bit constant encoded by an AddressLiteral. patchable.
-inline void Assembler::load_const_PPC(Register d, AddressLiteral& a, Register tmp) {
+inline void Assembler::load_const(Register d, AddressLiteral& a, Register tmp) {
   // First relocate (we don't change the offset in the RelocationHolder,
-  // just pass a.rspec()), then delegate to load_const_PPC(Register, long).
+  // just pass a.rspec()), then delegate to load_const(Register, long).
   relocate(a.rspec());
-  load_const_PPC(d, (long)a.value(), tmp);
+  load_const(d, (long) a.value(), tmp);
 }
 
 inline void Assembler::load_const32_PPC(Register d, int i) {

@@ -2736,10 +2736,10 @@ class Assembler : public AbstractAssembler {
   enum {
     load_const_size = 5 * BytesPerInstWord
   };
-         void load_const_PPC(Register d, long a,            Register tmp = noreg);
-  inline void load_const_PPC(Register d, void* a,           Register tmp = noreg);
-  inline void load_const_PPC(Register d, Label& L,          Register tmp = noreg);
-  inline void load_const_PPC(Register d, AddressLiteral& a, Register tmp = noreg);
+         void load_const(Register d, long x, Register tmp = noreg);
+  inline void load_const(Register d, void* x, Register tmp = noreg);
+  inline void load_const(Register d, Label& L, Register tmp = noreg);
+  inline void load_const(Register d, AddressLiteral& a, Register tmp = noreg);
   inline void load_const32_PPC(Register d, int i); // load signed int (patchable)
 
   // Load a 64 bit constant, optimized, not identifyable.

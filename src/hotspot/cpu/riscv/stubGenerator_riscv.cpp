@@ -358,8 +358,8 @@ class StubGenerator: public StubCodeGenerator {
     const Register exception_file = R21_tmp1_PPC;
     const Register exception_line = R22_tmp2_PPC;
 
-    __ load_const_PPC(exception_file, (void*)__FILE__);
-    __ load_const_PPC(exception_line, (void*)__LINE__);
+    __ load_const(exception_file, (void *) __FILE__);
+    __ load_const(exception_line, (void *) __LINE__);
 
     __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
     // store into `char *'
@@ -554,7 +554,7 @@ class StubGenerator: public StubCodeGenerator {
     // Pop frame.
     __ pop_C_frame(false);
 
-    __ load_const_PPC(R5_scratch1, StubRoutines::forward_exception_entry());
+    __ load_const(R5_scratch1, StubRoutines::forward_exception_entry());
     __ jr(R5_scratch1);
 
     // Create runtime stub with OopMap.

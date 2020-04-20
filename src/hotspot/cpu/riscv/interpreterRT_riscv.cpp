@@ -120,7 +120,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::generate(uint64_t fingerprin
   iterate(fingerprint);
 
   // Return the result handler.
-  __ load_const_PPC(R3_RET_PPC, AbstractInterpreter::result_handler(method()->result_type()));
+  __ load_const(R3_RET_PPC, AbstractInterpreter::result_handler(method()->result_type()));
   __ blr_PPC();
 
   __ flush();

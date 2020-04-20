@@ -190,7 +190,7 @@ inline void MacroAssembler::set_oop_constant(jobject obj, Register d) {
 
 inline void MacroAssembler::set_oop(AddressLiteral obj_addr, Register d) {
   assert(obj_addr.rspec().type() == relocInfo::oop_type, "must be an oop reloc");
-  load_const_PPC(d, obj_addr);
+  load_const(d, obj_addr);
 }
 
 inline void MacroAssembler::pd_patch_instruction(address branch, address target, const char* file, int line) {

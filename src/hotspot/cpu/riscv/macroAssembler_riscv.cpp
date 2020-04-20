@@ -1941,7 +1941,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
          "biased locking makes assumptions about bit layout");
 
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::total_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::total_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -1962,7 +1962,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   if (PrintBiasedLockingStatistics) {
     Label l;
     bne_PPC(cr_reg, l);
-    load_const_PPC(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
+    load_const(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
     lwzx_PPC(mark_reg, temp2_reg);
     addi_PPC(mark_reg, mark_reg, 1);
     stwx_PPC(mark_reg, temp2_reg);
@@ -2031,7 +2031,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // need to revoke that bias. The revocation will occur in the
   // interpreter runtime in the slow case.
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::anonymously_biased_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::anonymously_biased_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2065,7 +2065,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // need to revoke that bias. The revocation will occur in the
   // interpreter runtime in the slow case.
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::rebiased_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::rebiased_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2104,7 +2104,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   if (PrintBiasedLockingStatistics) {
     Label l;
     bne_PPC(cr_reg, l);
-    load_const_PPC(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
