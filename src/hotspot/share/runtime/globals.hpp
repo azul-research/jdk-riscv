@@ -1293,7 +1293,7 @@ const size_t minimumSymbolTableSize = 1024;
   product(bool, UseInterpreter, true,                                       \
           "Use interpreter for non-compiled methods")                       \
                                                                             \
-  develop(bool, UseFastSignatureHandlers, true,                             \
+  develop(bool, UseFastSignatureHandlers, false,                            \
           "Use fast signature handlers for native calls")                   \
                                                                             \
   product(bool, UseLoopCounter, true,                                       \

@@ -116,6 +116,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   address entry = __ pc();
 
+  __ save_abi_frame(R2_SP, 0);
   __ save_nonvolatile_gprs(R2_SP, -frame::abi_frame_size); // TODO optimize
   // We use target_sp for storing arguments in the C frame.
   __ mv(target_sp, R2_SP);
@@ -125,7 +126,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::get_signature), R24_thread, R27_method);
 
-  // Signature is in R3_RET_PPC. Signature is callee saved.
+  // Signature is in R10_RET1. Signature is callee saved.
   __ mv(signature, R10_RET1);
 
   // Get the result handler.
@@ -142,7 +143,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     assert(sizeof(AccessFlags) == 4, "wrong size");
     __ lwu(R5_scratch1/*access_flags*/, method_(access_flags));
     // testbit with condition register.
-    __ andi(R5_scratch1, R5_scratch1, JVM_ACC_STATIC_BIT);
+    __ andi(R5_scratch1, R5_scratch1, 1 << JVM_ACC_STATIC_BIT);
     __ bnez(R5_scratch1, L);
     // For non-static functions, pass "this" in R4_ARG2_PPC and copy it
     // to 2nd C-arg slot.
@@ -336,20 +337,22 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   Label move_int_arg, move_float_arg;
   __ bind(move_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
-  __ mv(R12, intSlot); __ j(loop_start);
-  __ mv(R13, intSlot); __ j(loop_start);
-  __ mv(R14, intSlot); __ j(loop_start);
-  __ mv(R15, intSlot); __ j(loop_start);
-  __ mv(R16, intSlot); __ j(loop_start);
-  __ mv(R17, intSlot); __ j(loop_start);
+  __ mv(R12_ARG2, intSlot); __ j(loop_start);
+  __ mv(R13_ARG3, intSlot); __ j(loop_start);
+  __ mv(R14_ARG4, intSlot); __ j(loop_start);
+  __ mv(R15_ARG5, intSlot); __ j(loop_start);
+  __ mv(R16_ARG6, intSlot); __ j(loop_start);
+  __ mv(R17_ARG7, intSlot); __ j(loop_start);
 
   __ bind(move_float_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
-  __ fmvd(F12, floatSlot); __ j(loop_start);
-  __ fmvd(F13, floatSlot); __ j(loop_start);
-  __ fmvd(F14, floatSlot); __ j(loop_start);
-  __ fmvd(F15, floatSlot); __ j(loop_start);
-  __ fmvd(F16, floatSlot); __ j(loop_start);
-  __ fmvd(F17, floatSlot); __ j(loop_start);
+  __ fmvd(F10_ARG0, floatSlot); __ j(loop_start);
+  __ fmvd(F11_ARG1, floatSlot); __ j(loop_start);
+  __ fmvd(F12_ARG2, floatSlot); __ j(loop_start);
+  __ fmvd(F13_ARG3, floatSlot); __ j(loop_start);
+  __ fmvd(F14_ARG4, floatSlot); __ j(loop_start);
+  __ fmvd(F15_ARG5, floatSlot); __ j(loop_start);
+  __ fmvd(F16_ARG6, floatSlot); __ j(loop_start);
+  __ fmvd(F17_ARG7, floatSlot); __ j(loop_start);
 
   __ bind(move_intSlot_to_ARG);
   __ slli(R5_scratch1, argcnt, LogSizeOfTwoInstructions);
@@ -379,6 +382,7 @@ address TemplateInterpreterGenerator::generate_result_handler_for(BasicType type
 
   Label done;
   address entry = __ pc();
+  tty->print_cr("result_handlers generation %p", entry);
 
   switch (type) {
   case T_BOOLEAN:
@@ -419,7 +423,7 @@ address TemplateInterpreterGenerator::generate_result_handler_for(BasicType type
   }
 
   BIND(done);
-  __ blr_PPC();
+  __ ret();
 
   return entry;
 }
@@ -1371,9 +1375,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     // Access_flags is non-volatile and still, no need to restore it.
 
     // Restore access flags.
-    __ li(R5_scratch1, JVM_ACC_STATIC_BIT);
-    __ andr(R5_scratch1, access_flags, R5_scratch1);
-    __ bnez(R5_scratch1, method_is_not_static);
+    __ andi(R5_scratch1, access_flags, 1 << JVM_ACC_STATIC_BIT);
+    __ beqz(R5_scratch1, method_is_not_static);
 
     // Load mirror from interpreter frame.
     __ ld(R6_scratch2, R8_FP, _ijava_state(mirror));
