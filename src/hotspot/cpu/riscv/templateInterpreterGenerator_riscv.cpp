@@ -626,7 +626,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ restore_interpreter_state();
 
   // Resize frame to top_frame_sp
-  __ ld(R2_SP, _ijava_state(top_frame_sp), R8_FP);
+  __ ld(R2_SP, R8_FP, _ijava_state(top_frame_sp));
 
   // Compiled code destroys templateTableBase, reload.
   __ li(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0));

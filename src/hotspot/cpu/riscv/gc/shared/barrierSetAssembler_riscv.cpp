@@ -51,13 +51,13 @@ void BarrierSetAssembler::store_at(MacroAssembler* masm, DecoratorSet decorators
       } else {
         co = not_null ? __ encode_heap_oop_not_null(tmp1, val) : __ encode_heap_oop(tmp1, val);
       }
-      __ sw(co, ind_or_offs, base, tmp2);
+      __ sw(co, base, ind_or_offs, tmp2);
     } else {
       if (val == noreg) {
         val = tmp1;
         __ mv(val, R0);
       }
-      __ sd(val, ind_or_offs, base, tmp2);
+      __ sd(val, base, ind_or_offs, tmp2);
     }
     break;
   }
@@ -79,19 +79,19 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
   case T_OBJECT: {
     if (UseCompressedOops && in_heap) {
       if (L_handle_null != NULL) { // Label provided.
-        __ lwu(dst, ind_or_offs, base);
+        __ lwu(dst, base, ind_or_offs);
         __ beqz(dst, *L_handle_null);
         __ decode_heap_oop_not_null(dst);
       } else if (not_null) { // Guaranteed to be not null.
         Register narrowOop = (tmp1 != noreg && CompressedOops::base_disjoint()) ? tmp1 : dst;
-        __ lwu(narrowOop, ind_or_offs, base);
+        __ lwu(narrowOop, base, ind_or_offs);
         __ decode_heap_oop_not_null(dst, narrowOop);
       } else { // Any oop.
-        __ lwu(dst, ind_or_offs, base);
+        __ lwu(dst, base, ind_or_offs);
         __ decode_heap_oop(dst);
       }
     } else {
-      __ ld(dst, ind_or_offs, base);
+      __ ld(dst, base, ind_or_offs);
       if (L_handle_null != NULL) {
         __ beqz(dst, *L_handle_null);
       }
