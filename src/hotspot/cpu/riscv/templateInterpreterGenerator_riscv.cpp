@@ -95,36 +95,38 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   //                        ARGi contains this argument. Otherwise, ARGi is not updated.
   //   F10_ARG0-F17_ARG7: - contain the first 8 arguments of type float or double.
 
-  const int LogSizeOfTwoInstructions = 3;
+  const int LogSizeOfTwoInstructions = 3; // TODO_RISCV check
 
-  // FIXME: use Argument:: GL: Argument names different numbers!
-  const int max_fp_register_arguments  = 13;
-  const int max_int_register_arguments = 6;  // first 2 are reserved
+  const int max_fp_register_arguments  = Argument::n_float_register_parameters_c;
+  const int max_int_register_arguments = Argument::n_int_register_parameters_c - 2;  // first 2 are reserved
 
-  const Register arg_java       = R5_TMP0;
-  const Register arg_c          = R6_TMP1;
-  const Register signature      = R7_TMP2;  // is string
+  const Register arg_java       = R22_bcp;
+  const Register arg_c          = R7_TMP2;
+  const Register signature      = R23_esp;  // is string
   const Register sig_byte       = R28_TMP3;
   const Register fpcnt          = R29_TMP4;
   const Register argcnt         = R30_TMP5;
   const Register intSlot        = R31_TMP6;
-  const Register target_sp      = R23_esp;
-  const FloatRegister floatSlot = F0;
+  const Register target_sp      = R21_sender_SP;
+  const FloatRegister floatSlot = F0_TMP0;
+
+  assert(arg_java->is_nonvolatile(), "arg_java should be nonvolatile");
+  assert(signature->is_nonvolatile(), "signature should be nonvolatile");
+  assert(target_sp->is_nonvolatile(), "target_sp should be nonvolatile");
 
   address entry = __ pc();
 
-  __ save_LR_CR(R0);
-  __ save_nonvolatile_gprs(R1_SP_PPC, -frame::abi_frame_size);
+  __ save_nonvolatile_gprs(R2_SP, -frame::abi_frame_size); // TODO optimize
   // We use target_sp for storing arguments in the C frame.
-  __ mr_PPC(target_sp, R1_SP_PPC);
+  __ mv(target_sp, R2_SP);
   __ push_frame_reg_args_nonvolatiles(0, R5_scratch1);
 
-  __ mr_PPC(arg_java, R3_ARG1_PPC);
+  __ mv(arg_java, R10_ARG0);
 
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::get_signature), R24_thread, R27_method);
 
   // Signature is in R3_RET_PPC. Signature is callee saved.
-  __ mr_PPC(signature, R3_RET_PPC);
+  __ mv(signature, R10_RET1);
 
   // Get the result handler.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::get_result_handler), R24_thread, R27_method);
@@ -138,28 +140,28 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     //       "MethodDesc._access_flags == MethodDesc._access_flags._flags");
     // _access_flags must be a 32 bit value.
     assert(sizeof(AccessFlags) == 4, "wrong size");
-    __ lwa_PPC(R5_scratch1/*access_flags*/, method_PPC(access_flags));
+    __ lwu(R5_scratch1/*access_flags*/, method_(access_flags));
     // testbit with condition register.
-    __ testbitdi_PPC(CCR0, R0, R5_scratch1/*access_flags*/, JVM_ACC_STATIC_BIT);
-    __ btrue_PPC(CCR0, L);
+    __ andi(R5_scratch1, R5_scratch1, JVM_ACC_STATIC_BIT);
+    __ bnez(R5_scratch1, L);
     // For non-static functions, pass "this" in R4_ARG2_PPC and copy it
     // to 2nd C-arg slot.
     // We need to box the Java object here, so we use arg_java
     // (address of current Java stack slot) as argument and don't
     // dereference it as in case of ints, floats, etc.
-    __ mr_PPC(R4_ARG2_PPC, arg_java);
-    __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-    __ std_PPC(R4_ARG2_PPC, _abi_PPC(carg_2), target_sp);
+    __ mv(R11_ARG1, arg_java);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ sd(R11_ARG1, target_sp, _abi_PPC(carg_2)); // TODO_RISCV
     __ bind(L);
   }
 
   // Will be incremented directly after loop_start. argcnt=0
   // corresponds to 3rd C argument.
-  __ li_PPC(argcnt, -1);
+  __ li(argcnt, -1);
   // arg_c points to 3rd C argument
-  __ addi_PPC(arg_c, target_sp, _abi_PPC(carg_3));
+  __ addi(arg_c, target_sp, _abi_PPC(carg_3)); // TODO_RISCV
   // no floating-point args parsed so far
-  __ li_PPC(fpcnt, 0);
+  __ li(fpcnt, 0L);
 
   Label move_intSlot_to_ARG, move_floatSlot_to_FARG;
   Label loop_start, loop_end;
@@ -167,50 +169,52 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   // signature points to '(' at entry
 #ifdef ASSERT
-  __ lbz_PPC(sig_byte, 0, signature);
-  __ cmplwi_PPC(CCR0, sig_byte, '(');
-  __ bne_PPC(CCR0, do_dontreachhere);
+  __ lbu(sig_byte, signature, 0);
+  __ li(R5_scratch1, (long) '(');
+  __ bne(sig_byte, R5_scratch1, do_dontreachhere);
 #endif
 
-  __ bind(loop_start);
+  __ bind(loop_start); // TODO_RISCV there is still PPC code. I should rewrite it with RISC-V calling conventions
 
-  __ addi_PPC(argcnt, argcnt, 1);
-  __ lbzu_PPC(sig_byte, 1, signature);
+  __ addi(argcnt, argcnt, 1);
+  __ lbu(sig_byte, signature, 1);
+  __ addi(signature, signature, 1);
 
-  __ cmplwi_PPC(CCR0, sig_byte, ')'); // end of signature
-  __ beq_PPC(CCR0, loop_end);
+  __ li(R5_scratch1, (long) ')'); // end of signature
+  __ beq(sig_byte, R5_scratch1, loop_end);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'B'); // byte
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'B'); // byte
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'C'); // char
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'C'); // char
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'D'); // double
-  __ beq_PPC(CCR0, do_double);
+  __ li(R5_scratch1, (long) 'D'); // double
+  __ beq(sig_byte, R5_scratch1, do_double);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'F'); // float
-  __ beq_PPC(CCR0, do_float);
-  __ cmplwi_PPC(CCR0, sig_byte, 'I'); // int
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'F'); // float
+  __ beq(sig_byte, R5_scratch1, do_float);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'J'); // long
-  __ beq_PPC(CCR0, do_long);
+  __ li(R5_scratch1, (long) 'I'); // int
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'S'); // short
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'J'); // long
+  __ beq(sig_byte, R5_scratch1, do_long);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'Z'); // boolean
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'S'); // short
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'L'); // object
-  __ beq_PPC(CCR0, do_object);
+  __ li(R5_scratch1, (long) 'Z'); // boolean
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, '['); // array
-  __ beq_PPC(CCR0, do_array);
+  __ li(R5_scratch1, (long) 'L'); // object
+  __ beq(sig_byte, R5_scratch1, do_object);
 
-  //  __ cmplwi_PPC(CCR0, sig_byte, 'V'); // void cannot appear since we do not parse the return type
-  //  __ beq_PPC(CCR0, do_void);
+  __ li(R5_scratch1, (long) '['); // array
+  __ beq(sig_byte, R5_scratch1, do_array);
+
+  //  __ li(R5_scratch1, 'V'); // void cannot appear since we do not parse the return type
+  //  __ beq(sig_byte, R5_scratch1, do_void);
 
   __ bind(do_dontreachhere);
 
@@ -222,95 +226,106 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     Label start_skip, end_skip;
 
     __ bind(start_skip);
-    __ lbzu_PPC(sig_byte, 1, signature);
-    __ cmplwi_PPC(CCR0, sig_byte, '[');
-    __ beq_PPC(CCR0, start_skip); // skip further brackets
-    __ cmplwi_PPC(CCR0, sig_byte, '9');
-    __ bgt_PPC(CCR0, end_skip);   // no optional size
-    __ cmplwi_PPC(CCR0, sig_byte, '0');
-    __ bge_PPC(CCR0, start_skip); // skip optional size
+    __ lbu(sig_byte, signature, 1);
+    __ addi(signature, signature, 1);
+    
+    __ li(R5_scratch1, (long) '[');
+    __ beq(sig_byte, R5_scratch1, start_skip); // skip further brackets
+    
+    __ li(R5_scratch1, (long) '9');
+    __ bgt(sig_byte, R5_scratch1, end_skip);   // no optional size
+
+    __ li(R5_scratch1, (long) '0');
+    __ bge(sig_byte, R5_scratch1, start_skip); // skip optional size
     __ bind(end_skip);
 
-    __ cmplwi_PPC(CCR0, sig_byte, 'L');
-    __ beq_PPC(CCR0, do_object);  // for arrays of objects, the name of the object must be skipped
-    __ b_PPC(do_boxed);          // otherwise, go directly to do_boxed
+    __ li(R5_scratch1, (long) 'L');
+    __ beq(sig_byte, R5_scratch1, do_object);  // for arrays of objects, the name of the object must be skipped
+    __ j(do_boxed);          // otherwise, go directly to do_boxed
   }
 
   __ bind(do_object);
   {
     Label L;
     __ bind(L);
-    __ lbzu_PPC(sig_byte, 1, signature);
-    __ cmplwi_PPC(CCR0, sig_byte, ';');
-    __ bne_PPC(CCR0, L);
+    __ lbu(sig_byte, signature, 1);
+    __ addi(signature, signature, 1);
+    __ li(R5_scratch1, (long) ';');
+    __ bne(sig_byte, R5_scratch1, L);
    }
   // Need to box the Java object here, so we use arg_java (address of
   // current Java stack slot) as argument and don't dereference it as
   // in case of ints, floats, etc.
   Label do_null;
   __ bind(do_boxed);
-  __ ld_PPC(R0,0, arg_java);
-  __ cmpdi_PPC(CCR0, R0, 0);
-  __ li_PPC(intSlot,0);
-  __ beq_PPC(CCR0, do_null);
-  __ mr_PPC(intSlot, arg_java);
-  __ bind(do_null);
-  __ std_PPC(intSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, argcnt, max_int_register_arguments);
-  __ blt_PPC(CCR0, move_intSlot_to_ARG);
-  __ b_PPC(loop_start);
+  {
+    __ ld(R5_scratch1, arg_java, 0);
+    __ li(intSlot, 0L);
+    __ beqz(R5_scratch1, do_null);
+    __ mv(intSlot, arg_java);
+
+    __ bind(do_null);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ li(R5_scratch1, max_int_register_arguments);
+    __ blt(argcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ j(loop_start);
+  }
 
   __ bind(do_int);
-  __ lwa_PPC(intSlot, 0, arg_java);
-  __ std_PPC(intSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, argcnt, max_int_register_arguments);
-  __ blt_PPC(CCR0, move_intSlot_to_ARG);
-  __ b_PPC(loop_start);
+  {
+    __ lw(intSlot, arg_java, 0);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ li(R5_scratch1, max_int_register_arguments);
+    __ blt(argcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ j(loop_start);
+  }
 
   __ bind(do_long);
-  __ ld_PPC(intSlot, -BytesPerWord, arg_java);
-  __ std_PPC(intSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, - 2 * BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, argcnt, max_int_register_arguments);
-  __ blt_PPC(CCR0, move_intSlot_to_ARG);
-  __ b_PPC(loop_start);
+  {
+    __ ld(intSlot, arg_java, -BytesPerWord);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_java, arg_java, -2 * BytesPerWord);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ li(R5_scratch1, max_int_register_arguments);
+    __ blt(argcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ j(loop_start);
+  }
 
   __ bind(do_float);
-  __ lfs_PPC(floatSlot, 0, arg_java);
+  {
+    __ lfs_PPC(floatSlot, 0, arg_java);
 #if defined(LINUX)
-  // Linux uses ELF ABI. Both original ELF and ELFv2 ABIs have float
-  // in the least significant word of an argument slot.
+    // Linux uses ELF ABI. Both original ELF and ELFv2 ABIs have float
+    // in the least significant word of an argument slot.
 #if defined(VM_LITTLE_ENDIAN)
-  __ stfs_PPC(floatSlot, 0, arg_c);
+    __ stfs_PPC(floatSlot, 0, arg_c);
 #else
-  __ stfs_PPC(floatSlot, 4, arg_c);
+    __ stfs_PPC(floatSlot, 4, arg_c);
 #endif
-#elif defined(AIX)
-  // Although AIX runs on big endian CPU, float is in most significant
-  // word of an argument slot.
-  __ stfs_PPC(floatSlot, 0, arg_c);
-#else
+#elif
 #error "unknown OS"
 #endif
-  __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, fpcnt, max_fp_register_arguments);
-  __ blt_PPC(CCR0, move_floatSlot_to_FARG);
-  __ b_PPC(loop_start);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ li(R5_scratch1, max_fp_register_arguments);
+    __ blt(argcnt, R5_scratch1, move_floatSlot_to_FARG);
+    __ j(loop_start);
+  }
 
   __ bind(do_double);
-  __ lfd_PPC(floatSlot, - BytesPerWord, arg_java);
-  __ stfd_PPC(floatSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, - 2 * BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, fpcnt, max_fp_register_arguments);
-  __ blt_PPC(CCR0, move_floatSlot_to_FARG);
-  __ b_PPC(loop_start);
+  {
+    __ fld(floatSlot, arg_java, -BytesPerWord);
+    __ fsd(floatSlot, arg_c, 0);
+    __ addi(arg_java, arg_java, -2 * BytesPerWord);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ li(R5_scratch1, max_fp_register_arguments);
+    __ blt(argcnt, R5_scratch1, move_floatSlot_to_FARG);
+    __ j(loop_start);
+  }
 
   __ bind(loop_end);
 
@@ -321,27 +336,20 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   Label move_int_arg, move_float_arg;
   __ bind(move_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
-  __ mr_PPC(R5_ARG3_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R6_ARG4_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R7_ARG5_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R8_ARG6_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R9_ARG7_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R10_ARG8_PPC, intSlot); __ b_PPC(loop_start);
+  __ mv(R12, intSlot); __ j(loop_start);
+  __ mv(R13, intSlot); __ j(loop_start);
+  __ mv(R14, intSlot); __ j(loop_start);
+  __ mv(R15, intSlot); __ j(loop_start);
+  __ mv(R16, intSlot); __ j(loop_start);
+  __ mv(R17, intSlot); __ j(loop_start);
 
   __ bind(move_float_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
-  __ fmr_PPC(F1_ARG1_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F2_ARG2_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F3_ARG3_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F4_ARG4_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F5_ARG5_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F6_ARG6_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F7_ARG7_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F8_ARG8_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F9_ARG9_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F10_ARG10_PPC, floatSlot); __ b_PPC(loop_start);
-  __ fmr_PPC(F11_ARG11_PPC, floatSlot); __ b_PPC(loop_start);
-  __ fmr_PPC(F12_ARG12_PPC, floatSlot); __ b_PPC(loop_start);
-  __ fmr_PPC(F13_ARG13_PPC, floatSlot); __ b_PPC(loop_start);
+  __ fmvd(F12, floatSlot); __ j(loop_start);
+  __ fmvd(F13, floatSlot); __ j(loop_start);
+  __ fmvd(F14, floatSlot); __ j(loop_start);
+  __ fmvd(F15, floatSlot); __ j(loop_start);
+  __ fmvd(F16, floatSlot); __ j(loop_start);
+  __ fmvd(F17, floatSlot); __ j(loop_start);
 
   __ bind(move_intSlot_to_ARG);
   __ slli(R5_scratch1, argcnt, LogSizeOfTwoInstructions);
@@ -624,7 +632,7 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ restore_interpreter_state();
 
   // Resize frame to top_frame_sp
-  __ ld(R2_SP, _ijava_state(top_frame_sp), R8_FP);
+  __ ld(R2_SP, R8_FP, _ijava_state(top_frame_sp));
 
   // Compiled code destroys templateTableBase, reload.
   __ li(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0));
@@ -1214,9 +1222,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //        ...
 
   const Register signature_handler_fd = R7_TMP2;
-  const Register result_handler_addr  = R23_esp;
+  const Register result_handler_addr  = R22_bcp;
   const Register native_method_fd     = R7_TMP2;
-  const Register access_flags         = R25_tos;
+  const Register access_flags         = R23_esp;
 
   //=============================================================================
   // Allocate new frame and initialize interpreter state.
@@ -1309,7 +1317,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ bnez(R5_scratch1, exception_return_sync_check); // Has pending exception.
 
   // Reload signature handler, it may have been created/assigned in the meanwhile.
-  __ ld(signature_handler_fd, method_PPC(signature_handler));
+  __ ld(signature_handler_fd, method_(signature_handler));
 
 //  __ twi_0_PPC(signature_handler_fd); // Order wrt. load of klass mirror and entry point (isync is below).
   // TODO RISCV check what we need here

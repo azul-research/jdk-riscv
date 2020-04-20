@@ -131,7 +131,7 @@ class Argument {
     // The first eight arguments are passed in int regs if they are int.
     n_int_register_parameters_c = 8,
     // The first thirteen float arguments are passed in float regs.
-    n_float_register_parameters_c = 13,
+    n_float_register_parameters_c = 8,
     // Only the first 8 parameters are not placed on the stack. Aix disassembly
     // shows that xlC places all float args after argument 8 on the stack AND
     // in a register. This is not documented, but we follow this convention, too.

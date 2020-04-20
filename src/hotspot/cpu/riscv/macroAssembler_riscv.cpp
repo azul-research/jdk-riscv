@@ -939,11 +939,12 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
 // Push a frame of size `bytes'.
 void MacroAssembler::push_frame(unsigned int bytes, Register tmp) {
   long offset = align_addr(bytes, frame::alignment_in_bytes);
-  if (is_simm(-offset, 16)) {
-    stdu_PPC(R1_SP_PPC, -offset, R1_SP_PPC);
+  mv(R8_FP, R2_SP);
+  if (is_simm(-offset, 12)) {
+    addi(R2_SP, R2_SP, -offset);
   } else {
-    load_const_optimized(tmp, -offset);
-    stdux_PPC(R1_SP_PPC, R1_SP_PPC, tmp);
+    li(tmp, -offset);
+    sub(R2_SP, R2_SP, tmp);
   }
 }
 
@@ -954,9 +955,8 @@ void MacroAssembler::push_frame_reg_args(unsigned int bytes, Register tmp) {
 
 // Setup up a new C frame with a spill area for non-volatile GPRs and
 // additional space for local variables.
-void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
-                                                      Register tmp) {
-  push_frame(bytes + frame::abi_reg_args_ppc_size + frame::spill_nonvolatiles_size, tmp);
+void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp) {
+  push_frame(bytes + frame::abi_frame_size + frame::spill_nonvolatiles_size, tmp);
 }
 
 // Pop current C frame.
