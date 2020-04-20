@@ -13,7 +13,7 @@ while getopts "hdv:l" opt; do
         echo "usage: $0 [-h] [-v variant] [-l debug-level]"
         echo "       -h show help"
         echo "       -v choose jvm-variant (server, client, minimal, core, zero, zeroshark, custom). default is core"
-        echo "       -l choose debug level (release, fastdebug, slowdebug, optimized). default is release"
+        echo "       -l choose debug level (release, fastdebug, slowdebug, optimized). default is slowdebug"
         echo "       -d launch gdb server"
         exit 0
         ;;

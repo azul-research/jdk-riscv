@@ -12,7 +12,7 @@ while getopts "htbv:l" opt; do
         echo "usage: $0 [-h] [-v variant] [-l debug-level]"
         echo "       -h show help"
         echo "       -v choose jvm-variant (server, client, minimal, core, zero, zeroshark, custom). default is core"
-        echo "       -l choose debug level (release, fastdebug, slowdebug, optimized). default is release"
+        echo "       -l choose debug level (release, fastdebug, slowdebug, optimized). default is slowdebug"
         echo "       -t run java with flags -XX:+DisableClinit -XX:+CallTestMethod to interpret test method first"
         echo "       -b run java with flag -XX:+TraceBytecodes to trace bytecodes"
         exit 0

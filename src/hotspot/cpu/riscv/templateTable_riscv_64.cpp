@@ -1526,27 +1526,27 @@ void TemplateTable::convert() {
       break;
 
     case Bytecodes::_i2d:
-      __ fcvtdw(F23_ftos, R25_tos, Assembler::RTZ);
+      __ fcvtdw(F23_ftos, R25_tos, Assembler::DYN);
       break;
 
     case Bytecodes::_l2d:
-      __ fcvtdl(F23_ftos, R25_tos, Assembler::RTZ);
+      __ fcvtdl(F23_ftos, R25_tos, Assembler::DYN);
       break;
 
     case Bytecodes::_i2f:
-      __ fcvtsw(F23_ftos, R25_tos, Assembler::RTZ);
+      __ fcvtsw(F23_ftos, R25_tos, Assembler::DYN);
       break;
 
     case Bytecodes::_l2f:
-      __ fcvtsl(F23_ftos, R25_tos, Assembler::RTZ);
+      __ fcvtsl(F23_ftos, R25_tos, Assembler::DYN);
       break;
 
     case Bytecodes::_f2d:
-      __ fcvtds(F23_ftos, F23_ftos, Assembler::RTZ);
+      __ fcvtds(F23_ftos, F23_ftos, Assembler::DYN);
       break;
 
     case Bytecodes::_d2f:
-      __ fcvtsd(F23_ftos, F23_ftos, Assembler::RTZ);
+      __ fcvtsd(F23_ftos, F23_ftos, Assembler::DYN);
       break;
 
     case Bytecodes::_f2i:
@@ -1563,10 +1563,10 @@ void TemplateTable::convert() {
       __ andi(R5_scratch1, R5_scratch1, (1 << 8) | (1 << 9)); // R5_scratch1 != 0 if NaN
       __ bnez(R5_scratch1, Lnan);
       switch (bytecode()) {
-        case Bytecodes::_f2i: __ fcvtws(R25_tos, F23_ftos, Assembler::RTZ); break;
-        case Bytecodes::_d2l: __ fcvtld(R25_tos, F23_ftos, Assembler::RTZ); break;
-        case Bytecodes::_f2l: __ fcvtls(R25_tos, F23_ftos, Assembler::RTZ); break;
-        case Bytecodes::_d2i: __ fcvtwd(R25_tos, F23_ftos, Assembler::RTZ); break;
+        case Bytecodes::_f2i: __ fcvtws(R25_tos, F23_ftos, Assembler::DYN); break;
+        case Bytecodes::_d2l: __ fcvtld(R25_tos, F23_ftos, Assembler::DYN); break;
+        case Bytecodes::_f2l: __ fcvtls(R25_tos, F23_ftos, Assembler::DYN); break;
+        case Bytecodes::_d2i: __ fcvtwd(R25_tos, F23_ftos, Assembler::DYN); break;
         default: ShouldNotReachHere();
       }
       __ j(done);

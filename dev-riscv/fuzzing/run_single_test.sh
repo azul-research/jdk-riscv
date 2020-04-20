@@ -5,6 +5,24 @@ level=slowdebug
 jdk_riscv_path=$(pwd)/../..
 sysroot_path=$jdk_riscv_path/riscv-sysroot
 
+OPTIND=1
+
+while getopts "hv:l:" opt; do
+    case "$opt" in
+    h)
+        echo "usage: $0 [-h] [-v variant] [-l debug-level]"
+        echo "       -h show help"
+        echo "       -v choose jvm-variant (server, client, minimal, core, zero, zeroshark, custom). default is core"
+        echo "       -l choose debug level (release, fastdebug, slowdebug, optimized). default is release"
+        exit 0
+        ;;
+    v)  variant=$OPTARG
+        ;;
+    l)  level=$OPTARG
+        ;;
+    esac
+done
+
 while true; do 
     python3 fuzz.py
     javac javafuzz/T1.java 2>/dev/null && break
