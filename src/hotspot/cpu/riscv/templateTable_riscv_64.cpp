@@ -1592,7 +1592,7 @@ void TemplateTable::lcmp() {
   __ pop_l(Rscratch); // first operand, deeper in stack
 
   __ blt(Rscratch, R25_tos, Lless);
-  __ bge(Rscratch, R25_tos, Lgreater);
+  __ bgt(Rscratch, R25_tos, Lgreater);
 
   __ mv(R25_tos, R0_ZERO);
   __ j(Ldone);
