@@ -105,11 +105,10 @@ void BarrierSetAssembler::load_at(MacroAssembler* masm, DecoratorSet decorators,
 void BarrierSetAssembler::resolve_jobject(MacroAssembler* masm, Register value,
                                           Register tmp1, Register tmp2, bool needs_frame) {
   Label done;
-  __ cmpdi_PPC(CCR0, value, 0);
-  __ beq_PPC(CCR0, done);         // Use NULL as-is.
+  __ beqz(value, done);       // Use NULL as-is.
 
-  __ clrrdi_PPC(tmp1, value, JNIHandles::weak_tag_size);
-  __ ld_PPC(value, 0, tmp1);      // Resolve (untagged) jobject.
+  __ andi(tmp1, value, -(1 << JNIHandles::weak_tag_size));
+  __ ld(value, tmp1, 0);      // Resolve (untagged) jobject.
 
   __ verify_oop(value);
   __ bind(done);

@@ -371,47 +371,33 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 }
 
 address TemplateInterpreterGenerator::generate_result_handler_for(BasicType type) {
-  //
-  // Registers alive
-  //   R3_RET_PPC
-  //   LR
-  //
-  // Registers updated
-  //   R3_RET_PPC
-  //
-
   Label done;
   address entry = __ pc();
-  tty->print_cr("result_handlers generation %p", entry);
 
   switch (type) {
   case T_BOOLEAN:
     // convert !=0 to 1
-    __ neg_PPC(R0, R3_RET_PPC);
-    __ orr_PPC(R0, R3_RET_PPC, R0);
-    __ srwi_PPC(R3_RET_PPC, R0, 31);
+    __ neg(R5_scratch1, R10_RET1);
+    __ orr(R5_scratch1, R10_RET1, R5_scratch1); // R5_scratch1 <= 0 && (R5_scratch1 == 0 <-> R10_RET1 == 0)
+    __ slti(R10_RET1, R5_scratch1, 0);          // R10_RET1 == 1 <-> R5_scratch1 < 0,    R10_RET1 == 0 otherwise
     break;
   case T_BYTE:
-     // sign extend 8 bits
-     __ extsb_PPC(R3_RET_PPC, R3_RET_PPC);
+    __ signExtend(R10_RET1, 8);
      break;
   case T_CHAR:
-     // zero extend 16 bits
-     __ clrldi_PPC(R3_RET_PPC, R3_RET_PPC, 48);
+     __ zeroExtend(R10_RET1, 16);
      break;
   case T_SHORT:
-     // sign extend 16 bits
-     __ extsh_PPC(R3_RET_PPC, R3_RET_PPC);
+    __ signExtend(R10_RET1, 16);
      break;
   case T_INT:
-     // sign extend 32 bits
-     __ extsw_PPC(R3_RET_PPC, R3_RET_PPC);
+    __ signExtend(R10_RET1, 32);
      break;
   case T_LONG:
      break;
   case T_OBJECT:
     // JNIHandles::resolve result.
-    __ resolve_jobject(R3_RET_PPC, R5_scratch1, R31, /* needs_frame */ true); // kills R31
+    __ resolve_jobject(R10_RET1, R5_scratch1, R6_scratch2, true /* needs_frame */);
     break;
   case T_FLOAT:
      break;

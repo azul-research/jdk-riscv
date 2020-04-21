@@ -933,6 +933,11 @@ class MacroAssembler: public Assembler {
   void should_not_reach_here()                         { stop(stop_shouldnotreachhere,  "", -1); }
 
   void zap_from_to(Register low, int before, Register high, int after, Register val, Register addr) PRODUCT_RETURN;
+
+  void zeroExtend(Register rd, Register rs, int bits);
+  void signExtend(Register rd, Register rs, int bits);
+  void zeroExtend(Register r, int bits) { zeroExtend(r, r, bits); };
+  void signExtend(Register r, int bits) { signExtend(r, r, bits); };
 };
 
 // class SkipIfEqualZero:
