@@ -138,7 +138,7 @@ void InterpreterMacroAssembler::check_and_handle_earlyret(Register Rscratch1, Re
     ld(Rthr_state_addr, R24_thread, in_bytes(JavaThread::jvmti_thread_state_offset()));
     beqz(Rthr_state_addr, Lno_early_ret);
 
-    lwu(Rscratch2, in_bytes(JvmtiThreadState::earlyret_state_offset()), Rthr_state_addr);
+    lwu(Rscratch2, Rthr_state_addr, in_bytes(JvmtiThreadState::earlyret_state_offset()));
     // JvmtiThreadState::earlyret_pending is small enough to fit here
     addi(Rscratch2, Rscratch2, -((int) JvmtiThreadState::earlyret_pending));
     bnez(Rscratch2, Lno_early_ret);

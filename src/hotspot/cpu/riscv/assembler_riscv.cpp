@@ -95,6 +95,93 @@ void Assembler::andi_PPC(Register a, Register s, const long ui16) {
   }
 }
 
+#define LOAD_REGISTER_OR_CONSTANT(_command) \
+  if (roc.is_constant()) { \
+    if (s1 == noreg) { \
+      int rest12 = load_const_optimized(d, roc.as_constant(), noreg, true); \
+      _command(d, d, rest12); \
+    } else if (is_simm(roc.as_constant(), 12)) { \
+      _command(d, s1, roc.as_constant()); \
+    } else { \
+      int rest12 = add_const_optimized(d, s1, roc.as_constant(), noreg, true); \
+      _command(d, d, rest12); \
+    } \
+  } else { \
+    if (s1 == noreg) \
+      _command(d, roc.as_register(), 0); \
+    else { \
+      add(d, roc.as_register(), s1); \
+      _command(d, d, 0); \
+    } \
+  }
+
+// RegisterOrConstant version.
+void Assembler::ld(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(ld)
+}
+
+void Assembler::lw(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(lw)
+}
+
+void Assembler::lwu(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(lwu)
+}
+
+void Assembler::lh(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(lh)
+}
+
+void Assembler::lhu(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(lhu)
+}
+
+void Assembler::lb(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(lb)
+}
+
+void Assembler::lbu(Register d, Register s1, RegisterOrConstant roc) {
+  LOAD_REGISTER_OR_CONSTANT(lbu)
+}
+
+#define STORE_REGISTER_OR_CONSTANT(_command) \
+  if (roc.is_constant()) { \
+    if (s1 == noreg) { \
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants"); \
+      int rest12 = load_const_optimized(tmp, roc.as_constant(), noreg, true); \
+      _command(d, tmp, rest12); \
+    } else if (is_simm(roc.as_constant(), 12)) { \
+      _command(d, s1, roc.as_constant()); \
+    } else { \
+      guarantee(tmp != noreg, "Need tmp reg to encode large constants"); \
+      int rest12 = add_const_optimized(tmp, s1, roc.as_constant(), noreg, true); \
+      _command(d, tmp, rest12); \
+    } \
+  } else { \
+    if (s1 == noreg) \
+      _command(d, roc.as_register(), 0); \
+    else { \
+      add(tmp, roc.as_register(), s1); \
+      _command(d, tmp, 0); \
+    } \
+  }
+
+void Assembler::sd(Register d, Register s1, RegisterOrConstant roc, Register tmp) {
+  STORE_REGISTER_OR_CONSTANT(sd)
+}
+
+void Assembler::sw(Register d, Register s1, RegisterOrConstant roc, Register tmp) {
+  STORE_REGISTER_OR_CONSTANT(sw)
+}
+
+void Assembler::sh(Register d, Register s1, RegisterOrConstant roc, Register tmp) {
+  STORE_REGISTER_OR_CONSTANT(sh)
+}
+
+void Assembler::sb(Register d, Register s1, RegisterOrConstant roc, Register tmp) {
+  STORE_REGISTER_OR_CONSTANT(sb)
+}
+
 // RegisterOrConstant version.
 void Assembler::ld_PPC(Register d, RegisterOrConstant roc, Register s1) {
   if (roc.is_constant()) {
@@ -112,32 +199,6 @@ void Assembler::ld_PPC(Register d, RegisterOrConstant roc, Register s1) {
       Assembler::ld_PPC(d, 0, roc.as_register());
     else
       Assembler::ldx_PPC(d, roc.as_register(), s1);
-  }
-}
-
-// RegisterOrConstant version.
-void Assembler::ld(Register d, RegisterOrConstant roc, Register s1) {
-  if (roc.is_constant()) {
-    if (s1 == noreg) {
-      li(d, roc.as_constant());
-      int simm16_rest = roc.as_constant() & 0xFFFF;
-      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
-        simm16_rest = 0;
-      ld(d, d, simm16_rest);
-    } else if (is_simm(roc.as_constant(), 16)) {
-      ld(d, s1, roc.as_constant());
-    } else {
-      li(d, roc.as_constant());
-      add(d, d, s1);
-      ld(d, d, 0);
-    }
-  } else {
-    if (s1 == noreg)
-      ld(d, roc.as_register(), 0);
-    else {
-      add(d, roc.as_register(), s1);
-      ld(d, d, 0);
-    }
   }
 }
 
@@ -176,31 +237,6 @@ void Assembler::lwz_PPC(Register d, RegisterOrConstant roc, Register s1) {
       Assembler::lwz_PPC(d, 0, roc.as_register());
     else
       Assembler::lwzx_PPC(d, roc.as_register(), s1);
-  }
-}
-
-void Assembler::lwu(Register d, RegisterOrConstant roc, Register s1) {
-  if (roc.is_constant()) {
-    if (s1 == noreg) {
-      li(d, roc.as_constant());
-      int simm16_rest = roc.as_constant() & 0xFFFF;
-      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
-        simm16_rest = 0;
-      lwu(d, d, simm16_rest);
-    } else if (is_simm(roc.as_constant(), 16)) {
-      lwu(d, s1, roc.as_constant());
-    } else {
-      li(d, roc.as_constant());
-      add(d, d, s1);
-      lwu(d, d, 0);
-    }
-  } else {
-    if (s1 == noreg)
-      lwu(d, roc.as_register(), 0);
-    else {
-      add(d, roc.as_register(), s1);
-      lwu(d, d, 0);
-    }
   }
 }
 
@@ -282,33 +318,6 @@ void Assembler::std_PPC(Register d, RegisterOrConstant roc, Register s1, Registe
   }
 }
 
-void Assembler::sd(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
-  if (roc.is_constant()) {
-    if (s1 == noreg) {
-      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
-      li(tmp, roc.as_constant());
-      int simm16_rest = roc.as_constant() & 0xFFFF;
-      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
-        simm16_rest = 0;
-      sd(d, tmp, simm16_rest);
-    } else if (is_simm(roc.as_constant(), 16)) {
-      sd(d, s1, roc.as_constant());
-    } else {
-      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
-      li(tmp, roc.as_constant());
-      add(tmp, tmp, s1);
-      sd(d, tmp, 0);
-    }
-  } else {
-    if (s1 == noreg)
-      sd(d, roc.as_register(), 0);
-    else {
-      add(tmp, roc.as_register(), s1);
-      sd(d, tmp, 0);
-    }
-  }
-}
-
 void Assembler::stw_PPC(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
   if (roc.is_constant()) {
     if (s1 == noreg) {
@@ -327,33 +336,6 @@ void Assembler::stw_PPC(Register d, RegisterOrConstant roc, Register s1, Registe
       Assembler::stw_PPC(d, 0, roc.as_register());
     else
       Assembler::stwx_PPC(d, roc.as_register(), s1);
-  }
-}
-
-void Assembler::sw(Register d, RegisterOrConstant roc, Register s1, Register tmp) {
-  if (roc.is_constant()) {
-    if (s1 == noreg) {
-      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
-      li(tmp, roc.as_constant());
-      int simm16_rest = roc.as_constant() & 0xFFFF;
-      if (((roc.as_constant() >> 16) + (simm16_rest >> 15)) == 0)
-        simm16_rest = 0;
-      sw(d, tmp, simm16_rest);
-    } else if (is_simm(roc.as_constant(), 16)) {
-      sw(d, s1, roc.as_constant());
-    } else {
-      guarantee(tmp != noreg, "Need tmp reg to encode large constants");
-      li(tmp, roc.as_constant());
-      add(tmp, tmp, s1);
-      sw(d, tmp, 0);
-    }
-  } else {
-    if (s1 == noreg)
-      sw(d, roc.as_register(), 0);
-    else {
-      add(tmp, roc.as_register(), s1);
-      sw(d, tmp, 0);
-    }
   }
 }
 

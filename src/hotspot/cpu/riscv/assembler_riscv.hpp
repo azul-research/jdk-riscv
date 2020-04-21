@@ -2710,18 +2710,26 @@ class Assembler : public AbstractAssembler {
   // load the constant are emitted beforehand. Store instructions need a
   // tmp reg if the constant is not encodable as immediate.
   // Size unpredictable.
+  void ld(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lw(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lwu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lh(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lhu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lb(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lbu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void sd(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sw(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sh(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sb(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+
   void ld_PPC(  Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void ld(Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwa_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lwu( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lha_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lhz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lbz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void std_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void sd(Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stw_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void sw(Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void sth_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stb_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void add_PPC( Register d, RegisterOrConstant roc, Register s1);
