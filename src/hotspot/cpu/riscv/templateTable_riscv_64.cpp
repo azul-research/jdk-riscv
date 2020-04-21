@@ -95,7 +95,7 @@ Address TemplateTable::at_bcp(int offset) {
 void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Register Rtemp, bool load_bc_into_bc_reg /*=true*/, int byte_no) {
   // With sharing on, may need to test method flag.
   if (!RewriteBytecodes) return;
-  Label L_patch_done, L_zero;
+  Label L_patch_done, L_zero, L_after_switch;
 
   switch (new_bc) {
     case Bytecodes::_fast_aputfield:
@@ -124,8 +124,7 @@ void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Reg
 #endif
       __ beqz(Rnew_bc, L_zero);
       __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
-      __ sb(Rnew_bc, R22_bcp, 0);
-      __ j(L_patch_done);
+      __ j(L_after_switch);
 
       __ bind(L_zero);
       __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
@@ -139,6 +138,8 @@ void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Reg
         __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
       }
   }
+
+  __ bind(L_after_switch);
 
   if (JvmtiExport::can_post_breakpoint()) {
     Label L_fast_patch;
