@@ -179,13 +179,13 @@ void TemplateTable::iconst(int value) {
   transition(vtos, itos);
   if (value == 0) tty->print_cr("iconst 0: %p", __ pc());
   assert(value >= -1 && value <= 5, "");
-  __ addi(R25_tos, R0_ZERO, value);
+  __ li(R25_tos, value);
 }
 
 void TemplateTable::lconst(int value) {
   transition(vtos, ltos);
   assert(value >= -1 && value <= 5, "");
-  __ addi(R25_tos, R0_ZERO, value);
+  __ li(R25_tos, value);
 }
 
 void TemplateTable::fconst(int value) {
@@ -654,8 +654,8 @@ void TemplateTable::iaload() {
   transition(itos, itos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerInt, Rtemp, Rload_addr);
   __ lw(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_INT));
 }
@@ -664,8 +664,8 @@ void TemplateTable::laload() {
   transition(itos, ltos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerLong, Rtemp, Rload_addr);
   __ ld(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_LONG));
 }
@@ -674,8 +674,8 @@ void TemplateTable::faload() {
   transition(itos, ftos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerInt, Rtemp, Rload_addr);
   __ flw(F23_ftos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_FLOAT));
 }
@@ -684,8 +684,8 @@ void TemplateTable::daload() {
   transition(itos, dtos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerLong, Rtemp, Rload_addr);
   __ fld(F23_ftos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_DOUBLE));
 }
@@ -696,8 +696,8 @@ void TemplateTable::aaload() {
   // tos: index
   // result tos: array
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2,
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2,
                  Rtemp2     = R31_TMP6;
   __ index_check(Rarray, R25_tos /* index */, UseCompressedOops ? 2 : LogBytesPerWord, Rtemp, Rload_addr);
   do_oop_load(_masm, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_OBJECT), R25_tos, Rtemp, Rtemp2, IS_ARRAY);
@@ -708,8 +708,8 @@ void TemplateTable::baload() {
   transition(itos, itos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, 0, Rtemp, Rload_addr);
   __ lb(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_BYTE));
 }
@@ -718,8 +718,8 @@ void TemplateTable::caload() {
   transition(itos, itos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerShort, Rtemp, Rload_addr);
   __ lhu(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_CHAR));
 }
@@ -729,8 +729,8 @@ void TemplateTable::fast_icaload() {
   transition(vtos, itos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
 
   locals_index(R25_tos);
   __ load_local_int(R25_tos, Rtemp, R25_tos);
@@ -742,8 +742,8 @@ void TemplateTable::saload() {
   transition(itos, itos);
 
   const Register Rload_addr = R10_ARG0,
-                 Rtemp      = R11_ARG1,
-                 Rarray     = R12_ARG2;
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerShort, Rtemp, Rload_addr);
   __ lh(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_SHORT));
 }
@@ -933,8 +933,8 @@ void TemplateTable::iastore() {
   transition(itos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
@@ -945,8 +945,8 @@ void TemplateTable::lastore() {
   transition(ltos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerLong, Rtemp, Rstore_addr);
@@ -957,8 +957,8 @@ void TemplateTable::fastore() {
   transition(ftos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
@@ -969,8 +969,8 @@ void TemplateTable::dastore() {
   transition(dtos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerLong, Rtemp, Rstore_addr);
@@ -1038,7 +1038,7 @@ void TemplateTable::bastore() {
   transition(itos, vtos);
 
   const Register Rindex   = R5_scratch1,
-                 Rarray   = R12_ARG2,
+                 Rarray   = R11_ARG1,
                  Rscratch = R10_ARG0;
   Label L_skip;
 
@@ -1066,7 +1066,7 @@ void TemplateTable::castore() {
   transition(itos, vtos);
 
   const Register Rindex   = R5_scratch1,
-                 Rarray   = R12_ARG2,
+                 Rarray   = R11_ARG1,
                  Rscratch = R10_ARG0;
   __ pop_i(Rindex);
   // tos: val

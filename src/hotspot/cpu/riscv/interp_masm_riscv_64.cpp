@@ -559,9 +559,9 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   // Index check
   lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
   blt(Rindex, Rlength, LnotOOR);
-  // Index should be in R25_tos, array should be in R12_ARG2.
+  // Index should be in R25_tos, array should be in R11_ARG1
   mv_if_needed(R25_tos, Rindex);
-  mv_if_needed(R12_ARG2, Rarray);
+  mv_if_needed(R11_ARG1, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
   jr(Rtmp);
 
