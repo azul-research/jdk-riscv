@@ -3773,9 +3773,24 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
       Method *testMethod = findTestMethod(InstanceKlass::cast(testKlass), TestMethodName);
       JavaCallArguments args;
-      JavaValue result(T_VOID);
+      BasicType resultType = testMethod->result_type();
+      JavaValue result(resultType);
       JavaCalls::call(&result, testMethod, &args, CHECK);
-      fprintf(stderr, "Custom method call result: %d\n", 1/*result.get_jint()*/);
+      if (resultType == T_BYTE || resultType == T_BOOLEAN || resultType == T_SHORT ||
+          resultType == T_CHAR || resultType == T_INT) {
+        printf("TestMethodValue int %d\n", result.get_jint());
+      } else if (resultType == T_LONG) {
+        printf("TestMethodValue long %ld\n", result.get_jlong());
+      } else if (resultType == T_FLOAT) {
+        printf("TestMethodValue float %f\n", result.get_jfloat());
+      } else if (resultType == T_DOUBLE) {
+        printf("TestMethodValue double %f\n", result.get_jdouble());
+      } else {
+        printf("TestMethodValue unknown");
+      }
+      if (ExitAfterTestMethod) {
+        exit(0);
+      }
     } else {
       Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
       Method *method = InstanceKlass::cast(klass)->methods()->at(14);

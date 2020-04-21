@@ -93,12 +93,9 @@ Address TemplateTable::at_bcp(int offset) {
 // Patches the current bytecode (ptr to it located in bcp)
 // in the bytecode stream with a new one.
 void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Register Rtemp, bool load_bc_into_bc_reg /*=true*/, int byte_no) {
-  //FIXME_RISCV
-  return;
-
   // With sharing on, may need to test method flag.
   if (!RewriteBytecodes) return;
-  Label L_patch_done;
+  Label L_patch_done, L_zero, L_after_switch;
 
   switch (new_bc) {
     case Bytecodes::_fast_aputfield:
@@ -121,23 +118,28 @@ void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Reg
       __ get_cache_and_index_at_bcp(Rtemp /* dst = cache */, 1);
       // ((*(cache+indices))>>((1+byte_no)*8))&0xFF:
 #if defined(VM_LITTLE_ENDIAN)
-      __ lbz_PPC(Rnew_bc, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 1 + byte_no, Rtemp);
+      __ lbu(Rnew_bc, Rtemp, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 1 + byte_no);
 #else
-      __ lbz_PPC(Rnew_bc, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (1 + byte_no), Rtemp);
+      __ lbu(Rnew_bc, Rtemp, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (1 + byte_no));
 #endif
-      __ cmpwi_PPC(CCR0, Rnew_bc, 0);
-      __ li_PPC(Rnew_bc, (unsigned int)(unsigned char)new_bc);
-      __ beq_PPC(CCR0, L_patch_done);
-      // __ isync_PPC(); // acquire not needed
+      __ beqz(Rnew_bc, L_zero);
+      __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
+      __ j(L_after_switch);
+
+      __ bind(L_zero);
+      __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
+      __ j(L_patch_done);
       break;
     }
 
     default:
       assert(byte_no == -1, "sanity");
       if (load_bc_into_bc_reg) {
-        __ li_PPC(Rnew_bc, (unsigned int)(unsigned char)new_bc);
+        __ li(Rnew_bc, (unsigned int)(unsigned char)new_bc);
       }
   }
+
+  __ bind(L_after_switch);
 
   if (JvmtiExport::can_post_breakpoint()) {
     Label L_fast_patch;
@@ -151,7 +153,7 @@ void TemplateTable::patch_bytecode(Bytecodes::Code new_bc, Register Rnew_bc, Reg
   }
 
   // Patch bytecode.
-  __ stb_PPC(Rnew_bc, 0, R22_bcp);
+  __ sb(Rnew_bc, R22_bcp, 0);
 
   __ bind(L_patch_done);
 }
@@ -171,20 +173,20 @@ void TemplateTable::shouldnotreachhere() {
 
 void TemplateTable::aconst_null() {
   transition(vtos, atos);
-  __ li_PPC(R25_tos, 0);
+  __ li(R25_tos, 0L);
 }
 
 void TemplateTable::iconst(int value) {
   transition(vtos, itos);
   if (value == 0) tty->print_cr("iconst 0: %p", __ pc());
   assert(value >= -1 && value <= 5, "");
-  __ addi(R25_tos, R0, value);
+  __ li(R25_tos, value);
 }
 
 void TemplateTable::lconst(int value) {
   transition(vtos, ltos);
   assert(value >= -1 && value <= 5, "");
-  __ li_PPC(R25_tos, value);
+  __ li(R25_tos, value);
 }
 
 void TemplateTable::fconst(int value) {
@@ -195,18 +197,18 @@ void TemplateTable::fconst(int value) {
   switch (value) {
     default: ShouldNotReachHere();
     case 0: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&zero, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&zero, R6_scratch2, true);
+      __ flw(F23_ftos, R5_scratch1, off);
       break;
     }
     case 1: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&one, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&one, R6_scratch2, true);
+      __ flw(F23_ftos, R5_scratch1, off);
       break;
     }
     case 2: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&two, R0, true);
-      __ lfs_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&two, R6_scratch2, true);
+      __ flw(F23_ftos, R5_scratch1, off);
       break;
     }
   }
@@ -218,13 +220,13 @@ void TemplateTable::dconst(int value) {
   static double one  = 1.0;
   switch (value) {
     case 0: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&zero, R0, true);
-      __ lfd_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&zero, R6_scratch2, true);
+      __ fld(F23_ftos, R5_scratch1, off);
       break;
     }
     case 1: {
-      int simm16_offset = __ load_const_optimized(R5_scratch1, (address*)&one, R0, true);
-      __ lfd_PPC(F23_ftos, simm16_offset, R5_scratch1);
+      int off = __ load_const_optimized(R5_scratch1, (address*)&one, R6_scratch2, true);
+      __ fld(F23_ftos, R5_scratch1, off);
       break;
     }
     default: ShouldNotReachHere();
@@ -244,56 +246,65 @@ void TemplateTable::sipush() {
 void TemplateTable::ldc(bool wide) {
   Register Rscratch1 = R5_scratch1,
            Rscratch2 = R6_scratch2,
-           Rcpool    = R3_ARG1_PPC;
+           Rscratch3 = R7_TMP2,
+           Rcpool    = R10_ARG0;
 
   transition(vtos, vtos);
-  Label notInt, notFloat, notClass, exit;
+  Label notInt, notFloat, isClass, exit;
 
   __ get_cpool_and_tags(Rcpool, Rscratch2); // Set Rscratch2 = &tags.
   if (wide) { // Read index.
     __ get_2_byte_integer_at_bcp(1, Rscratch1, InterpreterMacroAssembler::Unsigned);
   } else {
-    __ lbz_PPC(Rscratch1, 1, R22_bcp);
+    __ lbu(Rscratch1, R22_bcp, 1);
   }
 
   const int base_offset = ConstantPool::header_size() * wordSize;
   const int tags_offset = Array<u1>::base_offset_in_bytes();
 
   // Get type from tags.
-  __ addi_PPC(Rscratch2, Rscratch2, tags_offset);
-  __ lbzx_PPC(Rscratch2, Rscratch2, Rscratch1);
+  __ addi(Rscratch2, Rscratch2, tags_offset);
+  __ add(Rscratch2, Rscratch2, Rscratch1);
+  __ lbu(Rscratch2, Rscratch2, 0);
 
-  __ cmpwi_PPC(CCR0, Rscratch2, JVM_CONSTANT_UnresolvedClass); // Unresolved class?
-  __ cmpwi_PPC(CCR1, Rscratch2, JVM_CONSTANT_UnresolvedClassInError); // Unresolved class in error state?
-  __ cror_PPC(CCR0, Assembler::equal, CCR1, Assembler::equal);
+  __ li(Rscratch3, JVM_CONSTANT_UnresolvedClass);
+  __ beq(Rscratch3, Rscratch2, isClass);
+  __ li(Rscratch3, JVM_CONSTANT_UnresolvedClassInError);
+  __ beq(Rscratch3, Rscratch2, isClass);
 
   // Resolved class - need to call vm to get java mirror of the class.
-  __ cmpwi_PPC(CCR1, Rscratch2, JVM_CONSTANT_Class);
-  __ crnor_PPC(CCR0, Assembler::equal, CCR1, Assembler::equal); // Neither resolved class nor unresolved case from above?
-  __ beq_PPC(CCR0, notClass);
+  __ li(Rscratch3, JVM_CONSTANT_Class);
+  __ beq(Rscratch3, Rscratch2, isClass);
 
-  __ li_PPC(R4, wide ? 1 : 0);
-  call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::ldc), R4);
-  __ push(atos);
-  __ b_PPC(exit);
+  // Not a class
+  __ addi(Rcpool, Rcpool, base_offset);
+  __ slli(Rscratch1, Rscratch1, LogBytesPerWord);
+  __ li(Rscratch3, JVM_CONSTANT_Integer);
+  __ bne(Rscratch2, Rscratch3, notInt);
+
+  // An integer
+  __ add(Rscratch1, Rscratch1, Rcpool);
+  __ lw(R25_tos, Rscratch1, 0);
+  __ push(itos);
+  __ j(exit);
 
   __ align(32, 12);
-  __ bind(notClass);
-  __ addi_PPC(Rcpool, Rcpool, base_offset);
-  __ sldi_PPC(Rscratch1, Rscratch1, LogBytesPerWord);
-  __ cmpdi_PPC(CCR0, Rscratch2, JVM_CONSTANT_Integer);
-  __ bne_PPC(CCR0, notInt);
-  __ lwax_PPC(R25_tos, Rcpool, Rscratch1);
-  __ push(itos);
-  __ b_PPC(exit);
+  __ bind(isClass);
+  __ li(R4, wide ? 1 : 0);
+  call_VM(R25_tos, CAST_FROM_FN_PTR(address, InterpreterRuntime::ldc), R4);
+  __ push(atos);
+  __ j(exit);
 
   __ align(32, 12);
   __ bind(notInt);
-  __ cmpdi_PPC(CCR0, Rscratch2, JVM_CONSTANT_Float);
-  __ bne_PPC(CCR0, notFloat);
-  __ lfsx_PPC(F23_ftos, Rcpool, Rscratch1);
+  __ li(Rscratch3, JVM_CONSTANT_Float);
+  __ bne(Rscratch2, Rscratch3, notFloat);
+
+  // A float
+  __ add(Rscratch1, Rscratch1, Rcpool);
+  __ flw(F23_ftos, Rscratch1, 0);
   __ push(ftos);
-  __ b_PPC(exit);
+  __ j(exit);
 
   __ align(32, 12);
   // assume the tag is for condy; if not, the VM runtime will tell us
@@ -311,6 +322,7 @@ void TemplateTable::fast_aldc(bool wide) {
   int index_size = wide ? sizeof(u2) : sizeof(u1);
   const Register Rscratch = R5_scratch1;
   Label is_null;
+  Label not_sentinel;
 
   // We are resolved if the resolved reference cache entry contains a
   // non-null object (CallSite, etc.)
@@ -318,27 +330,22 @@ void TemplateTable::fast_aldc(bool wide) {
   __ load_resolved_reference_at_index(R25_tos, Rscratch, &is_null);
 
   // Convert null sentinel to NULL.
-  int simm16_rest = __ load_const_optimized(Rscratch, Universe::the_null_sentinel_addr(), R0, true);
-  __ ld_PPC(Rscratch, simm16_rest, Rscratch);
-  __ cmpld_PPC(CCR0, R25_tos, Rscratch);
-  if (VM_Version::has_isel()) {
-    __ isel_0_PPC(R25_tos, CCR0, Assembler::equal);
-  } else {
-    Label not_sentinel;
-    __ bne_PPC(CCR0, not_sentinel);
-    __ li_PPC(R25_tos, 0);
-    __ bind(not_sentinel);
-  }
+  int simm12_rest = __ load_const_optimized(Rscratch, Universe::the_null_sentinel_addr(), noreg, true);
+  __ ld(Rscratch, Rscratch, simm12_rest);
+  __ bne(R25_tos, Rscratch, not_sentinel);
+  __ li(R25_tos, 0L);
+  __ bind(not_sentinel);
+
   __ verify_oop(R25_tos);
   __ dispatch_epilog(atos, Bytecodes::length_for(bytecode()));
 
   __ bind(is_null);
-  __ load_const_optimized(R3_ARG1_PPC, (int)bytecode());
+  __ load_const_optimized(R10_ARG0, (int)bytecode());
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_ldc);
 
   // First time invocation - must resolve first.
-  __ call_VM(R25_tos, entry, R3_ARG1_PPC);
+  __ call_VM(R25_tos, entry, R10_ARG0);
   __ verify_oop(R25_tos);
 }
 
@@ -346,33 +353,37 @@ void TemplateTable::ldc2_w() {
   transition(vtos, vtos);
   Label not_double, not_long, exit;
 
-  Register Rindex = R5_scratch1,
-           Rcpool = R6_scratch2,
-           Rtag   = R3_ARG1_PPC;
+  Register Rindex   = R5_scratch1,
+           Rcpool   = R6_scratch2,
+           Rscratch = R7_TMP2,
+           Rtag     = R10_ARG0;
   __ get_cpool_and_tags(Rcpool, Rtag);
   __ get_2_byte_integer_at_bcp(1, Rindex, InterpreterMacroAssembler::Unsigned);
 
   const int base_offset = ConstantPool::header_size() * wordSize;
   const int tags_offset = Array<u1>::base_offset_in_bytes();
   // Get type from tags.
-  __ addi_PPC(Rcpool, Rcpool, base_offset);
-  __ addi_PPC(Rtag, Rtag, tags_offset);
+  __ addi(Rcpool, Rcpool, base_offset);
+  __ addi(Rtag, Rtag, tags_offset);
 
-  __ lbzx_PPC(Rtag, Rtag, Rindex);
-  __ sldi_PPC(Rindex, Rindex, LogBytesPerWord);
+  __ add(Rtag, Rtag, Rindex);
+  __ lbu(Rtag, Rtag, 0);
+  __ slli(Rindex, Rindex, LogBytesPerWord);
 
-  __ cmpdi_PPC(CCR0, Rtag, JVM_CONSTANT_Double);
-  __ bne_PPC(CCR0, not_double);
-  __ lfdx_PPC(F23_ftos, Rcpool, Rindex);
+  __ li(Rscratch, JVM_CONSTANT_Double);
+  __ bne(Rtag, Rscratch, not_double);
+  __ add(Rindex, Rindex, Rcpool);
+  __ fld(F23_ftos, Rindex, 0);
   __ push(dtos);
-  __ b_PPC(exit);
+  __ j(exit);
 
   __ bind(not_double);
-  __ cmpdi_PPC(CCR0, Rtag, JVM_CONSTANT_Long);
-  __ bne_PPC(CCR0, not_long);
-  __ ldx_PPC(R25_tos, Rcpool, Rindex);
+  __ li(Rscratch, JVM_CONSTANT_Long);
+  __ bne(Rtag, Rscratch, not_long);
+  __ add(Rindex, Rindex, Rcpool);
+  __ ld(R25_tos, Rindex, 0);
   __ push(ltos);
-  __ b_PPC(exit);
+  __ j(exit);
 
   __ bind(not_long);
   condy_helper(exit);
@@ -501,36 +512,36 @@ void TemplateTable::iload_internal(RewriteControl rc) {
   transition(vtos, itos);
 
   // Get the local value into tos
-  const Register Rindex = R22_tmp2_PPC;
+  const Register Rindex = R6_scratch2;
   locals_index(Rindex);
 
   // Rewrite iload,iload  pair into fast_iload2
   //         iload,caload pair into fast_icaload
   if (RewriteFrequentPairs && rc == may_rewrite) {
     Label Lrewrite, Ldone;
-    Register Rnext_byte  = R3_ARG1_PPC,
-             Rrewrite_to = R6_ARG4_PPC,
+    Register Rnext_byte  = R10_ARG0,
+             Rrewrite_to = R13_ARG3,
              Rscratch    = R5_scratch1;
 
     // get next byte
-    __ lbz_PPC(Rnext_byte, Bytecodes::length_for(Bytecodes::_iload), R22_bcp);
+    __ lbu(Rnext_byte, R22_bcp, Bytecodes::length_for(Bytecodes::_iload));
 
     // if _iload, wait to rewrite to iload2. We only want to rewrite the
     // last two iloads in a pair. Comparing against fast_iload means that
     // the next bytecode is neither an iload or a caload, and therefore
     // an iload pair.
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_iload);
-    __ beq_PPC(CCR0, Ldone);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_iload);
+    __ beq(Rnext_byte, Rscratch, Ldone);
 
-    __ cmpwi_PPC(CCR1, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload2);
-    __ beq_PPC(CCR1, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload2);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_caload);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_icaload);
-    __ beq_PPC(CCR0, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_caload);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_icaload);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iload);
 
     __ bind(Lrewrite);
     patch_bytecode(Bytecodes::_iload, Rrewrite_to, Rscratch, false);
@@ -646,7 +657,6 @@ void TemplateTable::iaload() {
   const Register Rload_addr = R10_ARG0,
                  Rarray     = R11_ARG1,
                  Rtemp      = R12_ARG2;
-
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerInt, Rtemp, Rload_addr);
   __ lw(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_INT));
 }
@@ -682,7 +692,6 @@ void TemplateTable::daload() {
 }
 
 void TemplateTable::aaload() {
-  tty->print_cr("aaload: %p", __ pc());
   transition(itos, atos);
 
   // tos: index
@@ -694,7 +703,6 @@ void TemplateTable::aaload() {
   __ index_check(Rarray, R25_tos /* index */, UseCompressedOops ? 2 : LogBytesPerWord, Rtemp, Rload_addr);
   do_oop_load(_masm, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_OBJECT), R25_tos, Rtemp, Rtemp2, IS_ARRAY);
   __ verify_oop(R25_tos);
-  //__ dcbt_PPC(R25_tos); // prefetch
 }
 
 void TemplateTable::baload() {
@@ -723,7 +731,7 @@ void TemplateTable::fast_icaload() {
 
   const Register Rload_addr = R10_ARG0,
                  Rarray     = R11_ARG1,
-                 Rtemp      = R5_scratch1;
+                 Rtemp      = R12_ARG2;
 
   locals_index(R25_tos);
   __ load_local_int(R25_tos, Rtemp, R25_tos);
@@ -734,16 +742,16 @@ void TemplateTable::fast_icaload() {
 void TemplateTable::saload() {
   transition(itos, itos);
 
-  const Register Rload_addr = R5_scratch1,
-                 Rarray     = R6_scratch2,
-                 Rtemp      = R10_ARG0;
+  const Register Rload_addr = R10_ARG0,
+                 Rarray     = R11_ARG1,
+                 Rtemp      = R12_ARG2;
   __ index_check(Rarray, R25_tos /* index */, LogBytesPerShort, Rtemp, Rload_addr);
   __ lh(R25_tos, Rload_addr, arrayOopDesc::base_offset_in_bytes(T_SHORT));
 }
 
 void TemplateTable::iload(int n) {
   transition(vtos, itos);
-  __ lwu(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n));
+  __ lw(R25_tos, R26_locals, Interpreter::local_offset_in_bytes(n));
 }
 
 void TemplateTable::lload(int n) {
@@ -801,30 +809,30 @@ void TemplateTable::aload_0_internal(RewriteControl rc) {
   if (RewriteFrequentPairs && rc == may_rewrite) {
 
     Label Lrewrite, Ldont_rewrite;
-    Register Rnext_byte  = R3_ARG1_PPC,
-             Rrewrite_to = R6_ARG4_PPC,
+    Register Rnext_byte  = R10_ARG0,
+             Rrewrite_to = R13_ARG3,
              Rscratch    = R5_scratch1;
 
     // Get next byte.
-    __ lbz_PPC(Rnext_byte, Bytecodes::length_for(Bytecodes::_aload_0), R22_bcp);
+    __ lbu(Rnext_byte, R22_bcp, Bytecodes::length_for(Bytecodes::_aload_0));
 
     // If _getfield, wait to rewrite. We only want to rewrite the last two bytecodes in a pair.
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_getfield);
-    __ beq_PPC(CCR0, Ldont_rewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_getfield);
+    __ beq(Rnext_byte, Rscratch, Ldont_rewrite);
 
-    __ cmpwi_PPC(CCR1, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_igetfield);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iaccess_0);
-    __ beq_PPC(CCR1, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_igetfield);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_iaccess_0);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ cmpwi_PPC(CCR0, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_agetfield);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aaccess_0);
-    __ beq_PPC(CCR0, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_agetfield);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aaccess_0);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ cmpwi_PPC(CCR1, Rnext_byte, (unsigned int)(unsigned char)Bytecodes::_fast_fgetfield);
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_faccess_0);
-    __ beq_PPC(CCR1, Lrewrite);
+    __ li(Rscratch, (unsigned int)(unsigned char)Bytecodes::_fast_fgetfield);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_faccess_0);
+    __ beq(Rnext_byte, Rscratch, Lrewrite);
 
-    __ li_PPC(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aload_0);
+    __ li(Rrewrite_to, (unsigned int)(unsigned char)Bytecodes::_fast_aload_0);
 
     __ bind(Lrewrite);
     patch_bytecode(Bytecodes::_aload_0, Rrewrite_to, Rscratch, false);
@@ -926,8 +934,8 @@ void TemplateTable::iastore() {
   transition(itos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
@@ -938,20 +946,20 @@ void TemplateTable::lastore() {
   transition(ltos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerLong, Rtemp, Rstore_addr);
   __ sd(R25_tos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_LONG));
-  }
+}
 
 void TemplateTable::fastore() {
   transition(ftos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerInt, Rtemp, Rstore_addr);
@@ -962,13 +970,13 @@ void TemplateTable::dastore() {
   transition(dtos, vtos);
 
   const Register Rindex      = R10_ARG0,
-                 Rstore_addr = R11_ARG1,
-                 Rarray      = R12_ARG2,
+                 Rarray      = R11_ARG1,
+                 Rstore_addr = R12_ARG2,
                  Rtemp       = R13_ARG3;
   __ pop_i(Rindex);
   __ index_check(Rarray, Rindex, LogBytesPerLong, Rtemp, Rstore_addr);
-  __ fsw(F23_ftos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_DOUBLE));
-  }
+  __ fsd(F23_ftos, Rstore_addr, arrayOopDesc::base_offset_in_bytes(T_DOUBLE));
+}
 
 // Pop 3 values from the stack and...
 void TemplateTable::aastore() {
@@ -1031,8 +1039,10 @@ void TemplateTable::bastore() {
   transition(itos, vtos);
 
   const Register Rindex   = R5_scratch1,
-                 Rarray   = R6_scratch2,
-                 Rscratch = R3_ARG1_PPC;
+                 Rarray   = R11_ARG1,
+                 Rscratch = R10_ARG0;
+  Label L_skip;
+
   __ pop_i(Rindex);
   __ pop_ptr(Rarray);
   // tos: val
@@ -1040,23 +1050,24 @@ void TemplateTable::bastore() {
   // Need to check whether array is boolean or byte
   // since both types share the bastore bytecode.
   __ load_klass(Rscratch, Rarray);
-  __ lwz_PPC(Rscratch, in_bytes(Klass::layout_helper_offset()), Rscratch);
+  __ lwu(Rscratch, Rscratch, in_bytes(Klass::layout_helper_offset()));
   int diffbit = exact_log2(Klass::layout_helper_boolean_diffbit());
-  __ testbitdi_PPC(CCR0, R0, Rscratch, diffbit);
-  Label L_skip;
-  __ bfalse_PPC(CCR0, L_skip);
-  __ andi_PPC(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
+  __ srli(Rscratch, Rscratch, diffbit);
+  __ andi(Rscratch, Rscratch, 1);
+  __ beqz(Rscratch, L_skip);
+
+  __ andi(R25_tos, R25_tos, 1);  // if it is a T_BOOLEAN array, mask the stored value to 0/1
   __ bind(L_skip);
 
   __ index_check_without_pop(Rarray, Rindex, 0, Rscratch, Rarray);
-  __ stb_PPC(R25_tos, arrayOopDesc::base_offset_in_bytes(T_BYTE), Rarray);
+  __ sb(R25_tos, Rarray, arrayOopDesc::base_offset_in_bytes(T_BYTE));
 }
 
 void TemplateTable::castore() {
   transition(itos, vtos);
 
   const Register Rindex   = R5_scratch1,
-                 Rarray   = R6_scratch2,
+                 Rarray   = R11_ARG1,
                  Rscratch = R10_ARG0;
   __ pop_i(Rindex);
   // tos: val
@@ -1111,9 +1122,8 @@ void TemplateTable::pop2() {
 
 void TemplateTable::dup() {
   transition(vtos, vtos);
-  //FIXME_RISCV uncomment it when invokespecial is implemented
-  //__ ld(R5_scratch1, R23_esp, Interpreter::stackElementSize);
-  //__ push_ptr(R5_scratch1);
+  __ ld(R5_scratch1, R23_esp, Interpreter::stackElementSize);
+  __ push_ptr(R5_scratch1);
 }
 
 void TemplateTable::dup_x1() {
@@ -1224,8 +1234,8 @@ void TemplateTable::iop2(Operation op) {
   // tos  = number of bits to shift
   // Rscratch = value to shift
   switch (op) {
-    case  add:   __ add(R25_tos, Rscratch, R25_tos); break;
-    case  sub:   __ sub(R25_tos, Rscratch, R25_tos); break;
+    case  add:   __ addw(R25_tos, Rscratch, R25_tos); break;
+    case  sub:   __ subw(R25_tos, Rscratch, R25_tos); break;
     case  mul:   __ mulw(R25_tos, Rscratch, R25_tos); break;
     case  _and:  __ andr(R25_tos, Rscratch, R25_tos); break;
     case  _or:   __ orr(R25_tos, Rscratch, R25_tos); break;
@@ -1429,7 +1439,7 @@ void TemplateTable::iinc() {
 
   __ load_local_int(Rvalue, Rindex, Rindex); // Puts address of local into Rindex.
 
-  __ add(Rvalue, Rincrement, Rvalue);
+  __ addw(Rvalue, Rincrement, Rvalue);
   __ sw(Rvalue, Rindex, 0);
 }
 
@@ -1442,7 +1452,7 @@ void TemplateTable::wide_iinc() {
   locals_index_wide(Rindex);
   __ get_2_byte_integer_at_bcp(4, Rincr, InterpreterMacroAssembler::Signed);
   __ load_local_int(R25_tos, Rlocals_addr, Rindex);
-  __ add(R25_tos, Rincr, R25_tos);
+  __ addw(R25_tos, Rincr, R25_tos);
   __ sw(R25_tos, Rlocals_addr, 0);
 }
 
@@ -1494,81 +1504,79 @@ void TemplateTable::convert() {
   Label done;
   switch (bytecode()) {
     case Bytecodes::_i2l:
-      __ extsw_PPC(R25_tos, R25_tos);
+      // Nothing to do
       break;
 
     case Bytecodes::_l2i:
-      // Nothing to do, we'll continue to work with the lower bits.
+      __ addiw(R25_tos, R25_tos, 0);
       break;
 
     case Bytecodes::_i2b:
-      __ extsb_PPC(R25_tos, R25_tos);
+      __ slli(R25_tos, R25_tos, 56);
+      __ srai(R25_tos, R25_tos, 56);
       break;
 
     case Bytecodes::_i2c:
-      __ rldicl_PPC(R25_tos, R25_tos, 0, 64-2*8);
+      __ slli(R25_tos, R25_tos, 48);
+      __ srli(R25_tos, R25_tos, 48);
       break;
 
     case Bytecodes::_i2s:
-      __ extsh_PPC(R25_tos, R25_tos);
+      __ slli(R25_tos, R25_tos, 48);
+      __ srai(R25_tos, R25_tos, 48);
       break;
 
     case Bytecodes::_i2d:
-      __ extsw_PPC(R25_tos, R25_tos);
+      __ fcvtdw(F23_ftos, R25_tos, Assembler::RNE);
+      break;
+
     case Bytecodes::_l2d:
-      __ move_l_to_d();
-      __ fcfid_PPC(F23_ftos, F23_ftos);
+      __ fcvtdl(F23_ftos, R25_tos, Assembler::RNE);
       break;
 
     case Bytecodes::_i2f:
-      __ extsw_PPC(R25_tos, R25_tos);
-      __ move_l_to_d();
-      if (VM_Version::has_fcfids()) { // fcfids is >= Power7 only
-        // Comment: alternatively, load with sign extend could be done by lfiwax.
-        __ fcfids_PPC(F23_ftos, F23_ftos);
-      } else {
-        __ fcfid_PPC(F23_ftos, F23_ftos);
-        __ frsp_PPC(F23_ftos, F23_ftos);
-      }
+      __ fcvtsw(F23_ftos, R25_tos, Assembler::RNE);
       break;
 
     case Bytecodes::_l2f:
-      if (VM_Version::has_fcfids()) { // fcfids is >= Power7 only
-        __ move_l_to_d();
-        __ fcfids_PPC(F23_ftos, F23_ftos);
-      } else {
-        // Avoid rounding problem when result should be 0x3f800001: need fixup code before fcfid+frsp.
-        __ mr_PPC(R3_ARG1_PPC, R25_tos);
-        __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::l2f));
-        __ fmr_PPC(F23_ftos, F1_RET_PPC);
-      }
+      __ fcvtsl(F23_ftos, R25_tos, Assembler::RNE);
       break;
 
     case Bytecodes::_f2d:
-      // empty
+      __ fcvtds(F23_ftos, F23_ftos, Assembler::RNE);
       break;
 
     case Bytecodes::_d2f:
-      __ frsp_PPC(F23_ftos, F23_ftos);
+      __ fcvtsd(F23_ftos, F23_ftos, Assembler::RNE);
       break;
 
-    case Bytecodes::_d2i:
     case Bytecodes::_f2i:
-      __ fcmpu_PPC(CCR0, F23_ftos, F23_ftos);
-      __ li_PPC(R25_tos, 0); // 0 in case of NAN
-      __ bso_PPC(CCR0, done);
-      __ fctiwz_PPC(F23_ftos, F23_ftos);
-      __ move_d_to_l();
-      break;
-
     case Bytecodes::_d2l:
     case Bytecodes::_f2l:
-      __ fcmpu_PPC(CCR0, F23_ftos, F23_ftos);
-      __ li_PPC(R25_tos, 0); // 0 in case of NAN
-      __ bso_PPC(CCR0, done);
-      __ fctidz_PPC(F23_ftos, F23_ftos);
-      __ move_d_to_l();
+    case Bytecodes::_d2i: {
+      // RISC-V does the wrong thing with NaN (convert to INT_MAX)
+      // Java specification demands that NaN be converted to 0
+      Label Lnan;
+      if (bytecode() == Bytecodes::_f2i || bytecode() == Bytecodes::_f2l)
+        __ fclasss(R5_scratch1, F23_ftos);
+      else
+        __ fclassd(R5_scratch1, F23_ftos);
+      __ andi(R5_scratch1, R5_scratch1, (1 << 8) | (1 << 9)); // R5_scratch1 != 0 if NaN
+      __ bnez(R5_scratch1, Lnan);
+      switch (bytecode()) {
+        case Bytecodes::_f2i: __ fcvtws(R25_tos, F23_ftos, Assembler::RTZ); break;
+        case Bytecodes::_d2l: __ fcvtld(R25_tos, F23_ftos, Assembler::RTZ); break;
+        case Bytecodes::_f2l: __ fcvtls(R25_tos, F23_ftos, Assembler::RTZ); break;
+        case Bytecodes::_d2i: __ fcvtwd(R25_tos, F23_ftos, Assembler::RTZ); break;
+        default: ShouldNotReachHere();
+      }
+      __ j(done);
+      __ bind(Lnan);
+      __ addi(R25_tos, R0_ZERO, 0);
+      __ j(done);
+      }
       break;
+
 
     default: ShouldNotReachHere();
   }
@@ -1585,7 +1593,7 @@ void TemplateTable::lcmp() {
   __ pop_l(Rscratch); // first operand, deeper in stack
 
   __ blt(Rscratch, R25_tos, Lless);
-  __ bge(Rscratch, R25_tos, Lgreater);
+  __ bgt(Rscratch, R25_tos, Lgreater);
 
   __ mv(R25_tos, R0_ZERO);
   __ j(Ldone);
@@ -1645,24 +1653,6 @@ void TemplateTable::float_cmp(bool is_float, int unordered_result) {
   __ bind(Ldone);
 }
 
-// Branch_conditional which takes TemplateTable::Condition.
-void TemplateTable::branch_conditional(ConditionRegister crx, TemplateTable::Condition cc, Label& L, bool invert) {
-  bool positive = false;
-  Assembler::Condition cond = Assembler::equal;
-  switch (cc) {
-    case TemplateTable::equal:         positive = true ; cond = Assembler::equal  ; break;
-    case TemplateTable::not_equal:     positive = false; cond = Assembler::equal  ; break;
-    case TemplateTable::less:          positive = true ; cond = Assembler::less   ; break;
-    case TemplateTable::less_equal:    positive = false; cond = Assembler::greater; break;
-    case TemplateTable::greater:       positive = true ; cond = Assembler::greater; break;
-    case TemplateTable::greater_equal: positive = false; cond = Assembler::less   ; break;
-    default: ShouldNotReachHere();
-  }
-  int bo = (positive != invert) ? Assembler::bcondCRbiIs1 : Assembler::bcondCRbiIs0;
-  int bi = Assembler::bi0(crx, cond);
-  __ bc_PPC(bo, bi, L);
-}
-
 void TemplateTable::branch(bool is_jsr, bool is_wide) {
   // Note: on SPARC, we use InterpreterMacroAssembler::if_cmp also.
   __ verify_thread();
@@ -1688,18 +1678,17 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
   // It's much shorter and cleaner than intermingling with the
   // non-JSR normal-branch stuff occurring below.
   if (is_jsr) {
-    __ unimplemented("JSR branch is not implemented");
     // Compute return address as bci in Otos_i.
-    __ ld_PPC(Rscratch1, in_bytes(Method::const_offset()), R27_method);
-    __ addi_PPC(Rscratch2, R22_bcp, -in_bytes(ConstMethod::codes_offset()) + (is_wide ? 5 : 3));
-    __ subf_PPC(R25_tos, Rscratch1, Rscratch2);
+    __ ld(Rscratch1, R27_method, in_bytes(Method::const_offset()));
+    __ addi(Rscratch2, R22_bcp, -in_bytes(ConstMethod::codes_offset()) + (is_wide ? 5 : 3));
+    __ sub(R25_tos, Rscratch2, Rscratch1);
 
     // Bump bcp to target of JSR.
-    __ add_PPC(R22_bcp, Rdisp, R22_bcp);
+    __ add(R22_bcp, Rdisp, R22_bcp);
     // Push returnAddress for "ret" on stack.
     __ push_ptr(R25_tos);
     // And away we go!
-    __ dispatch_next(vtos, 0 ,true);
+    __ dispatch_next(vtos, 0, true);
     return;
   }
 
@@ -1887,7 +1876,7 @@ void TemplateTable::ret() {
 void TemplateTable::wide_ret() {
   transition(vtos, vtos);
 
-  const Register Rindex = R3_ARG1_PPC,
+  const Register Rindex = R10_ARG0,
                  Rscratch1 = R5_scratch1,
                  Rscratch2 = R6_scratch2;
 
@@ -1895,9 +1884,9 @@ void TemplateTable::wide_ret() {
   __ load_local_ptr(R25_tos, R25_tos, Rindex);
   __ profile_ret(vtos, R25_tos, Rscratch1, R6_scratch2);
   // Tos now contains the bci, compute the bcp from that.
-  __ ld_PPC(Rscratch1, in_bytes(Method::const_offset()), R27_method);
-  __ addi_PPC(Rscratch2, R25_tos, in_bytes(ConstMethod::codes_offset()));
-  __ add_PPC(R22_bcp, Rscratch1, Rscratch2);
+  __ ld(Rscratch1, R27_method, in_bytes(Method::const_offset()));
+  __ addi(Rscratch2, R25_tos, in_bytes(ConstMethod::codes_offset()));
+  __ add(R22_bcp, Rscratch1, Rscratch2);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -1905,41 +1894,34 @@ void TemplateTable::tableswitch() {
   transition(itos, vtos);
 
   Label Ldispatch, Ldefault_case;
-  Register Rlow_byte         = R3_ARG1_PPC,
+  Register Rlow_byte         = R10_ARG0,
            Rindex            = Rlow_byte,
-           Rhigh_byte        = R4_ARG2_PPC,
-           Rdef_offset_addr  = R5_ARG3_PPC, // is going to contain address of default offset
+           Rhigh_byte        = R11_ARG1,
+           Rdef_offset_addr  = R12_ARG2, // is going to contain address of default offset
            Rscratch1         = R5_scratch1,
            Rscratch2         = R6_scratch2,
-           Roffset           = R6_ARG4_PPC;
+           Roffset           = R14_ARG4;
 
   // Align bcp.
-  __ addi_PPC(Rdef_offset_addr, R22_bcp, BytesPerInt);
-  __ clrrdi_PPC(Rdef_offset_addr, Rdef_offset_addr, log2_long((jlong)BytesPerInt));
+  __ addi(Rdef_offset_addr, R22_bcp, BytesPerInt);
+  __ andi(Rdef_offset_addr, Rdef_offset_addr, -BytesPerInt); // clear low bits
 
   // Load lo & hi.
   __ get_u4(Rlow_byte, Rdef_offset_addr, BytesPerInt, InterpreterMacroAssembler::Unsigned);
   __ get_u4(Rhigh_byte, Rdef_offset_addr, 2 *BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   // Check for default case (=index outside [low,high]).
-  __ cmpw_PPC(CCR0, R25_tos, Rlow_byte);
-  __ cmpw_PPC(CCR1, R25_tos, Rhigh_byte);
-  __ blt_PPC(CCR0, Ldefault_case);
-  __ bgt_PPC(CCR1, Ldefault_case);
+  __ blt(R25_tos, Rlow_byte, Ldefault_case);
+  __ bgt(R25_tos, Rhigh_byte, Ldefault_case);
 
   // Lookup dispatch offset.
-  __ sub_PPC(Rindex, R25_tos, Rlow_byte);
-  __ extsw_PPC(Rindex, Rindex);
+  __ sub(Rindex, R25_tos, Rlow_byte);
   __ profile_switch_case(Rindex, Rhigh_byte /* scratch */, Rscratch1, Rscratch2);
-  __ sldi_PPC(Rindex, Rindex, LogBytesPerInt);
-  __ addi_PPC(Rindex, Rindex, 3 * BytesPerInt);
-#if defined(VM_LITTLE_ENDIAN)
-  __ lwbrx_PPC(Roffset, Rdef_offset_addr, Rindex);
-  __ extsw_PPC(Roffset, Roffset);
-#else
-  __ lwax_PPC(Roffset, Rdef_offset_addr, Rindex);
-#endif
-  __ b_PPC(Ldispatch);
+  __ slli(Rindex, Rindex, LogBytesPerInt);
+  __ addi(Rindex, Rindex, 3 * BytesPerInt);
+  __ add(Rdef_offset_addr, Rdef_offset_addr, Rindex);
+  __ get_u4(Roffset, Rdef_offset_addr, 0, InterpreterMacroAssembler::Signed);
+  __ j(Ldispatch);
 
   __ bind(Ldefault_case);
   __ profile_switch_default(Rhigh_byte, Rscratch1);
@@ -1947,7 +1929,7 @@ void TemplateTable::tableswitch() {
 
   __ bind(Ldispatch);
 
-  __ add_PPC(R22_bcp, Roffset, R22_bcp);
+  __ add(R22_bcp, Roffset, R22_bcp);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -1964,25 +1946,23 @@ void TemplateTable::fast_linearswitch() {
   transition(itos, vtos);
 
   Label Lloop_entry, Lsearch_loop, Lcontinue_execution, Ldefault_case;
-  Register Rcount           = R3_ARG1_PPC,
-           Rcurrent_pair    = R4_ARG2_PPC,
-           Rdef_offset_addr = R5_ARG3_PPC, // Is going to contain address of default offset.
+  Register Rcount           = R10_ARG0,
+           Rcurrent_pair    = R11_ARG1,
+           Rdef_offset_addr = R12_ARG2, // Is going to contain address of default offset.
            Roffset          = R31,     // Might need to survive C call.
            Rvalue           = R6_scratch2,
            Rscratch         = R5_scratch1,
            Rcmp_value       = R25_tos;
 
   // Align bcp.
-  __ addi_PPC(Rdef_offset_addr, R22_bcp, BytesPerInt);
-  __ clrrdi_PPC(Rdef_offset_addr, Rdef_offset_addr, log2_long((jlong)BytesPerInt));
+  __ addi(Rdef_offset_addr, R22_bcp, BytesPerInt);
+  __ andi(Rdef_offset_addr, Rdef_offset_addr, -BytesPerInt); // clear low bits
 
   // Setup loop counter and limit.
   __ get_u4(Rcount, Rdef_offset_addr, BytesPerInt, InterpreterMacroAssembler::Unsigned);
-  __ addi_PPC(Rcurrent_pair, Rdef_offset_addr, 2 * BytesPerInt); // Rcurrent_pair now points to first pair.
+  __ addi(Rcurrent_pair, Rdef_offset_addr, 2 * BytesPerInt); // Rcurrent_pair now points to first pair.
 
-  __ mtctr_PPC(Rcount);
-  __ cmpwi_PPC(CCR0, Rcount, 0);
-  __ bne_PPC(CCR0, Lloop_entry);
+  __ bnez(Rcount, Lloop_entry);
 
   // Default case
   __ bind(Ldefault_case);
@@ -1990,28 +1970,30 @@ void TemplateTable::fast_linearswitch() {
   if (ProfileInterpreter) {
     __ profile_switch_default(Rdef_offset_addr, Rcount/* scratch */);
   }
-  __ b_PPC(Lcontinue_execution);
+  __ j(Lcontinue_execution);
 
   // Next iteration
   __ bind(Lsearch_loop);
-  __ bdz_PPC(Ldefault_case);
-  __ addi_PPC(Rcurrent_pair, Rcurrent_pair, 2 * BytesPerInt);
+  __ addi(Rcount, Rcount, -1);
+  __ beqz(Rcount, Ldefault_case);
+  __ addi(Rcurrent_pair, Rcurrent_pair, 2 * BytesPerInt);
+
   __ bind(Lloop_entry);
-  __ get_u4(Rvalue, Rcurrent_pair, 0, InterpreterMacroAssembler::Unsigned);
-  __ cmpw_PPC(CCR0, Rvalue, Rcmp_value);
-  __ bne_PPC(CCR0, Lsearch_loop);
+  __ get_u4(Rvalue, Rcurrent_pair, 0, InterpreterMacroAssembler::Signed);
+  __ bne(Rvalue, Rcmp_value, Lsearch_loop);
 
   // Found, load offset.
   __ get_u4(Roffset, Rcurrent_pair, BytesPerInt, InterpreterMacroAssembler::Signed);
   // Calculate case index and profile
-  __ mfctr_PPC(Rcurrent_pair);
   if (ProfileInterpreter) {
-    __ sub_PPC(Rcurrent_pair, Rcount, Rcurrent_pair);
+    __ sub(Rcurrent_pair, Rcurrent_pair, Rdef_offset_addr);
+    __ addi(Rcurrent_pair, Rcurrent_pair, -2 * BytesPerInt);
+    __ srli(Rcurrent_pair, Rcurrent_pair, exact_log2(2 * BytesPerInt));
     __ profile_switch_case(Rcurrent_pair, Rcount /*scratch*/, Rdef_offset_addr/*scratch*/, Rscratch);
   }
 
   __ bind(Lcontinue_execution);
-  __ add_PPC(R22_bcp, Roffset, R22_bcp);
+  __ add(R22_bcp, Roffset, R22_bcp);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -2048,12 +2030,13 @@ void TemplateTable::fast_binaryswitch() {
   // }
 
   // register allocation
-  const Register Rkey     = R25_tos;          // already set (tosca)
-  const Register Rarray   = R3_ARG1_PPC;
-  const Register Ri       = R4_ARG2_PPC;
-  const Register Rj       = R5_ARG3_PPC;
-  const Register Rh       = R6_ARG4_PPC;
-  const Register Rscratch = R5_scratch1;
+  const Register Rkey      = R25_tos;          // already set (tosca)
+  const Register Rarray    = R10_ARG0;
+  const Register Ri        = R11_ARG1;
+  const Register Rj        = R12_ARG2;
+  const Register Rh        = R13_ARG3;
+  const Register Rscratch  = R5_scratch1;
+  const Register Rscratch2 = R6_scratch2;
 
   const int log_entry_size = 3;
   const int entry_size = 1 << log_entry_size;
@@ -2061,73 +2044,66 @@ void TemplateTable::fast_binaryswitch() {
   Label found;
 
   // Find Array start,
-  __ addi_PPC(Rarray, R22_bcp, 3 * BytesPerInt);
-  __ clrrdi_PPC(Rarray, Rarray, log2_long((jlong)BytesPerInt));
+  __ addi(Rarray, R22_bcp, 3 * BytesPerInt);
+  __ andi(Rarray, Rarray, -BytesPerInt);
 
-  // initialize i & j
-  __ li_PPC(Ri,0);
+  // initialize i and j
+  __ li(Ri, 0L);
   __ get_u4(Rj, Rarray, -BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   // and start.
   Label entry;
-  __ b_PPC(entry);
+  __ j(entry);
 
   // binary search loop
   { Label loop;
     __ bind(loop);
     // int h = (i + j) >> 1;
-    __ srdi_PPC(Rh, Rh, 1);
+    __ add(Rh, Ri, Rj);
+    __ srli(Rh, Rh, 1);
     // if (key < array[h].fast_match()) {
     //   j = h;
     // } else {
     //   i = h;
     // }
-    __ sldi_PPC(Rscratch, Rh, log_entry_size);
-#if defined(VM_LITTLE_ENDIAN)
-    __ lwbrx_PPC(Rscratch, Rscratch, Rarray);
-#else
-    __ lwzx_PPC(Rscratch, Rscratch, Rarray);
-#endif
+    __ slli(Rscratch2, Rh, log_entry_size);
+    __ add(Rscratch2, Rscratch2, Rarray);
+    __ get_u4(Rscratch, Rscratch2, 0, InterpreterMacroAssembler::Signed);
 
     // if (key < current value)
-    //   Rh = Rj
+    //   Rj = Rh
     // else
-    //   Rh = Ri
+    //   Ri = Rh
     Label Lgreater;
-    __ cmpw_PPC(CCR0, Rkey, Rscratch);
-    __ bge_PPC(CCR0, Lgreater);
-    __ mr_PPC(Rj, Rh);
-    __ b_PPC(entry);
+    __ bge(Rkey, Rscratch, Lgreater);
+    __ mv(Rj, Rh);
+    __ j(entry);
     __ bind(Lgreater);
-    __ mr_PPC(Ri, Rh);
+    __ mv(Ri, Rh);
 
     // while (i+1 < j)
     __ bind(entry);
-    __ addi_PPC(Rscratch, Ri, 1);
-    __ cmpw_PPC(CCR0, Rscratch, Rj);
-    __ add_PPC(Rh, Ri, Rj); // start h = i + j >> 1;
-
-    __ blt_PPC(CCR0, loop);
+    __ addi(Rscratch, Ri, 1);
+    __ blt(Rscratch, Rj, loop);
   }
 
   // End of binary search, result index is i (must check again!).
   Label default_case;
   Label continue_execution;
   if (ProfileInterpreter) {
-    __ mr_PPC(Rh, Ri);              // Save index in i for profiling.
+    __ mv(Rh, Ri);              // Save index in i for profiling.
   }
   // Ri = value offset
-  __ sldi_PPC(Ri, Ri, log_entry_size);
-  __ add_PPC(Ri, Ri, Rarray);
+  __ slli(Ri, Ri, log_entry_size);
+  __ add(Ri, Ri, Rarray);
   __ get_u4(Rscratch, Ri, 0, InterpreterMacroAssembler::Unsigned);
 
   Label not_found;
   // Ri = offset offset
-  __ cmpw_PPC(CCR0, Rkey, Rscratch);
-  __ beq_PPC(CCR0, not_found);
+  __ beq(Rkey, Rscratch, not_found);
   // entry not found -> j = default offset
   __ get_u4(Rj, Rarray, -2 * BytesPerInt, InterpreterMacroAssembler::Unsigned);
-  __ b_PPC(default_case);
+  __ j(default_case);
 
   __ bind(not_found);
   // entry found -> j = offset
@@ -2135,7 +2111,7 @@ void TemplateTable::fast_binaryswitch() {
   __ get_u4(Rj, Ri, BytesPerInt, InterpreterMacroAssembler::Unsigned);
 
   if (ProfileInterpreter) {
-    __ b_PPC(continue_execution);
+    __ j(continue_execution);
   }
 
   __ bind(default_case); // fall through (if not profiling)
@@ -2143,13 +2119,11 @@ void TemplateTable::fast_binaryswitch() {
 
   __ bind(continue_execution);
 
-  __ extsw_PPC(Rj, Rj);
-  __ add_PPC(R22_bcp, Rj, R22_bcp);
-  __ dispatch_next(vtos, 0 , true);
+  __ add(R22_bcp, Rj, R22_bcp);
+  __ dispatch_next(vtos, 0, true);
 }
 
 void TemplateTable::_return(TosState state) {
-  tty->print_cr("return #%i: %p", state, __ pc());
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
@@ -2192,10 +2166,7 @@ void TemplateTable::_return(TosState state) {
   __ remove_activation(state, /* throw_monitor_exception */ true);
   // Restoration of lr done by remove_activation.
   switch (state) {
-    // Narrow result if state is itos but result type is smaller.
-    // Need to narrow in the return bytecode rather than in generate_return_entry
-    // since compiled code callers expect the result to already be narrowed.
-    case itos: __ narrow(R25_tos); /* fall through */
+    case itos:
     case ltos:
     case atos: __ mv(R10_RET1, R25_tos); break;
     case ftos:
@@ -4248,15 +4219,15 @@ void TemplateTable::wide() {
 
   const Register Rtable = R5_scratch1,
                  Rindex = R6_scratch2,
-                 Rtmp   = R0;
+                 Rtmp   = R7_TMP2;
 
-  __ lbz_PPC(Rindex, 1, R22_bcp);
+  __ lbu(Rindex, R22_bcp, 1);
 
   __ load_dispatch_table(Rtable, Interpreter::_wentry_point);
 
-  __ slwi_PPC(Rindex, Rindex, LogBytesPerWord);
-  __ ldx_PPC(Rtmp, Rtable, Rindex);
-  __ mtctr_PPC(Rtmp);
-  __ bctr_PPC();
+  __ slli(Rindex, Rindex, LogBytesPerWord);
+  __ add(Rtable, Rtable, Rindex);
+  __ ld(Rtmp, Rtable, 0);
+  __ jr(Rtmp);
   // Note: the bcp increment step is part of the individual wide bytecode implementations.
 }

@@ -1059,27 +1059,27 @@ void MacroAssembler::call_VM(Register oop_result, address entry_point, bool chec
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1,
                              bool check_exceptions) {
-  // R3_ARG1_PPC is reserved for the thread.
-  mv_if_needed(R4_ARG2_PPC, arg_1);
+  // R10_ARG0 is reserved for the thread.
+  mv_if_needed(R11_ARG1, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2,
                              bool check_exceptions) {
-  // R3_ARG1_PPC is reserved for the thread
-  mv_if_needed(R4_ARG2_PPC, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_2);
+  // R10_ARG0 is reserved for the thread
+  mv_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1, "smashed argument");
+  mv_if_needed(R12_ARG2, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg_3,
                              bool check_exceptions) {
-  // R3_ARG1_PPC is reserved for the thread
-  mv_if_needed(R4_ARG2_PPC, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_2);
-  mv_if_needed(R6_ARG4_PPC, arg_3);
+  // R10_ARG0 is reserved for the thread
+  mv_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1, "smashed argument");
+  mv_if_needed(R12_ARG2, arg_2);
+  mv_if_needed(R13_ARG3, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -1087,8 +1087,8 @@ void MacroAssembler::call_VM_leaf(address entry_point) {
   call_VM_leaf_base(entry_point);
 }
 
-void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1) {
-  mv_if_needed(R3_ARG1_PPC, arg_1);
+void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0) {
+  mv_if_needed(R10_ARG0, arg_0);
   call_VM_leaf(entry_point);
 }
 
@@ -1099,12 +1099,12 @@ void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register 
   call_VM_leaf(entry_point);
 }
 
-void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3) {
-  mv_if_needed(R3_ARG1_PPC, arg_1);
-  assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mv_if_needed(R4_ARG2_PPC, arg_2);
-  assert(arg_3 != R3_ARG1_PPC && arg_3 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_3);
+void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register arg_1, Register arg_2) {
+  mv_if_needed(R10_ARG0, arg_0);
+  assert(arg_1 != R10_ARG0, "smashed argument");
+  mv_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1 && arg_2 != R10_ARG0, "smashed argument");
+  mv_if_needed(R12_ARG2, arg_2);
   call_VM_leaf(entry_point);
 }
 
@@ -2994,9 +2994,8 @@ void MacroAssembler::get_vm_result_2(Register metadata_result) {
   //   metadata_result
   //   R24_thread->in_bytes(JavaThread::vm_result_2_offset())
 
-  ld_PPC(metadata_result, in_bytes(JavaThread::vm_result_2_offset()), R24_thread);
-  li_PPC(R0, 0);
-  std_PPC(R0, in_bytes(JavaThread::vm_result_2_offset()), R24_thread);
+  ld(metadata_result, R24_thread, in_bytes(JavaThread::vm_result_2_offset()));
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::vm_result_2_offset()));
 }
 
 Register MacroAssembler::encode_klass_not_null(Register dst, Register src) {

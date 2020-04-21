@@ -207,6 +207,7 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   assert_different_registers(bytecode, R5_scratch1);
   Label dispatch, skip;
 
+#if 0   // FIXME_RISCV: uncomment when safepoints are implemented
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
     address *sfpt_tbl = Interpreter::safept_table(state);
     if (table != sfpt_tbl) {
@@ -218,6 +219,7 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
       j(skip);
     }
   }
+#endif
 
   // Calc dispatch table address.
   bind(dispatch);
@@ -229,8 +231,6 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   ld(R5_scratch1, R6_scratch2, 0);
 
   // Jump off!
-//  mtctr_PPC(R5_scratch1); FIXME_RISCV understand this
-//  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
   jr(R5_scratch1);
 }
 
@@ -242,7 +242,7 @@ void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rr
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  lwu(r, R23_esp, Interpreter::stackElementSize);
+  lw(r, R23_esp, Interpreter::stackElementSize);
   addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
@@ -347,14 +347,17 @@ void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp) Rtmp = R29_TMP4;
+
   if (is_signed == Signed) {
-    lb(R7_TMP2, R22_bcp, bcp_offset);
+    lb(Rtmp, R22_bcp, bcp_offset);
   } else {
-    lbu(R7_TMP2, R22_bcp, bcp_offset);
+    lbu(Rtmp, R22_bcp, bcp_offset);
   }
-  slli(R7_TMP2, R7_TMP2, 8);
+  slli(Rtmp, Rtmp, 8);
   lbu(Rdst, R22_bcp, bcp_offset + 1);
-  orr(Rdst, R7_TMP2, Rdst);
+  orr(Rdst, Rtmp, Rdst);
 #else
   // Read Java big endian format.
   if (is_signed == Signed) {
@@ -369,23 +372,27 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (bcp_offset) {
-    load_const_optimized(Rdst, bcp_offset);
-    lwbrx_PPC(Rdst, R22_bcp, Rdst);
-  } else {
-    lwbrx_PPC(Rdst, R22_bcp);
-  }
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp) Rtmp = R29_TMP4;
+
   if (is_signed == Signed) {
-    extsw_PPC(Rdst, Rdst);
+    lb(Rdst, R22_bcp, bcp_offset);
+  } else {
+    lbu(Rdst, R22_bcp, bcp_offset);
+  }
+
+  for (int i = 1; i <= 3; ++i) {
+    slli(Rdst, Rdst, 8);
+    lbu(Rtmp, R22_bcp, bcp_offset + i);
+    orr(Rdst, Rtmp, Rdst);
   }
 #else
   // Read Java big endian format.
-  li(Rdst, bcp_offset);
-  add(Rdst, Rdst, R22_bcp);
+  // FIXME_RISCV: alignment problems might occur
   if (is_signed == Signed) {
-    lw(Rdst, Rdst, 0);
+    lw(Rdst, R22_bcp, bcp_offset);
   } else {
-    lwu(Rdst, Rdst, 0);
+    lwu(Rdst, R22_bcp, bcp_offset);
   }
 #endif
 }
@@ -427,20 +434,27 @@ void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int b
 void InterpreterMacroAssembler::get_u4(Register Rdst, Register Rsrc, int offset,
                                        signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (offset) {
-    load_const_optimized(Rdst, offset);
-    lwbrx_PPC(Rdst, Rdst, Rsrc);
-  } else {
-    lwbrx_PPC(Rdst, Rsrc);
-  }
+  assert_different_registers(Rdst, Rsrc);
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R29_TMP4;
+  if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R28_TMP3;
+
   if (is_signed == Signed) {
-    extsw_PPC(Rdst, Rdst);
+    lb(Rdst, Rsrc, offset);
+  } else {
+    lbu(Rdst, Rsrc, offset);
+  }
+
+  for (int i = 1; i <= 3; ++i) {
+    slli(Rdst, Rdst, 8);
+    lbu(Rtmp, Rsrc, offset + i);
+    orr(Rdst, Rtmp, Rdst);
   }
 #else
   if (is_signed == Signed) {
-    lwa_PPC(Rdst, offset, Rsrc);
+    lw(Rdst, offset, Rsrc);
   } else {
-    lwz_PPC(Rdst, offset, Rsrc);
+    lwu(Rdst, offset, Rsrc);
   }
 #endif
 }
@@ -532,6 +546,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   verify_oop(Rarray);
   const Register Rlength   = R6_scratch2;
   const Register RsxtIndex = Rtmp;
+  assert_different_registers(Rlength, Rarray, Rindex, Rtmp);
   Label LisNull, LnotOOR;
 
   // Array nullcheck
@@ -541,31 +556,24 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
     //null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex); FIXME_RISCV
   }
 
-  // Rindex might contain garbage in upper bits (remember that we don't sign extend
-  // during integer arithmetic operations). So kill them and put value into same register
-  // where ArrayIndexOutOfBounds would expect the index in.
-  slli(RsxtIndex, Rindex, 32);
-  srli(RsxtIndex, RsxtIndex, 32); // zero extend 32 bit -> 64 bit
-
   // Index check
   lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
-
-  blt(RsxtIndex, Rlength, LnotOOR);
-  // Index should be in R25_tos, array should be in R4_ARG2_PPC.
+  blt(Rindex, Rlength, LnotOOR);
+  // Index should be in R25_tos, array should be in R11_ARG1
   mv_if_needed(R25_tos, Rindex);
   mv_if_needed(R11_ARG1, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
-  jalr(Rtmp);
+  jr(Rtmp);
 
   if (!ImplicitNullChecks) {
     bind(LisNull);
     load_dispatch_table(Rtmp, (address*)Interpreter::_throw_NullPointerException_entry);
-    jalr(Rtmp);
+    jr(Rtmp);
   }
 
   align(32, 16);
   bind(LnotOOR);
-  slli(RsxtIndex, RsxtIndex, index_shift);
+  slli(RsxtIndex, Rindex, index_shift);
   // Calc address
   add(Rres, RsxtIndex, Rarray);
 }
@@ -590,7 +598,7 @@ void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
 
 void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
   get_constant_pool(Rdst);
-  ld_PPC(Rdst, ConstantPool::cache_offset_in_bytes(), Rdst);
+  ld(Rdst, Rdst, ConstantPool::cache_offset_in_bytes());
 }
 
 void InterpreterMacroAssembler::get_cpool_and_tags(Register Rcpool, Register Rtags) {
@@ -2008,7 +2016,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
 void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rdst_address, Register Rindex) {
   slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
   sub(Rdst_address, R26_locals, Rdst_address);
-  lwu(Rdst_value, Rdst_address, 0);
+  lw(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2090,7 +2098,7 @@ void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex
   sd(Rvalue, Rindex, 0);
 }
 
-// Store an int value at local variable slot Rindex.
+// Store a float value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
@@ -2099,7 +2107,7 @@ void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register
   fsw(Rvalue, Rindex, 0);
 }
 
-// Store an int value at local variable slot Rindex.
+// Store a double value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {
