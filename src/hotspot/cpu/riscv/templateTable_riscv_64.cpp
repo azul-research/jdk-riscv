@@ -173,7 +173,7 @@ void TemplateTable::shouldnotreachhere() {
 
 void TemplateTable::aconst_null() {
   transition(vtos, atos);
-  __ addi(R25_tos, R0_ZERO, 0);
+  __ li(R25_tos, 0L);
 }
 
 void TemplateTable::iconst(int value) {
