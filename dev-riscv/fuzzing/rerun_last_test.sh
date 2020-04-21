@@ -5,15 +5,17 @@ level=slowdebug
 jdk_riscv_path=$(pwd)/../..
 sysroot_path=$jdk_riscv_path/riscv-sysroot
 quiet=
+extraopts=
 
 OPTIND=1
 
-while getopts "hqv:l:" opt; do
+while getopts "hqv:l:x:" opt; do
     case "$opt" in
     h)
         echo "usage: $0 [-h] [-v variant] [-l debug-level]"
         echo "       -h show help"
         echo "       -q do not trace bytecodes"
+        echo "       -x provide extra options to the JVM"
         echo "       -v choose jvm-variant (server, client, minimal, core, zero, zeroshark, custom). default is core"
         echo "       -l choose debug level (release, fastdebug, slowdebug, optimized). default is release"
         exit 0
@@ -24,12 +26,12 @@ while getopts "hqv:l:" opt; do
         ;;
     q)  quiet=1
         ;;
+    x)  extraopts="$OPTARG"
     esac
 done
 
-extraopts=
 if [ "x$quiet" = "x" ]; then
-    extraopts="-XX:+TraceBytecodes -XX:+Verbose"
+    extraopts="$extraopts -XX:+TraceBytecodes -XX:+Verbose"
 fi
 
 javac javafuzz/T1.java
