@@ -276,7 +276,7 @@ void LIR_Assembler::jobject2reg(jobject o, Register reg) {
     __ li_PPC(reg, 0);
   } else {
     AddressLiteral addrlit = __ constant_oop_address(o);
-    __ load_const_PPC(reg, addrlit, (reg != R0) ? R0 : noreg);
+    __ load_const(reg, addrlit, (reg != R0) ? R0 : noreg);
   }
 }
 
@@ -287,7 +287,7 @@ void LIR_Assembler::jobject2reg_with_patching(Register reg, CodeEmitInfo *info) 
   PatchingStub* patch = new PatchingStub(_masm, patching_id(info), oop_index);
 
   AddressLiteral addrlit((address)NULL, oop_Relocation::spec(oop_index));
-  __ load_const_PPC(reg, addrlit, R0);
+  __ load_const(reg, addrlit, R0);
 
   patching_epilog(patch, lir_patch_normal, reg, info);
 }
@@ -306,7 +306,7 @@ void LIR_Assembler::klass2reg_with_patching(Register reg, CodeEmitInfo *info) {
 
   AddressLiteral addrlit((address)NULL, metadata_Relocation::spec(index));
   assert(addrlit.rspec().type() == relocInfo::metadata_type, "must be an metadata reloc");
-  __ load_const_PPC(reg, addrlit, R0);
+  __ load_const(reg, addrlit, R0);
 
   patching_epilog(patch, lir_patch_normal, reg, info);
 }
@@ -1030,7 +1030,7 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
           }
           RelocationHolder rspec = internal_word_Relocation::spec(const_addr);
           __ relocate(rspec);
-          __ load_const_PPC(R0, const_addr);
+          __ load_const(R0, const_addr);
           __ lfsx_PPC(to_reg->as_float_reg(), R0);
         } else {
           assert(to_reg->is_single_cpu(), "Must be a cpu register.");
@@ -1049,7 +1049,7 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
           }
           RelocationHolder rspec = internal_word_Relocation::spec(const_addr);
           __ relocate(rspec);
-          __ load_const_PPC(R0, const_addr);
+          __ load_const(R0, const_addr);
           __ lfdx_PPC(to_reg->as_double_reg(), R0);
         } else {
           assert(to_reg->is_double_cpu(), "Must be a long register.");
@@ -1822,7 +1822,7 @@ void LIR_Assembler::throw_op(LIR_Opr exceptionPC, LIR_Opr exceptionOop, CodeEmit
   int pc_for_athrow_offset = __ offset();
   //RelocationHolder rspec = internal_word_Relocation::spec(pc_for_athrow);
   //__ relocate(rspec);
-  //__ load_const_PPC(exceptionPC->as_register(), pc_for_athrow, R0);
+  //__ load_const(exceptionPC->as_register(), pc_for_athrow, R0);
   __ calculate_address_from_global_toc(exceptionPC->as_register(), pc_for_athrow, true, true, /*add_relocation*/ true);
   add_call_info(pc_for_athrow_offset, info); // for exception handler
 

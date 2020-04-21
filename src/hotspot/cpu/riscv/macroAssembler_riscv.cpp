@@ -939,11 +939,12 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
 // Push a frame of size `bytes'.
 void MacroAssembler::push_frame(unsigned int bytes, Register tmp) {
   long offset = align_addr(bytes, frame::alignment_in_bytes);
-  if (is_simm(-offset, 16)) {
-    stdu_PPC(R1_SP_PPC, -offset, R1_SP_PPC);
+  mv(R8_FP, R2_SP);
+  if (is_simm(-offset, 12)) {
+    addi(R2_SP, R2_SP, -offset);
   } else {
-    load_const_optimized(tmp, -offset);
-    stdux_PPC(R1_SP_PPC, R1_SP_PPC, tmp);
+    li(tmp, -offset);
+    sub(R2_SP, R2_SP, tmp);
   }
 }
 
@@ -954,9 +955,8 @@ void MacroAssembler::push_frame_reg_args(unsigned int bytes, Register tmp) {
 
 // Setup up a new C frame with a spill area for non-volatile GPRs and
 // additional space for local variables.
-void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
-                                                      Register tmp) {
-  push_frame(bytes + frame::abi_reg_args_ppc_size + frame::spill_nonvolatiles_size, tmp);
+void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp) {
+  push_frame(bytes + frame::abi_frame_size + frame::spill_nonvolatiles_size, tmp);
 }
 
 // Pop current C frame.
@@ -1163,23 +1163,24 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
 
   long stdoffset = -offset;
 
-  if (is_simm(stdoffset, 16)) {
-    // Signed 16 bit offset, a simple std is ok.
+  if (is_simm(stdoffset, 12)) {
+    // Signed 12 bit offset, a simple sd is ok.
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld_PPC(R0, (int)(signed short)stdoffset, R1_SP_PPC);
+      ld(R0, R2_SP, (int)(signed short)stdoffset);
     } else {
-      std_PPC(R0,(int)(signed short)stdoffset, R1_SP_PPC);
+      sd(R0, R2_SP, (int)(signed short)stdoffset);
     }
   } else if (is_simm(stdoffset, 31)) {
-    const int hi = MacroAssembler::largeoffset_si16_si16_hi(stdoffset);
-    const int lo = MacroAssembler::largeoffset_si16_si16_lo(stdoffset);
+    const int hi = MacroAssembler::largeoffset_hi(stdoffset);
+    const int lo = MacroAssembler::largeoffset_lo(stdoffset);
 
     Register tmp = R11;
-    addis_PPC(tmp, R1_SP_PPC, hi);
+    lui(tmp, hi);
+    add(tmp, R2_SP, tmp);
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld_PPC(R0,  lo, tmp);
+      ld(R0, tmp, lo);
     } else {
-      std_PPC(R0, lo, tmp);
+      sd(R0, tmp, lo);
     }
   } else {
     ShouldNotReachHere();
@@ -1940,7 +1941,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
          "biased locking makes assumptions about bit layout");
 
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::total_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::total_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -1961,7 +1962,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   if (PrintBiasedLockingStatistics) {
     Label l;
     bne_PPC(cr_reg, l);
-    load_const_PPC(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
+    load_const(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
     lwzx_PPC(mark_reg, temp2_reg);
     addi_PPC(mark_reg, mark_reg, 1);
     stwx_PPC(mark_reg, temp2_reg);
@@ -2030,7 +2031,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // need to revoke that bias. The revocation will occur in the
   // interpreter runtime in the slow case.
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::anonymously_biased_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::anonymously_biased_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2064,7 +2065,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // need to revoke that bias. The revocation will occur in the
   // interpreter runtime in the slow case.
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::rebiased_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::rebiased_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2103,7 +2104,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   if (PrintBiasedLockingStatistics) {
     Label l;
     bne_PPC(cr_reg, l);
-    load_const_PPC(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2896,14 +2897,14 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
 
 void MacroAssembler::safepoint_poll(Label& slow_path, Register temp_reg) {
   if (SafepointMechanism::uses_thread_local_poll()) {
-    ld_PPC(temp_reg, in_bytes(Thread::polling_page_offset()), R24_thread);
     // Armed page has poll_bit set.
-    andi__PPC(temp_reg, temp_reg, SafepointMechanism::poll_bit());
+    ld(temp_reg, R24_thread, in_bytes(Thread::polling_page_offset()));
   } else {
-    lwz_PPC(temp_reg, (RegisterOrConstant)(intptr_t)SafepointSynchronize::address_of_state());
-    cmpwi_PPC(CCR0, temp_reg, SafepointSynchronize::_not_synchronized);
+    int off = load_const_optimized(temp_reg, SafepointSynchronize::address_of_state());
+    lwu(temp_reg, temp_reg, off);
   }
-  bne_PPC(CCR0, slow_path);
+  assert(SafepointSynchronize::_not_synchronized == 0, "Compare with zero should means this value");
+  bnez(temp_reg, slow_path);
 }
 
 void MacroAssembler::resolve_jobject(Register value, Register tmp1, Register tmp2, bool needs_frame) {
@@ -4774,9 +4775,9 @@ void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_of
   }
   Label ok;
   if (check_equal) {
-    beq(tmp, R0_ZERO, ok);
+    beqz(tmp, ok);
   } else {
-    bne(tmp, R0_ZERO, ok);
+    bnez(tmp, ok);
   }
   stop(msg, id);
   bind(ok);

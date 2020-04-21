@@ -131,7 +131,7 @@ class Argument {
     // The first eight arguments are passed in int regs if they are int.
     n_int_register_parameters_c = 8,
     // The first thirteen float arguments are passed in float regs.
-    n_float_register_parameters_c = 13,
+    n_float_register_parameters_c = 8,
     // Only the first 8 parameters are not placed on the stack. Aix disassembly
     // shows that xlC places all float args after argument 8 on the stack AND
     // in a register. This is not documented, but we follow this convention, too.
@@ -2744,10 +2744,10 @@ class Assembler : public AbstractAssembler {
   enum {
     load_const_size = 5 * BytesPerInstWord
   };
-         void load_const_PPC(Register d, long a,            Register tmp = noreg);
-  inline void load_const_PPC(Register d, void* a,           Register tmp = noreg);
-  inline void load_const_PPC(Register d, Label& L,          Register tmp = noreg);
-  inline void load_const_PPC(Register d, AddressLiteral& a, Register tmp = noreg);
+         void load_const(Register d, long x, Register tmp = noreg);
+  inline void load_const(Register d, void* x, Register tmp = noreg);
+  inline void load_const(Register d, Label& L, Register tmp = noreg);
+  inline void load_const(Register d, AddressLiteral& a, Register tmp = noreg);
   inline void load_const32_PPC(Register d, int i); // load signed int (patchable)
 
   // Load a 64 bit constant, optimized, not identifyable.

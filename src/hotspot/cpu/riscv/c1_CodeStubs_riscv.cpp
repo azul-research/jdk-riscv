@@ -332,12 +332,12 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
   if (_id == load_klass_id) {
     // Produce a copy of the load klass instruction for use by the being initialized case.
     AddressLiteral addrlit((address)NULL, metadata_Relocation::spec(_index));
-    __ load_const_PPC(_obj, addrlit, R0);
+    __ load_const(_obj, addrlit, R0);
     DEBUG_ONLY( compare_with_patch_site(__ code_section()->start() + being_initialized_entry, _pc_start, _bytes_to_copy); )
   } else if (_id == load_mirror_id || _id == load_appendix_id) {
     // Produce a copy of the load mirror instruction for use by the being initialized case.
     AddressLiteral addrlit((address)NULL, oop_Relocation::spec(_index));
-    __ load_const_PPC(_obj, addrlit, R0);
+    __ load_const(_obj, addrlit, R0);
     DEBUG_ONLY( compare_with_patch_site(__ code_section()->start() + being_initialized_entry, _pc_start, _bytes_to_copy); )
   } else {
     // Make a copy the code which is going to be patched.
@@ -410,7 +410,7 @@ void PatchingStub::emit_code(LIR_Assembler* ce) {
   __ bind(call_patch);
 
   __ block_comment("patch entry point");
-  //__ load_const_PPC(R0, target); + mtctr + bctrl must have size -_patch_info_offset
+  //__ load_const(R0, target); + mtctr + bctrl must have size -_patch_info_offset
   __ load_const32_PPC(R0, MacroAssembler::offset_to_global_toc(target));
   __ add_PPC(R0, R20_TOC, R0);
   __ mtctr_PPC(R0);
