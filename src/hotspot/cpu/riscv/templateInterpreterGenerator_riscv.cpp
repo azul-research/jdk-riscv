@@ -2306,18 +2306,17 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 }
 
 void TemplateInterpreterGenerator::count_bytecode() {
-  __ li(R5_scratch1, &BytecodeCounter::_counter_value);
-  __ lwu(R6_scratch2, R5_scratch1, 0);
+  int offs = __ load_const_optimized(R5_scratch1, (address) &BytecodeCounter::_counter_value, R6_scratch2, true);
+  __ lwu(R6_scratch2, R5_scratch1, offs);
   __ addi(R6_scratch2, R6_scratch2, 1);
-  __ sw(R6_scratch2, R5_scratch1, 0);
+  __ sw(R6_scratch2, R5_scratch1, offs);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode(Template* t) {
-  tty->print_cr("histogram_bytecode: %p", __ pc());
   int offs = __ load_const_optimized(R5_scratch1, (address) &BytecodeHistogram::_counters[t->bytecode()], R6_scratch2, true);
-  __ lwz_PPC(R6_scratch2, offs, R5_scratch1);
-  __ addi_PPC(R6_scratch2, R6_scratch2, 1);
-  __ stw_PPC(R6_scratch2, offs, R5_scratch1);
+  __ lwu(R6_scratch2, R5_scratch1, offs);
+  __ addi(R6_scratch2, R6_scratch2, 1);
+  __ sw(R6_scratch2, R5_scratch1, offs);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode_pair(Template* t) {
