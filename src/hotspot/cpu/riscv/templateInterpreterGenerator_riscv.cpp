@@ -2306,10 +2306,10 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 }
 
 void TemplateInterpreterGenerator::count_bytecode() {
-  int offs = __ load_const_optimized(R5_scratch1, (address) &BytecodeCounter::_counter_value, R6_scratch2, true);
-  __ lwu(R6_scratch2, R5_scratch1, offs);
-  __ addi(R6_scratch2, R6_scratch2, 1);
-  __ sw(R6_scratch2, R5_scratch1, offs);
+  __ li(R5_scratch1, &BytecodeCounter::_counter_value);
+  __ lwu(R6_scratch2, R5_scratch1, 0);
+  __ addi(R6_scratch2, R0, 1);
+  __ sw(R6_scratch2, R5_scratch1, 0);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode(Template* t) {
