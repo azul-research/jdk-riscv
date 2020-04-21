@@ -1178,9 +1178,9 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
     lui(tmp, hi);
     add(tmp, R2_SP, tmp);
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld(R0, lo, tmp);
+      ld(R0, tmp, lo);
     } else {
-      sd(R0, lo, tmp);
+      sd(R0, tmp, lo);
     }
   } else {
     ShouldNotReachHere();

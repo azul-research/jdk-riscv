@@ -1525,7 +1525,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // thread->active_handles()->clear();
   __ ld(R5_scratch1, thread_(active_handles));
   // TODO RISCV port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
-  __ sw(R0_ZERO, JNIHandleBlock::top_offset_in_bytes(), R5_scratch1);
+  __ sw(R0_ZERO, R5_scratch1, JNIHandleBlock::top_offset_in_bytes());
 
   Label exception_return_sync_check_already_unlocked;
   __ ld(R5_scratch1/*pending_exception*/, thread_(pending_exception));
