@@ -3,8 +3,8 @@ IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
---- src/hotspot/cpu/riscv/frame_riscv.hpp	(revision 8afdcc7532a76dda0c2318b7ece7d18ff82aa33a)
-+++ src/hotspot/cpu/riscv/frame_riscv.hpp	(date 1587401395849)
+--- src/hotspot/cpu/riscv/frame_riscv.hpp	(revision 55b9259f876097303e73efcaa684119ecb28233a)
++++ src/hotspot/cpu/riscv/frame_riscv.hpp	(date 1587488414391)
 @@ -23,6 +23,9 @@
   *
   */
@@ -20,9 +20,9 @@ IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
---- src/hotspot/os/linux/os_linux.cpp	(revision 8afdcc7532a76dda0c2318b7ece7d18ff82aa33a)
-+++ src/hotspot/os/linux/os_linux.cpp	(date 1587408516978)
-@@ -1824,7 +1824,7 @@
+--- src/hotspot/os/linux/os_linux.cpp	(revision 55b9259f876097303e73efcaa684119ecb28233a)
++++ src/hotspot/os/linux/os_linux.cpp	(date 1587488414467)
+@@ -1825,7 +1825,7 @@
    static  Elf32_Half running_arch_code=EM_68K;
  #elif  (defined SH)
    static  Elf32_Half running_arch_code=EM_SH;
@@ -36,8 +36,8 @@ IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
---- src/hotspot/share/runtime/sharedRuntime.cpp	(revision 8afdcc7532a76dda0c2318b7ece7d18ff82aa33a)
-+++ src/hotspot/share/runtime/sharedRuntime.cpp	(date 1587408582486)
+--- src/hotspot/share/runtime/sharedRuntime.cpp	(revision 55b9259f876097303e73efcaa684119ecb28233a)
++++ src/hotspot/share/runtime/sharedRuntime.cpp	(date 1587488414431)
 @@ -383,7 +383,7 @@
  
  #endif
@@ -47,14 +47,32 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
  double SharedRuntime::dsqrt(double f) {
    return sqrt(f);
  }
+Index: src/hotspot/cpu/riscv/interpreterRT_riscv.hpp
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- src/hotspot/cpu/riscv/interpreterRT_riscv.hpp	(revision 55b9259f876097303e73efcaa684119ecb28233a)
++++ src/hotspot/cpu/riscv/interpreterRT_riscv.hpp	(date 1587562322258)
+@@ -22,7 +22,9 @@
+  * questions.
+  *
+  */
+-
++#ifdef CMAKE_DEF
++#undef CPU_RISCV_INTERPRETERRT_RISCV_HPP
++#endif
+ #ifndef CPU_RISCV_INTERPRETERRT_RISCV_HPP
+ #define CPU_RISCV_INTERPRETERRT_RISCV_HPP
+ 
 Index: src/hotspot/share/utilities/macros.hpp
 IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
---- src/hotspot/share/utilities/macros.hpp	(revision 8afdcc7532a76dda0c2318b7ece7d18ff82aa33a)
-+++ src/hotspot/share/utilities/macros.hpp	(date 1587408808488)
-@@ -25,6 +25,28 @@
+--- src/hotspot/share/utilities/macros.hpp	(revision 55b9259f876097303e73efcaa684119ecb28233a)
++++ src/hotspot/share/utilities/macros.hpp	(date 1587577995671)
+@@ -25,6 +25,31 @@
  #ifndef SHARE_UTILITIES_MACROS_HPP
  #define SHARE_UTILITIES_MACROS_HPP
  
@@ -72,6 +90,9 @@ Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 +#define INCLUDE_SUFFIX_CPU _riscv
 +#define INCLUDE_SUFFIX_OS _linux
 +#define INCLUDE_SUFFIX_COMPILER _gcc
++
++#define VM_LITTLE_ENDIAN
++
 +#endif
 +#endif
 +
@@ -88,8 +109,8 @@ IDEA additional info:
 Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
 <+>UTF-8
 ===================================================================
---- src/hotspot/share/runtime/sharedRuntime.hpp	(revision 8afdcc7532a76dda0c2318b7ece7d18ff82aa33a)
-+++ src/hotspot/share/runtime/sharedRuntime.hpp	(date 1587408637907)
+--- src/hotspot/share/runtime/sharedRuntime.hpp	(revision 55b9259f876097303e73efcaa684119ecb28233a)
++++ src/hotspot/share/runtime/sharedRuntime.hpp	(date 1587488414487)
 @@ -150,7 +150,7 @@
    static double dabs(double f);
  #endif
