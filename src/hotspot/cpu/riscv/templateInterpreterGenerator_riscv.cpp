@@ -389,6 +389,7 @@ address TemplateInterpreterGenerator::generate_result_handler_for(BasicType type
   case T_DOUBLE:
      break;
   case T_VOID:
+     tty->print_cr("generate_result_handler(void) %p", __ pc());
      break;
   default: ShouldNotReachHere();
   }
@@ -934,13 +935,13 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 
   __ addi(Rnew_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
 
-  if (native_call) { // FIXME_RISCV
+  if (native_call) {
     // If we're calling a native method, we reserve space for the worst-case signature
     // handler varargs vector, which is max(0, parameter_count + 2 - max_register_parameters).
     // We add two slots to the parameter_count, one for the jni
     // environment and one for a possible native mirror.
     Label frame_size_is_positive;
-    assert(Argument::n_int_register_parameters >= FloatArgument::n_float_register_parameters, "we should take the worst case");
+    assert((int) Argument::n_int_register_parameters >= (int) FloatArgument::n_float_register_parameters, "we should take the worst case");
     __ addi(Rnew_frame_size, Rsize_of_parameters, 2 - Argument::n_int_register_parameters);
     __ bge(Rnew_frame_size, R0, frame_size_is_positive);
     __ li(Rnew_frame_size, 0L);
@@ -1522,8 +1523,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Move native method result back into proper registers and return.
   // Invoke result handler (may unbox/promote).
-  __ ld(R3_RET_PPC, R8_FP, _ijava_state(lresult));
-  __ fld(F1_RET_PPC,  R8_FP, _ijava_state(fresult));
+  __ ld(R10_RET1, R8_FP, _ijava_state(lresult));
+  __ fld(F10_RET,  R8_FP, _ijava_state(fresult));
+  tty->print_cr("result handler: %p", __ pc());
   __ call_stub(result_handler_addr);
 
   __ pop_java_frame();

@@ -438,20 +438,20 @@ void Assembler::li(Register d, long imm) {
 
   long off = imm - (long)pc();
 
-  if (INT32_MIN <= off && off <= INT32_MAX) {
-    // load using AUIPC
-    unsigned long uoff = off;
-    unsigned long low = uoff & 0xfff;
-    unsigned long high = (uoff >> 12) & 0xfffff;
-    if (low >= 0x800) {
-      ++high;
-    }
-    auipc(d, high);
-    if (low) {
-      addi(d, d, low);
-    }
-    return;
-  }
+//  if (INT32_MIN <= off && off <= INT32_MAX) { // TODO RISCV fix it on negative values
+//    // load using AUIPC
+//    unsigned long uoff = off;
+//    unsigned long low = uoff & 0xfff;
+//    unsigned long high = (uoff >> 12) & 0xfffff;
+//    if (low >= 0x800) {
+//      ++high;
+//    }
+//    auipc(d, high);
+//    if (low) {
+//      addi(d, d, low);
+//    }
+//    return;
+//  }
 
   unsigned long uimm = imm;
   unsigned long value = uimm;
