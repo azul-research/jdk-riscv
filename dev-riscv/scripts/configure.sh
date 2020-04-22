@@ -3,7 +3,7 @@
 OPTIND=1
 
 variants=core
-level=release
+level=slowdebug
 
 while getopts "hv:l:" opt; do
     case "$opt" in
@@ -11,7 +11,7 @@ while getopts "hv:l:" opt; do
         echo "usage: $0 [-h] [-v jvm-variants] [-l debug-level]"
         echo "       -h show help"
         echo "       -v set --with-jvm-variants flag (server, client, minimal, core, zero, zeroshark, custom). default is core"
-        echo "       -l set --with-debug-level flag (release, fastdebug, slowdebug, optimized). default is release"
+        echo "       -l set --with-debug-level flag (release, fastdebug, slowdebug, optimized). default is slowdebug"
         exit 0
         ;;
     v)  variants=$OPTARG
