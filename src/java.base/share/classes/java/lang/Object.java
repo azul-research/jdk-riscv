@@ -39,8 +39,7 @@ import jdk.internal.HotSpotIntrinsicCandidate;
 public class Object {
     private static native void registerNatives();
     static {
-// FIXME_RISCV: uncomment this
-//        registerNatives();
+       registerNatives();
     }
 
 	/**
