@@ -97,30 +97,28 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   const int LogSizeOfTwoInstructions = 3; // TODO_RISCV check
 
-  const int max_fp_register_arguments  = Argument::n_float_register_parameters_c;
-  const int max_int_register_arguments = Argument::n_int_register_parameters_c - 2;  // first 2 are reserved
+  const int max_fp_register_arguments  = FloatArgument::n_float_register_parameters;
+  const int max_int_register_arguments = Argument::n_int_register_parameters - 2;  // first 2 are reserved
 
-  const Register arg_java       = R22_bcp;
+#ifdef ASSERT
+  const Register type_mask      = R5_scratch1;
+  const Register abs_arg        = R6_scratch2;
+#endif
+  const Register arg_java       = R23_esp; // we can rewrite this register since we call this function only from genrate_native_entry
   const Register arg_c          = R7_TMP2;
-  const Register signature      = R23_esp;  // is string
+  const Register signature      = R25_tos; // we can rewrite this register since we call this function only from genrate_native_entry
   const Register sig_byte       = R28_TMP3;
   const Register fpcnt          = R29_TMP4;
-  const Register argcnt         = R30_TMP5;
+  const Register ipcnt          = R30_TMP5;
   const Register intSlot        = R31_TMP6;
-  const Register target_sp      = R21_sender_SP;
   const FloatRegister floatSlot = F0_TMP0;
 
   assert(arg_java->is_nonvolatile(), "arg_java should be nonvolatile");
   assert(signature->is_nonvolatile(), "signature should be nonvolatile");
-  assert(target_sp->is_nonvolatile(), "target_sp should be nonvolatile");
 
   address entry = __ pc();
 
-  __ save_abi_frame(R2_SP, 0);
-  __ save_nonvolatile_gprs(R2_SP, -frame::abi_frame_size); // TODO optimize
-  // We use target_sp for storing arguments in the C frame.
-  __ mv(target_sp, R2_SP);
-  __ push_frame_reg_args_nonvolatiles(0, R5_scratch1);
+  __ sd(R1_RA, R8_FP, _ijava_state(saved_ra));
 
   __ mv(arg_java, R10_ARG0);
 
@@ -133,7 +131,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::get_result_handler), R24_thread, R27_method);
 
   {
-    Label L;
+    Label Lstatic_method;
     // test if static
     // _access_flags._flags must be at offset 0.
     // TODO RISCV port: requires change in shared code.
@@ -144,23 +142,20 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     __ lwu(R5_scratch1/*access_flags*/, method_(access_flags));
     // testbit with condition register.
     __ andi(R5_scratch1, R5_scratch1, 1 << JVM_ACC_STATIC_BIT);
-    __ bnez(R5_scratch1, L);
-    // For non-static functions, pass "this" in R4_ARG2_PPC and copy it
-    // to 2nd C-arg slot.
+    __ bnez(R5_scratch1, Lstatic_method);
+    // For non-static functions, pass "this" in R11_ARG1
     // We need to box the Java object here, so we use arg_java
     // (address of current Java stack slot) as argument and don't
     // dereference it as in case of ints, floats, etc.
     __ mv(R11_ARG1, arg_java);
     __ addi(arg_java, arg_java, -BytesPerWord);
-    __ sd(R11_ARG1, target_sp, _abi_PPC(carg_2)); // TODO_RISCV
-    __ bind(L);
+    __ bind(Lstatic_method);
   }
 
-  // Will be incremented directly after loop_start. argcnt=0
-  // corresponds to 3rd C argument.
-  __ li(argcnt, -1);
+  // two arguments are reserved, but we don't count it here
+  __ li(ipcnt, 0L);
   // arg_c points to 3rd C argument
-  __ addi(arg_c, target_sp, _abi_PPC(carg_3)); // TODO_RISCV
+  __ addi(arg_c, R2_SP, 2 * BytesPerWord);
   // no floating-point args parsed so far
   __ li(fpcnt, 0L);
 
@@ -177,7 +172,6 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ bind(loop_start); // TODO_RISCV there is still PPC code. I should rewrite it with RISC-V calling conventions
 
-  __ addi(argcnt, argcnt, 1);
   __ lbu(sig_byte, signature, 1);
   __ addi(signature, signature, 1);
 
@@ -222,7 +216,6 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ unimplemented("ShouldNotReachHere in slow_signature_handler", 120);
 
   __ bind(do_array);
-
   {
     Label start_skip, end_skip;
 
@@ -266,77 +259,70 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     __ mv(intSlot, arg_java);
 
     __ bind(do_null);
-    __ sd(intSlot, arg_c, 0);
     __ addi(arg_java, arg_java, -BytesPerWord);
-    __ addi(arg_c, arg_c, BytesPerWord);
     __ li(R5_scratch1, max_int_register_arguments);
-    __ blt(argcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ blt(ipcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
     __ j(loop_start);
   }
 
   __ bind(do_int);
   {
     __ lw(intSlot, arg_java, 0);
-    __ sd(intSlot, arg_c, 0);
     __ addi(arg_java, arg_java, -BytesPerWord);
-    __ addi(arg_c, arg_c, BytesPerWord);
     __ li(R5_scratch1, max_int_register_arguments);
-    __ blt(argcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ blt(ipcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
     __ j(loop_start);
   }
 
   __ bind(do_long);
   {
     __ ld(intSlot, arg_java, -BytesPerWord);
-    __ sd(intSlot, arg_c, 0);
     __ addi(arg_java, arg_java, -2 * BytesPerWord);
-    __ addi(arg_c, arg_c, BytesPerWord);
     __ li(R5_scratch1, max_int_register_arguments);
-    __ blt(argcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ blt(ipcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
     __ j(loop_start);
   }
 
   __ bind(do_float);
   {
-    __ lfs_PPC(floatSlot, 0, arg_java);
-#if defined(LINUX)
-    // Linux uses ELF ABI. Both original ELF and ELFv2 ABIs have float
-    // in the least significant word of an argument slot.
-#if defined(VM_LITTLE_ENDIAN)
-    __ stfs_PPC(floatSlot, 0, arg_c);
-#else
-    __ stfs_PPC(floatSlot, 4, arg_c);
-#endif
-#elif
-#error "unknown OS"
-#endif
+    __ flw(floatSlot, arg_java, 0);
     __ addi(arg_java, arg_java, -BytesPerWord);
-    __ addi(arg_c, arg_c, BytesPerWord);
     __ li(R5_scratch1, max_fp_register_arguments);
-    __ blt(argcnt, R5_scratch1, move_floatSlot_to_FARG);
+    __ blt(ipcnt, R5_scratch1, move_floatSlot_to_FARG);
+#ifdef VM_LITTLE_ENDIAN
+    __ fsw(floatSlot, arg_c, 0);
+#elif
+#warning "unchecked BIGENDIAN code in TemplateInterpreterGenerator::generate_slow_signature_handler"
+    __ fsw(floatSlot, arg_c, 4); // TODO RISCV check this
+#endif
+    __ addi(arg_c, arg_c, BytesPerWord);
     __ j(loop_start);
   }
 
   __ bind(do_double);
   {
     __ fld(floatSlot, arg_java, -BytesPerWord);
-    __ fsd(floatSlot, arg_c, 0);
     __ addi(arg_java, arg_java, -2 * BytesPerWord);
-    __ addi(arg_c, arg_c, BytesPerWord);
     __ li(R5_scratch1, max_fp_register_arguments);
-    __ blt(argcnt, R5_scratch1, move_floatSlot_to_FARG);
+    __ blt(ipcnt, R5_scratch1, move_floatSlot_to_FARG);
+    __ fsd(floatSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
     __ j(loop_start);
   }
 
   __ bind(loop_end);
 
-  __ pop_C_frame();
-  __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
-
+  __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
   __ ret();
 
-  Label move_int_arg, move_float_arg;
-  __ bind(move_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
+  Label Lmove_int_arg, Lmove_float_arg;
+  __ bind(Lmove_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
   __ mv(R12_ARG2, intSlot); __ j(loop_start);
   __ mv(R13_ARG3, intSlot); __ j(loop_start);
   __ mv(R14_ARG4, intSlot); __ j(loop_start);
@@ -344,7 +330,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ mv(R16_ARG6, intSlot); __ j(loop_start);
   __ mv(R17_ARG7, intSlot); __ j(loop_start);
 
-  __ bind(move_float_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
+  __ bind(Lmove_float_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
   __ fmvd(F10_ARG0, floatSlot); __ j(loop_start);
   __ fmvd(F11_ARG1, floatSlot); __ j(loop_start);
   __ fmvd(F12_ARG2, floatSlot); __ j(loop_start);
@@ -355,16 +341,15 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   __ fmvd(F17_ARG7, floatSlot); __ j(loop_start);
 
   __ bind(move_intSlot_to_ARG);
-  __ slli(R5_scratch1, argcnt, LogSizeOfTwoInstructions);
-  __ load_const(R6_scratch2, move_int_arg); // Label must be bound here.
-  __ add(R6_scratch2, R5_scratch1, R6_scratch2);
+  __ slli(R5_scratch1, ipcnt, LogSizeOfTwoInstructions);
+  __ addi(ipcnt, ipcnt, 1);
+  __ add_const_optimized(R6_scratch2, R5_scratch1, Lmove_int_arg);  // Label must be bound here.
   __ jr(R6_scratch2/*branch_target*/);
 
   __ bind(move_floatSlot_to_FARG);
   __ slli(R5_scratch1, fpcnt, LogSizeOfTwoInstructions);
   __ addi(fpcnt, fpcnt, 1);
-  __ load_const(R6_scratch2, move_float_arg); // Label must be bound here.
-  __ add(R6_scratch2, R5_scratch1, R6_scratch2);
+  __ add_const_optimized(R6_scratch2, R5_scratch1, Lmove_float_arg);  // Label must be bound here.
   __ jr(R6_scratch2/*branch_target*/);
 
   return entry;
@@ -951,17 +936,17 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 
   if (native_call) { // FIXME_RISCV
     // If we're calling a native method, we reserve space for the worst-case signature
-    // handler varargs vector, which is max(Argument::n_register_parameters, parameter_count+2).
+    // handler varargs vector, which is max(0, parameter_count + 2 - max_register_parameters).
     // We add two slots to the parameter_count, one for the jni
     // environment and one for a possible native mirror.
-    Label skip_native_calculate_max_stack;
-    __ addi(Rnew_frame_size, Rsize_of_parameters, 2);
-    __ li(R5_scratch1, Argument::n_register_parameters);
-    __ bge(Rnew_frame_size, R5_scratch1, skip_native_calculate_max_stack);
-    __ li(Rnew_frame_size, Argument::n_register_parameters);
-    __ bind(skip_native_calculate_max_stack);
-    __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
+    Label frame_size_is_positive;
+    assert(Argument::n_int_register_parameters >= FloatArgument::n_float_register_parameters, "we should take the worst case");
+    __ addi(Rnew_frame_size, Rsize_of_parameters, 2 - Argument::n_int_register_parameters);
+    __ bge(Rnew_frame_size, R0, frame_size_is_positive);
+    __ li(Rnew_frame_size, 0L);
+    __ bind(frame_size_is_positive);
     __ slli(Rnew_frame_size, Rnew_frame_size, Interpreter::logStackElementSize);
+
     assert(Rsize_of_locals == noreg, "Rsize_of_locals not initialized"); // Only relevant value is Rsize_of_parameters.
   } else {
     __ lhu(Rsize_of_locals /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_locals_offset()));
@@ -972,9 +957,10 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 
     __ sub(Rnew_FP, Rnew_FP, Rsize_of_locals); // add size of all locals (includes parameters)
     __ add(Rnew_FP, Rnew_FP, Rsize_of_parameters);
-
-    __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
   }
+
+  __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
+
 
   // Compute top frame size.
   __ addi(Rnew_frame_size, Rnew_frame_size, frame::frame_header_size);
@@ -1212,9 +1198,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //        ...
 
   const Register signature_handler_fd = R7_TMP2;
-  const Register result_handler_addr  = R22_bcp;
   const Register native_method_fd     = R7_TMP2;
-  const Register access_flags         = R23_esp;
+  const Register access_flags         = R22_bcp;
+  const Register result_handler_addr  = R23_esp;
 
   //=============================================================================
   // Allocate new frame and initialize interpreter state.
@@ -1346,7 +1332,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // outgoing argument area.
   //
   // Not needed on RISCV64.
-  //__ add_PPC(SP, SP, Argument::n_register_parameters*BytesPerWord);
+  //__ add_PPC(SP, SP, Argument::n_int_register_parameters*BytesPerWord);
 
   assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
   // Save across call to native method.

@@ -119,23 +119,11 @@ class AddressLiteral {
 
 class Argument {
  private:
-  int _number;  // The number of the argument.
+  int _number;  // The number of the int argument.
  public:
   enum {
     // Only 8 registers may contain integer parameters.
-    n_register_parameters = 8,
-    // Can have up to 8 floating registers.
-    n_float_register_parameters = 8,
-
-    // RISCV C calling conventions.
-    // The first eight arguments are passed in int regs if they are int.
-    n_int_register_parameters_c = 8,
-    // The first thirteen float arguments are passed in float regs.
-    n_float_register_parameters_c = 8,
-    // Only the first 8 parameters are not placed on the stack. Aix disassembly
-    // shows that xlC places all float args after argument 8 on the stack AND
-    // in a register. This is not documented, but we follow this convention, too.
-    n_regs_not_on_stack_c = 8,
+    n_int_register_parameters = 8,
   };
   // creation
   Argument(int number) : _number(number) {}
@@ -143,11 +131,33 @@ class Argument {
   int  number() const { return _number; }
 
   // Locating register-based arguments:
-  bool is_register() const { return _number < n_register_parameters; }
+  bool is_register() const { return _number < n_int_register_parameters; }
 
   Register as_register() const {
     assert(is_register(), "must be a register argument");
-    return as_Register(number() + R3_ARG1_PPC->encoding());
+    return as_Register(number() + R10_ARG0->encoding());
+  }
+};
+
+class FloatArgument {
+private:
+  int _number;  // The number of the float argument.
+public:
+  enum {
+    // Only 8 registers may contain float parameters.
+    n_float_register_parameters = 8,
+  };
+  // creation
+  FloatArgument(int number) : _number(number) {}
+
+  int  number() const { return _number; }
+
+  // Locating register-based arguments:
+  bool is_register() const { return _number < n_float_register_parameters; }
+
+  FloatRegister as_register() const {
+    assert(is_register(), "must be a register argument");
+    return as_FloatRegister(number() + F10_ARG0->encoding());
   }
 };
 
@@ -2763,6 +2773,9 @@ class Assembler : public AbstractAssembler {
          int add_const_optimized(Register d, Register s, long x, Register tmp = noreg, bool return_simm12_rest = false);
   inline int add_const_optimized(Register d, Register s, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
     return add_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm12_rest);
+  }
+  inline int add_const_optimized(Register d, Register s, Label &l, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, target(l), tmp, return_simm12_rest);
   }
 
   // If return_simm12_rest, the return value needs to get added afterwards.
