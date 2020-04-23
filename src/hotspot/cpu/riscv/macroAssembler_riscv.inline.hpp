@@ -190,7 +190,7 @@ inline void MacroAssembler::set_oop_constant(jobject obj, Register d) {
 
 inline void MacroAssembler::set_oop(AddressLiteral obj_addr, Register d) {
   assert(obj_addr.rspec().type() == relocInfo::oop_type, "must be an oop reloc");
-  load_const_PPC(d, obj_addr);
+  load_const(d, obj_addr);
 }
 
 inline void MacroAssembler::pd_patch_instruction(address branch, address target, const char* file, int line) {
@@ -472,6 +472,24 @@ inline void MacroAssembler::multiply64(Register dest_hi, Register dest_lo,
                                        Register x, Register y) {
   mulld_PPC(dest_lo, x, y);
   mulhdu_PPC(dest_hi, x, y);
+}
+
+inline void MacroAssembler::zeroExtend(Register rd, Register rs, int bits) {
+  if (bits < 11) {
+    andi(rd, rs, (1 << bits) - 1);
+  } else {
+    slli(rd, rs, 64 - bits);
+    srli(rd, rd, 64 - bits);
+  }
+}
+
+inline void MacroAssembler::signExtend(Register rd, Register rs, int bits) {
+  if (bits == 32) {
+    addiw(rd, rs, 0);
+  } else {
+    slli(rd, rs, 64 - bits);
+    srai(rd, rd, 64 - bits);
+  }
 }
 
 #endif // CPU_RISCV_MACROASSEMBLER_RISCV_INLINE_HPP

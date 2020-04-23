@@ -120,9 +120,7 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register Rscratch1, Re
     // Call the Interpreter::remove_activation_preserving_args_entry()
     // func to get the address of the same-named entrypoint in the
     // generated interpreter code.
-    call_c(CAST_FROM_FN_PTR(address,
-                            Interpreter::remove_activation_preserving_args_entry),
-           relocInfo::none);
+    call_c(CAST_FROM_FN_PTR(address, Interpreter::remove_activation_preserving_args_entry), relocInfo::none);
 
     // Jump to Interpreter::_remove_activation_preserving_args_entry.
     jr(R10_RET1);
@@ -132,23 +130,23 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register Rscratch1, Re
   }
 }
 
-void InterpreterMacroAssembler::check_and_handle_earlyret(Register scratch_reg) {
-  const Register Rthr_state_addr = scratch_reg;
+void InterpreterMacroAssembler::check_and_handle_earlyret(Register Rscratch1, Register Rscratch2) {
+  const Register Rthr_state_addr = Rscratch1;
   if (JvmtiExport::can_force_early_return()) {
+    untested("early return is not tested");
     Label Lno_early_ret;
-    ld_PPC(Rthr_state_addr, in_bytes(JavaThread::jvmti_thread_state_offset()), R24_thread);
-    cmpdi_PPC(CCR0, Rthr_state_addr, 0);
-    beq_PPC(CCR0, Lno_early_ret);
+    ld(Rthr_state_addr, R24_thread, in_bytes(JavaThread::jvmti_thread_state_offset()));
+    beqz(Rthr_state_addr, Lno_early_ret);
 
-    lwz_PPC(R0, in_bytes(JvmtiThreadState::earlyret_state_offset()), Rthr_state_addr);
-    cmpwi_PPC(CCR0, R0, JvmtiThreadState::earlyret_pending);
-    bne_PPC(CCR0, Lno_early_ret);
+    lwu(Rscratch2, Rthr_state_addr, in_bytes(JvmtiThreadState::earlyret_state_offset()));
+    // JvmtiThreadState::earlyret_pending is small enough to fit here
+    addi(Rscratch2, Rscratch2, -((int) JvmtiThreadState::earlyret_pending));
+    bnez(Rscratch2, Lno_early_ret);
 
     // Jump to Interpreter::_earlyret_entry.
-    lwz_PPC(R3_ARG1_PPC, in_bytes(JvmtiThreadState::earlyret_tos_offset()), Rthr_state_addr);
+    lwu(R10_ARG0, Rthr_state_addr, in_bytes(JvmtiThreadState::earlyret_tos_offset()));
     call_VM_leaf(CAST_FROM_FN_PTR(address, Interpreter::remove_activation_early_entry));
-    mtlr_PPC(R3_RET_PPC);
-    blr_PPC();
+    jr(R10_RET1);
 
     align(32, 12);
     bind(Lno_early_ret);
@@ -207,6 +205,7 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   assert_different_registers(bytecode, R5_scratch1);
   Label dispatch, skip;
 
+#if 0   // FIXME_RISCV: uncomment when safepoints are implemented
   if (SafepointMechanism::uses_thread_local_poll() && generate_poll) {
     address *sfpt_tbl = Interpreter::safept_table(state);
     if (table != sfpt_tbl) {
@@ -218,6 +217,7 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
       j(skip);
     }
   }
+#endif
 
   // Calc dispatch table address.
   bind(dispatch);
@@ -229,8 +229,6 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
   ld(R5_scratch1, R6_scratch2, 0);
 
   // Jump off!
-//  mtctr_PPC(R5_scratch1); FIXME_RISCV understand this
-//  bcctr_PPC(bcondAlways, 0, bhintbhBCCTRisNotPredictable);
   jr(R5_scratch1);
 }
 
@@ -242,7 +240,7 @@ void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rr
 // helpers for expression stack
 
 void InterpreterMacroAssembler::pop_i(Register r) {
-  lwu(r, R23_esp, Interpreter::stackElementSize);
+  lw(r, R23_esp, Interpreter::stackElementSize);
   addi(R23_esp, R23_esp, Interpreter::stackElementSize);
 }
 
@@ -347,14 +345,17 @@ void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp) Rtmp = R29_TMP4;
+
   if (is_signed == Signed) {
-    lb(R7_TMP2, R22_bcp, bcp_offset);
+    lb(Rtmp, R22_bcp, bcp_offset);
   } else {
-    lbu(R7_TMP2, R22_bcp, bcp_offset);
+    lbu(Rtmp, R22_bcp, bcp_offset);
   }
-  slli(R7_TMP2, R7_TMP2, 8);
+  slli(Rtmp, Rtmp, 8);
   lbu(Rdst, R22_bcp, bcp_offset + 1);
-  orr(Rdst, R7_TMP2, Rdst);
+  orr(Rdst, Rtmp, Rdst);
 #else
   // Read Java big endian format.
   if (is_signed == Signed) {
@@ -369,23 +370,27 @@ void InterpreterMacroAssembler::get_4_byte_integer_at_bcp(int         bcp_offset
                                                           Register    Rdst,
                                                           signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (bcp_offset) {
-    load_const_optimized(Rdst, bcp_offset);
-    lwbrx_PPC(Rdst, R22_bcp, Rdst);
-  } else {
-    lwbrx_PPC(Rdst, R22_bcp);
-  }
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp) Rtmp = R29_TMP4;
+
   if (is_signed == Signed) {
-    extsw_PPC(Rdst, Rdst);
+    lb(Rdst, R22_bcp, bcp_offset);
+  } else {
+    lbu(Rdst, R22_bcp, bcp_offset);
+  }
+
+  for (int i = 1; i <= 3; ++i) {
+    slli(Rdst, Rdst, 8);
+    lbu(Rtmp, R22_bcp, bcp_offset + i);
+    orr(Rdst, Rtmp, Rdst);
   }
 #else
   // Read Java big endian format.
-  li(Rdst, bcp_offset);
-  add(Rdst, Rdst, R22_bcp);
+  // FIXME_RISCV: alignment problems might occur
   if (is_signed == Signed) {
-    lw(Rdst, Rdst, 0);
+    lw(Rdst, R22_bcp, bcp_offset);
   } else {
-    lwu(Rdst, Rdst, 0);
+    lwu(Rdst, R22_bcp, bcp_offset);
   }
 #endif
 }
@@ -427,20 +432,27 @@ void InterpreterMacroAssembler::get_cache_and_index_at_bcp(Register cache, int b
 void InterpreterMacroAssembler::get_u4(Register Rdst, Register Rsrc, int offset,
                                        signedOrNot is_signed) {
 #if defined(VM_LITTLE_ENDIAN)
-  if (offset) {
-    load_const_optimized(Rdst, offset);
-    lwbrx_PPC(Rdst, Rdst, Rsrc);
-  } else {
-    lwbrx_PPC(Rdst, Rsrc);
-  }
+  assert_different_registers(Rdst, Rsrc);
+  Register Rtmp = R30_TMP5;
+  if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R29_TMP4;
+  if (Rdst == Rtmp || Rsrc == Rtmp) Rtmp = R28_TMP3;
+
   if (is_signed == Signed) {
-    extsw_PPC(Rdst, Rdst);
+    lb(Rdst, Rsrc, offset);
+  } else {
+    lbu(Rdst, Rsrc, offset);
+  }
+
+  for (int i = 1; i <= 3; ++i) {
+    slli(Rdst, Rdst, 8);
+    lbu(Rtmp, Rsrc, offset + i);
+    orr(Rdst, Rtmp, Rdst);
   }
 #else
   if (is_signed == Signed) {
-    lwa_PPC(Rdst, offset, Rsrc);
+    lw(Rdst, offset, Rsrc);
   } else {
-    lwz_PPC(Rdst, offset, Rsrc);
+    lwu(Rdst, offset, Rsrc);
   }
 #endif
 }
@@ -532,6 +544,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   verify_oop(Rarray);
   const Register Rlength   = R6_scratch2;
   const Register RsxtIndex = Rtmp;
+  assert_different_registers(Rlength, Rarray, Rindex, Rtmp);
   Label LisNull, LnotOOR;
 
   // Array nullcheck
@@ -541,31 +554,24 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
     //null_check_throw(Rarray, arrayOopDesc::length_offset_in_bytes(), /*temp*/RsxtIndex); FIXME_RISCV
   }
 
-  // Rindex might contain garbage in upper bits (remember that we don't sign extend
-  // during integer arithmetic operations). So kill them and put value into same register
-  // where ArrayIndexOutOfBounds would expect the index in.
-  slli(RsxtIndex, Rindex, 32);
-  srli(RsxtIndex, RsxtIndex, 32); // zero extend 32 bit -> 64 bit
-
   // Index check
   lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
-
-  blt(RsxtIndex, Rlength, LnotOOR);
-  // Index should be in R25_tos, array should be in R4_ARG2_PPC.
+  blt(Rindex, Rlength, LnotOOR);
+  // Index should be in R25_tos, array should be in R11_ARG1
   mv_if_needed(R25_tos, Rindex);
   mv_if_needed(R11_ARG1, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
-  jalr(Rtmp);
+  jr(Rtmp);
 
   if (!ImplicitNullChecks) {
     bind(LisNull);
     load_dispatch_table(Rtmp, (address*)Interpreter::_throw_NullPointerException_entry);
-    jalr(Rtmp);
+    jr(Rtmp);
   }
 
   align(32, 16);
   bind(LnotOOR);
-  slli(RsxtIndex, RsxtIndex, index_shift);
+  slli(RsxtIndex, Rindex, index_shift);
   // Calc address
   add(Rres, RsxtIndex, Rarray);
 }
@@ -590,7 +596,7 @@ void InterpreterMacroAssembler::get_constant_pool(Register Rdst) {
 
 void InterpreterMacroAssembler::get_constant_pool_cache(Register Rdst) {
   get_constant_pool(Rdst);
-  ld_PPC(Rdst, ConstantPool::cache_offset_in_bytes(), Rdst);
+  ld(Rdst, Rdst, ConstantPool::cache_offset_in_bytes());
 }
 
 void InterpreterMacroAssembler::get_cpool_and_tags(Register Rcpool, Register Rtags) {
@@ -1041,19 +1047,18 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   const Register Rtarget_addr = Rscratch1;
   const Register Rinterp_only = Rscratch2;
 
-  ld_PPC(Rtarget_addr, in_bytes(Method::from_interpreted_offset()), Rtarget_method);
+  ld(Rtarget_addr, Rtarget_method, in_bytes(Method::from_interpreted_offset()));
 
   if (JvmtiExport::can_post_interpreter_events()) {
-    lwz_PPC(Rinterp_only, in_bytes(JavaThread::interp_only_mode_offset()), R24_thread);
+    lwu(Rinterp_only, R24_thread, in_bytes(JavaThread::interp_only_mode_offset()));
 
     // JVMTI events, such as single-stepping, are implemented partly by avoiding running
     // compiled code in threads for which the event is enabled. Check here for
     // interp_only_mode if these events CAN be enabled.
     Label done;
     verify_thread();
-    cmpwi_PPC(CCR0, Rinterp_only, 0);
-    beq_PPC(CCR0, done);
-    ld_PPC(Rtarget_addr, in_bytes(Method::interpreter_entry_offset()), Rtarget_method);
+    beqz(Rinterp_only, done);
+    ld(Rtarget_addr, Rtarget_method, in_bytes(Method::interpreter_entry_offset()));
     align(32, 12);
     bind(done);
   }
@@ -1061,14 +1066,13 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
 #ifdef ASSERT
   {
     Label Lok;
-    cmpdi_PPC(CCR0, Rtarget_addr, 0);
-    bne_PPC(CCR0, Lok);
+    bnez(Rtarget_addr, Lok);
     stop("null entry point");
     bind(Lok);
   }
 #endif // ASSERT
 
-  mr_PPC(R21_sender_SP, R1_SP_PPC);
+  mv(R21_sender_SP, R2_SP);
 
   // Calc a precise SP for the call. The SP value we calculated in
   // generate_fixed_frame() is based on the max_stack() value, so we would waste stack space
@@ -1078,22 +1082,19 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   // to meet the abi scratch requirements.
   // The max_stack pointer will get restored by means of the GR_Lmax_stack local in
   // the return entry of the interpreter.
-  addi_PPC(Rscratch2, R23_esp, Interpreter::stackElementSize - frame::abi_reg_args_ppc_size);
-  clrrdi_PPC(Rscratch2, Rscratch2, exact_log2(frame::alignment_in_bytes)); // round towards smaller address
-  resize_frame_absolute(Rscratch2, Rscratch2, R0);
+  addi(R2_SP, R23_esp, Interpreter::stackElementSize);
+  round_down_to(R2_SP, frame::alignment_in_bytes);
 
   mv_if_needed(R27_method, Rtarget_method);
-  mtctr_PPC(Rtarget_addr);
-  mtlr_PPC(Rret_addr);
+  mv(R1_RA, Rret_addr);
 
   save_interpreter_state();
 #ifdef ASSERT
-  ld_PPC(Rscratch1, _ijava_state(top_frame_sp), Rscratch2); // Rscratch2 contains fp
-  cmpd_PPC(CCR0, R21_sender_SP, Rscratch1);
-  asm_assert_eq("top_frame_sp incorrect", 0x951);
+  ld(Rscratch2, R8_FP, _ijava_state(top_frame_sp));
+  asm_assert_eq(R21_sender_SP, Rscratch2, "top_frame_sp incorrect", 0x951);
 #endif
 
-  bctr_PPC();
+  jr(Rtarget_addr);
 }
 
 // Set the method data pointer for the current bcp.
@@ -1112,8 +1113,7 @@ void InterpreterMacroAssembler::set_method_data_pointer_for_bcp() {
 // Test ImethodDataPtr. If it is null, continue at the specified label.
 void InterpreterMacroAssembler::test_method_data_pointer(Label& zero_continue) {
   assert(ProfileInterpreter, "must be profiling interpreter");
-  cmpdi_PPC(CCR0, R28_mdx_PPC, 0);
-  beq_PPC(CCR0, zero_continue);
+  beqz(R29_mdx, zero_continue);
 }
 
 void InterpreterMacroAssembler::verify_method_data_pointer() {
@@ -1237,7 +1237,7 @@ void InterpreterMacroAssembler::increment_mdp_data_at(int constant,
                                                       Register Rbumped_count,
                                                       bool decrement) {
   // Locate the counter at a fixed offset from the mdp:
-  addi_PPC(counter_addr, R28_mdx_PPC, constant);
+  addi(counter_addr, R29_mdx, constant);
   increment_mdp_data_at(counter_addr, Rbumped_count, decrement);
 }
 
@@ -1261,20 +1261,20 @@ void InterpreterMacroAssembler::increment_mdp_data_at(Register counter_addr,
   assert(ProfileInterpreter, "must be profiling interpreter");
 
   // Load the counter.
-  ld_PPC(Rbumped_count, 0, counter_addr);
+  ld(Rbumped_count, counter_addr, 0);
 
   if (decrement) {
     // Decrement the register. Set condition codes.
-    addi_PPC(Rbumped_count, Rbumped_count, - DataLayout::counter_increment);
+    addi(Rbumped_count, Rbumped_count, - DataLayout::counter_increment);
     // Store the decremented counter, if it is still negative.
-    std_PPC(Rbumped_count, 0, counter_addr);
+    sd(Rbumped_count, counter_addr, 0);
     // Note: add/sub overflow check are not ported, since 64 bit
     // calculation should never overflow.
   } else {
     // Increment the register. Set carry flag.
-    addi_PPC(Rbumped_count, Rbumped_count, DataLayout::counter_increment);
+    addi(Rbumped_count, Rbumped_count, DataLayout::counter_increment);
     // Store the incremented counter.
-    std_PPC(Rbumped_count, 0, counter_addr);
+    sd(Rbumped_count, counter_addr, 0);
   }
 }
 
@@ -1328,7 +1328,7 @@ void InterpreterMacroAssembler::update_mdp_by_offset(Register reg,
 // Update the method data pointer by a simple constant displacement.
 void InterpreterMacroAssembler::update_mdp_by_constant(int constant) {
   assert(ProfileInterpreter, "must be profiling interpreter");
-  addi_PPC(R28_mdx_PPC, R28_mdx_PPC, constant);
+  addi(R29_mdx, R29_mdx, constant);
 }
 
 // Update the method data pointer for a _ret bytecode whose target
@@ -1998,7 +1998,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
 void InterpreterMacroAssembler::load_local_int(Register Rdst_value, Register Rdst_address, Register Rindex) {
   slli(Rdst_address, Rindex, Interpreter::logStackElementSize);
   sub(Rdst_address, R26_locals, Rdst_address);
-  lwu(Rdst_value, Rdst_address, 0);
+  lw(Rdst_value, Rdst_address, 0);
 }
 
 // Load a local variable at index in Rindex into register Rdst_value.
@@ -2080,7 +2080,7 @@ void InterpreterMacroAssembler::store_local_ptr(Register Rvalue, Register Rindex
   sd(Rvalue, Rindex, 0);
 }
 
-// Store an int value at local variable slot Rindex.
+// Store a float value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register Rindex) {
@@ -2089,7 +2089,7 @@ void InterpreterMacroAssembler::store_local_float(FloatRegister Rvalue, Register
   fsw(Rvalue, Rindex, 0);
 }
 
-// Store an int value at local variable slot Rindex.
+// Store a double value at local variable slot Rindex.
 // Kills:
 //   - Rindex
 void InterpreterMacroAssembler::store_local_double(FloatRegister Rvalue, Register Rindex) {

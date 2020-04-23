@@ -3794,14 +3794,44 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
       Method *testMethod = findTestMethod(InstanceKlass::cast(testKlass), TestMethodName);
       JavaCallArguments args;
-      JavaValue result(T_VOID);
+      BasicType resultType = testMethod->result_type();
+      JavaValue result(resultType);
       JavaCalls::call(&result, testMethod, &args, CHECK);
-      fprintf(stderr, "Custom method call result: %d\n", 1/*result.get_jint()*/);
+      if (resultType == T_BYTE || resultType == T_BOOLEAN || resultType == T_SHORT ||
+          resultType == T_CHAR || resultType == T_INT) {
+        printf("TestMethodValue int %d\n", result.get_jint());
+      } else if (resultType == T_LONG) {
+        printf("TestMethodValue long %ld\n", result.get_jlong());
+      } else if (resultType == T_FLOAT) {
+        printf("TestMethodValue float %f\n", result.get_jfloat());
+      } else if (resultType == T_DOUBLE) {
+        printf("TestMethodValue double %f\n", result.get_jdouble());
+      } else {
+        printf("TestMethodValue unknown");
+      }
+      if (ExitAfterTestMethod) {
+        exit(0);
+      }
     } else {
       Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
-      Method *method = InstanceKlass::cast(klass)->methods()->at(14);
+      Method *method = InstanceKlass::cast(klass)->methods()->at(15);
 
-      JavaCallArguments args;
+      ResourceMark rm;
+      JavaCallArguments args(11);
+      // jint aInt, jlong aLong, jfloat aFloat, jchar aChar, jbyte aByte, jboolean aBool
+
+      tty->print_cr("\n<<< jint %d, jlong %ld, jfloat %f, jchar %c, jbyte %d, jboolean %d", -13, 15L, 0.123f, '!', 17, 0);
+      args.push_int(-13);
+      args.push_long(15L);
+      args.push_float(0.123f);
+      args.push_int('!');
+      args.push_int(17);
+      args.push_int(0);
+      args.push_int(1);
+      args.push_int(2);
+      args.push_int(3);
+      args.push_int(4);
+      args.push_int(5);
       JavaValue result(T_VOID);
       JavaCalls::call(&result, method, &args, CHECK);
       fprintf(stderr, "Default test method call result: %d\n", 1/*result.get_jint()*/);

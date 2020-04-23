@@ -288,13 +288,15 @@ void C1_MacroAssembler::initialize_object(
 
 #ifdef ASSERT
   {
-    lwz_PPC(t1, in_bytes(Klass::layout_helper_offset()), klass);
-    if (var_size_in_bytes != noreg) {
-      cmpw_PPC(CCR0, t1, var_size_in_bytes);
-    } else {
-      cmpwi_PPC(CCR0, t1, con_size_in_bytes);
-    }
-    asm_assert_eq("bad size in initialize_object", 0x753);
+// FIXME_RISCV begin
+//    lwz_PPC(t1, in_bytes(Klass::layout_helper_offset()), klass);
+//    if (var_size_in_bytes != noreg) {
+//      cmpw_PPC(CCR0, t1, var_size_in_bytes);
+//    } else {
+//      cmpwi_PPC(CCR0, t1, con_size_in_bytes);
+//    }
+//    asm_assert_eq("bad size in initialize_object", 0x753);
+// FIXME_RISCV end
   }
 #endif
 

@@ -789,12 +789,14 @@ OopMapSet* Runtime1::generate_handle_exception(StubID id, StubAssembler* sasm) {
 #ifdef ASSERT
   // Check that fields in JavaThread for exception oop and issuing pc are
   // empty before writing to them.
-  __ ld_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
-  __ cmpdi_PPC(CCR0, R0, 0);
-  __ asm_assert_eq("exception oop already set", 0x963);
-  __ ld_PPC(R0, in_bytes(JavaThread::exception_pc_offset() ), R24_thread);
-  __ cmpdi_PPC(CCR0, R0, 0);
-  __ asm_assert_eq("exception pc already set", 0x962);
+// FIXME_RISCV begin
+//  __ ld_PPC(R0, in_bytes(JavaThread::exception_oop_offset()), R24_thread);
+//  __ cmpdi_PPC(CCR0, R0, 0);
+//  __ asm_assert_eq("exception oop already set", 0x963);
+//  __ ld_PPC(R0, in_bytes(JavaThread::exception_pc_offset() ), R24_thread);
+//  __ cmpdi_PPC(CCR0, R0, 0);
+//  __ asm_assert_eq("exception pc already set", 0x962);
+// FIXME_RISCV end
 #endif
 
   // Save the exception and issuing pc in the thread.

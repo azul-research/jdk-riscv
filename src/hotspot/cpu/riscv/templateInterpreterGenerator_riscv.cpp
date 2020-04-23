@@ -76,7 +76,7 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   // area == 8. First we call InterpreterRuntime::get_result_handler
   // to copy the pointer to the signature string temporarily to the
   // first C-argument and to return the result_handler in
-  // R3_RET_PPC. Since native_entry will copy the jni-pointer to the
+  // R10_RET. Since native_entry will copy the jni-pointer to the
   // first C-argument slot later on, it is OK to occupy this slot
   // temporarilly. Then we copy the argument list on the java
   // expression stack into native varargs format on the native stack
@@ -84,54 +84,54 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   // the varargs vector will be sign-extended to 8 bytes.
   //
   // On entry:
-  //   R3_ARG1_PPC        - intptr_t*     Address of java argument list in memory.
-  //   R15_prev_state - BytecodeInterpreter* Address of interpreter state for
-  //     this method
+  //   R10_ARG0       - intptr_t*     Address of java argument list in memory.
+  //   R15_prev_state - BytecodeInterpreter* Address of interpreter state for this method
   //   R27_method
   //
   // On exit (just before return instruction):
-  //   R3_RET_PPC            - contains the address of the result_handler.
-  //   R4_ARG2_PPC           - is not updated for static methods and contains "this" otherwise.
-  //   R5_ARG3_PPC-R10_ARG8_PPC: - When the (i-2)th Java argument is not of type float or double,
-  //                       ARGi contains this argument. Otherwise, ARGi is not updated.
-  //   F1_ARG1_PPC-F13_ARG13_PPC - contain the first 13 arguments of type float or double.
+  //   R10_RET            - contains the address of the result_handler.
+  //   R11_ARG1           - is not updated for static methods and contains "this" otherwise.
+  //   R12_ARG2-R17_ARG7: - When the (i-2)th Java argument is not of type float or double,
+  //                        ARGi contains this argument. Otherwise, ARGi is not updated.
+  //   F10_ARG0-F17_ARG7: - contain the first 8 arguments of type float or double.
 
-  const int LogSizeOfTwoInstructions = 3;
+  const int LogSizeOfTwoInstructions = 3; // TODO_RISCV check
 
-  // FIXME: use Argument:: GL: Argument names different numbers!
-  const int max_fp_register_arguments  = 13;
-  const int max_int_register_arguments = 6;  // first 2 are reserved
+  const int max_fp_register_arguments  = FloatArgument::n_float_register_parameters;
+  const int max_int_register_arguments = Argument::n_int_register_parameters - 2;  // first 2 are reserved
 
-  const Register arg_java       = R21_tmp1_PPC;
-  const Register arg_c          = R22_tmp2_PPC;
-  const Register signature      = R23_tmp3_PPC;  // is string
-  const Register sig_byte       = R24_tmp4_PPC;
-  const Register fpcnt          = R25_tmp5_PPC;
-  const Register argcnt         = R26_tmp6_PPC;
-  const Register intSlot        = R27_tmp7_PPC;
-  const Register target_sp      = R28_tmp8_PPC;
-  const FloatRegister floatSlot = F0;
+#ifdef ASSERT
+  const Register type_mask      = R5_scratch1;
+  const Register abs_arg        = R6_scratch2;
+#endif
+  const Register arg_java       = R23_esp; // we can rewrite this register since we call this function only from genrate_native_entry
+  const Register arg_c          = R7_TMP2;
+  const Register signature      = R25_tos; // we can rewrite this register since we call this function only from genrate_native_entry
+  const Register sig_byte       = R28_TMP3;
+  const Register fpcnt          = R29_TMP4;
+  const Register ipcnt          = R30_TMP5;
+  const Register intSlot        = R31_TMP6;
+  const FloatRegister floatSlot = F0_TMP0;
+
+  assert(arg_java->is_nonvolatile(), "arg_java should be nonvolatile");
+  assert(signature->is_nonvolatile(), "signature should be nonvolatile");
 
   address entry = __ pc();
 
-  __ save_LR_CR(R0);
-  __ save_nonvolatile_gprs(R1_SP_PPC, -frame::abi_frame_size);
-  // We use target_sp for storing arguments in the C frame.
-  __ mr_PPC(target_sp, R1_SP_PPC);
-  __ push_frame_reg_args_nonvolatiles(0, R5_scratch1);
+  __ sd(R1_RA, R8_FP, _ijava_state(saved_ra));
 
-  __ mr_PPC(arg_java, R3_ARG1_PPC);
+  __ mv(arg_java, R10_ARG0);
 
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::get_signature), R24_thread, R27_method);
 
-  // Signature is in R3_RET_PPC. Signature is callee saved.
-  __ mr_PPC(signature, R3_RET_PPC);
+  // Signature is in R10_RET1. Signature is callee saved.
+  __ mv(signature, R10_RET1);
 
   // Get the result handler.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::get_result_handler), R24_thread, R27_method);
 
   {
-    Label L;
+    Label Lstatic_method;
     // test if static
     // _access_flags._flags must be at offset 0.
     // TODO RISCV port: requires change in shared code.
@@ -139,28 +139,25 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     //       "MethodDesc._access_flags == MethodDesc._access_flags._flags");
     // _access_flags must be a 32 bit value.
     assert(sizeof(AccessFlags) == 4, "wrong size");
-    __ lwa_PPC(R5_scratch1/*access_flags*/, method_PPC(access_flags));
+    __ lwu(R5_scratch1/*access_flags*/, method_(access_flags));
     // testbit with condition register.
-    __ testbitdi_PPC(CCR0, R0, R5_scratch1/*access_flags*/, JVM_ACC_STATIC_BIT);
-    __ btrue_PPC(CCR0, L);
-    // For non-static functions, pass "this" in R4_ARG2_PPC and copy it
-    // to 2nd C-arg slot.
+    __ andi(R5_scratch1, R5_scratch1, 1 << JVM_ACC_STATIC_BIT);
+    __ bnez(R5_scratch1, Lstatic_method);
+    // For non-static functions, pass "this" in R11_ARG1
     // We need to box the Java object here, so we use arg_java
     // (address of current Java stack slot) as argument and don't
     // dereference it as in case of ints, floats, etc.
-    __ mr_PPC(R4_ARG2_PPC, arg_java);
-    __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-    __ std_PPC(R4_ARG2_PPC, _abi_PPC(carg_2), target_sp);
-    __ bind(L);
+    __ mv(R11_ARG1, arg_java);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ bind(Lstatic_method);
   }
 
-  // Will be incremented directly after loop_start. argcnt=0
-  // corresponds to 3rd C argument.
-  __ li_PPC(argcnt, -1);
-  // arg_c points to 3rd C argument
-  __ addi_PPC(arg_c, target_sp, _abi_PPC(carg_3));
+  // two arguments are reserved, but we don't count it here
+  __ li(ipcnt, 0L);
+  // arg_c points to first C argument on the stack
+  __ mv(arg_c, R2_SP);
   // no floating-point args parsed so far
-  __ li_PPC(fpcnt, 0);
+  __ li(fpcnt, 0L);
 
   Label move_intSlot_to_ARG, move_floatSlot_to_FARG;
   Label loop_start, loop_end;
@@ -168,252 +165,237 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   // signature points to '(' at entry
 #ifdef ASSERT
-  __ lbz_PPC(sig_byte, 0, signature);
-  __ cmplwi_PPC(CCR0, sig_byte, '(');
-  __ bne_PPC(CCR0, do_dontreachhere);
+  __ lbu(sig_byte, signature, 0);
+  __ li(R5_scratch1, (long) '(');
+  __ bne(sig_byte, R5_scratch1, do_dontreachhere);
 #endif
 
-  __ bind(loop_start);
+  __ bind(loop_start); // TODO_RISCV there is still PPC code. I should rewrite it with RISC-V calling conventions
 
-  __ addi_PPC(argcnt, argcnt, 1);
-  __ lbzu_PPC(sig_byte, 1, signature);
+  __ lbu(sig_byte, signature, 1);
+  __ addi(signature, signature, 1);
 
-  __ cmplwi_PPC(CCR0, sig_byte, ')'); // end of signature
-  __ beq_PPC(CCR0, loop_end);
+  __ li(R5_scratch1, (long) ')'); // end of signature
+  __ beq(sig_byte, R5_scratch1, loop_end);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'B'); // byte
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'B'); // byte
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'C'); // char
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'C'); // char
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'D'); // double
-  __ beq_PPC(CCR0, do_double);
+  __ li(R5_scratch1, (long) 'D'); // double
+  __ beq(sig_byte, R5_scratch1, do_double);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'F'); // float
-  __ beq_PPC(CCR0, do_float);
-  __ cmplwi_PPC(CCR0, sig_byte, 'I'); // int
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'F'); // float
+  __ beq(sig_byte, R5_scratch1, do_float);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'J'); // long
-  __ beq_PPC(CCR0, do_long);
+  __ li(R5_scratch1, (long) 'I'); // int
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'S'); // short
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'J'); // long
+  __ beq(sig_byte, R5_scratch1, do_long);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'Z'); // boolean
-  __ beq_PPC(CCR0, do_int);
+  __ li(R5_scratch1, (long) 'S'); // short
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, 'L'); // object
-  __ beq_PPC(CCR0, do_object);
+  __ li(R5_scratch1, (long) 'Z'); // boolean
+  __ beq(sig_byte, R5_scratch1, do_int);
 
-  __ cmplwi_PPC(CCR0, sig_byte, '['); // array
-  __ beq_PPC(CCR0, do_array);
+  __ li(R5_scratch1, (long) 'L'); // object
+  __ beq(sig_byte, R5_scratch1, do_object);
 
-  //  __ cmplwi_PPC(CCR0, sig_byte, 'V'); // void cannot appear since we do not parse the return type
-  //  __ beq_PPC(CCR0, do_void);
+  __ li(R5_scratch1, (long) '['); // array
+  __ beq(sig_byte, R5_scratch1, do_array);
+
+  //  __ li(R5_scratch1, 'V'); // void cannot appear since we do not parse the return type
+  //  __ beq(sig_byte, R5_scratch1, do_void);
 
   __ bind(do_dontreachhere);
 
   __ unimplemented("ShouldNotReachHere in slow_signature_handler", 120);
 
   __ bind(do_array);
-
   {
     Label start_skip, end_skip;
 
     __ bind(start_skip);
-    __ lbzu_PPC(sig_byte, 1, signature);
-    __ cmplwi_PPC(CCR0, sig_byte, '[');
-    __ beq_PPC(CCR0, start_skip); // skip further brackets
-    __ cmplwi_PPC(CCR0, sig_byte, '9');
-    __ bgt_PPC(CCR0, end_skip);   // no optional size
-    __ cmplwi_PPC(CCR0, sig_byte, '0');
-    __ bge_PPC(CCR0, start_skip); // skip optional size
+    __ lbu(sig_byte, signature, 1);
+    __ addi(signature, signature, 1);
+
+    __ li(R5_scratch1, (long) '[');
+    __ beq(sig_byte, R5_scratch1, start_skip); // skip further brackets
+
+    __ li(R5_scratch1, (long) '9');
+    __ bgt(sig_byte, R5_scratch1, end_skip);   // no optional size
+
+    __ li(R5_scratch1, (long) '0');
+    __ bge(sig_byte, R5_scratch1, start_skip); // skip optional size
     __ bind(end_skip);
 
-    __ cmplwi_PPC(CCR0, sig_byte, 'L');
-    __ beq_PPC(CCR0, do_object);  // for arrays of objects, the name of the object must be skipped
-    __ b_PPC(do_boxed);          // otherwise, go directly to do_boxed
+    __ li(R5_scratch1, (long) 'L');
+    __ beq(sig_byte, R5_scratch1, do_object);  // for arrays of objects, the name of the object must be skipped
+    __ j(do_boxed);          // otherwise, go directly to do_boxed
   }
 
   __ bind(do_object);
   {
     Label L;
     __ bind(L);
-    __ lbzu_PPC(sig_byte, 1, signature);
-    __ cmplwi_PPC(CCR0, sig_byte, ';');
-    __ bne_PPC(CCR0, L);
+    __ lbu(sig_byte, signature, 1);
+    __ addi(signature, signature, 1);
+    __ li(R5_scratch1, (long) ';');
+    __ bne(sig_byte, R5_scratch1, L);
    }
   // Need to box the Java object here, so we use arg_java (address of
   // current Java stack slot) as argument and don't dereference it as
   // in case of ints, floats, etc.
   Label do_null;
   __ bind(do_boxed);
-  __ ld_PPC(R0,0, arg_java);
-  __ cmpdi_PPC(CCR0, R0, 0);
-  __ li_PPC(intSlot,0);
-  __ beq_PPC(CCR0, do_null);
-  __ mr_PPC(intSlot, arg_java);
-  __ bind(do_null);
-  __ std_PPC(intSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, argcnt, max_int_register_arguments);
-  __ blt_PPC(CCR0, move_intSlot_to_ARG);
-  __ b_PPC(loop_start);
+  {
+    __ ld(R5_scratch1, arg_java, 0);
+    __ li(intSlot, 0L);
+    __ beqz(R5_scratch1, do_null);
+    __ mv(intSlot, arg_java);
+
+    __ bind(do_null);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ li(R5_scratch1, max_int_register_arguments);
+    __ blt(ipcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ j(loop_start);
+  }
 
   __ bind(do_int);
-  __ lwa_PPC(intSlot, 0, arg_java);
-  __ std_PPC(intSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, argcnt, max_int_register_arguments);
-  __ blt_PPC(CCR0, move_intSlot_to_ARG);
-  __ b_PPC(loop_start);
+  {
+    __ lw(intSlot, arg_java, 0);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ li(R5_scratch1, max_int_register_arguments);
+    __ blt(ipcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ j(loop_start);
+  }
 
   __ bind(do_long);
-  __ ld_PPC(intSlot, -BytesPerWord, arg_java);
-  __ std_PPC(intSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, - 2 * BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, argcnt, max_int_register_arguments);
-  __ blt_PPC(CCR0, move_intSlot_to_ARG);
-  __ b_PPC(loop_start);
+  {
+    __ ld(intSlot, arg_java, -BytesPerWord);
+    __ addi(arg_java, arg_java, -2 * BytesPerWord);
+    __ li(R5_scratch1, max_int_register_arguments);
+    __ blt(ipcnt, R5_scratch1, move_intSlot_to_ARG);
+    __ sd(intSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ j(loop_start);
+  }
 
   __ bind(do_float);
-  __ lfs_PPC(floatSlot, 0, arg_java);
-#if defined(LINUX)
-  // Linux uses ELF ABI. Both original ELF and ELFv2 ABIs have float
-  // in the least significant word of an argument slot.
-#if defined(VM_LITTLE_ENDIAN)
-  __ stfs_PPC(floatSlot, 0, arg_c);
-#else
-  __ stfs_PPC(floatSlot, 4, arg_c);
+  {
+    __ flw(floatSlot, arg_java, 0);
+    __ addi(arg_java, arg_java, -BytesPerWord);
+    __ li(R5_scratch1, max_fp_register_arguments);
+    __ blt(ipcnt, R5_scratch1, move_floatSlot_to_FARG);
+#ifdef VM_LITTLE_ENDIAN
+    __ fsw(floatSlot, arg_c, 0);
+#elif
+#warning "unchecked BIGENDIAN code in TemplateInterpreterGenerator::generate_slow_signature_handler"
+    __ fsw(floatSlot, arg_c, 4); // TODO RISCV check this
 #endif
-#elif defined(AIX)
-  // Although AIX runs on big endian CPU, float is in most significant
-  // word of an argument slot.
-  __ stfs_PPC(floatSlot, 0, arg_c);
-#else
-#error "unknown OS"
-#endif
-  __ addi_PPC(arg_java, arg_java, -BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, fpcnt, max_fp_register_arguments);
-  __ blt_PPC(CCR0, move_floatSlot_to_FARG);
-  __ b_PPC(loop_start);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ j(loop_start);
+  }
 
   __ bind(do_double);
-  __ lfd_PPC(floatSlot, - BytesPerWord, arg_java);
-  __ stfd_PPC(floatSlot, 0, arg_c);
-  __ addi_PPC(arg_java, arg_java, - 2 * BytesPerWord);
-  __ addi_PPC(arg_c, arg_c, BytesPerWord);
-  __ cmplwi_PPC(CCR0, fpcnt, max_fp_register_arguments);
-  __ blt_PPC(CCR0, move_floatSlot_to_FARG);
-  __ b_PPC(loop_start);
+  {
+    __ fld(floatSlot, arg_java, -BytesPerWord);
+    __ addi(arg_java, arg_java, -2 * BytesPerWord);
+    __ li(R5_scratch1, max_fp_register_arguments);
+    __ blt(ipcnt, R5_scratch1, move_floatSlot_to_FARG);
+    __ fsd(floatSlot, arg_c, 0);
+    __ addi(arg_c, arg_c, BytesPerWord);
+    __ j(loop_start);
+  }
 
   __ bind(loop_end);
 
-  __ pop_C_frame();
-  __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
-
+  __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
   __ ret();
 
-  Label move_int_arg, move_float_arg;
-  __ bind(move_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
-  __ mr_PPC(R5_ARG3_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R6_ARG4_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R7_ARG5_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R8_ARG6_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R9_ARG7_PPC, intSlot);  __ b_PPC(loop_start);
-  __ mr_PPC(R10_ARG8_PPC, intSlot); __ b_PPC(loop_start);
+  Label Lmove_int_arg, Lmove_float_arg;
+  __ bind(Lmove_int_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
+  __ mv(R12_ARG2, intSlot); __ j(loop_start);
+  __ mv(R13_ARG3, intSlot); __ j(loop_start);
+  __ mv(R14_ARG4, intSlot); __ j(loop_start);
+  __ mv(R15_ARG5, intSlot); __ j(loop_start);
+  __ mv(R16_ARG6, intSlot); __ j(loop_start);
+  __ mv(R17_ARG7, intSlot); __ j(loop_start);
 
-  __ bind(move_float_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
-  __ fmr_PPC(F1_ARG1_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F2_ARG2_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F3_ARG3_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F4_ARG4_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F5_ARG5_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F6_ARG6_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F7_ARG7_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F8_ARG8_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F9_ARG9_PPC, floatSlot);   __ b_PPC(loop_start);
-  __ fmr_PPC(F10_ARG10_PPC, floatSlot); __ b_PPC(loop_start);
-  __ fmr_PPC(F11_ARG11_PPC, floatSlot); __ b_PPC(loop_start);
-  __ fmr_PPC(F12_ARG12_PPC, floatSlot); __ b_PPC(loop_start);
-  __ fmr_PPC(F13_ARG13_PPC, floatSlot); __ b_PPC(loop_start);
+  __ bind(Lmove_float_arg); // each case must consist of 2 instructions (otherwise adapt LogSizeOfTwoInstructions)
+  __ fmvd(F10_ARG0, floatSlot); __ j(loop_start);
+  __ fmvd(F11_ARG1, floatSlot); __ j(loop_start);
+  __ fmvd(F12_ARG2, floatSlot); __ j(loop_start);
+  __ fmvd(F13_ARG3, floatSlot); __ j(loop_start);
+  __ fmvd(F14_ARG4, floatSlot); __ j(loop_start);
+  __ fmvd(F15_ARG5, floatSlot); __ j(loop_start);
+  __ fmvd(F16_ARG6, floatSlot); __ j(loop_start);
+  __ fmvd(F17_ARG7, floatSlot); __ j(loop_start);
 
   __ bind(move_intSlot_to_ARG);
-  __ sldi_PPC(R0, argcnt, LogSizeOfTwoInstructions);
-  __ load_const_PPC(R5_scratch1, move_int_arg); // Label must be bound here.
-  __ add_PPC(R5_scratch1, R0, R5_scratch1);
-  __ mtctr_PPC(R5_scratch1/*branch_target*/);
-  __ bctr_PPC();
+  __ slli(R5_scratch1, ipcnt, LogSizeOfTwoInstructions);
+  __ addi(ipcnt, ipcnt, 1);
+  __ add_const_optimized(R6_scratch2, R5_scratch1, Lmove_int_arg);  // Label must be bound here.
+  __ jr(R6_scratch2/*branch_target*/);
+
   __ bind(move_floatSlot_to_FARG);
-  __ sldi_PPC(R0, fpcnt, LogSizeOfTwoInstructions);
-  __ addi_PPC(fpcnt, fpcnt, 1);
-  __ load_const_PPC(R5_scratch1, move_float_arg); // Label must be bound here.
-  __ add_PPC(R5_scratch1, R0, R5_scratch1);
-  __ mtctr_PPC(R5_scratch1/*branch_target*/);
-  __ bctr_PPC();
+  __ slli(R5_scratch1, fpcnt, LogSizeOfTwoInstructions);
+  __ addi(fpcnt, fpcnt, 1);
+  __ add_const_optimized(R6_scratch2, R5_scratch1, Lmove_float_arg);  // Label must be bound here.
+  __ jr(R6_scratch2/*branch_target*/);
 
   return entry;
 }
 
 address TemplateInterpreterGenerator::generate_result_handler_for(BasicType type) {
-  //
-  // Registers alive
-  //   R3_RET_PPC
-  //   LR
-  //
-  // Registers updated
-  //   R3_RET_PPC
-  //
-
   Label done;
   address entry = __ pc();
 
   switch (type) {
   case T_BOOLEAN:
     // convert !=0 to 1
-    __ neg_PPC(R0, R3_RET_PPC);
-    __ orr_PPC(R0, R3_RET_PPC, R0);
-    __ srwi_PPC(R3_RET_PPC, R0, 31);
+    __ neg(R5_scratch1, R10_RET1);
+    __ orr(R5_scratch1, R10_RET1, R5_scratch1); // R5_scratch1 <= 0 && (R5_scratch1 == 0 <-> R10_RET1 == 0)
+    __ slti(R10_RET1, R5_scratch1, 0);          // R10_RET1 == 1 <-> R5_scratch1 < 0,    R10_RET1 == 0 otherwise
     break;
   case T_BYTE:
-     // sign extend 8 bits
-     __ extsb_PPC(R3_RET_PPC, R3_RET_PPC);
+    __ signExtend(R10_RET1, 8);
      break;
   case T_CHAR:
-     // zero extend 16 bits
-     __ clrldi_PPC(R3_RET_PPC, R3_RET_PPC, 48);
+     __ zeroExtend(R10_RET1, 16);
      break;
   case T_SHORT:
-     // sign extend 16 bits
-     __ extsh_PPC(R3_RET_PPC, R3_RET_PPC);
+    __ signExtend(R10_RET1, 16);
      break;
   case T_INT:
-     // sign extend 32 bits
-     __ extsw_PPC(R3_RET_PPC, R3_RET_PPC);
+    __ signExtend(R10_RET1, 32);
      break;
   case T_LONG:
      break;
   case T_OBJECT:
     // JNIHandles::resolve result.
-    __ resolve_jobject(R3_RET_PPC, R5_scratch1, R31, /* needs_frame */ true); // kills R31
+    __ resolve_jobject(R10_RET1, R5_scratch1, R6_scratch2, true /* needs_frame */);
     break;
   case T_FLOAT:
      break;
   case T_DOUBLE:
      break;
   case T_VOID:
+     tty->print_cr("generate_result_handler(void) %p", __ pc());
      break;
   default: ShouldNotReachHere();
   }
 
   BIND(done);
-  __ blr_PPC();
+  __ ret();
 
   return entry;
 }
@@ -616,21 +598,23 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     case ctos:
     case stos:
     case atos:
-    case itos: __ mr_PPC(R25_tos, R3_RET_PPC); break;   // RET -> TOS cache
-    case ftos:
-    case dtos: __ fmr_PPC(F23_ftos, F1_RET_PPC); break; // TOS cache -> GR_FRET
+    case itos: __ mv(R25_tos, R10_RET1); break;   // RET -> TOS cache
+    case ftos: __ fmvs(F23_ftos, F10_RET); break;
+    case dtos: __ fmvd(F23_ftos, F10_RET); break; // TOS cache -> GR_FRET
     case vtos: break;                           // Nothing to do, this was a void return.
     default  : ShouldNotReachHere();
   }
 
   __ restore_interpreter_state();
-  __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
-  __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+
+  // Resize frame to top_frame_sp
+  __ ld(R2_SP, R8_FP, _ijava_state(top_frame_sp));
 
   // Compiled code destroys templateTableBase, reload.
-  __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R6_scratch2);
+  __ li(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0));
 
   if (state == atos) {
+    __ unimplemented("return for atos is not implemented");
     __ profile_return_type(R3_RET_PPC, R5_scratch1, R6_scratch2);
   }
 
@@ -640,15 +624,15 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 
   // Get least significant byte of 64 bit value:
 #if defined(VM_LITTLE_ENDIAN)
-  __ lbz_PPC(size, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()), cache);
+  __ lbu(size, cache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()));
 #else
-  __ lbz_PPC(size, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()) + 7, cache);
+  __ lbu(size, cache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::flags_offset()) + 7);
 #endif
-  __ sldi_PPC(size, size, Interpreter::logStackElementSize);
-  __ add_PPC(R23_esp, R23_esp, size);
+  __ slli(size, size, Interpreter::logStackElementSize);
+  __ add(R23_esp, R23_esp, size);
 
- __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
- __ check_and_handle_earlyret(R5_scratch1);
+  __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
+  __ check_and_handle_earlyret(R5_scratch1, R6_scratch2);
 
   __ dispatch_next(state, step);
   return entry;
@@ -796,12 +780,11 @@ void TemplateInterpreterGenerator::generate_counter_overflow(Label& continue_ent
   // Assumption: Caller must set the flag "do_not_unlock_if_sychronized" if the monitor of a sync'ed
   // method has not yet been created. Thus, no unlocking of a non-existing monitor can occur.
 
-  __ li_PPC(R4_ARG2_PPC, 0);
-  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::frequency_counter_overflow), R4_ARG2_PPC, true);
+  __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::frequency_counter_overflow), R0, true);
 
   // Returns verified_entry_point or NULL.
   // We ignore it in any case.
-  __ b_PPC(continue_entry);
+  __ j(continue_entry);
 }
 
 // See if we've got enough room on the stack for locals plus overhead below
@@ -941,62 +924,65 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
  */
 
 void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals) {
-  Register new_FP          = R14_ARG4,
-           new_frame_size  = R15_ARG5,
-           Rconst_method   = R16_ARG6;
+  Register Rnew_FP          = R14_ARG4,
+           Rnew_frame_size  = R15_ARG5,
+           Rconst_method    = R16_ARG6;
 
-  assert_different_registers(Rsize_of_parameters, Rsize_of_locals, new_frame_size);
+  assert_different_registers(Rsize_of_parameters, Rsize_of_locals, Rnew_frame_size);
 
   __ ld(Rconst_method, method_(const));
   __ lhu(Rsize_of_parameters /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_parameters_offset()));
 
-  if (native_call) { // FIXME_RISCV
+  __ addi(Rnew_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
+
+  if (native_call) {
     // If we're calling a native method, we reserve space for the worst-case signature
-    // handler varargs vector, which is max(Argument::n_register_parameters, parameter_count+2).
+    // handler varargs vector, which is max(0, parameter_count + 2 - max_register_parameters).
     // We add two slots to the parameter_count, one for the jni
     // environment and one for a possible native mirror.
-    Label skip_native_calculate_max_stack;
-    __ addi_PPC(new_frame_size, Rsize_of_parameters, 2);
-    __ cmpwi_PPC(CCR0, new_frame_size, Argument::n_register_parameters);
-    __ bge_PPC(CCR0, skip_native_calculate_max_stack);
-    __ li_PPC(new_frame_size, Argument::n_register_parameters);
-    __ bind(skip_native_calculate_max_stack);
-    __ sldi_PPC(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
-    __ sldi_PPC(new_frame_size, new_frame_size, Interpreter::logStackElementSize);
+    Label frame_size_is_positive;
+    assert((int) Argument::n_int_register_parameters >= (int) FloatArgument::n_float_register_parameters, "we should take the worst case");
+    __ addi(Rnew_frame_size, Rsize_of_parameters, 2 - Argument::n_int_register_parameters);
+    __ bge(Rnew_frame_size, R0, frame_size_is_positive);
+    __ li(Rnew_frame_size, 0L);
+    __ bind(frame_size_is_positive);
+    __ slli(Rnew_frame_size, Rnew_frame_size, Interpreter::logStackElementSize);
+
     assert(Rsize_of_locals == noreg, "Rsize_of_locals not initialized"); // Only relevant value is Rsize_of_parameters.
   } else {
     __ lhu(Rsize_of_locals /* number of params */, Rconst_method, in_bytes(ConstMethod::size_of_locals_offset()));
     __ slli(Rsize_of_locals, Rsize_of_locals, Interpreter::logStackElementSize);
 
-    __ lhu(new_frame_size, Rconst_method, in_bytes(ConstMethod::max_stack_offset()));
-    __ slli(new_frame_size, new_frame_size, Interpreter::logStackElementSize);
+    __ lhu(Rnew_frame_size, Rconst_method, in_bytes(ConstMethod::max_stack_offset()));
+    __ slli(Rnew_frame_size, Rnew_frame_size, Interpreter::logStackElementSize);
 
-    __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
+    __ sub(Rnew_FP, Rnew_FP, Rsize_of_locals); // add size of all locals (includes parameters)
+    __ add(Rnew_FP, Rnew_FP, Rsize_of_parameters);
   }
 
-  // Compute top frame size.
-  __ addi(new_frame_size, new_frame_size, frame::frame_header_size);
-  __ round_up_to(new_frame_size, frame::alignment_in_bytes);
+  __ slli(Rsize_of_parameters, Rsize_of_parameters, Interpreter::logStackElementSize);
 
-  // calculate new FP
-  __ addi(new_FP, R23_esp, Interpreter::stackElementSize); // Remove empty space on operand stack.
-  __ sub(new_FP, new_FP, Rsize_of_locals); // add size of all locals (includes parameters)
-  __ add(new_FP, new_FP, Rsize_of_parameters);
-  __ round_down_to(new_FP, frame::alignment_in_bytes);
+
+  // Compute top frame size.
+  __ addi(Rnew_frame_size, Rnew_frame_size, frame::frame_header_size);
+  __ round_up_to(Rnew_frame_size, frame::alignment_in_bytes);
+
+  // finish calculate new FP
+  __ round_down_to(Rnew_FP, frame::alignment_in_bytes);
 
   if (!native_call) {
     // Stack overflow check.
     // Native calls don't need the stack size check since they have no
     // expression stack and the arguments are already on the stack and
     // we only add a handful of words to the stack.
-    __ sub(R5_scratch1, new_FP, new_frame_size); // R5_scratch1 <- R2_SP shift after frame pushing.
+    __ sub(R5_scratch1, Rnew_FP, Rnew_frame_size); // R5_scratch1 <- R2_SP shift after frame pushing.
     generate_stack_overflow_check(R5_scratch1, R6_scratch2);
   }
 
   // Push new frame
-  __ save_abi_frame(new_FP, 0);
-  __ mv(R8_FP, new_FP);
-  __ sub(R2_SP, R8_FP, new_frame_size);
+  __ save_abi_frame(Rnew_FP, 0);
+  __ mv(R8_FP, Rnew_FP);
+  __ sub(R2_SP, R8_FP, Rnew_frame_size);
 
   // Set up registers.
   __ add(R26_locals, R23_esp, Rsize_of_parameters); // R26_locals should point to the first method argument(local 0).
@@ -1047,25 +1033,26 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   // The signal handler does not save the interpreter state into the frame.
 #ifdef ASSERT
   // Fill remaining slots with constants.
-  __ li(R5_scratch1, 0x5afe);
-  __ li(R6_scratch2, 0xdead);
+  Register Rsafe = R5_scratch1, Rdead = R6_scratch2;
+  __ li(Rsafe, 0x5afe);
+  __ li(Rdead, 0xdead);
 #endif
   // We have to initialize some frame slots for native calls (accessed by GC).
   if (native_call) {
-    __ std_PPC(R18_monitor, _ijava_state(monitors), R2_SP);
-    __ std_PPC(R22_bcp, _ijava_state(bcp), R2_SP);
-    if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R2_SP); }
+    __ sd(R18_monitor, R8_FP, _ijava_state(monitors));
+    __ sd(R22_bcp, R8_FP, _ijava_state(bcp));
+    if (ProfileInterpreter) { __ sd(R28_mdx_PPC, R8_FP, _ijava_state(mdx)); }
   }
 #ifdef ASSERT
   else {
-    __ sd(R6_scratch2, R8_FP, _ijava_state(monitors));
-    __ sd(R6_scratch2, R8_FP, _ijava_state(bcp));
-    __ sd(R6_scratch2, R8_FP, _ijava_state(mdx));
+    __ sd(Rdead, R8_FP, _ijava_state(monitors));
+    __ sd(Rdead, R8_FP, _ijava_state(bcp));
+    __ sd(Rdead, R8_FP, _ijava_state(mdx));
   }
-  __ sd(R5_scratch1, R8_FP, _ijava_state(ijava_reserved));
-  __ sd(R6_scratch2, R8_FP, _ijava_state(esp));
-  __ sd(R6_scratch2, R8_FP, _ijava_state(lresult));
-  __ sd(R6_scratch2, R8_FP, _ijava_state(fresult));
+  __ sd(Rsafe, R8_FP, _ijava_state(ijava_reserved));
+  __ sd(Rdead, R8_FP, _ijava_state(esp));
+  __ sd(Rdead, R8_FP, _ijava_state(lresult));
+  __ sd(Rdead, R8_FP, _ijava_state(fresult));
 #endif
   __ sd(R0, R8_FP, _ijava_state(oop_tmp)); //TODO what is it?
   __ sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
@@ -1083,8 +1070,8 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
 
   // RISCV64 specific:
   switch (kind) {
-    case Interpreter::java_lang_math_sqrt: use_instruction = VM_Version::has_fsqrt(); break;
-    case Interpreter::java_lang_math_abs:  use_instruction = true; break;
+    case Interpreter::java_lang_math_sqrt:
+    case Interpreter::java_lang_math_abs : use_instruction = true;   break;
     case Interpreter::java_lang_math_fmaF:
     case Interpreter::java_lang_math_fmaD: use_instruction = UseFMA; break;
     default: break; // Fall back to runtime call.
@@ -1111,47 +1098,47 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
   address entry = __ pc();
 
   // Load arguments
-  assert(num_args <= 13, "passed in registers");
+  assert(num_args <= 8, "passed in registers");
   if (double_precision) {
     int offset = (2 * num_args - 1) * Interpreter::stackElementSize;
     for (int i = 0; i < num_args; ++i) {
-      __ lfd_PPC(as_FloatRegister(F1_ARG1_PPC->encoding() + i), offset, R23_esp);
+      __ fld(as_FloatRegister(F10_ARG0->encoding() + i), R23_esp, offset);
       offset -= 2 * Interpreter::stackElementSize;
     }
   } else {
     int offset = num_args * Interpreter::stackElementSize;
     for (int i = 0; i < num_args; ++i) {
-      __ lfs_PPC(as_FloatRegister(F1_ARG1_PPC->encoding() + i), offset, R23_esp);
+      __ flw(as_FloatRegister(F10_ARG0->encoding() + i), R23_esp, offset);
       offset -= Interpreter::stackElementSize;
     }
   }
 
+  int rm = Assembler::RNE;
+
   if (use_instruction) {
-    switch (kind) {
-      case Interpreter::java_lang_math_sqrt: __ fsqrt_PPC(F1_RET_PPC, F1);          break;
-      case Interpreter::java_lang_math_abs:  __ fabs_PPC(F1_RET_PPC, F1);           break;
-      case Interpreter::java_lang_math_fmaF: __ fmadds_PPC(F1_RET_PPC, F1, F2, F3); break;
-      case Interpreter::java_lang_math_fmaD: __ fmadd_PPC(F1_RET_PPC, F1, F2, F3);  break;
-      default: ShouldNotReachHere();
+    if (double_precision) {
+      switch (kind) {
+        case Interpreter::java_lang_math_sqrt: __ fsqrtd(F10_RET, F10_ARG0, rm);                      break;
+        case Interpreter::java_lang_math_abs:  __ fsgnjxd(F10_RET, F10_ARG0, F10_ARG0);               break;
+        case Interpreter::java_lang_math_fmaD: __ fmaddd(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
+        default: ShouldNotReachHere();
+      }
+    } else {
+      switch (kind) {
+        case Interpreter::java_lang_math_abs:  __ fsgnjxs(F10_RET, F10_ARG0, F10_ARG0);               break;
+        case Interpreter::java_lang_math_fmaF: __ fmadds(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
+        default: ShouldNotReachHere();
+      }
     }
   } else {
-    // Comment: Can use tail call if the unextended frame is always C ABI compliant:
-    //__ load_const_optimized(R6_scratch2, runtime_entry, R0);
-    //__ call_c_and_return_to_caller(R6_scratch2);
-
-    // Push a new C frame and save LR.
-    __ save_LR_CR(R0);
-    __ push_frame_reg_args(0, R5_scratch1);
-
+    __ sd(R1_RA, R8_FP, _ijava_state(saved_ra));
     __ call_VM_leaf(runtime_entry);
-
-    // Pop the C frame and restore RA.
-    __ pop_C_frame();
-  }
+    __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
+    }
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-  __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
-  __ blr_PPC();
+  __ mv(R2_SP, R21_sender_SP);
+  __ ret();
 
   __ flush();
 
@@ -1196,8 +1183,6 @@ void TemplateInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
 address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
-  __ illtrap();
-  return entry;
 
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
@@ -1212,15 +1197,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //     [  IJava (caller of JNI callee)  ]  <-- ASP
   //        ...
 
-  const Register signature_handler_fd = R5_scratch1;
-  const Register pending_exception    = R0;
-  const Register result_handler_addr  = R31;
-  const Register native_method_fd     = R5_scratch1;
-  const Register access_flags         = R22_tmp2_PPC;
-  const Register active_handles       = R5_scratch1; // R26_monitor_PPC saved to state.
-  const Register sync_state           = R6_scratch2;
-  const Register sync_state_addr      = sync_state;   // Address is dead after use.
-  const Register suspend_flags        = R5_scratch1;
+  const Register signature_handler_fd = R7_TMP2;
+  const Register native_method_fd     = R7_TMP2;
+  const Register access_flags         = R22_bcp;
+  const Register result_handler_addr  = R23_esp;
 
   //=============================================================================
   // Allocate new frame and initialize interpreter state.
@@ -1233,15 +1213,17 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // a stack overflow.
   //generate_compute_interpreter_state(stack_overflow_return);
 
-  Register size_of_parameters = R22_tmp2_PPC;
+  Register size_of_parameters = R7_TMP2;
 
   generate_fixed_frame(true, size_of_parameters, noreg /* unused */);
+  tty->print_cr("native entry: %p", __ pc());
 
   //=============================================================================
   // Increment invocation counter. On overflow, entry to JNI method
   // will be compiled.
   Label invocation_counter_overflow, continue_after_compile;
   if (inc_counter) {
+    __ unimplemented("inc_counter is not supported yet in generate_native_entry");
     if (synchronized) {
       // Since at this point in the method invocation the exception handler
       // would try to exit the monitor of synchronized methods which hasn't
@@ -1251,8 +1233,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
       // check this thread local flag.
       // This flag has two effects, one is to force an unwind in the topmost
       // interpreter frame and not perform an unlock while doing so.
-      __ li_PPC(R0, 1);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ sb(R0_ZERO, thread_(do_not_unlock_if_synchronized));
     }
     generate_counter_incr(&invocation_counter_overflow, NULL, NULL);
 
@@ -1264,23 +1245,20 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   if (inc_counter) {
     // Reset the _do_not_unlock_if_synchronized flag.
     if (synchronized) {
-      __ li_PPC(R0, 0);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ sb(R0_ZERO, thread_(do_not_unlock_if_synchronized));
     }
   }
 
   // access_flags = method->access_flags();
   // Load access flags.
-  assert(access_flags->is_nonvolatile(),
-         "access_flags must be in a non-volatile register");
+  assert(access_flags->is_nonvolatile(), "access_flags must be in a non-volatile register");
   // Type check.
   assert(4 == sizeof(AccessFlags), "unexpected field size");
-  __ lwz_PPC(access_flags, method_PPC(access_flags));
+  __ lwu(access_flags, method_(access_flags));
 
   // We don't want to reload R27_method and access_flags after calls
   // to some helper functions.
-  assert(R27_method->is_nonvolatile(),
-         "R27_method must be a non-volatile register");
+  assert(R27_method->is_nonvolatile(), "R27_method must be a non-volatile register");
 
   // Check for synchronized methods. Must happen AFTER invocation counter
   // check, so method is not locked if counter overflows.
@@ -1289,8 +1267,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     lock_method(access_flags, R5_scratch1, R6_scratch2, true);
 
     // Update monitor in state.
-    __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-    __ std_PPC(R26_monitor_PPC, _ijava_state(monitors), R5_scratch1);
+    __ sd(R26_monitor_PPC, R8_FP, _ijava_state(monitors));
   }
 
   // jvmti/jvmpi support
@@ -1299,11 +1276,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   //=============================================================================
   // Get and call the signature handler.
 
-  __ ld_PPC(signature_handler_fd, method_PPC(signature_handler));
+  __ ld(signature_handler_fd, method_(signature_handler));
   Label call_signature_handler;
 
-  __ cmpdi_PPC(CCR0, signature_handler_fd, 0);
-  __ bne_PPC(CCR0, call_signature_handler);
+  __ bnez(signature_handler_fd, call_signature_handler);
 
   // Method has never been called. Either generate a specialized
   // handler or point to the slow one.
@@ -1313,13 +1289,14 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Check for an exception while looking up the target method. If we
   // incurred one, bail.
-  __ ld_PPC(pending_exception, thread_PPC(pending_exception));
-  __ cmpdi_PPC(CCR0, pending_exception, 0);
-  __ bne_PPC(CCR0, exception_return_sync_check); // Has pending exception.
+  __ ld(R5_scratch1, thread_(pending_exception));
+  __ bnez(R5_scratch1, exception_return_sync_check); // Has pending exception.
 
   // Reload signature handler, it may have been created/assigned in the meanwhile.
-  __ ld_PPC(signature_handler_fd, method_PPC(signature_handler));
-  __ twi_0_PPC(signature_handler_fd); // Order wrt. load of klass mirror and entry point (isync is below).
+  __ ld(signature_handler_fd, method_(signature_handler));
+
+//  __ twi_0_PPC(signature_handler_fd); // Order wrt. load of klass mirror and entry point (isync is below).
+  // TODO RISCV check what we need here
 
   BIND(call_signature_handler);
 
@@ -1332,7 +1309,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // anchor.
 
   // We have a TOP_IJAVA_FRAME here, which belongs to us.
-  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R1_SP_PPC, noreg, R6_scratch2/*tmp*/);
+  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R2_SP, R8_FP, R5_scratch1);
 
   // Now the interpreter frame (and its call chain) have been
   // invalidated and flushed. We are now protected against eager
@@ -1343,8 +1320,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Call signature handler and pass locals address.
   //
   // Our signature handlers copy required arguments to the C stack
-  // (outgoing C args), R3_ARG1_PPC to R10_ARG8_PPC, and FARG1 to FARG13.
-  __ mr_PPC(R3_ARG1_PPC, R26_locals);
+  // (outgoing C args), R10_ARG0 to R17_ARG7, and F10_ARG0 to F17_ARG7.
+  __ mv(R10_ARG0, R26_locals);
+
+  tty->print_cr("signature handler: %p", __ pc());
 
   __ call_stub(signature_handler_fd);
 
@@ -1353,13 +1332,13 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // outgoing argument area.
   //
   // Not needed on RISCV64.
-  //__ add_PPC(SP, SP, Argument::n_register_parameters*BytesPerWord);
+  //__ add_PPC(SP, SP, Argument::n_int_register_parameters*BytesPerWord);
 
   assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
   // Save across call to native method.
-  __ mr_PPC(result_handler_addr, R3_RET_PPC);
+  __ mv(result_handler_addr, R10_RET1);
 
-  __ isync_PPC(); // Acquire signature handler before trying to fetch the native entry point and klass mirror.
+  __ acquire(); // Acquire signature handler before trying to fetch the native entry point and klass mirror.
 
   // Set up fixed parameters and call the native method.
   // If the method is static, get mirror into R4_ARG2_PPC.
@@ -1368,15 +1347,14 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     // Access_flags is non-volatile and still, no need to restore it.
 
     // Restore access flags.
-    __ testbitdi_PPC(CCR0, R0, access_flags, JVM_ACC_STATIC_BIT);
-    __ bfalse_PPC(CCR0, method_is_not_static);
+    __ andi(R5_scratch1, access_flags, 1 << JVM_ACC_STATIC_BIT);
+    __ beqz(R5_scratch1, method_is_not_static);
 
-    __ ld_PPC(R5_scratch1, _abi_PPC(callers_sp), R1_SP_PPC);
     // Load mirror from interpreter frame.
-    __ ld_PPC(R6_scratch2, _ijava_state(mirror), R5_scratch1);
+    __ ld(R6_scratch2, R8_FP, _ijava_state(mirror));
     // R4_ARG2_PPC = &state->_oop_temp;
-    __ addi_PPC(R4_ARG2_PPC, R5_scratch1, _ijava_state(oop_tmp));
-    __ std_PPC(R6_scratch2/*mirror*/, _ijava_state(oop_tmp), R5_scratch1);
+    __ addi(R11_ARG1, R8_FP, _ijava_state(oop_tmp));
+    __ sd(R6_scratch2/*mirror*/, R8_FP, _ijava_state(oop_tmp));
     BIND(method_is_not_static);
   }
 
@@ -1386,10 +1364,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // register.
 
   // Pass JNIEnv address as first parameter.
-  __ addir_PPC(R3_ARG1_PPC, thread_PPC(jni_environment));
+  __ addi(R10_ARG0, R24_thread, in_bytes(JavaThread::jni_environment_offset()));
 
   // Load the native_method entry before we change the thread state.
-  __ ld_PPC(native_method_fd, method_PPC(native_function));
+  __ ld(native_method_fd, method_(native_function));
 
   //=============================================================================
   // Transition from _thread_in_Java to _thread_in_native. As soon as
@@ -1400,11 +1378,11 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // We use release_store_fence to update values like the thread state, where
   // we don't want the current thread to continue until all our prior memory
   // accesses (including the new thread state) are visible to other threads.
-  __ li_PPC(R0, _thread_in_native);
+  __ li(R5_scratch1, _thread_in_native);
   __ release();
 
   // TODO RISCV port assert(4 == JavaThread::sz_thread_state(), "unexpected field size");
-  __ stw_PPC(R0, thread_PPC(thread_state));
+  __ sw(R5_scratch1, thread_(thread_state));
 
   //=============================================================================
   // Call the native method. Argument registers must not have been
@@ -1412,11 +1390,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // ARG1 and ARG2 for static methods).
   __ call_c(native_method_fd);
 
-  __ li_PPC(R0, 0);
-  __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ std_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
-  __ stfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
-  __ std_PPC(R0/*mirror*/, _ijava_state(oop_tmp), R5_scratch1); // reset
+  __ sd(R10_RET1, R8_FP, _ijava_state(lresult));
+  __ fsd(F10_RET, R8_FP, _ijava_state(fresult));
+  __ sd(R0_ZERO/*mirror*/, R8_FP, _ijava_state(oop_tmp)); // reset
 
   // Note: C++ interpreter needs the following here:
   // The frame_manager_lr field, which we use for setting the last
@@ -1445,9 +1421,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // We use release_store_fence to update values like the thread state, where
   // we don't want the current thread to continue until all our prior memory
   // accesses (including the new thread state) are visible to other threads.
-  __ li_PPC(R0/*thread_state*/, _thread_in_native_trans);
+  __ li(R5_scratch1/*thread_state*/, _thread_in_native_trans);
   __ release();
-  __ stw_PPC(R0/*thread_state*/, thread_PPC(thread_state));
+  __ sw(R5_scratch1/*thread_state*/, thread_(thread_state));
   __ fence();
 
   // Now before we return to java we must look for a current safepoint
@@ -1461,23 +1437,21 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   Label do_safepoint, sync_check_done;
   // No synchronization in progress nor yet synchronized.
-  __ safepoint_poll(do_safepoint, sync_state);
+  __ safepoint_poll(do_safepoint, R5_scratch1);
 
   // Not suspended.
   // TODO RISCV port assert(4 == Thread::sz_suspend_flags(), "unexpected field size");
-  __ lwz_PPC(suspend_flags, thread_PPC(suspend_flags));
-  __ cmpwi_PPC(CCR1, suspend_flags, 0);
-  __ beq_PPC(CCR1, sync_check_done);
+  __ lwu(R5_scratch1, thread_(suspend_flags));
+  __ beqz(R5_scratch1, sync_check_done);
 
   __ bind(do_safepoint);
-  __ isync_PPC();
+  __ acquire();//isync_PPC(); TODO RISCV check this
   // Block. We do the call directly and leave the current
   // last_Java_frame setup undisturbed. We must save any possible
   // native result across the call. No oop is present.
 
-  __ mr_PPC(R3_ARG1_PPC, R24_thread);
-  __ call_c(CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans),
-            relocInfo::none);
+  __ mv(R10_ARG0, R24_thread);
+  __ call_c(CAST_FROM_FN_PTR(address, JavaThread::check_special_condition_for_native_trans), relocInfo::none);
 
   __ bind(sync_check_done);
 
@@ -1503,14 +1477,13 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // We use release_store_fence to update values like the thread state, where
   // we don't want the current thread to continue until all our prior memory
   // accesses (including the new thread state) are visible to other threads.
-  __ li_PPC(R0/*thread_state*/, _thread_in_Java);
-  __ lwsync_PPC(); // Acquire safepoint and suspend state, release thread state.
-  __ stw_PPC(R0/*thread_state*/, thread_PPC(thread_state));
+  __ li(R5_scratch1/*thread_state*/, _thread_in_Java);
+  __ acquire();// lwsync_PPC(); // Acquire safepoint and suspend state, release thread state. //TODO RISCV check
+  __ sw(R5_scratch1/*thread_state*/, thread_(thread_state));
 
   if (CheckJNICalls) {
     // clear_pending_jni_exception_check
-    __ load_const_optimized(R0, 0L);
-    __ st_ptr_PPC(R0, JavaThread::pending_jni_exception_check_fn_offset(), R24_thread);
+    __ sd(R0_ZERO, thread_(pending_jni_exception_check_fn));
   }
 
   __ reset_last_Java_frame();
@@ -1536,24 +1509,22 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Reset active handles after returning from native.
   // thread->active_handles()->clear();
-  __ ld_PPC(active_handles, thread_PPC(active_handles));
+  __ ld(R5_scratch1, thread_(active_handles));
   // TODO RISCV port assert(4 == JNIHandleBlock::top_size_in_bytes(), "unexpected field size");
-  __ li_PPC(R0, 0);
-  __ stw_PPC(R0, JNIHandleBlock::top_offset_in_bytes(), active_handles);
+  __ sw(R0_ZERO, R5_scratch1, JNIHandleBlock::top_offset_in_bytes());
 
   Label exception_return_sync_check_already_unlocked;
-  __ ld_PPC(R0/*pending_exception*/, thread_PPC(pending_exception));
-  __ cmpdi_PPC(CCR0, R0/*pending_exception*/, 0);
-  __ bne_PPC(CCR0, exception_return_sync_check_already_unlocked);
+  __ ld(R5_scratch1/*pending_exception*/, thread_(pending_exception));
+  __ bnez(R5_scratch1, exception_return_sync_check_already_unlocked);
 
   //-----------------------------------------------------------------------------
   // No exception pending.
 
   // Move native method result back into proper registers and return.
   // Invoke result handler (may unbox/promote).
-  __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);
-  __ ld_PPC(R3_RET_PPC, _ijava_state(lresult), R5_scratch1);
-  __ lfd_PPC(F1_RET_PPC, _ijava_state(fresult), R5_scratch1);
+  __ ld(R10_RET1, R8_FP, _ijava_state(lresult));
+  __ fld(F10_RET,  R8_FP, _ijava_state(fresult));
+  tty->print_cr("result handler: %p", __ pc());
   __ call_stub(result_handler_addr);
 
   __ pop_java_frame();
@@ -1577,10 +1548,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   }
   BIND(exception_return_sync_check_already_unlocked);
 
-  const Register return_pc = R31;
+  const Register return_pc = R23_esp;
 
-  __ ld_PPC(return_pc, 0, R1_SP_PPC);
-  __ ld_PPC(return_pc, _abi_PPC(lr), return_pc);
+  assert(return_pc->is_nonvolatile(), "return_pc must be in a non-volatile register");
+  __ ld(return_pc, R8_FP, _abi(ra));
 
   // Get the address of the exception handler.
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::exception_handler_for_return_address),
@@ -1589,18 +1560,17 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ pop_java_frame(false);
 
   // Load the PC of the the exception handler into LR.
-  __ mtlr_PPC(R3_RET_PPC);
+  __ mv(R1_RA, R10_RET1);
 
-  // Load exception into R3_ARG1_PPC and clear pending exception in thread.
-  __ ld_PPC(R3_ARG1_PPC/*exception*/, thread_PPC(pending_exception));
-  __ li_PPC(R4_ARG2_PPC, 0);
-  __ std_PPC(R4_ARG2_PPC, thread_PPC(pending_exception));
+  // Load exception into R10_ARG0 and clear pending exception in thread.
+  __ ld(R10_ARG0/*exception*/, thread_(pending_exception));
+  __ sd(R0_ZERO, thread_(pending_exception));
 
   // Load the original return pc into R4_ARG2_PPC.
-  __ mr_PPC(R4_ARG2_PPC/*issuing_pc*/, return_pc);
+  __ mv(R11_ARG1/*issuing_pc*/, return_pc);
 
   // Return to exception handler.
-  __ blr_PPC();
+  __ ret();
 
   //=============================================================================
   // Counter overflow.
@@ -1614,6 +1584,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   return entry;
 }
+#pragma clang diagnostic pop
 
 // Generic interpreted method entry to (asm) interpreter.
 //
@@ -1642,7 +1613,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   __ beqz(Rnum, Lno_locals);
 
   // The zero locals loop.
-  __ bind(Lzero_loop);
+  _masm-> bind(Lzero_loop);
   __ sd(R0, Rslot_addr, 0);
   __ addi(Rslot_addr, Rslot_addr, -Interpreter::stackElementSize);
   __ addi(Rnum, Rnum, -1);
@@ -2305,16 +2276,15 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 void TemplateInterpreterGenerator::count_bytecode() {
   __ li(R5_scratch1, &BytecodeCounter::_counter_value);
   __ lwu(R6_scratch2, R5_scratch1, 0);
-  __ addi(R6_scratch2, R6_scratch2, 1);
+  __ addi(R6_scratch2, R0, 1);
   __ sw(R6_scratch2, R5_scratch1, 0);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode(Template* t) {
-  tty->print_cr("histogram_bytecode: %p", __ pc());
   int offs = __ load_const_optimized(R5_scratch1, (address) &BytecodeHistogram::_counters[t->bytecode()], R6_scratch2, true);
-  __ lwz_PPC(R6_scratch2, offs, R5_scratch1);
-  __ addi_PPC(R6_scratch2, R6_scratch2, 1);
-  __ stw_PPC(R6_scratch2, offs, R5_scratch1);
+  __ lwu(R6_scratch2, R5_scratch1, offs);
+  __ addi(R6_scratch2, R6_scratch2, 1);
+  __ sw(R6_scratch2, R5_scratch1, offs);
 }
 
 void TemplateInterpreterGenerator::histogram_bytecode_pair(Template* t) {

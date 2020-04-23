@@ -43,6 +43,10 @@ class MacroAssembler: public Assembler {
   // Optimized instruction emitters
   //
 
+
+  inline static int largeoffset_hi(int si31) { return (si31 + (1<<11)) >> 12; }
+  inline static int largeoffset_lo(int si31) { return si31 - (largeoffset_hi(si31) << 12); }
+
   inline static int largeoffset_si16_si16_hi(int si31) { return (si31 + (1<<15)) >> 16; }
   inline static int largeoffset_si16_si16_lo(int si31) { return si31 - (((si31 + (1<<15)) >> 16) << 16); }
 
@@ -281,7 +285,7 @@ class MacroAssembler: public Assembler {
   void resize_frame_absolute(Register addr, Register tmp1, Register tmp2);
 
   // Push a frame of size bytes.
-  void push_frame(Register bytes);
+  void push_frame(Register bytes, Register tmp);
 
   // Push a frame of size `bytes'. No abi space provided.
   void push_frame(unsigned int bytes, Register tmp);
@@ -886,10 +890,8 @@ class MacroAssembler: public Assembler {
   // Debugging
   //
 
-  // assert on cr0
-  void asm_assert(bool check_equal, const char* msg, int id);
-  void asm_assert_eq(const char* msg, int id) { asm_assert(true, msg, id); }
-  void asm_assert_ne(const char* msg, int id) { asm_assert(false, msg, id); }
+  void asm_assert_eq(Register r1, Register r2, const char* msg, int id);
+  void asm_assert_ne(Register r1, Register r2, const char* msg, int id);
 
  private:
   void asm_assert_mems_zero(bool check_equal, int size, int mem_offset, Register mem_base,
@@ -937,6 +939,11 @@ class MacroAssembler: public Assembler {
   void should_not_reach_here()                         { stop(stop_shouldnotreachhere,  "", -1); }
 
   void zap_from_to(Register low, int before, Register high, int after, Register val, Register addr) PRODUCT_RETURN;
+
+  void zeroExtend(Register rd, Register rs, int bits);
+  void signExtend(Register rd, Register rs, int bits);
+  void zeroExtend(Register r, int bits) { zeroExtend(r, r, bits); };
+  void signExtend(Register r, int bits) { signExtend(r, r, bits); };
 };
 
 // class SkipIfEqualZero:

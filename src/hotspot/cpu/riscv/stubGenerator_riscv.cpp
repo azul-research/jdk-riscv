@@ -147,7 +147,7 @@ class StubGenerator: public StubCodeGenerator {
       __ addi(r_frame_size, r_frame_size, frame::entry_frame_size);
 
       // push ENTRY_FRAME
-      __ push_frame(r_frame_size);
+      __ push_frame(r_frame_size, r_temp);
 
       // initialize call_stub locals (step 1)
       __ sd(r_arg_call_wrapper_addr,
@@ -358,8 +358,8 @@ class StubGenerator: public StubCodeGenerator {
     const Register exception_file = R21_tmp1_PPC;
     const Register exception_line = R22_tmp2_PPC;
 
-    __ load_const_PPC(exception_file, (void*)__FILE__);
-    __ load_const_PPC(exception_line, (void*)__LINE__);
+    __ load_const(exception_file, (void *) __FILE__);
+    __ load_const(exception_line, (void *) __LINE__);
 
     __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
     // store into `char *'
@@ -554,7 +554,7 @@ class StubGenerator: public StubCodeGenerator {
     // Pop frame.
     __ pop_C_frame(false);
 
-    __ load_const_PPC(R5_scratch1, StubRoutines::forward_exception_entry());
+    __ load_const(R5_scratch1, StubRoutines::forward_exception_entry());
     __ jr(R5_scratch1);
 
     // Create runtime stub with OopMap.
@@ -879,8 +879,11 @@ class StubGenerator: public StubCodeGenerator {
 
   inline void assert_positive_int(Register count) {
 #ifdef ASSERT
-    __ srdi__PPC(R0, count, 31);
-    __ asm_assert_eq("missing zero extend", 0xAFFE);
+    __ unimplemented("stubGenerator_riscv.cpp: assert_positive_int() not implemented");
+// FIXME_RISCV begin
+//  __ srdi__PPC(R0, count, 31);
+//  __ asm_assert_eq("missing zero extend", 0xAFFE);
+// FIXME_RISCV end
 #endif
   }
 
