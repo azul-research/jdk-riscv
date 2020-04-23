@@ -168,7 +168,7 @@ public final class Class<T> implements java.io.Serializable,
 
     private static native void registerNatives();
     static {
-        registerNatives();
+     //   registerNatives();
     }
 
     /*

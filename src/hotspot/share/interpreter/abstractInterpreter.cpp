@@ -58,12 +58,16 @@
 void AbstractInterpreter::initialize() {
   if (_code != NULL) return;
 
+  printf("ai. INIT: %p\n", _entry_table[2]);
+
   // make sure 'imported' classes are initialized
   if (CountBytecodes || TraceBytecodes || StopInterpreterAt) BytecodeCounter::reset();
   if (PrintBytecodeHistogram)                                BytecodeHistogram::reset();
   if (PrintBytecodePairHistogram)                            BytecodePairHistogram::reset();
 
   InvocationCounter::reinitialize();
+
+  printf("ai. INIT-9: %p\n", _entry_table[2]);
 
 }
 
@@ -113,6 +117,7 @@ AbstractInterpreterGenerator::AbstractInterpreterGenerator(StubQueue* _code) {
 // Entry points
 
 AbstractInterpreter::MethodKind AbstractInterpreter::method_kind(const methodHandle& m) {
+
   // Abstract method?
   if (m->is_abstract()) return abstract;
 
@@ -215,6 +220,8 @@ address AbstractInterpreter::get_trampoline_code_buffer(AbstractInterpreter::Met
 }
 
 void AbstractInterpreter::update_cds_entry_table(AbstractInterpreter::MethodKind kind) {
+	        printf("ai. update_cds: %p\n", _entry_table[2]);
+
   if (DumpSharedSpaces || UseSharedSpaces) {
     address trampoline = get_trampoline_code_buffer(kind);
     _cds_entry_table[kind] = trampoline;
@@ -227,6 +234,8 @@ void AbstractInterpreter::update_cds_entry_table(AbstractInterpreter::MethodKind
       Disassembler::decode(buffer.insts_begin(), buffer.insts_end());
     }
   }
+                  printf("ai. update_cds-9: %p\n", _entry_table[2]);
+
 }
 
 #endif
@@ -469,6 +478,7 @@ bool AbstractInterpreter::bytecode_should_reexecute(Bytecodes::Code code) {
 
 void AbstractInterpreter::initialize_method_handle_entries() {
   // method handle entry kinds are generated later in MethodHandlesAdapterGenerator::generate:
+
   for (int i = method_handle_invoke_FIRST; i <= method_handle_invoke_LAST; i++) {
     MethodKind kind = (MethodKind) i;
     _entry_table[kind] = _entry_table[Interpreter::abstract];

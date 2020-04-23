@@ -171,7 +171,7 @@ void TemplateTable::shouldnotreachhere() {
 
 void TemplateTable::aconst_null() {
   transition(vtos, atos);
-  __ li_PPC(R25_tos, 0);
+  __ addi(R25_tos, R0, 0);
 }
 
 void TemplateTable::iconst(int value) {
@@ -315,10 +315,17 @@ void TemplateTable::fast_aldc(bool wide) {
   // We are resolved if the resolved reference cache entry contains a
   // non-null object (CallSite, etc.)
   __ get_cache_index_at_bcp(Rscratch, 1, index_size);  // Load index.
+    printf("fast_aldc-4: %p\n", __ pc());
+
   __ load_resolved_reference_at_index(R25_tos, Rscratch, &is_null);
+
+  __ unimplemented("take object from cache");
+
 
   // Convert null sentinel to NULL.
   int simm16_rest = __ load_const_optimized(Rscratch, Universe::the_null_sentinel_addr(), R0, true);
+
+
   __ ld_PPC(Rscratch, simm16_rest, Rscratch);
   __ cmpld_PPC(CCR0, R25_tos, Rscratch);
   if (VM_Version::has_isel()) {
@@ -333,13 +340,15 @@ void TemplateTable::fast_aldc(bool wide) {
   __ dispatch_epilog(atos, Bytecodes::length_for(bytecode()));
 
   __ bind(is_null);
-  __ load_const_optimized(R3_ARG1_PPC, (int)bytecode());
+  __ load_const_optimized(R11_ARG1, (int)bytecode());
 
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_ldc);
 
   // First time invocation - must resolve first.
-  __ call_VM(R25_tos, entry, R3_ARG1_PPC);
+  __ call_VM(R25_tos, entry, R11_ARG1, true);
+// __ call_VM(R25_tos, entry, R3_ARG1_PPC);
   __ verify_oop(R25_tos);
+  printf("fast_aldc-99: %p\n", __ pc());
 }
 
 void TemplateTable::ldc2_w() {
@@ -767,7 +776,10 @@ void TemplateTable::aload(int n) {
 }
 
 void TemplateTable::aload_0() {
-  aload_0_internal();
+  printf("aload_0: %p\n", __ pc());
+  // FixMe RISCV
+  // aload_0_internal();
+  aload(0);
 }
 
 void TemplateTable::nofast_aload_0() {
@@ -1858,6 +1870,8 @@ void TemplateTable::if_icmp(Condition cc) {
 void TemplateTable::if_nullcmp(Condition cc) {
   transition(atos, vtos);
 
+  printf("IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIi: %p\n", __ pc());
+
   if_cmp_common(cc, R25_tos, R0_ZERO, R5_scratch1, R6_scratch2);
 }
 
@@ -2149,7 +2163,7 @@ void TemplateTable::fast_binaryswitch() {
 }
 
 void TemplateTable::_return(TosState state) {
-  tty->print_cr("return #%i: %p", state, __ pc());
+  tty->print_cr("return #%i: %p %d", state, __ pc(), atos);
   transition(state, state);
   assert(_desc->calls_vm(),
          "inconsistent calls_vm information"); // call in remove_activation
@@ -2177,6 +2191,9 @@ void TemplateTable::_return(TosState state) {
     __ bind(Lskip_register_finalizer);
   }
 
+ tty->print_cr("return-35 #%i: %p %d", state, __ pc(), atos);
+
+
   if (SafepointMechanism::uses_thread_local_poll() && _desc->bytecode() != Bytecodes::_return_register_finalizer) {
     Label no_safepoint;
     __ ld(R5_scratch1, R24_thread, in_bytes(Thread::polling_page_offset()));
@@ -2187,6 +2204,8 @@ void TemplateTable::_return(TosState state) {
     __ pop(state);
     __ bind(no_safepoint);
   }
+
+  tty->print_cr("return-55 #%i: %p %d", state, __ pc(), atos);
 
   // Move the result value into the correct register and remove memory stack frame.
   __ remove_activation(state, /* throw_monitor_exception */ true);
@@ -2233,8 +2252,10 @@ void TemplateTable::_return(TosState state) {
 // Kills:
 //   - Rscratch
 void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Register Rscratch, size_t index_size) {
-
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
+
+  printf("resolve_cache_and_index-2: %p\n", __ pc());
+
   Label Lresolved, Ldone, L_clinit_barrier_slow;
 
   Bytecodes::Code code = bytecode();
@@ -2253,21 +2274,36 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
   __ li(R11_ARG1, (int) code);
+
+    printf("resolve_cache_and_index-9: %p\n", __ pc());
+
   __ beq(Rscratch, R11_ARG1, Lresolved);
+
 
   // Class initialization barrier slow path lands here as well.
   __ bind(L_clinit_barrier_slow);
 
+  printf("resolve_cache_and_index-10: %p\n", __ pc());
+
   address entry = CAST_FROM_FN_PTR(address, InterpreterRuntime::resolve_from_cache);
+
   __ li(R11_ARG1, (int) code);
   __ call_VM(noreg, entry, R11_ARG1, true);
+
 
   // Update registers with resolved info.
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
   __ j(Ldone);
 
   __ bind(Lresolved);
+
+  printf("resolve_cache_and_index-10a: %p\n", __ pc());
+
+
   __ acquire();
+
+  printf("resolve_cache_and_index-11a: %p\n", __ pc());
+
 
   // Class initialization barrier for static methods
   if (VM_Version::supports_fast_class_init_checks() && bytecode() == Bytecodes::_invokestatic) {
@@ -2329,7 +2365,6 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
                                                bool is_invokevirtual,
                                                bool is_invokevfinal,
                                                bool is_invokedynamic) {
-
   ByteSize cp_base_offset = ConstantPoolCache::base_offset();
   // Determine constant pool cache field offsets.
   assert(is_invokevirtual == (byte_no == f2_byte), "is_invokevirtual flag redundant");
@@ -2343,12 +2378,16 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
   if (is_invokevfinal) {
     assert(Ritable_index == noreg, "register not used");
     // Already resolved.
+    printf("LICCE-0.a: %p\n", __ pc());
     __ get_cache_and_index_at_bcp(Rcache, 1);
   } else {
+    printf("LICCE-0.b: %p\n", __ pc());
+
     resolve_cache_and_index(byte_no, Rcache, /* temp */ Rmethod, is_invokedynamic ? sizeof(u4) : sizeof(u2));
   }
 
   __ ld(Rmethod, Rcache, method_offset);
+  printf("LICCE-1: %p\n", __ pc());
   __ ld(Rflags, Rcache, flags_offset);
 
   if (Ritable_index != noreg) {
@@ -2796,6 +2835,8 @@ void TemplateTable::jvmti_post_field_mod(Register Rcache, Register Rscratch, boo
 // RISCV64: implement volatile stores as release-store (return bytecode contains an additional release).
 void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteControl rc) {
   Label Lvolatile;
+
+  printf("put: %d %d\n", byte_no, is_static);
 
   const Register Rcache        = R13_ARG3,  // Do not use ARG1/2 (causes trouble in jvmti_post_field_mod).
                  Rclass_or_obj = R31_TMP6,  // Needs to survive C call.
@@ -3373,6 +3414,8 @@ void TemplateTable::prepare_invoke(int byte_no,
   assert_different_registers(Rmethod, Rrecv, Rflags, Rscratch);
   assert_different_registers(Rret_addr, Rscratch);
 
+  printf("prepare_invoke-2: %p\n", __ pc());
+
   load_invoke_cp_cache_entry(byte_no, Rmethod, Rindex, Rflags, is_invokevirtual, false, is_invokedynamic);
 
   // Saving of SP done in call_from_interpreter.
@@ -3394,10 +3437,14 @@ void TemplateTable::prepare_invoke(int byte_no,
 
   // Load receiver if needed (after appendix is pushed so parameter size is correct).
   if (load_receiver) {
-    __ unimplemented("unimplemented part of TemplateTable::prepare_invoke");
+  //  __ unimplemented("unimplemented part of TemplateTable::prepare_invoke");
     const Register Rparam_count = Rscratch;
     __ andi(Rparam_count, Rflags, ConstantPoolCacheEntry::parameter_size_mask);
+    printf("prepare_invoke-4.1: %p\n", __ pc());
+
     __ load_receiver(Rparam_count, Rrecv);
+     printf("prepare_invoke-4.2: %p\n", __ pc());
+
     __ verify_oop(Rrecv);
   }
 
@@ -3414,6 +3461,8 @@ void TemplateTable::prepare_invoke(int byte_no,
     __ slli(Rret_type, Rret_type, LogBytesPerWord);
     // Get return address.
     __ add(Rtable_addr, Rtable_addr, Rret_type);
+    printf("prepare_invoke-99: %p\n", __ pc());
+
     __ ld(Rret_addr, Rtable_addr);
   }
 }
@@ -3442,32 +3491,44 @@ void TemplateTable::generate_vtable_call(Register Rrecv_klass, Register Rindex, 
 void TemplateTable::invokevirtual(int byte_no) {
   transition(vtos, vtos);
 
+  printf("invokevirtual-1: %p\n", __ pc());
+
   Register Rtable_addr = R5_scratch1,
            Rret_type = R6_scratch2,
            Rret_addr = R5_ARG3_PPC,
-           Rflags = R22_tmp2_PPC, // Should survive C call.
+           Rflags = R7_TMP2, // Should survive C call.
            Rrecv = R3_ARG1_PPC,
            Rrecv_klass = Rrecv,
            Rvtableindex_or_method = R31, // Should survive C call.
            Rnum_params = R4_ARG2_PPC,
-           Rnew_bc = R6_ARG4_PPC;
+           Rnew_bc = R6_ARG4_PPC,
+           Rtmp2 = AS_REGISTER(Register, R6); //R7_scratch3;
 
   Label LnotFinal;
 
   load_invoke_cp_cache_entry(byte_no, Rvtableindex_or_method, noreg, Rflags, /*virtual*/ true, false, false);
 
-  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
-  __ bfalse_PPC(CCR0, LnotFinal);
-
+  printf("invokevirtual-2: %p %d %0x\n", __ pc(), ConstantPoolCacheEntry::is_vfinal_shift, 1 << ConstantPoolCacheEntry::is_vfinal_shift);
+  __ li(Rtmp2, 1 << ConstantPoolCacheEntry::is_vfinal_shift);
+  __ andr(Rtmp2, Rflags, Rtmp2);
+  __ beqz(Rtmp2, LnotFinal);
+//  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
+  //__ bfalse_PPC(CCR0, LnotFinal);
+  
   if (RewriteBytecodes && !UseSharedSpaces && !DumpSharedSpaces) {
-    patch_bytecode(Bytecodes::_fast_invokevfinal, Rnew_bc, R6_scratch2);
+//	  __ unimplemented("invokevirtual - patch bytecode");
+ //   patch_bytecode(Bytecodes::_fast_invokevfinal, Rnew_bc, R6_scratch2);
   }
   invokevfinal_helper(Rvtableindex_or_method, Rflags, R5_scratch1, R6_scratch2);
 
   __ align(32, 12);
   __ bind(LnotFinal);
+   __ unimplemented("invokevirtual - non-final method");
+
   // Load "this" pointer (receiver).
-  __ rldicl_PPC(Rnum_params, Rflags, 64, 48);
+  __ andi(Rnum_params, Rflags, ConstantPoolCacheEntry::parameter_size_bits);
+  printf("invokevirtual-9: %p %d\n", __ pc(), ConstantPoolCacheEntry::parameter_size_bits);
+
   __ load_receiver(Rnum_params, Rrecv);
   __ verify_oop(Rrecv);
 
@@ -3503,33 +3564,105 @@ void TemplateTable::invokevfinal_helper(Register Rmethod, Register Rflags, Regis
   Register Rrecv = Rscratch2;
   Register Rnum_params = Rrecv;
 
-  __ ld_PPC(Rnum_params, in_bytes(Method::const_offset()), Rmethod);
-  __ lhz_PPC(Rnum_params /* number of params */, in_bytes(ConstMethod::size_of_parameters_offset()), Rnum_params);
+  /*
+  // Load receiver if needed (after appendix is pushed so parameter size is correct).
+  if (load_receiver) {
+  //  __ unimplemented("unimplemented part of TemplateTable::prepare_invoke");
+    const Register Rparam_count = Rscratch;
+    __ andi(Rparam_count, Rflags, ConstantPoolCacheEntry::parameter_size_mask);
+    printf("prepare_invoke-4.1: %p\n", __ pc());
+
+    __ load_receiver(Rparam_count, Rrecv);
+     printf("prepare_invoke-4.2: %p\n", __ pc());
+
+    __ verify_oop(Rrecv);
+  }
+
+  // Get return address.
+  {
+    Register Rtable_addr = Rscratch;
+    Register Rret_type = Rret_addr;
+    address table_addr = (address) Interpreter::invoke_return_entry_table_for(code);
+
+    // Get return type. It's coded into the upper 4 bits of the lower half of the 64 bit value.
+    __ srli(Rret_type, Rflags, ConstantPoolCacheEntry::tos_state_shift);
+    __ andi(Rret_type, Rret_type, ConstantPoolCacheEntry::tos_state_mask);
+    __ load_dispatch_table(Rtable_addr, (address*)table_addr);
+    __ slli(Rret_type, Rret_type, LogBytesPerWord);
+    // Get return address.
+    __ add(Rtable_addr, Rtable_addr, Rret_type);
+    __ ld(Rret_addr, Rtable_addr);
+  }
+}
+   */
+
+  printf("invokevfinal_helper-0: %p %d\n", __ pc(), Method::const_offset());
+  __ ld(Rnum_params, in_bytes(Method::const_offset()), Rmethod);
+  printf("invokevfinal_helper-1: %p %d\n", __ pc(), in_bytes(ConstMethod::size_of_parameters_offset()));
+  __ lhu(Rnum_params /* number of params */, Rnum_params, in_bytes(ConstMethod::size_of_parameters_offset()));
+  printf("invokevfinal_helper-2: %p\n", __ pc());
 
   // Get return address.
   Register Rtable_addr = Rscratch1,
            Rret_addr   = Rflags,
            Rret_type   = Rret_addr;
   // Get return type. It's coded into the upper 4 bits of the lower half of the 64 bit value.
-  __ rldicl_PPC(Rret_type, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
+
+  __ srli(Rret_type, Rflags, ConstantPoolCacheEntry::tos_state_shift); 
+  __ andi(Rret_type, Rret_type, ConstantPoolCacheEntry::tos_state_mask);
+
+  printf("invokevfinal_helper-4: %p\n", __ pc());
+
+
+  //__ rldicl_PPC(Rret_type, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
   __ load_dispatch_table(Rtable_addr, Interpreter::invoke_return_entry_table());
-  __ sldi_PPC(Rret_type, Rret_type, LogBytesPerWord);
-  __ ldx_PPC(Rret_addr, Rret_type, Rtable_addr);
+
+  printf("invokevfinal_helper-5: %p\n", __ pc());
+
+  __ slli(Rret_type, Rret_type, LogBytesPerWord);
+  printf("invokevfinal_helper-6: %p\n", __ pc());
+
+  __ ld(Rret_addr, Rret_type, Rtable_addr);
 
   // Load receiver and receiver NULL check.
   __ load_receiver(Rnum_params, Rrecv);
-  __ null_check_throw(Rrecv, -1, Rscratch1);
+ // __ null_check_throw(Rrecv, -1, Rscratch1); FixMe RISCV
 
-  __ profile_final_call(Rrecv, Rscratch1);
+//  __ profile_final_call(Rrecv, Rscratch1); FixMe RISCV
   // Argument and return type profiling.
-  __ profile_arguments_type(Rmethod, Rscratch1, Rscratch2, true);
+//  __ profile_arguments_type(Rmethod, Rscratch1, Rscratch2, true);  FixMe RISCV
 
   // Do the call.
   __ call_from_interpreter(Rmethod, Rret_addr, Rscratch1, Rscratch2);
 }
 
 void TemplateTable::invokespecial(int byte_no) {
-  //FIXME_RISCV
+	printf("invokespecial-1: %d %p\n", byte_no, __ pc());
+
+  Register Rtable_addr = R10_ARG0,
+           Rret_addr   = R11_ARG1,
+           Rflags      = R12_ARG2,
+           Rrecv       = R13_ARG3;
+
+    prepare_invoke(byte_no, R27_method, Rret_addr, noreg, Rrecv, Rflags, R5_scratch1);
+
+   __ add(R5_scratch1, 0, R5_scratch1);
+
+   printf("invokespecial-6: %p\n", __ pc());
+
+  __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
+
+
+//  prepare_invoke(byte_no, rbx, noreg,  // get f1 Method*
+          //       rcx);  // get receiver also for null check
+  //__ verify_oop(rcx);
+  //__ null_check(rcx);
+  // do the call
+  //__ profile_call(rax);
+  //__ profile_arguments_type(rax, rbx, rbcp, false);
+  //__ jump_from_interpreted(rbx, rax);
+
+  //FIXME_RISCiV
   /*assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
@@ -3553,6 +3686,7 @@ void TemplateTable::invokespecial(int byte_no) {
 }
 
 void TemplateTable::invokestatic(int byte_no) {
+	printf("------------------------- invokestatic-1: %p %d\n", __ pc(), byte_no);
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
@@ -3566,6 +3700,9 @@ void TemplateTable::invokestatic(int byte_no) {
   // Argument and return type profiling.
   // FIXME_RISCV
   // __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
+ 
+   printf("invokestatic-5: %p\n", __ pc());
+   __ add(R5_scratch1, 0, R5_scratch1);
 
   __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
 }

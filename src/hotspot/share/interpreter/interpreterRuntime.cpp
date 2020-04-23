@@ -121,6 +121,8 @@ public:
   ConstantPoolCacheEntry* cache_entry() const    { return cache_entry_at(Bytes::get_native_u2(bcp() + 1)); }
 
   oop callee_receiver(Symbol* signature) {
+	  ResourceMark rm;
+	  printf("callee_receiver: %s\n", signature->as_C_string());
     return _last_frame.interpreter_callee_receiver(signature);
   }
   BasicObjectLock* monitor_begin() const {
@@ -856,6 +858,8 @@ void InterpreterRuntime::resolve_invoke(JavaThread* thread, Bytecodes::Code byte
     methodHandle m (thread, last_frame.method());
     Bytecode_invoke call(m, last_frame.bci());
     Symbol* signature = call.signature();
+    oop qq = last_frame.callee_receiver(signature);
+    printf("qq: %p\n", qq);
     receiver = Handle(thread, last_frame.callee_receiver(signature));
 
     assert(Universe::heap()->is_in_reserved_or_null(receiver()),

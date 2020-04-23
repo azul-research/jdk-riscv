@@ -235,8 +235,8 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
 }
 
 void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rrecv_dst) {
-  sldi_PPC(Rrecv_dst, Rparam_count, Interpreter::logStackElementSize);
-  ldx_PPC(Rrecv_dst, Rrecv_dst, R23_esp);
+  slli(Rrecv_dst, Rparam_count, Interpreter::logStackElementSize);
+  ld(Rrecv_dst, Rrecv_dst, R23_esp);
 }
 
 // helpers for expression stack
@@ -448,17 +448,20 @@ void InterpreterMacroAssembler::get_u4(Register Rdst, Register Rsrc, int offset,
 // Load object from cpool->resolved_references(index).
 void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result, Register index, Label *L_handle_null) {
   assert_different_registers(result, index);
+
   get_constant_pool(result);
 
   // Convert from field index to resolved_references() index and from
   // word index to byte offset. Since this is a java object, it can be compressed.
   Register tmp = index;  // reuse
-  sldi_PPC(tmp, index, LogBytesPerHeapOop);
+  slli(tmp, index, LogBytesPerHeapOop);
   // Load pointer for resolved_references[] objArray.
-  ld_PPC(result, ConstantPool::cache_offset_in_bytes(), result);
-  ld_PPC(result, ConstantPoolCache::resolved_references_offset_in_bytes(), result);
+  ld(result, ConstantPool::cache_offset_in_bytes(), result);
+  ld(result, ConstantPoolCache::resolved_references_offset_in_bytes(), result);
+
   resolve_oop_handle(result);
 #ifdef ASSERT
+  /* FixME RISCV
   Label index_ok;
   lwa_PPC(R0, arrayOopDesc::length_offset_in_bytes(), result);
   sldi_PPC(R0, R0, LogBytesPerHeapOop);
@@ -466,9 +469,11 @@ void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result
   blt_PPC(CCR0, index_ok);
   stop("resolved reference index out of bounds", 0x09256);
   bind(index_ok);
+  */
 #endif
   // Add in the index.
-  add_PPC(result, tmp, result);
+  add(result, tmp, result);
+
   load_heap_oop(result, arrayOopDesc::base_offset_in_bytes(T_OBJECT), result, tmp, R0, false, 0, L_handle_null);
 }
 
@@ -1081,6 +1086,7 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
     bind(Lok);
   }
 #endif // ASSERT
+  printf("call_from_interpreter-50: %p\n", pc());
 
   mv(R21_sender_SP, R2_SP);
 
@@ -1103,6 +1109,9 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   ld(Rscratch2, R8_FP, _ijava_state(top_frame_sp));
   asm_assert_eq(R21_sender_SP, Rscratch2, "top_frame_sp incorrect", 0x951);
 #endif
+
+
+  printf("call_from_interpreter-99: %p\n", pc());
 
   jr(Rtarget_addr);
 }

@@ -805,6 +805,7 @@ class EntryFrameOopFinder: public SignatureInfo {
 oop* frame::interpreter_callee_receiver_addr(Symbol* signature) {
   ArgumentSizeComputer asc(signature);
   int size = asc.size();
+  printf("icra size: %d\n", size);
   return (oop *)interpreter_frame_tos_at(size);
 }
 

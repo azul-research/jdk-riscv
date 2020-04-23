@@ -608,6 +608,10 @@ address TemplateInterpreterGenerator::generate_exception_handler_common(const ch
 address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, int step, size_t index_size) {
   address entry = __ pc();
 
+  if (state == 9) {
+      printf("return entry-1: %p %d %d\n", __ pc(), state, atos);
+  }
+
   // Move the value out of the return register back to the TOS cache of current frame.
   switch (state) {
     case ltos:
@@ -623,7 +627,17 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     default  : ShouldNotReachHere();
   }
 
+  if (state == 9) {
+      printf("return entry-2: %p %d %d\n", __ pc(), state, atos);
+  }
+
+
   __ restore_interpreter_state();
+
+    if (state == 9) {
+      printf("return entry-3: %p %d %d\n", __ pc(), state, atos);
+  }
+
 
   // Resize frame to top_frame_sp
   __ ld(R2_SP, _ijava_state(top_frame_sp), R8_FP);
@@ -632,8 +646,8 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ li(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0));
 
   if (state == atos) {
-    __ unimplemented("return for atos is not implemented");
-    __ profile_return_type(R3_RET_PPC, R5_scratch1, R6_scratch2);
+ //   __ unimplemented("return for atos is not implemented");
+  //  __ profile_return_type(R3_RET_PPC, R5_scratch1, R6_scratch2);
   }
 
   const Register cache = R5_scratch1;
@@ -651,6 +665,11 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 
   __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
   __ check_and_handle_earlyret(R5_scratch1, R6_scratch2);
+
+    if (state == 9) {
+      printf("return entry-99: %p %d %d\n", __ pc(), state, atos);
+  }
+
 
   __ dispatch_next(state, step);
   return entry;
@@ -1199,6 +1218,7 @@ void TemplateInterpreterGenerator::bang_stack_shadow_pages(bool native_call) {
 address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
+  __ add(R27_method, 0, R27_method);
   __ illtrap();
   return entry;
 
@@ -1725,6 +1745,9 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   // --------------------------------------------------------------------------
   // Start executing instructions.
+
+  printf("normal entry: dnext: %p\n", __ pc());
+
   __ dispatch_next(vtos);
 
   // --------------------------------------------------------------------------
@@ -2224,6 +2247,8 @@ void TemplateInterpreterGenerator::set_vtos_entry_points(Template* t,
 address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   //__ flush_bundle();
   address entry = __ pc();
+
+  printf("generate_trace_code: %p\n", entry);
 
   const char *bname = NULL;
   uint tsize = 0;

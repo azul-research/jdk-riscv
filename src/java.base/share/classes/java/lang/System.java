@@ -100,7 +100,7 @@ public final class System {
      */
     private static native void registerNatives();
     static {
-        registerNatives();
+    //    registerNatives();
     }
 
     /** Don't let anyone instantiate this class */
