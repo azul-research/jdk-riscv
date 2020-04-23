@@ -2,7 +2,7 @@ package java.lang.jmmtest;
 
 /**
  */
-public class JmmTest {
+public class DekkerTest {
     /**
      */
     public static volatile boolean actor1Started, actor2Started;
@@ -19,7 +19,7 @@ public class JmmTest {
     /**
      */
     public static void reset0() {
-        iterations = 20000;
+        iterations = 30000;
         actor1Started = false;
         actor2Started = false;
         testData = new TestData[iterations];

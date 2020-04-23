@@ -3722,8 +3722,8 @@ Method* find_test_method(InstanceKlass* klass, const char* method_name) {
   return 0;
 }
 
-JavaValue call_method(const char *name, BasicType return_type, TRAPS) {
-  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+JavaValue call_method(const char *name, BasicType return_type, Symbol* class_name, TRAPS) {
+  Klass *klass = SystemDictionary::resolve_or_fail(class_name, true, THREAD);
   Method *method = find_test_method(InstanceKlass::cast(klass), name);
   JavaValue result(return_type);
   JavaCallArguments args;
@@ -3733,23 +3733,44 @@ JavaValue call_method(const char *name, BasicType return_type, TRAPS) {
 
 void thread_entry_point(JavaThread* thread, TRAPS) {
   TestJavaThread* test_thread = (TestJavaThread*) thread;
-  JavaValue result = call_method(test_thread->get_test_method(), T_VOID, CHECK);
+  JavaValue result = call_method(test_thread->get_test_method(), T_VOID, test_thread->get_class_name(), CHECK);
   //fprintf(stderr, "Default test method call result: %d\n", result.get_jint());
 }
 
-void print_jmm_test_results(TRAPS) {
-  call_method("calcResults", T_VOID, CHECK);
-  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+void print_dekker_test_results(Symbol* class_name, TRAPS) {
+  call_method("calcResults", T_VOID, class_name, CHECK);
+  Klass *klass = SystemDictionary::resolve_or_fail(class_name, true, THREAD);
 
   int errors = get_int_field(InstanceKlass::cast(klass), "errors");
   int side_by_side = get_int_field(InstanceKlass::cast(klass), "sideBySide");
   int a_outruns_b = get_int_field(InstanceKlass::cast(klass), "aOutrunsB");
   int b_outruns_a = get_int_field(InstanceKlass::cast(klass), "bOutrunsA");
 
-  fprintf(stderr, "errors: %i\n", errors);
+  class_name->print();
+  fprintf(stderr, "\nerrors: %i\n", errors);
   fprintf(stderr, "side_by_side: %i\n", side_by_side);
   fprintf(stderr, "a_outruns_b: %i\n", a_outruns_b);
-  fprintf(stderr, "b_outruns_a: %i\n", b_outruns_a);
+  fprintf(stderr, "b_outruns_a: %i\n\n", b_outruns_a);
+}
+
+void print_jmm_test_results(Symbol* class_name, TRAPS) {
+  call_method("calcResults", T_VOID, class_name, CHECK);
+  Klass *klass = SystemDictionary::resolve_or_fail(class_name, true, THREAD);
+  int errors = get_int_field(InstanceKlass::cast(klass), "errors");
+  class_name->print();
+  fprintf(stderr, "\nerrors: %i\n\n", errors);
+}
+
+void print_hb_test_results(Symbol* class_name, TRAPS) {
+  call_method("calcResults", T_VOID, class_name, CHECK);
+  Klass *klass = SystemDictionary::resolve_or_fail(class_name, true, THREAD);
+
+  int errors = get_int_field(InstanceKlass::cast(klass), "errors");
+  int happened_before = get_int_field(InstanceKlass::cast(klass), "happenedBefore");
+
+  class_name->print();
+  fprintf(stderr, "\nerrors: %i\n", errors);
+  fprintf(stderr, "happenedBefore: %i\n\n", happened_before);
 }
 
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
@@ -3788,24 +3809,24 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   }
 
   if (TestJmm) {
-    initialize_class(vmSymbols::java_lang_jmmtest_JmmTest(), CHECK);
-    char *testMethods[2] = { "actor1", "actor2" };
-    JmmTest test("reset0", testMethods, 2, &print_jmm_test_results);
-    JmmTest::run_all(&test, 1, THREAD);
-    /*Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, CHECK);
-    put_bool_field(InstanceKlass::cast(klass), "start0", false);
-    put_bool_field(InstanceKlass::cast(klass), "calcFinished", false);
-
-    TestJavaThread *thread1 = new TestJavaThread("reset0", &thread_entry_point);
-    TestJavaThread *thread2 = new TestJavaThread("actor1", &thread_entry_point);
-    TestJavaThread *thread3 = new TestJavaThread("actor2", &thread_entry_point);
-    TestJavaThread *thread4 = new TestJavaThread("calcResults", &thread_entry_point);
-
-    os::start_thread(thread1);
-    os::start_thread(thread2);
-    os::start_thread(thread3);
-    os::start_thread(thread4);
-    print_jmm_test_results(THREAD);*/
+    char* methods[4] = { "actor1", "actor2", "actor3", "actor4" };
+    JmmTest tests[14] = {
+        JmmTest(vmSymbols::java_lang_jmmtest_DekkerTest(), &print_dekker_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_ReadAfterWrite(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_HB1(), &print_hb_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_HB2(), &print_hb_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CoherenceVolatile(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_ReadAfterWrite(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest1(), methods, 4, &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest2(), methods, 4, &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest3(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest4(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest5(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest6(), methods, 3, &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_AtomicLong(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_FinalFieldTest(), &print_jmm_test_results)
+    };
+    JmmTest::run_all(tests, 14, THREAD);
   }
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
 
@@ -5297,6 +5318,10 @@ const char* TestJavaThread::get_test_method() {
   return test_method;
 }
 
+Symbol* TestJavaThread::get_class_name() {
+  return class_name;
+}
+
 void TestJavaThread::join() {
   while (!is_terminated()) {}
 }
@@ -5443,11 +5468,16 @@ void TestJavaThread::exit(bool destroy_vm, JavaThread::ExitType exit_type) {
 }
 
 void JmmTest::run(TRAPS) {
-  call_method(before_test_method_name, T_VOID, CHECK);
+  char* default_methods[2] = { "actor1", "actor2" };
+  if (actor_method_names == 0) {
+    actor_method_names = default_methods;
+  }
+  initialize_class(class_name, CHECK);
+  call_method(before_test_method_name, T_VOID, class_name, CHECK);
 
   TestJavaThread* threads[actors_number];
   for (int i = 0; i < actors_number; i++) {
-    threads[i] = new TestJavaThread(actor_method_names[i], &thread_entry_point);
+    threads[i] = new TestJavaThread(actor_method_names[i], &thread_entry_point, class_name);
   }
 
   for (int i = 0; i < actors_number; i++) {
@@ -5457,7 +5487,7 @@ void JmmTest::run(TRAPS) {
     threads[i]->join();
   }
 
-  after_test(CHECK);
+  after_test(class_name, CHECK);
 }
 
 void JmmTest::run_all(JmmTest* tests, size_t size, TRAPS) {

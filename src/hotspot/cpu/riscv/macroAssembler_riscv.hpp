@@ -493,6 +493,12 @@ class MacroAssembler: public Assembler {
                 Register dest_current_value, RegisterOrConstant compare_value, Register exchange_value,
                 Register addr_base, int semantics, bool cmpxchgx_hint = false,
                 Register int_flag_success = noreg, Label* failed = NULL, bool contention_hint = false, bool weak = false);
+  void cmpxchgd_simple(Register dest_current_value, Register compare_value, Register exchange_value,
+                       Register addr_base, Register tmp, Label* failed);
+  void cmpxchg_for_lock_acquire(Register dest_current_value, Register compare_value, Register exchange_value,
+                                Register addr_base, Register tmp, Label* failed_ext);
+  void cmpxchg_for_lock_release(Register dest_current_value, Register compare_value, Register exchange_value,
+                                Register addr_base, Register tmp, Label* failed_ext);
 
   // interface method calling
   void lookup_interface_method(Register recv_klass,

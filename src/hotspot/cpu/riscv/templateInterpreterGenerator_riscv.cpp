@@ -1000,9 +1000,8 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 
   // Set up registers.
   __ add(R26_locals, R23_esp, Rsize_of_parameters); // R26_locals should point to the first method argument(local 0).
-  Register RXX_monitor = R5_scratch1; // TODO change RXX_monitor register
-  __ addi(RXX_monitor, R8_FP, -frame::frame_header_size); // Frame will be resized on monitor pushing.
-  __ addi(R23_esp, RXX_monitor, -Interpreter::stackElementSize);
+  __ addi(R18_monitor, R8_FP, -frame::frame_header_size); // Frame will be resized on monitor pushing.
+  __ addi(R23_esp, R18_monitor, -Interpreter::stackElementSize);
 
   // Set up interpreter state registers.
 
@@ -1053,7 +1052,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 #endif
   // We have to initialize some frame slots for native calls (accessed by GC).
   if (native_call) {
-    __ std_PPC(RXX_monitor, _ijava_state(monitors), R2_SP);
+    __ std_PPC(R18_monitor, _ijava_state(monitors), R2_SP);
     __ std_PPC(R22_bcp, _ijava_state(bcp), R2_SP);
     if (ProfileInterpreter) { __ std_PPC(R28_mdx_PPC, _ijava_state(mdx), R2_SP); }
   }

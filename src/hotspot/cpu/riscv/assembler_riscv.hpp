@@ -2125,8 +2125,8 @@ class Assembler : public AbstractAssembler {
   inline void remw(    Register d, Register s1, Register s2);
   inline void remuw(   Register d, Register s1, Register s2);
   // amo
-  inline void lrw(     Register d, Register s1,              bool aq, bool rl);
-  inline void scw(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrw(     Register d, Register s1,              bool aq = false, bool rl = false);
+  inline void scw(     Register d, Register s1, Register s2, bool aq = false, bool rl = false);
   inline void amoswapw(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoaddw( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoxorw( Register d, Register s1, Register s2, bool aq, bool rl);
@@ -2136,8 +2136,8 @@ class Assembler : public AbstractAssembler {
   inline void amomaxw( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amominuw(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amomaxuw(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void lrd(     Register d, Register s1,              bool aq, bool rl);
-  inline void scd(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrd(     Register d, Register s1,              bool aq = false, bool rl = false);
+  inline void scd(     Register d, Register s1, Register s2, bool aq = false, bool rl = false);
   inline void amoswapd(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoaddd( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoxord( Register d, Register s1, Register s2, bool aq, bool rl);
