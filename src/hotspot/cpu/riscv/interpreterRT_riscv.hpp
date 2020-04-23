@@ -38,6 +38,7 @@ class SignatureHandlerGenerator: public NativeSignatureIterator {
   // number of already used argument registers
   int _int_passed_args;
   int _float_passed_args;
+  int _used_stack_words;
 
   void pass_int();
   void pass_long();

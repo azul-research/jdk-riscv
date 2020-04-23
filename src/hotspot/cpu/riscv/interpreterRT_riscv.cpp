@@ -42,15 +42,16 @@
 // The first Java argument is at index -1.
 #define locals_j_arg_at(index)    R26_locals, (Interpreter::local_offset_in_bytes(index))
 // The first C argument is at index 0.
-#define sp_c_arg_at(index)        R2_SP, ((index)*wordSize + frame::frame_header_size)
+#define sp_c_arg_at(index)        R2_SP, ((index) * wordSize)
 
 // Implementation of SignatureHandlerGenerator
 
 InterpreterRuntime::SignatureHandlerGenerator::SignatureHandlerGenerator(
     const methodHandle& method, CodeBuffer* buffer) : NativeSignatureIterator(method) {
   _masm = new MacroAssembler(buffer);
-  _int_passed_args = 0;
+  _int_passed_args = method->is_native() ? 2 : 0;
   _float_passed_args = 0;
+  _used_stack_words = 0;
 }
 
 void InterpreterRuntime::SignatureHandlerGenerator::pass_int() {
@@ -59,7 +60,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_int() {
 
   __ lw(r, locals_j_arg_at(offset())); // sign extension of integer
   if (!arg.is_register()) {
-    __ sd(r, sp_c_arg_at(jni_offset()));
+    __ sd(r, sp_c_arg_at(_used_stack_words++));
   }
 }
 
@@ -69,7 +70,10 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_long() {
 
   __ ld(r, locals_j_arg_at(offset() + 1)); // long resides in upper slot
   if (!arg.is_register()) {
-    __ sd(r, sp_c_arg_at(jni_offset()));
+    __ sd(r, sp_c_arg_at(_used_stack_words++));
+#ifndef _LP64
+  ++used_stack_words;
+#endif
   }
 }
 
@@ -79,7 +83,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_float() {
 
   __ flw(r, locals_j_arg_at(offset()));
   if (jni_offset() > 8) {
-    __ fsw(r, sp_c_arg_at(jni_offset()));
+    __ fsw(r, sp_c_arg_at(_used_stack_words++));
   }
 }
 
@@ -89,7 +93,10 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_double() {
 
   __ fld(r, locals_j_arg_at(offset() + 1));
   if (jni_offset() > 8) {
-    __ fsd(r, sp_c_arg_at(jni_offset()));
+    __ fsd(r, sp_c_arg_at(_used_stack_words++));
+#ifndef _LP64
+    ++used_stack_words;
+#endif
   }
 }
 
@@ -109,7 +116,7 @@ void InterpreterRuntime::SignatureHandlerGenerator::pass_object() {
   __ addi(r, locals_j_arg_at(offset()));
   __ bind(do_null);
   if (!jni_arg.is_register()) {
-    __ sd(r, sp_c_arg_at(jni_offset()));
+    __ sd(r, sp_c_arg_at(_used_stack_words++));
   }
 }
 

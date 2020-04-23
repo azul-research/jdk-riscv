@@ -154,8 +154,8 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   // two arguments are reserved, but we don't count it here
   __ li(ipcnt, 0L);
-  // arg_c points to 3rd C argument
-  __ addi(arg_c, R2_SP, 2 * BytesPerWord);
+  // arg_c points to first C argument on the stack
+  __ mv(arg_c, R2_SP);
   // no floating-point args parsed so far
   __ li(fpcnt, 0L);
 
