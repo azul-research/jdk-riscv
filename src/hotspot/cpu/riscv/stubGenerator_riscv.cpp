@@ -81,7 +81,7 @@ class StubGenerator: public StubCodeGenerator {
     address start = __ pc();
 
     // some sanity checks
-    assert((sizeof(frame::fp_ra) % 16) == 0,                  "unaligned");
+    assert((sizeof(frame::abi_frame) % 16) == 0,              "unaligned");
     assert((sizeof(frame::spill_nonvolatiles) % 16) == 0,     "unaligned");
     assert((sizeof(frame::parent_ijava_frame_abi) % 16) == 0, "unaligned");
     assert((sizeof(frame::entry_frame_locals) % 16) == 0,     "unaligned");
@@ -95,7 +95,6 @@ class StubGenerator: public StubCodeGenerator {
 
     Register r_temp                         = R5_TMP0;
     Register r_top_of_arguments_addr        = R6_TMP1;
-    Register r_entryframe_fp                = R8_FP;
 
     {
       // Stack on entry to call_stub:
@@ -109,18 +108,9 @@ class StubGenerator: public StubCodeGenerator {
       Register r_argument_addr              = R29_TMP4;
       Register r_argumentcopy_addr          = R30_TMP5;
       Register r_argument_size_in_bytes     = R31_TMP6;
-      Register r_frame_size                 = R9_S1;
+      Register r_frame_size                 = R7_TMP2;
 
       Label arguments_copied;
-
-      // Save fp and ra to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_fp_ra(R2_SP, _fp_ra_offset_neg);
-
-      // Save non-volatiles GPRs to ENTRY_FRAME (not yet pushed, but it's safe).
-      __ save_nonvolatile_gprs(R2_SP, _spill_nonvolatiles_offset_neg);
-
-      // Keep copy of our frame pointer (caller's SP).
-      __ mv(r_entryframe_fp, R2_SP);
 
       BLOCK_COMMENT("Push ENTRY_FRAME including arguments");
       // Push ENTRY_FRAME including arguments:
@@ -131,6 +121,12 @@ class StubGenerator: public StubCodeGenerator {
       //              [ENTRY_FRAME_LOCALS]
       //      F1      [C_FRAME]
       //              ...
+
+      // Save fp and ra to ENTRY_FRAME (will be pushed later).
+      __ save_abi_frame(R2_SP, 0);
+
+      // Save non-volatiles GPRs to ENTRY_FRAME (will be pushed later).
+      __ save_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
 
       // calculate frame size
 
@@ -147,31 +143,26 @@ class StubGenerator: public StubCodeGenerator {
       __ add(r_frame_size, r_argument_size_in_bytes,
                  r_frame_alignment_in_bytes);
 
-      // size += top abi's size
-      __ addi(r_frame_size,
-             r_frame_size, frame::top_ijava_frame_abi_size);
-
       // size += size of call_stub locals
-      __ addi(r_frame_size,
-              r_frame_size, frame::entry_frame_locals_size);
+      __ addi(r_frame_size, r_frame_size, frame::entry_frame_size);
 
       // push ENTRY_FRAME
       __ push_frame(r_frame_size, r_temp);
 
       // initialize call_stub locals (step 1)
       __ sd(r_arg_call_wrapper_addr,
-               r_entryframe_fp, _top_ijava_frame_abi_neg(call_wrapper_address));
+            R8_FP, _entry_frame_locals(call_wrapper_address));
       __ sd(r_arg_result_addr,
-               r_entryframe_fp, _top_ijava_frame_abi_neg(result_address));
+            R8_FP, _entry_frame_locals(result_address));
       __ sd(r_arg_result_type,
-               r_entryframe_fp, _top_ijava_frame_abi_neg(result_type));
+            R8_FP, _entry_frame_locals(result_type));
       // we will save arguments_tos_address later
 
 
       BLOCK_COMMENT("Copy Java arguments");
       // copy Java arguments
 
-      // Calculate top_of_arguments_addr which will be R25_tos (not prepushed) later.
+      // Calculate top_of_arguments_addr which will be R23_tos (not prepushed) later.
       __ add(r_top_of_arguments_addr,
              R2_SP, r_frame_alignment_in_bytes);
 
@@ -214,7 +205,7 @@ class StubGenerator: public StubCodeGenerator {
     {
       BLOCK_COMMENT("Call frame manager or native entry.");
       // Call frame manager or native entry.
-      Register r_new_arg_entry = R9_S1;
+      Register r_new_arg_entry = R7_TMP2;
       assert_different_registers(r_new_arg_entry, r_top_of_arguments_addr,
                                  r_arg_method, r_arg_thread);
 
@@ -233,7 +224,7 @@ class StubGenerator: public StubCodeGenerator {
 
       // initialize call_stub locals (step 2)
       // now save tos as arguments_tos_address
-      __ sd(tos, r_entryframe_fp, _top_ijava_frame_abi(arguments_tos_address));
+      __ sd(tos, R8_FP, _entry_frame_locals(arguments_tos_address));
 
       // load argument registers for call
       __ mv(R27_method, r_arg_method);
@@ -269,7 +260,6 @@ class StubGenerator: public StubCodeGenerator {
       return_address = __ call_stub(r_new_arg_entry); //TODO call_stub
     }
 
-#if 0
     {
       BLOCK_COMMENT("Returned from frame manager or native entry.");
       // Returned from frame manager or native entry.
@@ -286,8 +276,7 @@ class StubGenerator: public StubCodeGenerator {
       // Just pop the topmost frame ...
       //
 
-      Label ret_is_object;
-      Label ret_is_long;
+      Label ret_is_object_or_long;
       Label ret_is_float;
       Label ret_is_double;
 
@@ -295,29 +284,19 @@ class StubGenerator: public StubCodeGenerator {
       // to frame manager / native entry.
       // Access all locals via frame pointer, because we know nothing about
       // the topmost frame's size.
-      __ ld_PPC(r_entryframe_fp, _abi_PPC(callers_sp), R1_SP_PPC);
-      assert_different_registers(r_entryframe_fp, R3_RET_PPC, r_arg_result_addr, r_arg_result_type, r_cr, r_lr);
-      __ ld_PPC(r_arg_result_addr,
-            _entry_frame_locals_neg(result_address), r_entryframe_fp);
-      __ ld_PPC(r_arg_result_type,
-            _entry_frame_locals_neg(result_type), r_entryframe_fp);
-      __ ld_PPC(r_cr, _abi_PPC(cr), r_entryframe_fp);
-      __ ld_PPC(r_lr, _abi_PPC(lr), r_entryframe_fp);
 
-      // pop frame and restore non-volatiles, LR and CR
-      __ mr_PPC(R1_SP_PPC, r_entryframe_fp);
-      __ mtcr_PPC(r_cr);
-      __ mtlr_PPC(r_lr);
+      assert_different_registers(R10_RET1, r_arg_result_addr, r_arg_result_type);
 
-      // Store result depending on type. Everything that is not
-      // T_OBJECT, T_LONG, T_FLOAT, or T_DOUBLE is treated as T_INT.
-      __ cmpwi_PPC(CCR0, r_arg_result_type, T_OBJECT);
-      __ cmpwi_PPC(CCR1, r_arg_result_type, T_LONG);
-      __ cmpwi_PPC(CCR5, r_arg_result_type, T_FLOAT);
-      __ cmpwi_PPC(CCR6, r_arg_result_type, T_DOUBLE);
+      __ ld(r_arg_result_addr, R8_FP, _entry_frame_locals(result_address));
+      __ ld(r_arg_result_type, R8_FP, _entry_frame_locals(result_type));
+
+
+      // pop entry frame and restore non-volatiles, SP and FP
+      __ mv(R2_SP, R8_FP);
+      __ restore_abi_frame(R8_FP, 0);
 
       // restore non-volatile registers
-      __ restore_nonvolatile_gprs(R1_SP_PPC, spill_nonvolatiles_offset);
+      __ restore_nonvolatile_gprs(R2_SP, -frame::abi_frame_size);
 
 
       // Stack on exit from call_stub:
@@ -328,38 +307,34 @@ class StubGenerator: public StubCodeGenerator {
       //  no call_stub frames left.
 
       // All non-volatiles have been restored at this point!!
-      assert(R3_RET_PPC == R3, "R3_RET_PPC should be R3");
 
-      __ beq_PPC(CCR0, ret_is_object);
-      __ beq_PPC(CCR1, ret_is_long);
-      __ beq_PPC(CCR5, ret_is_float);
-      __ beq_PPC(CCR6, ret_is_double);
+      __ li(r_temp, T_OBJECT);
+      __ beq(r_arg_result_type, r_temp, ret_is_object_or_long);
+      __ li(r_temp, T_LONG);
+      __ beq(r_arg_result_type, r_temp, ret_is_object_or_long);
+      __ li(r_temp, T_FLOAT);
+      __ beq(r_arg_result_type, r_temp, ret_is_float);
+      __ li(r_temp, T_DOUBLE);
+      __ beq(r_arg_result_type, r_temp, ret_is_double);
 
-      // default:
-      __ stw_PPC(R3_RET_PPC, 0, r_arg_result_addr);
-      __ blr_PPC(); // return to caller
+      __ sw(R10_RET1, r_arg_result_addr, 0);
+      __ ret(); // return to caller
 
-      // case T_OBJECT:
-      __ bind(ret_is_object);
-      __ std_PPC(R3_RET_PPC, 0, r_arg_result_addr);
-      __ blr_PPC(); // return to caller
-
-      // case T_LONG:
-      __ bind(ret_is_long);
-      __ std_PPC(R3_RET_PPC, 0, r_arg_result_addr);
-      __ blr_PPC(); // return to caller
+      // case T_OBJECT, T_LONG:
+      __ bind(ret_is_object_or_long);
+      __ sd(R10_RET1, r_arg_result_addr, 0);
+      __ ret(); // return to caller
 
       // case T_FLOAT:
       __ bind(ret_is_float);
-      __ stfs_PPC(F1_RET_PPC, 0, r_arg_result_addr);
-      __ blr_PPC(); // return to caller
+      __ fsw(F10_RET, r_arg_result_addr, 0);
+      __ ret(); // return to caller
 
       // case T_DOUBLE:
       __ bind(ret_is_double);
-      __ stfd_PPC(F1_RET_PPC, 0, r_arg_result_addr);
-      __ blr_PPC(); // return to caller
+      __ fsd(F10_RET, r_arg_result_addr, 0);
+      __ ret(); // return to caller
     }
-#endif
     return start;
   }
 
@@ -383,8 +358,8 @@ class StubGenerator: public StubCodeGenerator {
     const Register exception_file = R21_tmp1_PPC;
     const Register exception_line = R22_tmp2_PPC;
 
-    __ load_const_PPC(exception_file, (void*)__FILE__);
-    __ load_const_PPC(exception_line, (void*)__LINE__);
+    __ load_const(exception_file, (void *) __FILE__);
+    __ load_const(exception_line, (void *) __LINE__);
 
     __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
     // store into `char *'
@@ -458,8 +433,7 @@ class StubGenerator: public StubCodeGenerator {
                     R4_ARG2_PPC);
     // Copy handler's address.
     __ mtctr_PPC(R3_RET_PPC);
-    __ pop_frame();
-    __ restore_LR_CR(R0);
+    __ pop_C_frame();
 
     // Set up the arguments for the exception handler:
     //  - R3_ARG1_PPC: exception oop
@@ -546,7 +520,7 @@ class StubGenerator: public StubCodeGenerator {
     // whose address will be moved to R5_scratch1.
     address gc_map_pc = __ get_PC_trash_LR(R5_scratch1);
 
-    __ set_last_Java_frame(/*sp*/R1_SP_PPC, /*pc*/R5_scratch1);
+    __ set_last_Java_frame(/*sp*/R1_SP_PPC, noreg, /*pc*/R5_scratch1);
 
     __ mr_PPC(R3_ARG1_PPC, R24_thread);
     if (arg1 != noreg) {
@@ -578,13 +552,10 @@ class StubGenerator: public StubCodeGenerator {
 #endif
 
     // Pop frame.
-    __ pop_frame();
+    __ pop_C_frame(false);
 
-    __ restore_LR_CR(R5_scratch1);
-
-    __ load_const_PPC(R5_scratch1, StubRoutines::forward_exception_entry());
-    __ mtctr_PPC(R5_scratch1);
-    __ bctr_PPC();
+    __ load_const(R5_scratch1, StubRoutines::forward_exception_entry());
+    __ jr(R5_scratch1);
 
     // Create runtime stub with OopMap.
     RuntimeStub* stub =
@@ -628,7 +599,7 @@ class StubGenerator: public StubCodeGenerator {
 
     // Clear up to 128byte boundary if long enough, dword_cnt=(16-(base>>3))%16.
     __ dcbtst_PPC(base_ptr_reg);                    // Indicate write access to first cache line ...
-    __ andi(tmp2_reg, cnt_dwords_reg, 1);       // to check if number of dwords is even.
+    __ andi_PPC(tmp2_reg, cnt_dwords_reg, 1);       // to check if number of dwords is even.
     __ srdi__PPC(tmp1_reg, cnt_dwords_reg, 1);      // number of double dwords
     __ load_const_optimized(zero_reg, 0L);      // Use as zero register.
 
@@ -654,7 +625,7 @@ class StubGenerator: public StubCodeGenerator {
     // clear 128byte blocks
     __ bind(fast);
     __ srdi_PPC(tmp1_reg, cnt_dwords_reg, cl_dwordaddr_bits); // loop count for 128byte loop (>0 since size>=256-8)
-    __ andi(tmp2_reg, cnt_dwords_reg, 1);       // to check if rest even
+    __ andi_PPC(tmp2_reg, cnt_dwords_reg, 1);       // to check if rest even
 
     __ mtctr_PPC(tmp1_reg);                         // load counter
     __ cmpdi_PPC(CCR1, tmp2_reg, 0);                // rest even?
@@ -908,8 +879,11 @@ class StubGenerator: public StubCodeGenerator {
 
   inline void assert_positive_int(Register count) {
 #ifdef ASSERT
-    __ srdi__PPC(R0, count, 31);
-    __ asm_assert_eq("missing zero extend", 0xAFFE);
+    __ unimplemented("stubGenerator_riscv.cpp: assert_positive_int() not implemented");
+// FIXME_RISCV begin
+//  __ srdi__PPC(R0, count, 31);
+//  __ asm_assert_eq("missing zero extend", 0xAFFE);
+// FIXME_RISCV end
 #endif
   }
 
@@ -1635,7 +1609,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ble_PPC(CCR0, l_5); // copy 1 at a time if less than 8 elements remain
 
       __ srdi_PPC(tmp1, R5_ARG3_PPC, 3);
-      __ andi(R5_ARG3_PPC, R5_ARG3_PPC, 7);
+      __ andi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 7);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -1885,7 +1859,7 @@ class StubGenerator: public StubCodeGenerator {
       __ ble_PPC(CCR0, l_5); // copy 1 at a time if less than 4 elements remain
 
       __ srdi_PPC(tmp1, R5_ARG3_PPC, 2);
-      __ andi(R5_ARG3_PPC, R5_ARG3_PPC, 3);
+      __ andi_PPC(R5_ARG3_PPC, R5_ARG3_PPC, 3);
       __ mtctr_PPC(tmp1);
 
      if (!VM_Version::has_vsx()) {
@@ -2421,7 +2395,7 @@ class StubGenerator: public StubCodeGenerator {
     const Register elsize = src_klass;    // log2 element size
 
     __ rldicl_PPC(offset, lh, 64 - Klass::_lh_header_size_shift, 64 - exact_log2(Klass::_lh_header_size_mask + 1));
-    __ andi(elsize, lh, Klass::_lh_log2_element_size_mask);
+    __ andi_PPC(elsize, lh, Klass::_lh_log2_element_size_mask);
     __ add_PPC(src, offset, src);       // src array offset
     __ add_PPC(dst, offset, dst);       // dst array offset
 

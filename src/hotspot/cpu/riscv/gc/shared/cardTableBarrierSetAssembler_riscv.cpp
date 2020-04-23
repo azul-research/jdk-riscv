@@ -76,12 +76,13 @@ void CardTableBarrierSetAssembler::card_table_write(MacroAssembler* masm,
                                                     Register tmp, Register obj) {
   CardTableBarrierSet* ctbs = barrier_set_cast<CardTableBarrierSet>(BarrierSet::barrier_set());
   CardTable* ct = ctbs->card_table();
-  assert_different_registers(obj, tmp, R0);
-  __ load_const_optimized(tmp, (address)byte_map_base, R0);
-  __ srdi_PPC(obj, obj, CardTable::card_shift);
-  __ li_PPC(R0, CardTable::dirty_card_val());
-  if (ct->scanned_concurrently()) { __ membar(Assembler::StoreStore); }
-  __ stbx_PPC(R0, tmp, obj);
+  assert_different_registers(obj, tmp, R15_ARG5);
+  __ li(tmp, (address)byte_map_base);
+  __ srli(obj, obj, CardTable::card_shift);
+  __ addi(R15_ARG5, R0_ZERO, CardTable::dirty_card_val());
+  if (ct->scanned_concurrently()) { __ Assembler::fence(Assembler::W_OP, Assembler::W_OP); }
+  __ add(R16_ARG6, tmp, obj);
+  __ sb(R15_ARG5, R16_ARG6, 0);
 }
 
 void CardTableBarrierSetAssembler::card_write_barrier_post(MacroAssembler* masm, Register store_addr, Register tmp) {

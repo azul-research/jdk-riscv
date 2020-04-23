@@ -26,6 +26,7 @@ docker run --rm -it \
     -v "$jdk_riscv_path":/jdk-riscv \
     -v "$sysroot_path":/opt/riscv/sysroot \
     -e LD_LIBRARY_PATH=/opt/riscv/sysroot/usr/lib/ \
+    -w /jdk-riscv \
     --network host \
     azulresearch/riscv-emu-user
  

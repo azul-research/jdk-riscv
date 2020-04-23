@@ -3623,10 +3623,10 @@ Method* findTestMethod(InstanceKlass *klass, const char* methodName) {
         char cname[100];
         name->as_C_string(cname, 100);
 
-	
+
 	if (strcmp(cname, methodName) == 0) {
 	    return klass->methods()->at(i);
-	} 
+	}
     }
     return 0;
 }
@@ -3673,6 +3673,85 @@ static void call_initPhase3(TRAPS) {
                                          vmSymbols::void_method_signature(), CHECK);
 }
 
+void put_bool_field(const InstanceKlass* klass, const char* field_name, bool value) {
+  char fname[100];
+  for (int i = 0; i < klass->java_fields_count(); ++i) {
+    klass->field_name(i)->as_C_string(fname, 100);
+    if (strcmp(fname, field_name) == 0) {
+      return klass->java_mirror()->bool_field_put(klass->field_offset(i), value);
+    }
+  }
+  ShouldNotReachHere();
+}
+
+bool get_bool_field(const InstanceKlass* klass, const char* field_name) {
+  char fname[100];
+  for (int i = 0; i < klass->java_fields_count(); ++i) {
+    klass->field_name(i)->as_C_string(fname, 100);
+    if (strcmp(fname, field_name) == 0) {
+      return klass->java_mirror()->bool_field(klass->field_offset(i));
+    }
+  }
+  ShouldNotReachHere();
+  return false;
+}
+
+int get_int_field(const InstanceKlass* klass, const char* field_name) {
+  char fname[100];
+  for (int i = 0; i < klass->java_fields_count(); ++i) {
+    klass->field_name(i)->as_C_string(fname, 100);
+    if (strcmp(fname, field_name) == 0) {
+      return klass->java_mirror()->int_field(klass->field_offset(i));
+    }
+  }
+  ShouldNotReachHere();
+  return -1;
+}
+
+Method* find_test_method(InstanceKlass* klass, const char* method_name) {
+  int n_methods = klass->methods()->length();
+  for (int i = 0; i < n_methods; ++i) {
+    Symbol *name = klass->methods()->at(i)->name();
+    char cname[100];
+    name->as_C_string(cname, 100);
+
+    if (strcmp(cname, method_name) == 0) {
+      return klass->methods()->at(i);
+    }
+  }
+  return 0;
+}
+
+JavaValue call_method(const char *name, BasicType return_type, TRAPS) {
+  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+  Method *method = find_test_method(InstanceKlass::cast(klass), name);
+  JavaValue result(return_type);
+  JavaCallArguments args;
+  JavaCalls::call(&result, method, &args, THREAD);
+  return result;
+}
+
+void thread_entry_point(JavaThread* thread, TRAPS) {
+  TestJavaThread* test_thread = (TestJavaThread*) thread;
+  JavaValue result = call_method(test_thread->get_test_method(), T_VOID, CHECK);
+  //fprintf(stderr, "Default test method call result: %d\n", result.get_jint());
+}
+
+void print_jmm_test_results(TRAPS) {
+  call_method("calcResults", T_VOID, CHECK);
+  Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, THREAD);
+
+  int errors = get_int_field(InstanceKlass::cast(klass), "errors");
+  int side_by_side = get_int_field(InstanceKlass::cast(klass), "sideBySide");
+  int a_outruns_b = get_int_field(InstanceKlass::cast(klass), "aOutrunsB");
+  int b_outruns_a = get_int_field(InstanceKlass::cast(klass), "bOutrunsA");
+
+  fprintf(stderr, "errors: %i\n", errors);
+  fprintf(stderr, "side_by_side: %i\n", side_by_side);
+  fprintf(stderr, "a_outruns_b: %i\n", a_outruns_b);
+  fprintf(stderr, "b_outruns_a: %i\n", b_outruns_a);
+}
+
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   TraceTime timer("Initialize java.lang classes", TRACETIME_LOG(Info, startuptime));
 
@@ -3681,35 +3760,82 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   }
 
   if (CallTestMethod) {
-	  if (TestMethodClass && TestMethodName) {
-	      // intentional dirty hack - no need for perfectionism in temporary code
-	      for (char *p = (char *)TestMethodClass; *p; ++p) {
-		      if (*p == '.') *p = '/';
-              }
+    if (TestMethodClass && TestMethodName) {
+      // intentional dirty hack - no need for perfectionism in temporary code
+      for (char *p = (char *)TestMethodClass; *p; ++p) {
+        if (*p == '.') *p = '/';
+      }
 
-              Symbol *classNameSymbol = vmSymbols::symbol_at(vmSymbols::find_sid(TestMethodClass));
+      Symbol *classNameSymbol = vmSymbols::symbol_at(vmSymbols::find_sid(TestMethodClass));
+      Klass *testKlass = SystemDictionary::resolve_or_fail(classNameSymbol, true, CHECK);
+      InstanceKlass *instanceKlass = InstanceKlass::cast(testKlass);
+      instanceKlass->link_class(CHECK);
 
-              Klass *testKlass = SystemDictionary::resolve_or_fail(classNameSymbol, true, CHECK);
+      Method *testMethod = findTestMethod(InstanceKlass::cast(testKlass), TestMethodName);
+      JavaCallArguments args;
+      BasicType resultType = testMethod->result_type();
+      JavaValue result(resultType);
+      JavaCalls::call(&result, testMethod, &args, CHECK);
+      if (resultType == T_BYTE || resultType == T_BOOLEAN || resultType == T_SHORT ||
+          resultType == T_CHAR || resultType == T_INT) {
+        printf("TestMethodValue int %d\n", result.get_jint());
+      } else if (resultType == T_LONG) {
+        printf("TestMethodValue long %ld\n", result.get_jlong());
+      } else if (resultType == T_FLOAT) {
+        printf("TestMethodValue float %f\n", result.get_jfloat());
+      } else if (resultType == T_DOUBLE) {
+        printf("TestMethodValue double %f\n", result.get_jdouble());
+      } else {
+        printf("TestMethodValue unknown");
+      }
+      if (ExitAfterTestMethod) {
+        exit(0);
+      }
+    } else {
+      Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
+      Method *method = InstanceKlass::cast(klass)->methods()->at(15);
 
-	      InstanceKlass *instanceKlass = InstanceKlass::cast(testKlass);
-	      instanceKlass->link_class(CHECK);
+      ResourceMark rm;
+      JavaCallArguments args(11);
+      // jint aInt, jlong aLong, jfloat aFloat, jchar aChar, jbyte aByte, jboolean aBool
 
-	      Method *testMethod = findTestMethod(InstanceKlass::cast(testKlass), TestMethodName);
+      tty->print_cr("\n<<< jint %d, jlong %ld, jfloat %f, jchar %c, jbyte %d, jboolean %d", -13, 15L, 0.123f, '!', 17, 0);
+      args.push_int(-13);
+      args.push_long(15L);
+      args.push_float(0.123f);
+      args.push_int('!');
+      args.push_int(17);
+      args.push_int(0);
+      args.push_int(1);
+      args.push_int(2);
+      args.push_int(3);
+      args.push_int(4);
+      args.push_int(5);
+      JavaValue result(T_VOID);
+      JavaCalls::call(&result, method, &args, CHECK);
+      fprintf(stderr, "Default test method call result: %d\n", 1/*result.get_jint()*/);
+    }
+  }
 
-              JavaCallArguments args;
-              JavaValue result(T_INT);
-              JavaCalls::call(&result, testMethod, &args, CHECK);
-              fprintf(stderr, "Custom method call result: %d\n", result.get_jint());
-	  } else {
-              Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
-              Method *method = InstanceKlass::cast(klass)->methods()->at(14);
+  if (TestJmm) {
+    initialize_class(vmSymbols::java_lang_jmmtest_JmmTest(), CHECK);
+    char *testMethods[2] = { "actor1", "actor2" };
+    JmmTest test("reset0", testMethods, 2, &print_jmm_test_results);
+    JmmTest::run_all(&test, 1, THREAD);
+    /*Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_jmmtest_JmmTest(), true, CHECK);
+    put_bool_field(InstanceKlass::cast(klass), "start0", false);
+    put_bool_field(InstanceKlass::cast(klass), "calcFinished", false);
 
-              JavaCallArguments args;
-              JavaValue result(T_INT);
-              JavaCalls::call(&result, method, &args, CHECK);
-              fprintf(stderr, "Default est method call result: %d\n", result.get_jint());
-          }
+    TestJavaThread *thread1 = new TestJavaThread("reset0", &thread_entry_point);
+    TestJavaThread *thread2 = new TestJavaThread("actor1", &thread_entry_point);
+    TestJavaThread *thread3 = new TestJavaThread("actor2", &thread_entry_point);
+    TestJavaThread *thread4 = new TestJavaThread("calcResults", &thread_entry_point);
 
+    os::start_thread(thread1);
+    os::start_thread(thread2);
+    os::start_thread(thread3);
+    os::start_thread(thread4);
+    print_jmm_test_results(THREAD);*/
   }
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
 
@@ -5177,4 +5303,195 @@ void Threads::verify() {
   }
   VMThread* thread = VMThread::vm_thread();
   if (thread != NULL) thread->verify();
+}
+
+void TestJavaThread::thread_main_inner() {
+  assert(JavaThread::current() == this, "sanity check");
+
+  // Execute thread entry point unless this thread has a pending exception
+  // or has been stopped before starting.
+  // Note: Due to JVM_StopThread we can have pending exceptions already!
+  if (!this->has_pending_exception()) {
+    {
+      ResourceMark rm(this);
+      this->set_native_thread_name(this->get_thread_name());
+    }
+    HandleMark hm(this);
+    this->entry_point()(this, this);
+  }
+
+  // Cleanup is handled in post_run()
+}
+
+const char* TestJavaThread::get_test_method() {
+  return test_method;
+}
+
+void TestJavaThread::join() {
+  while (!is_terminated()) {}
+}
+
+void TestJavaThread::exit(bool destroy_vm, JavaThread::ExitType exit_type) {
+  assert(this == JavaThread::current(), "thread consistency check");
+
+  elapsedTimer _timer_exit_phase1;
+  elapsedTimer _timer_exit_phase2;
+  elapsedTimer _timer_exit_phase3;
+  elapsedTimer _timer_exit_phase4;
+
+  if (log_is_enabled(Debug, os, thread, timer)) {
+    _timer_exit_phase1.start();
+  }
+
+  HandleMark hm(this);
+  this->clear_pending_exception();
+  Handle threadObj(this, this->threadObj());
+
+  // FIXIT: This code should be moved into else part, when reliable 1.2/1.3 check is in place
+  {
+    EXCEPTION_MARK;
+
+    CLEAR_PENDING_EXCEPTION;
+  }
+  if (!destroy_vm) {
+    // notify JVMTI
+    if (JvmtiExport::should_post_thread_life()) {
+      JvmtiExport::post_thread_end(this);
+    }
+
+    // We have notified the agents that we are exiting, before we go on,
+    // we must check for a pending external suspend request and honor it
+    // in order to not surprise the thread that made the suspend request.
+    while (true) {
+      {
+        MutexLocker ml(SR_lock(), Mutex::_no_safepoint_check_flag);
+        if (!is_external_suspend()) {
+          set_terminated(_thread_exiting);
+          break;
+        }
+        // Implied else:
+        // Things get a little tricky here. We have a pending external
+        // suspend request, but we are holding the SR_lock so we
+        // can't just self-suspend. So we temporarily drop the lock
+        // and then self-suspend.
+      }
+
+      ThreadBlockInVM tbivm(this);
+      java_suspend_self();
+
+      // We're done with this suspend request, but we have to loop around
+      // and check again. Eventually we will get SR_lock without a pending
+      // external suspend request and will be able to mark ourselves as
+      // exiting.
+    }
+    // no more external suspends are allowed at this point
+  }
+
+  if (log_is_enabled(Debug, os, thread, timer)) {
+    _timer_exit_phase1.stop();
+    _timer_exit_phase2.start();
+  }
+
+  assert(!this->has_pending_exception(), "ensure_join should have cleared");
+
+  if (log_is_enabled(Debug, os, thread, timer)) {
+    _timer_exit_phase2.stop();
+    _timer_exit_phase3.start();
+  }
+  // 6282335 JNI DetachCurrentThread spec states that all Java monitors
+  // held by this thread must be released. The spec does not distinguish
+  // between JNI-acquired and regular Java monitors. We can only see
+  // regular Java monitors here if monitor enter-exit matching is broken.
+  //
+  // ensure_join() ignores IllegalThreadStateExceptions, and so does
+  // ObjectSynchronizer::release_monitors_owned_by_thread().
+  if (exit_type == jni_detach) {
+    // Sanity check even though JNI DetachCurrentThread() would have
+    // returned JNI_ERR if there was a Java frame. JavaThread exit
+    // should be done executing Java code by the time we get here.
+    assert(!this->has_last_Java_frame(),
+           "should not have a Java frame when detaching or exiting");
+    ObjectSynchronizer::release_monitors_owned_by_thread(this);
+    assert(!this->has_pending_exception(), "release_monitors should have cleared");
+  }
+
+  // These things needs to be done while we are still a Java Thread. Make sure that thread
+  // is in a consistent state, in case GC happens
+  JFR_ONLY(Jfr::on_thread_exit(this);)
+
+  if (active_handles() != NULL) {
+    JNIHandleBlock* block = active_handles();
+    set_active_handles(NULL);
+    JNIHandleBlock::release_block(block);
+  }
+
+  if (free_handle_block() != NULL) {
+    JNIHandleBlock* block = free_handle_block();
+    set_free_handle_block(NULL);
+    JNIHandleBlock::release_block(block);
+  }
+
+  // These have to be removed while this is still a valid thread.
+  remove_stack_guard_pages();
+
+  if (UseTLAB) {
+    tlab().retire();
+  }
+
+  if (JvmtiEnv::environments_might_exist()) {
+    JvmtiExport::cleanup_thread(this);
+  }
+
+  // We must flush any deferred card marks and other various GC barrier
+  // related buffers (e.g. G1 SATB buffer and G1 dirty card queue buffer)
+  // before removing a thread from the list of active threads.
+  BarrierSet::barrier_set()->on_thread_detach(this);
+
+  log_info(os, thread)("JavaThread %s (tid: " UINTX_FORMAT ").",
+      exit_type == JavaThread::normal_exit ? "exiting" : "detaching",
+      os::current_thread_id());
+
+  if (log_is_enabled(Debug, os, thread, timer)) {
+    _timer_exit_phase3.stop();
+    _timer_exit_phase4.start();
+  }
+
+  if (log_is_enabled(Debug, os, thread, timer)) {
+    _timer_exit_phase4.stop();
+    ResourceMark rm(this);
+    log_debug(os, thread, timer)("name='%s'"
+                                 ", exit-phase1=" JLONG_FORMAT
+    ", exit-phase2=" JLONG_FORMAT
+    ", exit-phase3=" JLONG_FORMAT
+    ", exit-phase4=" JLONG_FORMAT,
+        get_thread_name(),
+        _timer_exit_phase1.milliseconds(),
+        _timer_exit_phase2.milliseconds(),
+        _timer_exit_phase3.milliseconds(),
+        _timer_exit_phase4.milliseconds());
+  }
+}
+
+void JmmTest::run(TRAPS) {
+  call_method(before_test_method_name, T_VOID, CHECK);
+
+  TestJavaThread* threads[actors_number];
+  for (int i = 0; i < actors_number; i++) {
+    threads[i] = new TestJavaThread(actor_method_names[i], &thread_entry_point);
+  }
+
+  for (int i = 0; i < actors_number; i++) {
+    os::start_thread(threads[i]);
+  }
+  for (int i = 0; i < actors_number; i++) {
+    threads[i]->join();
+  }
+
+  after_test(CHECK);
+}
+
+void JmmTest::run_all(JmmTest* tests, size_t size, TRAPS) {
+  for (size_t i = 0; i < size; i++) {
+    tests[i].run(CHECK);
+  }
 }

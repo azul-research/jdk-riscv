@@ -828,9 +828,9 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 //    Lmonitors  : monitor pointer
 //    LcpoolCache: constant pool cache
 //    mdx: method data index
-#define R28_monitor           AS_REGISTER(Register, R28)
+#define R18_monitor           AS_REGISTER(Register, R18)
 #define R29_mdx               AS_REGISTER(Register, R29)
-#define R30_constPoolCache    AS_REGISTER(Register, R30)
+#define R9_constPoolCache     AS_REGISTER(Register, R9)
 #endif
 
 // Common register declarations used in assembler code.
@@ -841,7 +841,6 @@ REGISTER_DECLARATION(Register, R5_TMP0,  R5);  // saver: caller
 REGISTER_DECLARATION(Register, R6_TMP1,  R6);  // saver: caller
 REGISTER_DECLARATION(Register, R7_TMP2,  R7);  // saver: caller
 REGISTER_DECLARATION(Register, R8_FP,    R8);  // saver: callee
-REGISTER_DECLARATION(Register, R9_S1,    R9);  // saver: callee
 REGISTER_DECLARATION(Register, R10_RET1, R10); // saver: caller
 REGISTER_DECLARATION(Register, R10_ARG0, R10); // saver: caller
 REGISTER_DECLARATION(Register, R11_RET2, R11); // saver: caller
@@ -852,7 +851,6 @@ REGISTER_DECLARATION(Register, R14_ARG4, R14); // saver: caller
 REGISTER_DECLARATION(Register, R15_ARG5, R15); // saver: caller
 REGISTER_DECLARATION(Register, R16_ARG6, R16); // saver: caller
 REGISTER_DECLARATION(Register, R17_ARG7, R17); // saver: caller
-REGISTER_DECLARATION(Register, R18_S2,   R18); // saver: callee
 // R19_S3 - R27_S11
 REGISTER_DECLARATION(Register, R28_TMP3, R28); // saver: caller
 REGISTER_DECLARATION(Register, R29_TMP4, R29); // saver: caller
@@ -912,10 +910,6 @@ REGISTER_DECLARATION(FloatRegister, F31_TMP11, F31); // saver: caller
 #define R15_ARG5  AS_REGISTER(Register, R15)
 #define R16_ARG6  AS_REGISTER(Register, R16)
 #define R17_ARG7  AS_REGISTER(Register, R17)
-#define R18_S2    AS_REGISTER(Register, R18)
-#define R19_S3    AS_REGISTER(Register, R19)
-#define R20_S4    AS_REGISTER(Register, R20)
-#define R21_S5    AS_REGISTER(Register, R21)
 #define R28_TMP3  AS_REGISTER(Register, R28)
 #define R29_TMP4  AS_REGISTER(Register, R29)
 #define R30_TMP5  AS_REGISTER(Register, R30)

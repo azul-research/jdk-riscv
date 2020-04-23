@@ -51,6 +51,7 @@
 
 #define VM_SYMBOLS_DO(template, do_alias)                                                         \
   /* commonly used class, package, module names */                                                \
+  template(javafuzz_T1,                               "javafuzz/T1")                              \
   template(java_base,                                 "java.base")                                \
   template(java_lang_System,                          "java/lang/System")                         \
   template(java_lang_Object,                          "java/lang/Object")                         \
@@ -64,6 +65,7 @@
   template(java_lang_T7,                              "java/lang/T7")                             \
   template(java_lang_T8,                              "java/lang/T8")                             \
   template(java_lang_T9,                              "java/lang/T9")                             \
+  template(java_lang_jmmtest_JmmTest,                 "java/lang/jmmtest/JmmTest")                \
   template(java_lang_Class,                           "java/lang/Class")                          \
   template(java_lang_Package,                         "java/lang/Package")                        \
   template(java_lang_Module,                          "java/lang/Module")                         \

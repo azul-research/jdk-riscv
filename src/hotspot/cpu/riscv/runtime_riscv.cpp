@@ -102,8 +102,7 @@ void OptoRuntime::generate_exception_blob() {
   __ call_c((address) OptoRuntime::handle_exception_C, relocInfo::none);
   address calls_return_pc = __ last_calls_return_pc();
 # ifdef ASSERT
-  __ cmpdi_PPC(CCR0, R3_RET_PPC, 0);
-  __ asm_assert_ne("handle_exception_C must not return NULL", 0x601);
+  __ asm_assert_ne(R3_RET_PPC, R0_ZERO, "handle_exception_C must not return NULL", 0x601);
 # endif
 
   // Set an oopmap for the call site. This oopmap will only be used if we

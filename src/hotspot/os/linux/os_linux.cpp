@@ -1442,6 +1442,7 @@ void os::shutdown() {
 // sure it is async-safe and can handle partially initialized VM.
 void os::abort(bool dump_core, void* siginfo, const void* context) {
   os::shutdown();
+  if (ExitAfterTestMethod) dump_core = false;
   if (dump_core) {
     if (DumpPrivateMappingsInCore) {
       ClassLoader::close_jrt_image();

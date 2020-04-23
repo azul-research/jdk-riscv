@@ -513,7 +513,7 @@ void RegisterSaver::restore_argument_registers_and_pop_frame(MacroAssembler*masm
         st_off -= wordSize;
       }
     }
-  __ pop_frame();
+  __ pop_C_frame();
 }
 
 // Restore the registers that might be holding a result.
@@ -565,7 +565,7 @@ size_t SharedRuntime::trampoline_size() {
 
 void SharedRuntime::generate_trampoline(MacroAssembler *masm, address destination) {
   Register Rtemp = R12;
-  __ load_const_PPC(Rtemp, destination);
+  __ load_const(Rtemp, destination);
   __ mtctr_PPC(Rtemp);
   __ bctr_PPC();
 }
@@ -943,7 +943,7 @@ static address gen_c2i_adapter(MacroAssembler *masm,
   assert_different_registers(sender_SP, code, ientry, return_pc, tmp);
 
   // Adapter needs TOP_IJAVA_FRAME_ABI.
-  const int adapter_size = frame::top_ijava_frame_abi_size +
+  const int adapter_size = /*frame::top_ijava_frame_abi_size TODO RISC-V*/ +
                            align_up(total_args_passed * wordSize, frame::alignment_in_bytes);
 
   // regular (verified) c2i entry point
@@ -2416,7 +2416,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
       break;
       }
     case T_CHAR: {                // unsigned result
-      __ andi(R3_RET_PPC, R3_RET_PPC, 0xffff);
+      __ andi_PPC(R3_RET_PPC, R3_RET_PPC, 0xffff);
       break;
       }
     case T_SHORT: {               // sign extension
@@ -2713,9 +2713,9 @@ static void push_skeleton_frame(MacroAssembler* masm, bool deopt,
   __ push_frame(frame_size_reg, R0/*tmp*/);
 #ifdef ASSERT
   __ load_const_optimized(pc_reg, 0x5afe);
-  __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP_PPC);
+  __ std_PPC(pc_reg, _ijava_state(ijava_reserved), R1_SP_PPC);
 #endif
-  __ std_PPC(R1_SP_PPC, _ijava_state_neg(sender_sp), R1_SP_PPC);
+  __ std_PPC(R1_SP_PPC, _ijava_state(sender_sp), R1_SP_PPC);
   __ addi_PPC(number_of_frames_reg, number_of_frames_reg, -1);
   __ addi_PPC(frame_sizes_reg, frame_sizes_reg, wordSize);
   __ addi_PPC(pcs_reg, pcs_reg, wordSize);
@@ -2789,14 +2789,13 @@ static void push_skeleton_frames(MacroAssembler* masm, bool deopt,
   // Initialize initial_caller_sp.
 #ifdef ASSERT
  __ load_const_optimized(pc_reg, 0x5afe);
- __ std_PPC(pc_reg, _ijava_state_neg(ijava_reserved), R1_SP_PPC);
+ __ std_PPC(pc_reg, _ijava_state(ijava_reserved), R1_SP_PPC);
 #endif
- __ std_PPC(frame_size_reg, _ijava_state_neg(sender_sp), R1_SP_PPC);
+ __ std_PPC(frame_size_reg, _ijava_state(sender_sp), R1_SP_PPC);
 
 #ifdef ASSERT
   // Make sure that there is at least one entry in the array.
-  __ cmpdi_PPC(CCR0, number_of_frames_reg, 0);
-  __ asm_assert_ne("array_size must be > 0", 0x205);
+  __ asm_assert_ne(number_of_frames_reg, R0_ZERO, "array_size must be > 0", 0x205);
 #endif
 
   // Now push the new interpreter frames.
@@ -3021,7 +3020,7 @@ void SharedRuntime::generate_deopt_blob() {
   // optional c2i, caller of deoptee, ...).
 
   // Initialize R14_state.
-  __ restore_interpreter_state(R5_scratch1);
+  __ restore_interpreter_state();
   __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // Return to the interpreter entry point.
@@ -3112,9 +3111,10 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // stack: (caller_of_deoptee, ...).
 
 #ifdef ASSERT
-  __ lwz_PPC(R22_tmp2_PPC, Deoptimization::UnrollBlock::unpack_kind_offset_in_bytes(), unroll_block_reg);
-  __ cmpdi_PPC(CCR0, R22_tmp2_PPC, (unsigned)Deoptimization::Unpack_uncommon_trap);
-  __ asm_assert_eq("SharedRuntime::generate_deopt_blob: expected Unpack_uncommon_trap", 0);
+// FIXME_RISCV
+//  __ lwz_PPC(R22_tmp2_PPC, Deoptimization::UnrollBlock::unpack_kind_offset_in_bytes(), unroll_block_reg);
+//  __ cmpdi_PPC(CCR0, R22_tmp2_PPC, (unsigned)Deoptimization::Unpack_uncommon_trap);
+//  __ asm_assert_eq("SharedRuntime::generate_deopt_blob: expected Unpack_uncommon_trap", 0);
 #endif
 
   // Allocate new interpreter frame(s) and possibly a c2i adapter
@@ -3161,7 +3161,7 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   // stack: (top interpreter frame, ..., optional interpreter frame,
   // optional c2i, caller of deoptee, ...).
 
-  __ restore_interpreter_state(R5_scratch1);
+  __ restore_interpreter_state();
   __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
 
   // Return to the interpreter entry point.
@@ -3221,7 +3221,7 @@ SafepointBlob* SharedRuntime::generate_handler_blob(address call_ptr, int poll_t
   // The following is basically a call_VM. However, we need the precise
   // address of the call in order to generate an oopmap. Hence, we do all the
   // work outselves.
-  __ set_last_Java_frame(/*sp=*/R1_SP_PPC, /*pc=*/noreg);
+  __ set_last_Java_frame(/*sp=*/R1_SP_PPC, /*fp=*/noreg, /*pc=*/noreg);
 
   // The return address must always be correct so that the frame constructor
   // never sees an invalid pc.

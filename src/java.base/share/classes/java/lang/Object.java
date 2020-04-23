@@ -37,19 +37,35 @@ import jdk.internal.HotSpotIntrinsicCandidate;
  * @since   1.0
  */
 public class Object {
-
     private static native void registerNatives();
     static {
-        registerNatives();
+       registerNatives();
     }
 
 	/**
 	 * A test method to call in VM.
-	 * @return 42
 	 */
-    public static int testMethod() {
-        return 42;
+    public static void testMethod() {
+        System.out.println("kek");
     }
+
+    /**
+     * A native test method to call in VM.
+     *
+     * @param aInt int param
+     * @param aLong long param
+     * @param aFloat float param
+     * @param aChar char param
+     * @param aByte byte param
+     * @param aBool bool param
+     * @param a1 int param
+     * @param a2 int param
+     * @param a3 int param
+     * @param a4 int param
+     * @param a5 int param
+     */
+    public static native void nativeTestMethod(int aInt, long aLong, float aFloat, char aChar, byte aByte, boolean aBool,
+                                               int a1, int a2, int a3, int a4, int a5);
 
     /**
      * Constructs a new object.

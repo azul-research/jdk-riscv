@@ -119,23 +119,11 @@ class AddressLiteral {
 
 class Argument {
  private:
-  int _number;  // The number of the argument.
+  int _number;  // The number of the int argument.
  public:
   enum {
     // Only 8 registers may contain integer parameters.
-    n_register_parameters = 8,
-    // Can have up to 8 floating registers.
-    n_float_register_parameters = 8,
-
-    // RISCV C calling conventions.
-    // The first eight arguments are passed in int regs if they are int.
-    n_int_register_parameters_c = 8,
-    // The first thirteen float arguments are passed in float regs.
-    n_float_register_parameters_c = 13,
-    // Only the first 8 parameters are not placed on the stack. Aix disassembly
-    // shows that xlC places all float args after argument 8 on the stack AND
-    // in a register. This is not documented, but we follow this convention, too.
-    n_regs_not_on_stack_c = 8,
+    n_int_register_parameters = 8,
   };
   // creation
   Argument(int number) : _number(number) {}
@@ -143,11 +131,33 @@ class Argument {
   int  number() const { return _number; }
 
   // Locating register-based arguments:
-  bool is_register() const { return _number < n_register_parameters; }
+  bool is_register() const { return _number < n_int_register_parameters; }
 
   Register as_register() const {
     assert(is_register(), "must be a register argument");
-    return as_Register(number() + R3_ARG1_PPC->encoding());
+    return as_Register(number() + R10_ARG0->encoding());
+  }
+};
+
+class FloatArgument {
+private:
+  int _number;  // The number of the float argument.
+public:
+  enum {
+    // Only 8 registers may contain float parameters.
+    n_float_register_parameters = 8,
+  };
+  // creation
+  FloatArgument(int number) : _number(number) {}
+
+  int  number() const { return _number; }
+
+  // Locating register-based arguments:
+  bool is_register() const { return _number < n_float_register_parameters; }
+
+  FloatRegister as_register() const {
+    assert(is_register(), "must be a register argument");
+    return as_FloatRegister(number() + F10_ARG0->encoding());
   }
 };
 
@@ -981,12 +991,30 @@ class Assembler : public AbstractAssembler {
   enum Predict { pt = 1, pn = 0 }; // pt = predict taken
 
   //---<  calculate length of instruction  >---
-  // With RISCV64 being a RISC architecture, this always is BytesPerInstWord
-  // instruction must start at passed address
-  static unsigned int instr_len(unsigned char *instr) { return BytesPerInstWord; }
+  // RISCV specification V20190608, section 1.5, Figure 1.1, RISC-V instruction length encoding
+  // Only the 16-bit and 32-bit encodings are considered frozen at this time
+  static unsigned int instr_len(unsigned char *instr) {
+    unsigned char l = *instr;
+    if ((l & 0x7F) == 0x7F) { // xnnnxxxx x1111111
+      unsigned char h = *(instr + 1);
+      unsigned char nnn = (h >> 4) & 0x7;
+      return nnn == 7 ? instr_len_more192(l, h) : 80 + 16 * nnn;
+    }
+    return   ((l & 0x3F) == 0x3F) ? 64 // x0111111
+           : ((l & 0x1F) == 0x1F) ? 48 // xx011111
+           : ((l & 0x03) == 0x03) ? 32 // xxxbbb11 (bbb != 111)
+           : 16;                       // xxxxxxaa ( aa != 11 )
+    // TODO: illegal instructions lengths: [15:0] all zeros; [ILEN-1:0] all ones
+  }
+
+  static unsigned int instr_len_more192(unsigned char l, unsigned char h) {
+    tty->print_cr("%s not implemented", __func__);
+    exit(42);
+  }
 
   //---<  longest instructions  >---
-  static unsigned int instr_maxlen() { return BytesPerInstWord; }
+  // RISCV specification V20190608, section 1.5, Figure 1.1, Expanded Instruction-Length Encoding
+  static unsigned int instr_maxlen() { return 192; }
 
   // Test if x is within signed immediate range for nbits.
   static bool is_simm(int x, unsigned int nbits) {
@@ -1500,7 +1528,7 @@ class Assembler : public AbstractAssembler {
   inline void isel_0_PPC( Register d, ConditionRegister cr, Condition cc, Register b = noreg);
 
   // RISCV 1, section 3.3.11, Fixed-Point Logical Instructions
-         void andi(   Register a, Register s, long ui16);   // optimized version
+         void andi_PPC(   Register a, Register s, long ui16);   // optimized version
   inline void andi__PPC(  Register a, Register s, int ui16);
   inline void andis__PPC( Register a, Register s, int ui16);
   inline void ori_PPC(    Register a, Register s, int ui16);
@@ -2692,6 +2720,18 @@ class Assembler : public AbstractAssembler {
   // load the constant are emitted beforehand. Store instructions need a
   // tmp reg if the constant is not encodable as immediate.
   // Size unpredictable.
+  void ld(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lw(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lwu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lh(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lhu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lb(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lbu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void sd(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sw(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sh(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sb(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+
   void ld_PPC(  Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwa_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
@@ -2703,6 +2743,7 @@ class Assembler : public AbstractAssembler {
   void sth_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stb_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void add_PPC( Register d, RegisterOrConstant roc, Register s1);
+  void add(Register d, RegisterOrConstant roc, Register s1);
   void subf_PPC(Register d, RegisterOrConstant roc, Register s1);
   void cmpd_PPC(ConditionRegister d, RegisterOrConstant roc, Register s1);
   // Load pointer d from s1+roc.
@@ -2713,33 +2754,36 @@ class Assembler : public AbstractAssembler {
   enum {
     load_const_size = 5 * BytesPerInstWord
   };
-         void load_const_PPC(Register d, long a,            Register tmp = noreg);
-  inline void load_const_PPC(Register d, void* a,           Register tmp = noreg);
-  inline void load_const_PPC(Register d, Label& L,          Register tmp = noreg);
-  inline void load_const_PPC(Register d, AddressLiteral& a, Register tmp = noreg);
+         void load_const(Register d, long x, Register tmp = noreg);
+  inline void load_const(Register d, void* x, Register tmp = noreg);
+  inline void load_const(Register d, Label& L, Register tmp = noreg);
+  inline void load_const(Register d, AddressLiteral& a, Register tmp = noreg);
   inline void load_const32_PPC(Register d, int i); // load signed int (patchable)
 
   // Load a 64 bit constant, optimized, not identifyable.
-  // Tmp can be used to increase ILP. Set return_simm16_rest = true to get a
+  // Tmp can be used to increase ILP. Set return_simm12_rest = true to get a
   // 16 bit immediate offset. This is useful if the offset can be encoded in
   // a succeeding instruction.
-         int load_const_optimized(Register d, long a,  Register tmp = noreg, bool return_simm16_rest = false);
-  inline int load_const_optimized(Register d, void* a, Register tmp = noreg, bool return_simm16_rest = false) {
-    return load_const_optimized(d, (long)(unsigned long)a, tmp, return_simm16_rest);
+         int load_const_optimized(Register d, long a,  Register tmp = noreg, bool return_simm12_rest = false);
+  inline int load_const_optimized(Register d, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
+    return load_const_optimized(d, (long)(unsigned long)a, tmp, return_simm12_rest);
   }
 
-  // If return_simm16_rest, the return value needs to get added afterwards.
-         int add_const_optimized(Register d, Register s, long x, Register tmp = R0, bool return_simm16_rest = false);
-  inline int add_const_optimized(Register d, Register s, void* a, Register tmp = R0, bool return_simm16_rest = false) {
-    return add_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm16_rest);
+  // If return_simm12_rest, the return value needs to get added afterwards.
+         int add_const_optimized(Register d, Register s, long x, Register tmp = noreg, bool return_simm12_rest = false);
+  inline int add_const_optimized(Register d, Register s, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm12_rest);
+  }
+  inline int add_const_optimized(Register d, Register s, Label &l, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, target(l), tmp, return_simm12_rest);
   }
 
-  // If return_simm16_rest, the return value needs to get added afterwards.
-  inline int sub_const_optimized(Register d, Register s, long x, Register tmp = R0, bool return_simm16_rest = false) {
-    return add_const_optimized(d, s, -x, tmp, return_simm16_rest);
+  // If return_simm12_rest, the return value needs to get added afterwards.
+  inline int sub_const_optimized(Register d, Register s, long x, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, -x, tmp, return_simm12_rest);
   }
-  inline int sub_const_optimized(Register d, Register s, void* a, Register tmp = R0, bool return_simm16_rest = false) {
-    return sub_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm16_rest);
+  inline int sub_const_optimized(Register d, Register s, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
+    return sub_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm12_rest);
   }
 
   // Creation

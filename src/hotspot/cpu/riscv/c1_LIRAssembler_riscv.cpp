@@ -276,7 +276,7 @@ void LIR_Assembler::jobject2reg(jobject o, Register reg) {
     __ li_PPC(reg, 0);
   } else {
     AddressLiteral addrlit = __ constant_oop_address(o);
-    __ load_const_PPC(reg, addrlit, (reg != R0) ? R0 : noreg);
+    __ load_const(reg, addrlit, (reg != R0) ? R0 : noreg);
   }
 }
 
@@ -287,7 +287,7 @@ void LIR_Assembler::jobject2reg_with_patching(Register reg, CodeEmitInfo *info) 
   PatchingStub* patch = new PatchingStub(_masm, patching_id(info), oop_index);
 
   AddressLiteral addrlit((address)NULL, oop_Relocation::spec(oop_index));
-  __ load_const_PPC(reg, addrlit, R0);
+  __ load_const(reg, addrlit, R0);
 
   patching_epilog(patch, lir_patch_normal, reg, info);
 }
@@ -306,7 +306,7 @@ void LIR_Assembler::klass2reg_with_patching(Register reg, CodeEmitInfo *info) {
 
   AddressLiteral addrlit((address)NULL, metadata_Relocation::spec(index));
   assert(addrlit.rspec().type() == relocInfo::metadata_type, "must be an metadata reloc");
-  __ load_const_PPC(reg, addrlit, R0);
+  __ load_const(reg, addrlit, R0);
 
   patching_epilog(patch, lir_patch_normal, reg, info);
 }
@@ -334,7 +334,7 @@ void LIR_Assembler::arithmetic_idiv(LIR_Code code, LIR_Opr left, LIR_Opr right, 
   if (Rdivisor == noreg) {
     if (divisor == 1) { // stupid, but can happen
       if (code == lir_idiv) {
-        __ mr_if_needed(Rresult, Rdividend);
+        __ mv_if_needed(Rresult, Rdividend);
       } else {
         __ li_PPC(Rresult, 0);
       }
@@ -517,7 +517,7 @@ void LIR_Assembler::emit_opConvert(LIR_OpConvert* op) {
       break;
     }
     case Bytecodes::_l2i: {
-      __ mr_if_needed(dst->as_register(), src->as_register_lo()); // high bits are garbage
+      __ mv_if_needed(dst->as_register(), src->as_register_lo()); // high bits are garbage
       break;
     }
     case Bytecodes::_i2b: {
@@ -577,7 +577,7 @@ void LIR_Assembler::emit_opConvert(LIR_OpConvert* op) {
       break;
     }
     case Bytecodes::_f2d: {
-      __ fmr_if_needed(dst->as_double_reg(), src->as_float_reg());
+      __ fmv_if_needed(dst->as_double_reg(), src->as_float_reg());
       break;
     }
     case Bytecodes::_d2f: {
@@ -1030,7 +1030,7 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
           }
           RelocationHolder rspec = internal_word_Relocation::spec(const_addr);
           __ relocate(rspec);
-          __ load_const_PPC(R0, const_addr);
+          __ load_const(R0, const_addr);
           __ lfsx_PPC(to_reg->as_float_reg(), R0);
         } else {
           assert(to_reg->is_single_cpu(), "Must be a cpu register.");
@@ -1049,7 +1049,7 @@ void LIR_Assembler::const2reg(LIR_Opr src, LIR_Opr dest, LIR_PatchCode patch_cod
           }
           RelocationHolder rspec = internal_word_Relocation::spec(const_addr);
           __ relocate(rspec);
-          __ load_const_PPC(R0, const_addr);
+          __ load_const(R0, const_addr);
           __ lfdx_PPC(to_reg->as_double_reg(), R0);
         } else {
           assert(to_reg->is_double_cpu(), "Must be a long register.");
@@ -1218,21 +1218,21 @@ void LIR_Assembler::reg2reg(LIR_Opr from_reg, LIR_Opr to_reg) {
     if (from_reg->is_double_fpu()) {
       // double to double moves
       assert(to_reg->is_double_fpu(), "should match");
-      __ fmr_if_needed(to_reg->as_double_reg(), from_reg->as_double_reg());
+      __ fmv_if_needed(to_reg->as_double_reg(), from_reg->as_double_reg());
     } else {
       // float to float moves
       assert(to_reg->is_single_fpu(), "should match");
-      __ fmr_if_needed(to_reg->as_float_reg(), from_reg->as_float_reg());
+      __ fmv_if_needed(to_reg->as_float_reg(), from_reg->as_float_reg());
     }
   } else if (!from_reg->is_float_kind() && !to_reg->is_float_kind()) {
     if (from_reg->is_double_cpu()) {
-      __ mr_if_needed(to_reg->as_pointer_register(), from_reg->as_pointer_register());
+      __ mv_if_needed(to_reg->as_pointer_register(), from_reg->as_pointer_register());
     } else if (to_reg->is_double_cpu()) {
       // int to int moves
-      __ mr_if_needed(to_reg->as_register_lo(), from_reg->as_register());
+      __ mv_if_needed(to_reg->as_register_lo(), from_reg->as_register());
     } else {
       // int to int moves
-      __ mr_if_needed(to_reg->as_register(), from_reg->as_register());
+      __ mv_if_needed(to_reg->as_register(), from_reg->as_register());
     }
   } else {
     ShouldNotReachHere();
@@ -1331,7 +1331,7 @@ void LIR_Assembler::return_op(LIR_Opr result) {
   if (Assembler::is_simm(frame_size, 16)) {
     __ addi_PPC(R1_SP_PPC, R1_SP_PPC, frame_size);
   } else {
-    __ pop_frame();
+    __ pop_C_frame(false);
   }
 
   if (SafepointMechanism::uses_thread_local_poll()) {
@@ -1756,7 +1756,7 @@ void LIR_Assembler::logic_op(LIR_Code code, LIR_Opr left, LIR_Opr right, LIR_Opr
     switch (code) {
       case lir_logic_and:
         if (uimmss != 0 || (uimms != 0 && (uimm & 0xFFFF) != 0) || is_power_of_2_long(uimm)) {
-          __ andi(d, l, uimm); // special cases
+          __ andi_PPC(d, l, uimm); // special cases
         } else if (uimms != 0) { __ andis__PPC(d, l, uimms); }
         else { __ andi__PPC(d, l, uimm); }
         break;
@@ -1822,7 +1822,7 @@ void LIR_Assembler::throw_op(LIR_Opr exceptionPC, LIR_Opr exceptionOop, CodeEmit
   int pc_for_athrow_offset = __ offset();
   //RelocationHolder rspec = internal_word_Relocation::spec(pc_for_athrow);
   //__ relocate(rspec);
-  //__ load_const_PPC(exceptionPC->as_register(), pc_for_athrow, R0);
+  //__ load_const(exceptionPC->as_register(), pc_for_athrow, R0);
   __ calculate_address_from_global_toc(exceptionPC->as_register(), pc_for_athrow, true, true, /*add_relocation*/ true);
   add_call_info(pc_for_athrow_offset, info); // for exception handler
 
@@ -2245,7 +2245,7 @@ void LIR_Assembler::shift_op(LIR_Code code, LIR_Opr left, jint count, LIR_Opr de
 #ifdef _LP64
   if (left->type() == T_OBJECT) {
     count = count & 63;  // Shouldn't shift by more than sizeof(intptr_t).
-    if (count == 0) { __ mr_if_needed(dest->as_register_lo(), left->as_register()); }
+    if (count == 0) { __ mv_if_needed(dest->as_register_lo(), left->as_register()); }
     else {
       switch (code) {
         case lir_shl:  __ sldi_PPC(dest->as_register_lo(), left->as_register(), count); break;
@@ -2260,7 +2260,7 @@ void LIR_Assembler::shift_op(LIR_Code code, LIR_Opr left, jint count, LIR_Opr de
 
   if (dest->is_single_cpu()) {
     count = count & 0x1F; // Java spec
-    if (count == 0) { __ mr_if_needed(dest->as_register(), left->as_register()); }
+    if (count == 0) { __ mv_if_needed(dest->as_register(), left->as_register()); }
     else {
       switch (code) {
         case lir_shl: __ slwi_PPC(dest->as_register(), left->as_register(), count); break;
@@ -2271,7 +2271,7 @@ void LIR_Assembler::shift_op(LIR_Code code, LIR_Opr left, jint count, LIR_Opr de
     }
   } else if (dest->is_double_cpu()) {
     count = count & 63; // Java spec
-    if (count == 0) { __ mr_if_needed(dest->as_pointer_register(), left->as_pointer_register()); }
+    if (count == 0) { __ mv_if_needed(dest->as_pointer_register(), left->as_pointer_register()); }
     else {
       switch (code) {
         case lir_shl:  __ sldi_PPC(dest->as_pointer_register(), left->as_pointer_register(), count); break;
@@ -2479,8 +2479,8 @@ void LIR_Assembler::emit_typecheck_helper(LIR_OpTypeCheck *op, Label* success, L
       bool keep_obj_alive = reg_conflict && (op->code() == lir_checkcast);
       bool keep_klass_RInfo_alive = (obj == original_klass_RInfo) && should_profile;
       if (keep_obj_alive && (obj != original_Rtmp1)) { __ mr_PPC(R0, obj); }
-      __ mr_if_needed(original_k_RInfo, k_RInfo);
-      __ mr_if_needed(original_klass_RInfo, klass_RInfo);
+      __ mv_if_needed(original_k_RInfo, k_RInfo);
+      __ mv_if_needed(original_klass_RInfo, klass_RInfo);
       if (keep_obj_alive) { __ mr_PPC(dst, (obj == original_Rtmp1) ? obj : R0); }
       //__ load_const_optimized(original_Rtmp1, entry, R0);
       __ calculate_address_from_global_toc(original_Rtmp1, entry, true, true, false);
@@ -2616,7 +2616,7 @@ void LIR_Assembler::emit_opTypeCheck(LIR_OpTypeCheck* op) {
     __ b_PPC(*op->stub()->entry());
     __ align(32, 12);
     __ bind(success);
-    __ mr_if_needed(op->result_opr()->as_register(), op->object()->as_register());
+    __ mv_if_needed(op->result_opr()->as_register(), op->object()->as_register());
   } else if (code == lir_instanceof) {
     Register dst = op->result_opr()->as_register();
     Label success, failure, done;

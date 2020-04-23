@@ -14,4 +14,5 @@ if [ "$#" -eq 1 ]; then
 	esac
 fi
 
-docker run --rm -it -v "$jdk_riscv_path":/jdk-riscv --network host tsarn/riscv-toolchain
+docker run --rm -it -v "$jdk_riscv_path":/jdk-riscv -w /jdk-riscv --network host tsarn/riscv-toolchain
+
