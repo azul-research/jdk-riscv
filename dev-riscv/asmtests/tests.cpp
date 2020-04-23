@@ -1,6 +1,6 @@
 #define test_li(x) TEST(#x) { li(Rtemplate0, x); expect(x); }
 
-//#define ALL_TESTS
+#define ALL_TESTS
 
 void test() {
     test_li(-128);
@@ -17,6 +17,13 @@ void test() {
     test_li(-(1L << 30) - 0b011111111111);
     test_li((1L << 31) - 1);
     test_li(-(1L << 31));
+
+    test_li(0x10000);
+    test_li(0x10400);
+    test_li(0x10500);
+    test_li(0x11000);
+    test_li(0x1000);
+    test_li(0x100000);
 
     long long long_max = ((unsigned long long) -1) >> 1;
     long long long_min = ((unsigned long long) 1) << 63;

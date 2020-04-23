@@ -70,7 +70,7 @@ enum {
 
 struct Assembler {
     std::FILE *output;
-    uint64_t _pc = 0x1000000000000000ull; // 2**60 TODO: try to implement this better
+    uint64_t _pc = 0x10420;
 
     inline uint64_t pc() {
         return _pc;
@@ -97,8 +97,8 @@ struct Assembler {
         _pc += 4;
     }
 
-    inline void lui(      Register d,  int imm) { u("lui", d, imm); }
-    inline void auipc(    Register d,  int imm) { u("auipc", d, imm); }
+    inline void lui(      Register d,  int imm) { u("lui", d, imm & 0xfffff); }
+    inline void auipc(    Register d,  int imm) { u("auipc", d, imm & 0xfffff); }
 
     inline void addi(Register d, Register s, int imm) { i("addi", d, s, imm); }
     inline void addiw(Register d, Register s, int imm) { i("addiw", d, s, imm); }

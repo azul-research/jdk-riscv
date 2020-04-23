@@ -119,23 +119,11 @@ class AddressLiteral {
 
 class Argument {
  private:
-  int _number;  // The number of the argument.
+  int _number;  // The number of the int argument.
  public:
   enum {
     // Only 8 registers may contain integer parameters.
-    n_register_parameters = 8,
-    // Can have up to 8 floating registers.
-    n_float_register_parameters = 8,
-
-    // RISCV C calling conventions.
-    // The first eight arguments are passed in int regs if they are int.
-    n_int_register_parameters_c = 8,
-    // The first thirteen float arguments are passed in float regs.
-    n_float_register_parameters_c = 13,
-    // Only the first 8 parameters are not placed on the stack. Aix disassembly
-    // shows that xlC places all float args after argument 8 on the stack AND
-    // in a register. This is not documented, but we follow this convention, too.
-    n_regs_not_on_stack_c = 8,
+    n_int_register_parameters = 8,
   };
   // creation
   Argument(int number) : _number(number) {}
@@ -143,11 +131,33 @@ class Argument {
   int  number() const { return _number; }
 
   // Locating register-based arguments:
-  bool is_register() const { return _number < n_register_parameters; }
+  bool is_register() const { return _number < n_int_register_parameters; }
 
   Register as_register() const {
     assert(is_register(), "must be a register argument");
-    return as_Register(number() + R3_ARG1_PPC->encoding());
+    return as_Register(number() + R10_ARG0->encoding());
+  }
+};
+
+class FloatArgument {
+private:
+  int _number;  // The number of the float argument.
+public:
+  enum {
+    // Only 8 registers may contain float parameters.
+    n_float_register_parameters = 8,
+  };
+  // creation
+  FloatArgument(int number) : _number(number) {}
+
+  int  number() const { return _number; }
+
+  // Locating register-based arguments:
+  bool is_register() const { return _number < n_float_register_parameters; }
+
+  FloatRegister as_register() const {
+    assert(is_register(), "must be a register argument");
+    return as_FloatRegister(number() + F10_ARG0->encoding());
   }
 };
 
@@ -2125,8 +2135,8 @@ class Assembler : public AbstractAssembler {
   inline void remw(    Register d, Register s1, Register s2);
   inline void remuw(   Register d, Register s1, Register s2);
   // amo
-  inline void lrw(     Register d, Register s1,              bool aq, bool rl);
-  inline void scw(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrw(     Register d, Register s1,              bool aq = false, bool rl = false);
+  inline void scw(     Register d, Register s1, Register s2, bool aq = false, bool rl = false);
   inline void amoswapw(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoaddw( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoxorw( Register d, Register s1, Register s2, bool aq, bool rl);
@@ -2136,8 +2146,8 @@ class Assembler : public AbstractAssembler {
   inline void amomaxw( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amominuw(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amomaxuw(Register d, Register s1, Register s2, bool aq, bool rl);
-  inline void lrd(     Register d, Register s1,              bool aq, bool rl);
-  inline void scd(     Register d, Register s1, Register s2, bool aq, bool rl);
+  inline void lrd(     Register d, Register s1,              bool aq = false, bool rl = false);
+  inline void scd(     Register d, Register s1, Register s2, bool aq = false, bool rl = false);
   inline void amoswapd(Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoaddd( Register d, Register s1, Register s2, bool aq, bool rl);
   inline void amoxord( Register d, Register s1, Register s2, bool aq, bool rl);
@@ -2710,18 +2720,26 @@ class Assembler : public AbstractAssembler {
   // load the constant are emitted beforehand. Store instructions need a
   // tmp reg if the constant is not encodable as immediate.
   // Size unpredictable.
+  void ld(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lw(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lwu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lh(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lhu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lb(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void lbu(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L));
+  void sd(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sw(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sh(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+  void sb(Register d, Register s1, RegisterOrConstant roc = RegisterOrConstant(0L), Register tmp = noreg);
+
   void ld_PPC(  Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void ld(Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwa_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lwz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
-  void lwu( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lha_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lhz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void lbz_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg);
   void std_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void sd(Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stw_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
-  void sw(Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void sth_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void stb_PPC( Register d, RegisterOrConstant roc, Register s1 = noreg, Register tmp = noreg);
   void add_PPC( Register d, RegisterOrConstant roc, Register s1);
@@ -2736,10 +2754,10 @@ class Assembler : public AbstractAssembler {
   enum {
     load_const_size = 5 * BytesPerInstWord
   };
-         void load_const_PPC(Register d, long a,            Register tmp = noreg);
-  inline void load_const_PPC(Register d, void* a,           Register tmp = noreg);
-  inline void load_const_PPC(Register d, Label& L,          Register tmp = noreg);
-  inline void load_const_PPC(Register d, AddressLiteral& a, Register tmp = noreg);
+         void load_const(Register d, long x, Register tmp = noreg);
+  inline void load_const(Register d, void* x, Register tmp = noreg);
+  inline void load_const(Register d, Label& L, Register tmp = noreg);
+  inline void load_const(Register d, AddressLiteral& a, Register tmp = noreg);
   inline void load_const32_PPC(Register d, int i); // load signed int (patchable)
 
   // Load a 64 bit constant, optimized, not identifyable.
@@ -2755,6 +2773,9 @@ class Assembler : public AbstractAssembler {
          int add_const_optimized(Register d, Register s, long x, Register tmp = noreg, bool return_simm12_rest = false);
   inline int add_const_optimized(Register d, Register s, void* a, Register tmp = noreg, bool return_simm12_rest = false) {
     return add_const_optimized(d, s, (long)(unsigned long)a, tmp, return_simm12_rest);
+  }
+  inline int add_const_optimized(Register d, Register s, Label &l, Register tmp = noreg, bool return_simm12_rest = false) {
+    return add_const_optimized(d, s, target(l), tmp, return_simm12_rest);
   }
 
   // If return_simm12_rest, the return value needs to get added afterwards.

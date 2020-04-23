@@ -43,6 +43,10 @@ class MacroAssembler: public Assembler {
   // Optimized instruction emitters
   //
 
+
+  inline static int largeoffset_hi(int si31) { return (si31 + (1<<11)) >> 12; }
+  inline static int largeoffset_lo(int si31) { return si31 - (largeoffset_hi(si31) << 12); }
+
   inline static int largeoffset_si16_si16_hi(int si31) { return (si31 + (1<<15)) >> 16; }
   inline static int largeoffset_si16_si16_lo(int si31) { return si31 - (((si31 + (1<<15)) >> 16) << 16); }
 
@@ -493,6 +497,12 @@ class MacroAssembler: public Assembler {
                 Register dest_current_value, RegisterOrConstant compare_value, Register exchange_value,
                 Register addr_base, int semantics, bool cmpxchgx_hint = false,
                 Register int_flag_success = noreg, Label* failed = NULL, bool contention_hint = false, bool weak = false);
+  void cmpxchgd_simple(Register dest_current_value, Register compare_value, Register exchange_value,
+                       Register addr_base, Register tmp, Label* failed);
+  void cmpxchg_for_lock_acquire(Register dest_current_value, Register compare_value, Register exchange_value,
+                                Register addr_base, Register tmp, Label* failed_ext);
+  void cmpxchg_for_lock_release(Register dest_current_value, Register compare_value, Register exchange_value,
+                                Register addr_base, Register tmp, Label* failed_ext);
 
   // interface method calling
   void lookup_interface_method(Register recv_klass,
@@ -929,6 +939,11 @@ class MacroAssembler: public Assembler {
   void should_not_reach_here()                         { stop(stop_shouldnotreachhere,  "", -1); }
 
   void zap_from_to(Register low, int before, Register high, int after, Register val, Register addr) PRODUCT_RETURN;
+
+  void zeroExtend(Register rd, Register rs, int bits);
+  void signExtend(Register rd, Register rs, int bits);
+  void zeroExtend(Register r, int bits) { zeroExtend(r, r, bits); };
+  void signExtend(Register r, int bits) { signExtend(r, r, bits); };
 };
 
 // class SkipIfEqualZero:

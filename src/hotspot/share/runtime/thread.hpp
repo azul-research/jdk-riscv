@@ -2349,10 +2349,11 @@ class SignalHandlerMark: public StackObj {
 class TestJavaThread : public JavaThread {
   private:
     const char* test_method;
+    Symbol* class_name;
 
   public:
-    TestJavaThread(const char* test_method, ThreadFunction entry_point)
-        : JavaThread(entry_point), test_method(test_method) {}
+    TestJavaThread(const char* test_method, ThreadFunction entry_point, Symbol* class_name)
+        : JavaThread(entry_point), test_method(test_method), class_name(class_name) {}
 
     virtual void thread_main_inner();
 
@@ -2360,21 +2361,28 @@ class TestJavaThread : public JavaThread {
 
     const char* get_test_method();
 
+    Symbol* get_class_name();
+
     void join();
 };
 
-typedef void (*TestFunction)(TRAPS);
+typedef void (*TestFunction)(Symbol*, TRAPS);
 
 class JmmTest {
   public:
+    Symbol* class_name;
     const char *before_test_method_name;
-    char **actor_method_names;
+    char* const* actor_method_names;
     int actors_number;
     TestFunction after_test;
 
-    JmmTest(const char *before_test_method_name, char **actor_method_names, int actors_number, TestFunction after_test)
-        : before_test_method_name(before_test_method_name), actor_method_names(actor_method_names),
+    JmmTest(Symbol* class_name, char **actor_method_names, int actors_number, TestFunction after_test)
+        : class_name(class_name), before_test_method_name((char*) "reset0"), actor_method_names(actor_method_names),
           actors_number(actors_number), after_test(after_test) {};
+
+    JmmTest(Symbol* class_name, TestFunction after_test)
+        : class_name(class_name), before_test_method_name((char*) "reset0"), actor_method_names(0),
+          actors_number(2), after_test(after_test) {};
 
     void run(TRAPS);
 

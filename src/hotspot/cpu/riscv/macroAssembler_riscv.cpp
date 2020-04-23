@@ -939,11 +939,12 @@ void MacroAssembler::push_frame(Register bytes, Register tmp) {
 // Push a frame of size `bytes'.
 void MacroAssembler::push_frame(unsigned int bytes, Register tmp) {
   long offset = align_addr(bytes, frame::alignment_in_bytes);
-  if (is_simm(-offset, 16)) {
-    stdu_PPC(R1_SP_PPC, -offset, R1_SP_PPC);
+  mv(R8_FP, R2_SP);
+  if (is_simm(-offset, 12)) {
+    addi(R2_SP, R2_SP, -offset);
   } else {
-    load_const_optimized(tmp, -offset);
-    stdux_PPC(R1_SP_PPC, R1_SP_PPC, tmp);
+    li(tmp, -offset);
+    sub(R2_SP, R2_SP, tmp);
   }
 }
 
@@ -954,9 +955,8 @@ void MacroAssembler::push_frame_reg_args(unsigned int bytes, Register tmp) {
 
 // Setup up a new C frame with a spill area for non-volatile GPRs and
 // additional space for local variables.
-void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes,
-                                                      Register tmp) {
-  push_frame(bytes + frame::abi_reg_args_ppc_size + frame::spill_nonvolatiles_size, tmp);
+void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp) {
+  push_frame(bytes + frame::abi_frame_size + frame::spill_nonvolatiles_size, tmp);
 }
 
 // Pop current C frame.
@@ -1059,27 +1059,27 @@ void MacroAssembler::call_VM(Register oop_result, address entry_point, bool chec
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1,
                              bool check_exceptions) {
-  // R3_ARG1_PPC is reserved for the thread.
-  mv_if_needed(R4_ARG2_PPC, arg_1);
+  // R10_ARG0 is reserved for the thread.
+  mv_if_needed(R11_ARG1, arg_1);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2,
                              bool check_exceptions) {
-  // R3_ARG1_PPC is reserved for the thread
-  mv_if_needed(R4_ARG2_PPC, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_2);
+  // R10_ARG0 is reserved for the thread
+  mv_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1, "smashed argument");
+  mv_if_needed(R12_ARG2, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg_3,
                              bool check_exceptions) {
-  // R3_ARG1_PPC is reserved for the thread
-  mv_if_needed(R4_ARG2_PPC, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_2);
-  mv_if_needed(R6_ARG4_PPC, arg_3);
+  // R10_ARG0 is reserved for the thread
+  mv_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1, "smashed argument");
+  mv_if_needed(R12_ARG2, arg_2);
+  mv_if_needed(R13_ARG3, arg_3);
   call_VM(oop_result, entry_point, check_exceptions);
 }
 
@@ -1087,8 +1087,8 @@ void MacroAssembler::call_VM_leaf(address entry_point) {
   call_VM_leaf_base(entry_point);
 }
 
-void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1) {
-  mv_if_needed(R3_ARG1_PPC, arg_1);
+void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0) {
+  mv_if_needed(R10_ARG0, arg_0);
   call_VM_leaf(entry_point);
 }
 
@@ -1099,12 +1099,12 @@ void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register 
   call_VM_leaf(entry_point);
 }
 
-void MacroAssembler::call_VM_leaf(address entry_point, Register arg_1, Register arg_2, Register arg_3) {
-  mv_if_needed(R3_ARG1_PPC, arg_1);
-  assert(arg_2 != R3_ARG1_PPC, "smashed argument");
-  mv_if_needed(R4_ARG2_PPC, arg_2);
-  assert(arg_3 != R3_ARG1_PPC && arg_3 != R4_ARG2_PPC, "smashed argument");
-  mv_if_needed(R5_ARG3_PPC, arg_3);
+void MacroAssembler::call_VM_leaf(address entry_point, Register arg_0, Register arg_1, Register arg_2) {
+  mv_if_needed(R10_ARG0, arg_0);
+  assert(arg_1 != R10_ARG0, "smashed argument");
+  mv_if_needed(R11_ARG1, arg_1);
+  assert(arg_2 != R11_ARG1 && arg_2 != R10_ARG0, "smashed argument");
+  mv_if_needed(R12_ARG2, arg_2);
   call_VM_leaf(entry_point);
 }
 
@@ -1163,23 +1163,24 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
 
   long stdoffset = -offset;
 
-  if (is_simm(stdoffset, 16)) {
-    // Signed 16 bit offset, a simple std is ok.
+  if (is_simm(stdoffset, 12)) {
+    // Signed 12 bit offset, a simple sd is ok.
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld_PPC(R0, (int)(signed short)stdoffset, R1_SP_PPC);
+      ld(R0, R2_SP, (int)(signed short)stdoffset);
     } else {
-      std_PPC(R0,(int)(signed short)stdoffset, R1_SP_PPC);
+      sd(R0, R2_SP, (int)(signed short)stdoffset);
     }
   } else if (is_simm(stdoffset, 31)) {
-    const int hi = MacroAssembler::largeoffset_si16_si16_hi(stdoffset);
-    const int lo = MacroAssembler::largeoffset_si16_si16_lo(stdoffset);
+    const int hi = MacroAssembler::largeoffset_hi(stdoffset);
+    const int lo = MacroAssembler::largeoffset_lo(stdoffset);
 
     Register tmp = R11;
-    addis_PPC(tmp, R1_SP_PPC, hi);
+    lui(tmp, hi);
+    add(tmp, R2_SP, tmp);
     if (UseLoadInstructionsForStackBangingRISCV64) {
-      ld_PPC(R0,  lo, tmp);
+      ld(R0, tmp, lo);
     } else {
-      std_PPC(R0, lo, tmp);
+      sd(R0, tmp, lo);
     }
   } else {
     ShouldNotReachHere();
@@ -1593,6 +1594,37 @@ void MacroAssembler::cmpxchgd(ConditionRegister flag,
   // (flag == eq) => (dest_current_value == compare_value), ( swapped)
 }
 
+void MacroAssembler::cmpxchgd_simple(Register dest_current_value, Register compare_value, Register exchange_value,
+                                     Register addr_base, Register tmp, Label* failed_ext) {
+  Label retry;
+  Label done;
+
+  // atomic emulation loop
+  bind(retry);
+  lrd(dest_current_value, addr_base);
+  bne(dest_current_value, compare_value, *failed_ext);
+  scd(tmp, exchange_value, addr_base);
+  bnez(tmp, retry);
+
+  bind(done);
+  // (flag == ne) => (dest_current_value != compare_value), (!swapped)
+  // (flag == eq) => (dest_current_value == compare_value), ( swapped)
+}
+
+void MacroAssembler::cmpxchg_for_lock_acquire(Register dest_current_value, Register compare_value, Register exchange_value,
+                                              Register addr_base, Register tmp, Label* failed_ext) {
+  Assembler::fence(Assembler::W_OP, Assembler::W_OP);
+  cmpxchgd_simple(dest_current_value, compare_value, exchange_value, addr_base, tmp, failed_ext);
+  fence();
+}
+
+void MacroAssembler::cmpxchg_for_lock_release(Register dest_current_value, Register compare_value, Register exchange_value,
+                                              Register addr_base, Register tmp, Label* failed_ext) {
+  fence();
+  cmpxchgd_simple(dest_current_value, compare_value, exchange_value, addr_base, tmp, failed_ext);
+  fence(); //Assembler::fence(Assembler::W_OP, Assembler::R_OP);
+}
+
 // Look up the method for a megamorphic invokeinterface call.
 // The target method is determined by <intf_klass, itable_index>.
 // The receiver klass is in recv_klass.
@@ -1940,7 +1972,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
          "biased locking makes assumptions about bit layout");
 
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::total_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::total_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -1961,7 +1993,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   if (PrintBiasedLockingStatistics) {
     Label l;
     bne_PPC(cr_reg, l);
-    load_const_PPC(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
+    load_const(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
     lwzx_PPC(mark_reg, temp2_reg);
     addi_PPC(mark_reg, mark_reg, 1);
     stwx_PPC(mark_reg, temp2_reg);
@@ -2030,7 +2062,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // need to revoke that bias. The revocation will occur in the
   // interpreter runtime in the slow case.
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::anonymously_biased_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::anonymously_biased_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2064,7 +2096,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // need to revoke that bias. The revocation will occur in the
   // interpreter runtime in the slow case.
   if (PrintBiasedLockingStatistics) {
-    load_const_PPC(temp2_reg, (address) BiasedLocking::rebiased_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::rebiased_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2103,7 +2135,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   if (PrintBiasedLockingStatistics) {
     Label l;
     bne_PPC(cr_reg, l);
-    load_const_PPC(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
+    load_const(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
@@ -2896,14 +2928,14 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
 
 void MacroAssembler::safepoint_poll(Label& slow_path, Register temp_reg) {
   if (SafepointMechanism::uses_thread_local_poll()) {
-    ld_PPC(temp_reg, in_bytes(Thread::polling_page_offset()), R24_thread);
     // Armed page has poll_bit set.
-    andi__PPC(temp_reg, temp_reg, SafepointMechanism::poll_bit());
+    ld(temp_reg, R24_thread, in_bytes(Thread::polling_page_offset()));
   } else {
-    lwz_PPC(temp_reg, (RegisterOrConstant)(intptr_t)SafepointSynchronize::address_of_state());
-    cmpwi_PPC(CCR0, temp_reg, SafepointSynchronize::_not_synchronized);
+    int off = load_const_optimized(temp_reg, SafepointSynchronize::address_of_state());
+    lwu(temp_reg, temp_reg, off);
   }
-  bne_PPC(CCR0, slow_path);
+  assert(SafepointSynchronize::_not_synchronized == 0, "Compare with zero should means this value");
+  bnez(temp_reg, slow_path);
 }
 
 void MacroAssembler::resolve_jobject(Register value, Register tmp1, Register tmp2, bool needs_frame) {
@@ -2994,9 +3026,8 @@ void MacroAssembler::get_vm_result_2(Register metadata_result) {
   //   metadata_result
   //   R24_thread->in_bytes(JavaThread::vm_result_2_offset())
 
-  ld_PPC(metadata_result, in_bytes(JavaThread::vm_result_2_offset()), R24_thread);
-  li_PPC(R0, 0);
-  std_PPC(R0, in_bytes(JavaThread::vm_result_2_offset()), R24_thread);
+  ld(metadata_result, R24_thread, in_bytes(JavaThread::vm_result_2_offset()));
+  sd(R0_ZERO, R24_thread, in_bytes(JavaThread::vm_result_2_offset()));
 }
 
 Register MacroAssembler::encode_klass_not_null(Register dst, Register src) {
@@ -4775,9 +4806,9 @@ void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_of
   }
   Label ok;
   if (check_equal) {
-    beq(tmp, R0_ZERO, ok);
+    beqz(tmp, ok);
   } else {
-    bne(tmp, R0_ZERO, ok);
+    bnez(tmp, ok);
   }
   stop(msg, id);
   bind(ok);

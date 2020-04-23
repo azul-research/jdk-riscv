@@ -2332,7 +2332,10 @@ const size_t minimumSymbolTableSize = 1024;
   diagnostic(bool, CallTestMethod, false,                                   \
           "")                                                               \
                                                                             \
-  diagnostic(bool, TestJmm, false,                                           \
+  diagnostic(bool, ExitAfterTestMethod, false,                              \
+          "")                                                               \
+                                                                            \
+  diagnostic(bool, TestJmm, false,                                          \
           "")                                                               \
                                                                             \
   diagnostic(ccstr, TestMethodClass, NULL,                                  \

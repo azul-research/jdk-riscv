@@ -54,6 +54,15 @@ Java_java_lang_Object_registerNatives(JNIEnv *env, jclass cls)
                             methods, sizeof(methods)/sizeof(methods[0]));
 }
 
+JNIEXPORT void JNICALL
+Java_java_lang_Object_nativeTestMethod(JNIEnv *env, jclass cls, jint aInt, jlong aLong, jfloat aFloat, jchar aChar, jbyte aByte, jboolean aBool,
+                                       jint a1, jint a2, jint a3, jint a4, jint a5)
+{
+  printf(">>> jint %d, jlong %ld, jfloat %f, jchar %c, jbyte %d, jboolean %d\n", aInt, aLong, aFloat, aChar, aByte, aBool);
+  printf(">>> 1 = %d, 2 = %d, 3 = %d, 4 = %d, 5 = %d\n", a1, a2, a3, a4, a5);
+  printf("\n");
+}
+
 JNIEXPORT jclass JNICALL
 Java_java_lang_Object_getClass(JNIEnv *env, jobject this)
 {
