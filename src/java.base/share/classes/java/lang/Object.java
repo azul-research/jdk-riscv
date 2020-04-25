@@ -43,7 +43,7 @@ public class Object {
 
     static {
 	    v = 3;
-    //    registerNatives();
+        registerNatives();
     }
 
 	/**

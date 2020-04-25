@@ -653,6 +653,7 @@ class MacroAssembler: public Assembler {
   void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Register last_Java_pc);
   void reset_last_Java_frame();
   void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register fp, Register tmp1);
+  void set_top_ijava_frame_at_SP_as_last_Java_frame_2(Register sp, Register fp, Register tmp1);
 
   // Read vm result from thread: oop_result = R24_thread->result;
   void get_vm_result  (Register oop_result);

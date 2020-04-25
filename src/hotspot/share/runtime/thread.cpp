@@ -1129,20 +1129,31 @@ static Handle create_initial_thread_group(TRAPS) {
 // Creates the initial Thread
 static oop create_initial_thread(Handle thread_group, JavaThread* thread,
                                  TRAPS) {
+  printf("create_initial_thread-1\n");
   InstanceKlass* ik = SystemDictionary::Thread_klass();
+  printf("create_initial_thread-2\n");
+
   assert(ik->is_initialized(), "must be");
   instanceHandle thread_oop = ik->allocate_instance_handle(CHECK_NULL);
 
   // Cannot use JavaCalls::construct_new_instance because the java.lang.Thread
   // constructor calls Thread.current(), which must be set here for the
   // initial thread.
+
+  printf("create_initial_thread-3\n");
+
+
   java_lang_Thread::set_thread(thread_oop(), thread);
   java_lang_Thread::set_priority(thread_oop(), NormPriority);
   thread->set_threadObj(thread_oop());
 
+  printf("create_initial_thread-6\n");
+
   Handle string = java_lang_String::create_from_str("main", CHECK_NULL);
 
   JavaValue result(T_VOID);
+  printf("create_initial_thread-8\n");
+
   JavaCalls::call_special(&result, thread_oop,
                           ik,
                           vmSymbols::object_initializer_name(),
@@ -1150,6 +1161,9 @@ static oop create_initial_thread(Handle thread_group, JavaThread* thread,
                           thread_group,
                           string,
                           CHECK_NULL);
+
+  printf("create_initial_thread-16\n");
+
   return thread_oop();
 }
 
@@ -3907,7 +3921,11 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   printf("Threads::initialize_java_lang_classes-11\n");
 
   initialize_class(vmSymbols::java_lang_Thread(), CHECK);
+  printf("Threads::initialize_java_lang_classes-12\n");
+
   oop thread_object = create_initial_thread(thread_group, main_thread, CHECK);
+  printf("Threads::initialize_java_lang_classes-13\n");
+
   main_thread->set_threadObj(thread_object);
 
   // Set thread status to running since main thread has

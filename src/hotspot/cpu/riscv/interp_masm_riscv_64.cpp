@@ -468,8 +468,8 @@ void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result
   Register tmp = index;  // reuse
   slli(tmp, index, LogBytesPerHeapOop);
   // Load pointer for resolved_references[] objArray.
-  ld(result, ConstantPool::cache_offset_in_bytes(), result);
-  ld(result, ConstantPoolCache::resolved_references_offset_in_bytes(), result);
+  ld(result, result, ConstantPool::cache_offset_in_bytes());
+  ld(result, result, ConstantPoolCache::resolved_references_offset_in_bytes());
 
   resolve_oop_handle(result);
 #ifdef ASSERT
@@ -851,6 +851,8 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
 //
 void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
   if (UseHeavyMonitors) {
+    addi(monitor, monitor, 0);
+    addi(object, object, 0);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter),
             monitor, /*check_for_exceptions=*/true);
   } else {
@@ -1076,8 +1078,6 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
     bind(Lok);
   }
 #endif // ASSERT
-  printf("call_from_interpreter-50: %p\n", pc());
-
   mv(R21_sender_SP, R2_SP);
 
   // Calc a precise SP for the call. The SP value we calculated in
@@ -1099,9 +1099,6 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
   ld(Rscratch2, R8_FP, _ijava_state(top_frame_sp));
   asm_assert_eq(R21_sender_SP, Rscratch2, "top_frame_sp incorrect", 0x951);
 #endif
-
-
-  printf("call_from_interpreter-99: %p\n", pc());
 
   jr(Rtarget_addr);
 }

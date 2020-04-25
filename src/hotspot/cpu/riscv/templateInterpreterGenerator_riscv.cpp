@@ -590,10 +590,6 @@ address TemplateInterpreterGenerator::generate_exception_handler_common(const ch
 address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, int step, size_t index_size) {
   address entry = __ pc();
 
-  if (state == 9) {
-      printf("return entry-1: %p %d %d\n", __ pc(), state, atos);
-  }
-
   // Move the value out of the return register back to the TOS cache of current frame.
   switch (state) {
     case ltos:
@@ -1203,6 +1199,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
 
+  printf("NATIVE ENTRY: %p\n", entry);
+
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
   // -----------------------------------------------------------------------------
@@ -1234,6 +1232,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   Register size_of_parameters = R7_TMP2;
 
+  printf("native-5: %p\n", __ pc());
+__ addi(size_of_parameters, size_of_parameters, 0);
+  printf("native-6: %p\n", __ pc());
   generate_fixed_frame(true, size_of_parameters, noreg /* unused */);
   tty->print_cr("native entry: %p", __ pc());
 
@@ -1258,6 +1259,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
     BIND(continue_after_compile);
   }
+
+  printf("native-10: %p\n", __ pc());
 
   bang_stack_shadow_pages(true);
 
@@ -1328,7 +1331,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // anchor.
 
   // We have a TOP_IJAVA_FRAME here, which belongs to us.
-  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R2_SP, R8_FP, R5_scratch1);
+  __ set_top_ijava_frame_at_SP_as_last_Java_frame_2(R2_SP, R8_FP, R5_scratch1);
 
   // Now the interpreter frame (and its call chain) have been
   // invalidated and flushed. We are now protected against eager
@@ -1407,6 +1410,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Call the native method. Argument registers must not have been
   // overwritten since "__ call_stub(signature_handler);" (except for
   // ARG1 and ARG2 for static methods).
+
+  printf("native-345: ", __ pc());
   __ call_c(native_method_fd);
 
   __ sd(R10_RET1, R8_FP, _ijava_state(lresult));

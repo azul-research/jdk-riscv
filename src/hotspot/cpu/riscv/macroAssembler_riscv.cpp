@@ -2995,10 +2995,29 @@ void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, R
   // TOP_IJAVA_FRAME_ABI.
   // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
   address entry = pc();
+
+
   li(tmp1, entry);
 
   set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
 }
+
+void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame_2(Register sp, Register fp, Register tmp1) {
+  assert_different_registers(sp, tmp1);
+
+  // sp points to a TOP_IJAVA_FRAME, retrieve frame's PC via
+  // TOP_IJAVA_FRAME_ABI.
+  // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
+  address entry = pc();
+
+
+printf("FFFFFFFFFFFFFFFFFFFFFFF: %p\n", pc());
+
+  li(tmp1, /*entry*/ (void*)4);
+
+  set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
+}
+
 
 void MacroAssembler::get_vm_result(Register oop_result) {
   // Read:

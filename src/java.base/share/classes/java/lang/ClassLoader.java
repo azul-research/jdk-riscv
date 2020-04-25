@@ -233,7 +233,7 @@ public abstract class ClassLoader {
 
     private static native void registerNatives();
     static {
-      //  registerNatives();
+        registerNatives();
     }
 
     // The parent class loader for delegation

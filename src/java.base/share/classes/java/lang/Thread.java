@@ -145,7 +145,7 @@ class Thread implements Runnable {
     /* Make sure registerNatives is the first thing <clinit> does. */
     private static native void registerNatives();
     static {
-        //registerNatives();
+        registerNatives();
     }
 
     private volatile String name;
@@ -1131,6 +1131,7 @@ class Thread implements Runnable {
      * @see        ThreadGroup#getMaxPriority()
      */
     public final void setPriority(int newPriority) {
+	    /*
         ThreadGroup g;
         checkAccess();
         if (newPriority > MAX_PRIORITY || newPriority < MIN_PRIORITY) {
@@ -1142,6 +1143,7 @@ class Thread implements Runnable {
             }
             setPriority0(priority = newPriority);
         }
+	*/
     }
 
     /**

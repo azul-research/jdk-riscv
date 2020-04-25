@@ -969,6 +969,7 @@ public final class AccessController {
 
     public static AccessControlContext getContext()
     {
+//	return null; // new AccessControlContext(null, true);
         AccessControlContext acc = getStackAccessControlContext();
         if (acc == null) {
             // all we had was privileged system code. We don't want
