@@ -222,10 +222,10 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
     __ bind(start_skip);
     __ lbu(sig_byte, signature, 1);
     __ addi(signature, signature, 1);
-    
+
     __ li(R5_scratch1, (long) '[');
     __ beq(sig_byte, R5_scratch1, start_skip); // skip further brackets
-    
+
     __ li(R5_scratch1, (long) '9');
     __ bgt(sig_byte, R5_scratch1, end_skip);   // no optional size
 
@@ -561,7 +561,6 @@ address TemplateInterpreterGenerator::generate_ClassCastException_handler() {
 
 address TemplateInterpreterGenerator::generate_exception_handler_common(const char* name, const char* message, bool pass_oop) {
   address entry = __ pc();
-  __ untested("generate_exception_handler_common");
   Register Rexception = R25_tos;
 
   // Expression stack must be empty before entering the VM if an exception happened.
@@ -569,7 +568,7 @@ address TemplateInterpreterGenerator::generate_exception_handler_common(const ch
 
   __ load_const_optimized(R12_ARG2, (address) name, R5_scratch1);
   if (pass_oop) {
-    __ mr_PPC(R5_ARG3_PPC, Rexception);
+    __ mv(R12_ARG2, Rexception);
     __ call_VM(Rexception, CAST_FROM_FN_PTR(address, InterpreterRuntime::create_klass_exception), false);
   } else {
     __ load_const_optimized(R13_ARG3, (address) message, R5_scratch1);
@@ -577,10 +576,9 @@ address TemplateInterpreterGenerator::generate_exception_handler_common(const ch
   }
 
   // Throw exception.
-  __ mr_PPC(R3_ARG1_PPC, Rexception);
+  __ mv(R10_ARG0, Rexception);
   __ load_const_optimized(R5_scratch1, Interpreter::throw_exception_entry(), R6_scratch2);
-  __ mtctr_PPC(R5_scratch1);
-  __ bctr_PPC();
+  __ jr(R5_scratch1);
 
   return entry;
 }
@@ -870,8 +868,8 @@ void TemplateInterpreterGenerator::lock_method(Register Rflags, Register Rscratc
   // Got the oop to lock => execute!
   __ add_monitor_to_stack(true, Rscratch1, R0);
 
-  __ std_PPC(Robj_to_lock, BasicObjectLock::obj_offset_in_bytes(), R26_monitor_PPC);
-  __ lock_object(R26_monitor_PPC, Robj_to_lock);
+  __ std_PPC(Robj_to_lock, BasicObjectLock::obj_offset_in_bytes(), R18_monitor);
+  __ lock_object(R18_monitor, Robj_to_lock);
 }
 
 /* Generate a fixed interpreter frame for pure interpreter
@@ -1017,7 +1015,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   __ load_mirror_from_const_method(R6_scratch2, Rconst_method);
 
   // Store values.
-  // R23_esp, R22_bcp, R26_monitor_PPC, R28_mdx_PPC are saved at java calls
+  // R23_esp, R22_bcp, R18_monitor, R28_mdx_PPC are saved at java calls
   // in InterpreterMacroAssembler::call_from_interpreter.
 
   __ sd(R27_method, R8_FP, _ijava_state(method));
@@ -1268,7 +1266,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     lock_method(access_flags, R5_scratch1, R6_scratch2, true);
 
     // Update monitor in state.
-    __ sd(R26_monitor_PPC, R8_FP, _ijava_state(monitors));
+    __ sd(R18_monitor, R8_FP, _ijava_state(monitors));
   }
 
   // jvmti/jvmpi support
@@ -1505,7 +1503,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   if (synchronized) {
     // Don't check for exceptions since we're still in the i2n frame. Do that
     // manually afterwards.
-    __ unlock_object(R26_monitor_PPC, false); // Can also unlock methods.
+    __ unlock_object(R18_monitor, false); // Can also unlock methods.
   }
 
   // Reset active handles after returning from native.
@@ -1545,7 +1543,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   if (synchronized) {
     // Don't check for exceptions since we're still in the i2n frame. Do that
     // manually afterwards.
-    __ unlock_object(R26_monitor_PPC, false); // Can also unlock methods.
+    __ unlock_object(R18_monitor, false); // Can also unlock methods.
   }
   BIND(exception_return_sync_check_already_unlocked);
 

@@ -1265,6 +1265,8 @@ void TemplateTable::lop2(Operation op) {
 void TemplateTable::idiv() {
   transition(itos, itos);
 
+  __ ebreak();
+
   Label Lnormal, Lexception, Ldone;
   Register Rdividend = R5_scratch1; // Used by irem.
 

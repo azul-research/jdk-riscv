@@ -338,7 +338,7 @@ void InterpreterMacroAssembler::pop(TosState state) {
 }
 
 void InterpreterMacroAssembler::empty_expression_stack() {
-  addi_PPC(R23_esp, R26_monitor_PPC, - Interpreter::stackElementSize);
+  addi(R23_esp, R18_monitor, -Interpreter::stackElementSize);
 }
 
 void InterpreterMacroAssembler::get_2_byte_integer_at_bcp(int         bcp_offset,
@@ -1979,7 +1979,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
     const Register n_slots = slot;
 
     addi(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
-    sub(n_slots, R26_monitor_PPC, esp);
+    sub(n_slots, R18_monitor, esp);
     srli(n_slots, n_slots, LogBytesPerWord); // Compute number of slots to copy.
     assert(LogBytesPerWord == 3, "conflicts assembler instructions");
     beqz(n_slots, copy_slot_finished); // Nothing to copy.
@@ -1998,7 +1998,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
   }
 
   addi(R23_esp, R23_esp, -monitor_size);
-  addi(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
+  addi(R18_monitor, R18_monitor, -monitor_size);
 
   // Restart interpreter
 }
