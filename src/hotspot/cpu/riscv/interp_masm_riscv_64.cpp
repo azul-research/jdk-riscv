@@ -233,8 +233,8 @@ void InterpreterMacroAssembler::dispatch_Lbyte_code(TosState state, Register byt
 }
 
 void InterpreterMacroAssembler::load_receiver(Register Rparam_count, Register Rrecv_dst) {
-  sldi_PPC(Rrecv_dst, Rparam_count, Interpreter::logStackElementSize);
-  ldx_PPC(Rrecv_dst, Rrecv_dst, R23_esp);
+  slli(Rrecv_dst, Rparam_count, Interpreter::logStackElementSize);
+  ld(Rrecv_dst, Rrecv_dst, R23_esp);
 }
 
 // helpers for expression stack
@@ -460,17 +460,20 @@ void InterpreterMacroAssembler::get_u4(Register Rdst, Register Rsrc, int offset,
 // Load object from cpool->resolved_references(index).
 void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result, Register index, Label *L_handle_null) {
   assert_different_registers(result, index);
+
   get_constant_pool(result);
 
   // Convert from field index to resolved_references() index and from
   // word index to byte offset. Since this is a java object, it can be compressed.
   Register tmp = index;  // reuse
-  sldi_PPC(tmp, index, LogBytesPerHeapOop);
+  slli(tmp, index, LogBytesPerHeapOop);
   // Load pointer for resolved_references[] objArray.
-  ld_PPC(result, ConstantPool::cache_offset_in_bytes(), result);
-  ld_PPC(result, ConstantPoolCache::resolved_references_offset_in_bytes(), result);
+  ld(result, result, ConstantPool::cache_offset_in_bytes());
+  ld(result, result, ConstantPoolCache::resolved_references_offset_in_bytes());
+
   resolve_oop_handle(result);
 #ifdef ASSERT
+  /* FixME RISCV
   Label index_ok;
   lwa_PPC(R0, arrayOopDesc::length_offset_in_bytes(), result);
   sldi_PPC(R0, R0, LogBytesPerHeapOop);
@@ -478,9 +481,11 @@ void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result
   blt_PPC(CCR0, index_ok);
   stop("resolved reference index out of bounds", 0x09256);
   bind(index_ok);
+  */
 #endif
   // Add in the index.
-  add_PPC(result, tmp, result);
+  add(result, tmp, result);
+
   load_heap_oop(result, arrayOopDesc::base_offset_in_bytes(T_OBJECT), result, tmp, R0, false, 0, L_handle_null);
 }
 
@@ -846,6 +851,8 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
 //
 void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
   if (UseHeavyMonitors) {
+    addi(monitor, monitor, 0);
+    addi(object, object, 0);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter),
             monitor, /*check_for_exceptions=*/true);
   } else {
@@ -861,12 +868,12 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
     // } else {
     //   // Slow path.
     //   InterpreterRuntime::monitorenter(THREAD, monitor);
-    // }
+    // };
 
-    const Register displaced_header = R7_ARG5_PPC;
-    const Register object_mark_addr = R8_ARG6_PPC;
-    const Register current_header   = R9_ARG7_PPC;
-    const Register tmp              = R10_ARG8_PPC;
+    const Register displaced_header = R14_ARG4;
+    const Register object_mark_addr = R15_ARG5;
+    const Register current_header   = R16_ARG6;
+    const Register tmp              = R17_ARG7;
 
     Label done;
     Label cas_failed, slow_case;
@@ -876,41 +883,34 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
     // markOop displaced_header = obj->mark().set_unlocked();
 
     // Load markOop from object into displaced_header.
-    ld_PPC(displaced_header, oopDesc::mark_offset_in_bytes(), object);
+    ld(displaced_header, object, oopDesc::mark_offset_in_bytes());
 
     if (UseBiasedLocking) {
+      unimplemented("Biased locking is not implemented");
       biased_locking_enter(CCR0, object, displaced_header, tmp, current_header, done, &slow_case);
     }
 
     // Set displaced_header to be (markOop of object | UNLOCK_VALUE).
-    ori_PPC(displaced_header, displaced_header, markOopDesc::unlocked_value);
+    ori(displaced_header, displaced_header, markOopDesc::unlocked_value);
 
     // monitor->lock()->set_displaced_header(displaced_header);
 
     // Initialize the box (Must happen before we update the object mark!).
-    std_PPC(displaced_header, BasicObjectLock::lock_offset_in_bytes() +
-        BasicLock::displaced_header_offset_in_bytes(), monitor);
+    sd(displaced_header, monitor, BasicObjectLock::lock_offset_in_bytes() + BasicLock::displaced_header_offset_in_bytes());
 
     // if (Atomic::cmpxchg(/*ex=*/monitor, /*addr*/obj->mark_addr(), /*cmp*/displaced_header) == displaced_header) {
 
     // Store stack address of the BasicObjectLock (this is monitor) into object.
-    addi_PPC(object_mark_addr, object, oopDesc::mark_offset_in_bytes());
+    addi(object_mark_addr, object, oopDesc::mark_offset_in_bytes());
 
     // Must fence, otherwise, preceding store(s) may float below cmpxchg.
     // CmpxchgX sets CCR0 to cmpX(current, displaced).
-    cmpxchgd(/*flag=*/CCR0,
-             /*current_value=*/current_header,
-             /*compare_value=*/displaced_header, /*exchange_value=*/monitor,
-             /*where=*/object_mark_addr,
-             MacroAssembler::MemBarRel | MacroAssembler::MemBarAcq,
-             MacroAssembler::cmpxchgx_hint_acquire_lock(),
-             noreg,
-             &cas_failed,
-             /*check without membar and ldarx first*/true);
+    cmpxchg_for_lock_acquire(/*current_value=*/current_header, /*compare_value=*/displaced_header,
+                             /*exchange_value=*/monitor, /*where=*/object_mark_addr, tmp,  &cas_failed);
 
     // If the compare-and-exchange succeeded, then we found an unlocked
     // object and we have now locked it.
-    b_PPC(done);
+    j(done);
     bind(cas_failed);
 
     // } else if (THREAD->is_lock_owned((address)displaced_header))
@@ -921,18 +921,17 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
 
     // Check if owner is self by comparing the value in the markOop of object
     // (current_header) with the stack pointer.
-    sub_PPC(current_header, current_header, R1_SP_PPC);
+    sub(current_header, current_header, R2_SP);
 
     assert(os::vm_page_size() > 0xfff, "page size too small - change the constant");
     load_const_optimized(tmp, ~(os::vm_page_size()-1) | markOopDesc::lock_mask_in_place);
 
-    and__PPC(R0/*==0?*/, current_header, tmp);
+    andr(tmp, current_header, tmp);
     // If condition is true we are done and hence we can store 0 in the displaced
     // header indicating it is a recursive lock.
-    bne_PPC(CCR0, slow_case);
-    std_PPC(R0/*==0!*/, BasicObjectLock::lock_offset_in_bytes() +
-        BasicLock::displaced_header_offset_in_bytes(), monitor);
-    b_PPC(done);
+    bnez(tmp, slow_case);
+    sd(R0_ZERO, monitor, BasicObjectLock::lock_offset_in_bytes() + BasicLock::displaced_header_offset_in_bytes());
+    j(done);
 
     // } else {
     //   // Slow path.
@@ -975,10 +974,11 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     //   InterpreterRuntime::monitorexit(THREAD, monitor);
     // }
 
-    const Register object           = R7_ARG5_PPC;
-    const Register displaced_header = R8_ARG6_PPC;
-    const Register object_mark_addr = R9_ARG7_PPC;
-    const Register current_header   = R10_ARG8_PPC;
+    const Register tmp              = R13_ARG3;
+    const Register object           = R14_ARG4;
+    const Register displaced_header = R15_ARG5;
+    const Register object_mark_addr = R16_ARG6;
+    const Register current_header   = R17_ARG7;
 
     Label free_slot;
     Label slow_case;
@@ -986,6 +986,7 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     assert_different_registers(object, displaced_header, object_mark_addr, current_header);
 
     if (UseBiasedLocking) {
+      unimplemented("Biased locking is not implemented");
       // The object address from the monitor is in object.
       ld_PPC(object, BasicObjectLock::obj_offset_in_bytes(), monitor);
       assert(oopDesc::mark_offset_in_bytes() == 0, "offset of _mark is not 0");
@@ -993,12 +994,10 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     }
 
     // Test first if we are in the fast recursive case.
-    ld_PPC(displaced_header, BasicObjectLock::lock_offset_in_bytes() +
-           BasicLock::displaced_header_offset_in_bytes(), monitor);
+    ld(displaced_header, monitor, BasicObjectLock::lock_offset_in_bytes() + BasicLock::displaced_header_offset_in_bytes());
 
     // If the displaced header is zero, we have a recursive unlock.
-    cmpdi_PPC(CCR0, displaced_header, 0);
-    beq_PPC(CCR0, free_slot); // recursive unlock
+    beqz(displaced_header, free_slot); // recursive unlock
 
     // } else if (Atomic::cmpxchg(displaced_header, obj->mark_addr(), monitor) == monitor) {
     //   // We swapped the unlocked mark in displaced_header into the object's mark word.
@@ -1008,21 +1007,15 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
 
     // The object address from the monitor is in object.
     if (!UseBiasedLocking) { ld_PPC(object, BasicObjectLock::obj_offset_in_bytes(), monitor); }
-    addi_PPC(object_mark_addr, object, oopDesc::mark_offset_in_bytes());
+    addi(object_mark_addr, object, oopDesc::mark_offset_in_bytes());
 
     // We have the displaced header in displaced_header. If the lock is still
     // lightweight, it will contain the monitor address and we'll store the
     // displaced header back into the object's mark word.
     // CmpxchgX sets CCR0 to cmpX(current, monitor).
-    cmpxchgd(/*flag=*/CCR0,
-             /*current_value=*/current_header,
-             /*compare_value=*/monitor, /*exchange_value=*/displaced_header,
-             /*where=*/object_mark_addr,
-             MacroAssembler::MemBarRel,
-             MacroAssembler::cmpxchgx_hint_release_lock(),
-             noreg,
-             &slow_case);
-    b_PPC(free_slot);
+    cmpxchg_for_lock_release(/*current_value=*/current_header, /*compare_value=*/monitor,
+                             /*exchange_value=*/displaced_header, /*where=*/object_mark_addr, tmp, &slow_case);
+    j(free_slot);
 
     // } else {
     //   // Slow path.
@@ -1031,18 +1024,16 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     // The lock has been converted into a heavy lock and hence
     // we need to get into the slow case.
     bind(slow_case);
-    call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorexit),
-            monitor, check_for_exceptions);
+    call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorexit), monitor, check_for_exceptions);
     // }
 
     Label done;
-    b_PPC(done); // Monitor register may be overwritten! Runtime has already freed the slot.
+    j(done); // Monitor register may be overwritten! Runtime has already freed the slot.
 
     // Exchange worked, do monitor->set_obj(NULL);
     align(32, 12);
     bind(free_slot);
-    li_PPC(R0, 0);
-    std_PPC(R0, BasicObjectLock::obj_offset_in_bytes(), monitor);
+    sd(R0_ZERO, monitor, BasicObjectLock::obj_offset_in_bytes());
     bind(done);
   }
 }
@@ -1087,7 +1078,6 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
     bind(Lok);
   }
 #endif // ASSERT
-
   mv(R21_sender_SP, R2_SP);
 
   // Calc a precise SP for the call. The SP value we calculated in

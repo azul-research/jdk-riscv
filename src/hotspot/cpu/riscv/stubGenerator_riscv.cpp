@@ -77,6 +77,9 @@ class StubGenerator: public StubCodeGenerator {
     // native_entry, and process result.
 
     StubCodeMark mark(this, "StubRoutines", "call_stub");
+    
+    printf("gcs: %p\n", __ pc());
+
 
     address start = __ pc();
 
@@ -257,6 +260,7 @@ class StubGenerator: public StubCodeGenerator {
       // and save runtime-value of LR in return_address.
       assert(r_new_arg_entry != tos && r_new_arg_entry != R27_method && r_new_arg_entry != R24_thread,
              "trashed r_new_arg_entry");
+      printf("gcs-2: %p\n", __ pc());
       return_address = __ call_stub(r_new_arg_entry); //TODO call_stub
     }
 

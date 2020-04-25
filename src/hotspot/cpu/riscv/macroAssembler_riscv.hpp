@@ -497,6 +497,12 @@ class MacroAssembler: public Assembler {
                 Register dest_current_value, RegisterOrConstant compare_value, Register exchange_value,
                 Register addr_base, int semantics, bool cmpxchgx_hint = false,
                 Register int_flag_success = noreg, Label* failed = NULL, bool contention_hint = false, bool weak = false);
+  void cmpxchgd_simple(Register dest_current_value, Register compare_value, Register exchange_value,
+                       Register addr_base, Register tmp, Label* failed);
+  void cmpxchg_for_lock_acquire(Register dest_current_value, Register compare_value, Register exchange_value,
+                                Register addr_base, Register tmp, Label* failed_ext);
+  void cmpxchg_for_lock_release(Register dest_current_value, Register compare_value, Register exchange_value,
+                                Register addr_base, Register tmp, Label* failed_ext);
 
   // interface method calling
   void lookup_interface_method(Register recv_klass,
@@ -647,6 +653,7 @@ class MacroAssembler: public Assembler {
   void set_last_Java_frame(Register last_java_sp, Register last_java_fp, Register last_Java_pc);
   void reset_last_Java_frame();
   void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register fp, Register tmp1);
+  void set_top_ijava_frame_at_SP_as_last_Java_frame_2(Register sp, Register fp, Register tmp1);
 
   // Read vm result from thread: oop_result = R24_thread->result;
   void get_vm_result  (Register oop_result);

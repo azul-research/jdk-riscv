@@ -3001,6 +3001,8 @@ JNI_ENTRY(jint, jni_RegisterNatives(JNIEnv *env, jclass clazz,
   jint ret = 0;
   DT_RETURN_MARK(RegisterNatives, jint, (const jint&)ret);
 
+  frame fff = thread->last_frame();
+
   Klass* k = java_lang_Class::as_Klass(JNIHandles::resolve_non_null(clazz));
 
   for (int index = 0; index < nMethods; index++) {

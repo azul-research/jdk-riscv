@@ -48,6 +48,7 @@ public:
   }
 
   inline void set(intptr_t* sp, intptr_t* fp, address pc) {
+    printf("SSSSSSSSSSSSSSSSS: %p\n", sp);
     _last_Java_pc = pc;
     _last_Java_fp = fp;
     OrderAccess::release();

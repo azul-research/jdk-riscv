@@ -1131,6 +1131,7 @@ class Thread implements Runnable {
      * @see        ThreadGroup#getMaxPriority()
      */
     public final void setPriority(int newPriority) {
+	    /*
         ThreadGroup g;
         checkAccess();
         if (newPriority > MAX_PRIORITY || newPriority < MIN_PRIORITY) {
@@ -1142,6 +1143,7 @@ class Thread implements Runnable {
             }
             setPriority0(priority = newPriority);
         }
+	*/
     }
 
     /**

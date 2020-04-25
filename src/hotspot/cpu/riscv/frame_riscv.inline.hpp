@@ -52,19 +52,19 @@ inline void frame::find_codeblob_and_set_pc_and_deopt_state(address pc) {
 
 // Constructors
 
-// Initialize all fields, _unextended_sp will be adjusted in find_codeblob_and_set_pc_and_deopt_state.
+// Initialize all fields
 inline frame::frame() : _sp(NULL), _pc(NULL), _cb(NULL),  _deopt_state(unknown), _unextended_sp(NULL), _fp(NULL) {}
 
 inline frame::frame(intptr_t* sp, intptr_t* fp) : _sp(sp), _unextended_sp(sp), _fp(fp) {
-  find_codeblob_and_set_pc_and_deopt_state((address)own_abi()->ra); // also sets _fp and adjusts _unextended_sp
+  find_codeblob_and_set_pc_and_deopt_state((address)own_abi()->ra);
 }
 
 inline frame::frame(intptr_t* sp, intptr_t* fp, address pc) : _sp(sp), _unextended_sp(sp), _fp(fp) {
-  find_codeblob_and_set_pc_and_deopt_state(pc); // also sets _fp and adjusts _unextended_sp
+  find_codeblob_and_set_pc_and_deopt_state(pc);
 }
 
 inline frame::frame(intptr_t* sp, intptr_t* fp, address pc, intptr_t* unextended_sp) : _sp(sp), _unextended_sp(unextended_sp), _fp(fp) {
-  find_codeblob_and_set_pc_and_deopt_state(pc); // also sets _fp and adjusts _unextended_sp
+  find_codeblob_and_set_pc_and_deopt_state(pc);
 }
 
 // Accessors
@@ -99,10 +99,10 @@ inline intptr_t* frame::unextended_sp() const {
 
 // All frames have this field.
 inline address frame::sender_pc() const {
-  return (address)callers_abi()->ra;
+  return (address)own_abi()->ra;
 }
 inline address* frame::sender_pc_addr() const {
-  return (address*)&(callers_abi()->ra);
+  return (address*)&(own_abi()->ra);
 }
 
 // All frames have this field.

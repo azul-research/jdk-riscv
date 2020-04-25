@@ -104,9 +104,9 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   const Register type_mask      = R5_scratch1;
   const Register abs_arg        = R6_scratch2;
 #endif
-  const Register arg_java       = R23_esp; // we can rewrite this register since we call this function only from genrate_native_entry
+  const Register arg_java       = R23_esp; // we should restore this register in the end
   const Register arg_c          = R7_TMP2;
-  const Register signature      = R25_tos; // we can rewrite this register since we call this function only from genrate_native_entry
+  const Register signature      = R22_bcp; // we should restore this register in the end
   const Register sig_byte       = R28_TMP3;
   const Register fpcnt          = R29_TMP4;
   const Register ipcnt          = R30_TMP5;
@@ -318,6 +318,10 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ bind(loop_end);
 
+  assert(signature == R22_bcp, "We should restore bcp");
+  assert(arg_java == R23_esp, "We should restore esp");
+  __ ld(R22_bcp, R8_FP, _ijava_state(bcp));
+  __ ld(R23_esp, R8_FP, _ijava_state(esp));
   __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
   __ ret();
 
@@ -603,7 +607,17 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     default  : ShouldNotReachHere();
   }
 
+  if (state == 9) {
+      printf("return entry-2: %p %d %d\n", __ pc(), state, atos);
+  }
+
+
   __ restore_interpreter_state();
+
+    if (state == 9) {
+      printf("return entry-3: %p %d %d\n", __ pc(), state, atos);
+  }
+
 
   // Resize frame to top_frame_sp
   __ ld(R2_SP, R8_FP, _ijava_state(top_frame_sp));
@@ -612,8 +626,8 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
   __ li(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0));
 
   if (state == atos) {
-    __ unimplemented("return for atos is not implemented");
-    __ profile_return_type(R3_RET_PPC, R5_scratch1, R6_scratch2);
+ //   __ unimplemented("return for atos is not implemented");
+  //  __ profile_return_type(R3_RET_PPC, R5_scratch1, R6_scratch2);
   }
 
   const Register cache = R5_scratch1;
@@ -631,6 +645,11 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 
   __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
   __ check_and_handle_earlyret(R5_scratch1, R6_scratch2);
+
+    if (state == 9) {
+      printf("return entry-99: %p %d %d\n", __ pc(), state, atos);
+  }
+
 
   __ dispatch_next(state, step);
   return entry;
@@ -984,9 +1003,8 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 
   // Set up registers.
   __ add(R26_locals, R23_esp, Rsize_of_parameters); // R26_locals should point to the first method argument(local 0).
-  Register RXX_monitor = R5_scratch1; // TODO change RXX_monitor register
-  __ addi(RXX_monitor, R8_FP, -frame::frame_header_size); // Frame will be resized on monitor pushing.
-  __ addi(R23_esp, RXX_monitor, -Interpreter::stackElementSize);
+  __ addi(R18_monitor, R8_FP, -frame::frame_header_size); // Frame will be resized on monitor pushing.
+  __ addi(R23_esp, R18_monitor, -Interpreter::stackElementSize);
 
   // Set up interpreter state registers.
 
@@ -1038,7 +1056,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 #endif
   // We have to initialize some frame slots for native calls (accessed by GC).
   if (native_call) {
-    __ sd(RXX_monitor, R8_FP, _ijava_state(monitors));
+    __ sd(R18_monitor, R8_FP, _ijava_state(monitors));
     __ sd(R22_bcp, R8_FP, _ijava_state(bcp));
     if (ProfileInterpreter) { __ sd(R28_mdx_PPC, R8_FP, _ijava_state(mdx)); }
   }
@@ -1183,6 +1201,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
 
+  printf("NATIVE ENTRY: %p\n", entry);
+
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
   // -----------------------------------------------------------------------------
@@ -1198,8 +1218,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   const Register signature_handler_fd = R7_TMP2;
   const Register native_method_fd     = R7_TMP2;
-  const Register access_flags         = R22_bcp;
-  const Register result_handler_addr  = R23_esp;
+  const Register access_flags         = R25_tos;
+  const Register result_handler_addr  = R25_tos;
 
   //=============================================================================
   // Allocate new frame and initialize interpreter state.
@@ -1214,6 +1234,9 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   Register size_of_parameters = R7_TMP2;
 
+  printf("native-5: %p\n", __ pc());
+__ addi(size_of_parameters, size_of_parameters, 0);
+  printf("native-6: %p\n", __ pc());
   generate_fixed_frame(true, size_of_parameters, noreg /* unused */);
   tty->print_cr("native entry: %p", __ pc());
 
@@ -1238,6 +1261,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
     BIND(continue_after_compile);
   }
+
+  printf("native-10: %p\n", __ pc());
 
   bang_stack_shadow_pages(true);
 
@@ -1308,7 +1333,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // anchor.
 
   // We have a TOP_IJAVA_FRAME here, which belongs to us.
-  __ set_top_ijava_frame_at_SP_as_last_Java_frame(R2_SP, R8_FP, R5_scratch1);
+  __ set_top_ijava_frame_at_SP_as_last_Java_frame_2(R2_SP, R8_FP, R5_scratch1);
 
   // Now the interpreter frame (and its call chain) have been
   // invalidated and flushed. We are now protected against eager
@@ -1325,17 +1350,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   tty->print_cr("signature handler: %p", __ pc());
 
   __ call_stub(signature_handler_fd);
-
-  // Remove the register parameter varargs slots we allocated in
-  // compute_interpreter_state. SP+16 ends up pointing to the ABI
-  // outgoing argument area.
-  //
-  // Not needed on RISCV64.
-  //__ add_PPC(SP, SP, Argument::n_int_register_parameters*BytesPerWord);
-
-  assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
-  // Save across call to native method.
-  __ mv(result_handler_addr, R10_RET1);
 
   __ acquire(); // Acquire signature handler before trying to fetch the native entry point and klass mirror.
 
@@ -1356,6 +1370,10 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     __ sd(R6_scratch2/*mirror*/, R8_FP, _ijava_state(oop_tmp));
     BIND(method_is_not_static);
   }
+
+  assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
+  // Save across call to native method.
+  __ mv(result_handler_addr, R10_RET1);
 
   // At this point, arguments have been copied off the stack into
   // their JNI positions. Oops are boxed in-place on the stack, with
@@ -1387,6 +1405,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // Call the native method. Argument registers must not have been
   // overwritten since "__ call_stub(signature_handler);" (except for
   // ARG1 and ARG2 for static methods).
+
+  printf("native-345: %p\n", __ pc());
   __ call_c(native_method_fd);
 
   __ sd(R10_RET1, R8_FP, _ijava_state(lresult));
@@ -1692,6 +1712,9 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   // --------------------------------------------------------------------------
   // Start executing instructions.
+
+  printf("normal entry: dnext: %p\n", __ pc());
+
   __ dispatch_next(vtos);
 
   // --------------------------------------------------------------------------
@@ -2191,6 +2214,8 @@ void TemplateInterpreterGenerator::set_vtos_entry_points(Template* t,
 address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   //__ flush_bundle();
   address entry = __ pc();
+
+  printf("generate_trace_code: %p\n", entry);
 
   const char *bname = NULL;
   uint tsize = 0;

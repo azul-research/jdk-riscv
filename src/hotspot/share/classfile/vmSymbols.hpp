@@ -65,7 +65,20 @@
   template(java_lang_T7,                              "java/lang/T7")                             \
   template(java_lang_T8,                              "java/lang/T8")                             \
   template(java_lang_T9,                              "java/lang/T9")                             \
-  template(java_lang_jmmtest_JmmTest,                 "java/lang/jmmtest/JmmTest")                \
+  template(java_lang_jmmtest_DekkerTest,              "java/lang/jmmtest/DekkerTest")             \
+  template(java_lang_jmmtest_ReadAfterWrite,          "java/lang/jmmtest/ReadAfterWrite")         \
+  template(java_lang_jmmtest_AtomicLong,              "java/lang/jmmtest/AtomicLong")             \
+  template(java_lang_jmmtest_CoherenceVolatile,       "java/lang/jmmtest/CoherenceVolatile")      \
+  template(java_lang_jmmtest_CausalityTest1,          "java/lang/jmmtest/CausalityTest1")         \
+  template(java_lang_jmmtest_CausalityTest2,          "java/lang/jmmtest/CausalityTest2")         \
+  template(java_lang_jmmtest_CausalityTest3,          "java/lang/jmmtest/CausalityTest3")         \
+  template(java_lang_jmmtest_CausalityTest4,          "java/lang/jmmtest/CausalityTest4")         \
+  template(java_lang_jmmtest_CausalityTest5,          "java/lang/jmmtest/CausalityTest5")         \
+  template(java_lang_jmmtest_CausalityTest6,          "java/lang/jmmtest/CausalityTest6")         \
+  template(java_lang_jmmtest_HB1,                     "java/lang/jmmtest/HB1")                    \
+  template(java_lang_jmmtest_HB2,                     "java/lang/jmmtest/HB2")                    \
+  template(java_lang_jmmtest_FinalFieldTest,          "java/lang/jmmtest/FinalFieldTest")         \
+  template(java_lang_jmmtest_MonitorTest,             "java/lang/jmmtest/MonitorTest")            \
   template(java_lang_Class,                           "java/lang/Class")                          \
   template(java_lang_Package,                         "java/lang/Package")                        \
   template(java_lang_Module,                          "java/lang/Module")                         \

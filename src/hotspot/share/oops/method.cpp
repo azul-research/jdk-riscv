@@ -1072,6 +1072,8 @@ void Method::unlink_method() {
 // Called when the method_holder is getting linked. Setup entrypoints so the method
 // is ready to be called from interpreter, compiler, and vtables.
 void Method::link_method(const methodHandle& h_method, TRAPS) {
+   ResourceMark rm;
+  
   // If the code cache is full, we may reenter this function for the
   // leftover methods that weren't linked.
   if (is_shared()) {
@@ -1094,6 +1096,9 @@ void Method::link_method(const methodHandle& h_method, TRAPS) {
   if (!is_shared()) {
     assert(adapter() == NULL, "init'd to NULL");
     address entry = Interpreter::entry_for_method(h_method);
+
+//    printf("link %s %p\n", external_name(), entry);
+ 
     assert(entry != NULL, "interpreter entry must be non-null");
     // Sets both _i2i_entry and _from_interpreted_entry
     set_interpreter_entry(entry);

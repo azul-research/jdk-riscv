@@ -213,8 +213,25 @@ public final class String
      */
     static final boolean COMPACT_STRINGS;
 
+    private static class C {
+	    final int m1() {
+		    return 0;
+	    }
+
+	    static int sm1() {
+                    return 0;
+            }
+
+
+	    String m2() {
+		    return "";
+	    }
+    }
+
     static {
         COMPACT_STRINGS = true;
+	C.sm1();
+   //     (new C()).m1();
     }
 
     /**

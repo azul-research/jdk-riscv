@@ -1594,6 +1594,37 @@ void MacroAssembler::cmpxchgd(ConditionRegister flag,
   // (flag == eq) => (dest_current_value == compare_value), ( swapped)
 }
 
+void MacroAssembler::cmpxchgd_simple(Register dest_current_value, Register compare_value, Register exchange_value,
+                                     Register addr_base, Register tmp, Label* failed_ext) {
+  Label retry;
+  Label done;
+
+  // atomic emulation loop
+  bind(retry);
+  lrd(dest_current_value, addr_base);
+  bne(dest_current_value, compare_value, *failed_ext);
+  scd(tmp, exchange_value, addr_base);
+  bnez(tmp, retry);
+
+  bind(done);
+  // (flag == ne) => (dest_current_value != compare_value), (!swapped)
+  // (flag == eq) => (dest_current_value == compare_value), ( swapped)
+}
+
+void MacroAssembler::cmpxchg_for_lock_acquire(Register dest_current_value, Register compare_value, Register exchange_value,
+                                              Register addr_base, Register tmp, Label* failed_ext) {
+  Assembler::fence(Assembler::W_OP, Assembler::W_OP);
+  cmpxchgd_simple(dest_current_value, compare_value, exchange_value, addr_base, tmp, failed_ext);
+  fence();
+}
+
+void MacroAssembler::cmpxchg_for_lock_release(Register dest_current_value, Register compare_value, Register exchange_value,
+                                              Register addr_base, Register tmp, Label* failed_ext) {
+  fence();
+  cmpxchgd_simple(dest_current_value, compare_value, exchange_value, addr_base, tmp, failed_ext);
+  fence(); //Assembler::fence(Assembler::W_OP, Assembler::R_OP);
+}
+
 // Look up the method for a megamorphic invokeinterface call.
 // The target method is determined by <intf_klass, itable_index>.
 // The receiver klass is in recv_klass.
@@ -2964,10 +2995,29 @@ void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, R
   // TOP_IJAVA_FRAME_ABI.
   // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
   address entry = pc();
+
+
   li(tmp1, entry);
 
   set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
 }
+
+void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame_2(Register sp, Register fp, Register tmp1) {
+  assert_different_registers(sp, tmp1);
+
+  // sp points to a TOP_IJAVA_FRAME, retrieve frame's PC via
+  // TOP_IJAVA_FRAME_ABI.
+  // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
+  address entry = pc();
+
+
+printf("FFFFFFFFFFFFFFFFFFFFFFF: %p\n", pc());
+
+  li(tmp1, /*entry*/ entry);
+
+  set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
+}
+
 
 void MacroAssembler::get_vm_result(Register oop_result) {
   // Read:
