@@ -2129,7 +2129,6 @@ void TemplateTable::_return(TosState state) {
          "inconsistent calls_vm information"); // call in remove_activation
 
   if (_desc->bytecode() == Bytecodes::_return_register_finalizer) {
-
     Register Rscratch     = R5_scratch1,
              Rklass       = R6_scratch2,
              Rklass_flags = Rklass;
@@ -2145,7 +2144,7 @@ void TemplateTable::_return(TosState state) {
     __ andi(Rscratch, Rklass_flags, exact_log2(JVM_ACC_HAS_FINALIZER));
     __ beqz(Rscratch, Lskip_register_finalizer);
 
-    __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::register_finalizer), R25_tos /* obj */);
+    // __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::register_finalizer), R25_tos /* obj */);
 
     __ align(32, 12);
     __ bind(Lskip_register_finalizer);
@@ -4010,8 +4009,8 @@ void TemplateTable::arraylength() {
   transition(atos, itos);
 
   __ verify_oop(R25_tos);
-  __ null_check_throw(R25_tos, arrayOopDesc::length_offset_in_bytes(), R5_scratch1);
-  __ lwa_PPC(R25_tos, arrayOopDesc::length_offset_in_bytes(), R25_tos);
+//  __ null_check_throw(R25_tos, arrayOopDesc::length_offset_in_bytes(), R5_scratch1);
+  __ lw(R25_tos, R25_tos, arrayOopDesc::length_offset_in_bytes());
 }
 
 // ============================================================================
