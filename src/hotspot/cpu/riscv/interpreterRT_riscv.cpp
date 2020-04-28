@@ -49,7 +49,8 @@
 InterpreterRuntime::SignatureHandlerGenerator::SignatureHandlerGenerator(
     const methodHandle& method, CodeBuffer* buffer) : NativeSignatureIterator(method) {
   _masm = new MacroAssembler(buffer);
-  _int_passed_args = method->is_native() ? 2 : 0;
+  assert(method->is_native(), "Signature handler generator only for native methods");
+  _int_passed_args = method->is_static() ? 2 : 1;
   _float_passed_args = 0;
   _used_stack_words = 0;
 }

@@ -6,7 +6,7 @@ variant=core
 level=slowdebug
 testFlags=''
 
-while getopts "htbvJ:l" opt; do
+while getopts "htbVJv:l:" opt; do
     case "$opt" in
     h)
         echo "usage: $0 [-h] [-v variant] [-l debug-level]"
@@ -27,8 +27,10 @@ while getopts "htbvJ:l" opt; do
         ;;
     J)  testFlags="${testFlags} -verbose:jni"
         ;;
+    V)  testFlags="${testFlags} -version"
+        ;;
     *)
     esac
 done
 
-QEMU_GDB=12345 /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java -XX:+BreakAtStartup $testFlags  -XX:+UseHeavyMonitors
+QEMU_GDB=12345 /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java -XX:-RewriteBytecodes -XX:+BreakAtStartup -XX:+UseHeavyMonitors $testFlags
