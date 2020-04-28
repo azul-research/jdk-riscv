@@ -859,7 +859,6 @@ void InterpreterRuntime::resolve_invoke(JavaThread* thread, Bytecodes::Code byte
     Bytecode_invoke call(m, last_frame.bci());
     Symbol* signature = call.signature();
     oop qq = last_frame.callee_receiver(signature);
-    printf("qq: %p\n", qq);
     receiver = Handle(thread, last_frame.callee_receiver(signature));
 
     assert(Universe::heap()->is_in_reserved_or_null(receiver()),
