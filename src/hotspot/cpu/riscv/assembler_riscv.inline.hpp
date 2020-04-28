@@ -179,7 +179,7 @@ inline void Assembler::amominuw(Register d, Register s1, Register s2, bool aq, b
 inline void Assembler::amomaxuw(Register d, Register s1, Register s2, bool aq, bool rl) { amo(d, s1, s2, 0x2, 0x1c, aq, rl); }
 
 inline void Assembler::lrd(     Register d, Register s1,              bool aq, bool rl) { amo(d, s1, 0,  0x3, 0x2,  aq, rl); }
-inline void Assembler::scd(     Register d, Register s1, Register s2, bool aq, bool rl) { amo(d, s1, s2, 0x3, 0x3,  aq, rl); }
+inline void Assembler::scd(     Register d, Register s1, Register s2, bool aq, bool rl) { amo(d, s2, s1, 0x3, 0x3,  aq, rl); }
 inline void Assembler::amoswapd(Register d, Register s1, Register s2, bool aq, bool rl) { amo(d, s1, s2, 0x3, 0x1,  aq, rl); }
 inline void Assembler::amoaddd( Register d, Register s1, Register s2, bool aq, bool rl) { amo(d, s1, s2, 0x3, 0x0,  aq, rl); }
 inline void Assembler::amoxord( Register d, Register s1, Register s2, bool aq, bool rl) { amo(d, s1, s2, 0x3, 0x4,  aq, rl); }

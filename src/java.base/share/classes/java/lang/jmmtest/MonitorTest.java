@@ -2,29 +2,22 @@ package java.lang.jmmtest;
 
 /**
  */
-public class HB1 {
-	/**
-	 */
-	public static class VolatileInt {
-		/**
-		 */
-		public volatile int data;
-	}
+public class MonitorTest {
     /**
      */
     public static volatile boolean actor1Started, actor2Started;
     /**
      */
-    public static int[] nonvol, volRead, nonvolRead;
-    /**
-     */
-    public static VolatileInt[] vol;
-    /**
-     */
     public static int iterations;
     /**
      */
-    public static int errors, happenedBefore;
+    public static int[] a;
+    /**
+     */
+    public static Object monitor;
+    /**
+     */
+    public static int errors;
 
     /**
      */
@@ -32,14 +25,10 @@ public class HB1 {
         iterations = 30000;
         actor1Started = false;
         actor2Started = false;
-        nonvol = new int[iterations];
-        nonvolRead = new int[iterations];
-        volRead = new int[iterations];
-        vol = new VolatileInt[iterations];
+        a = new int[iterations];
+        monitor = new Object();
 		for(int i = 0; i < iterations; i++) {
-			vol[i] = new VolatileInt();
-			vol[i].data = 0;
-			nonvol[i] = 0;
+			a[i] = 0;
 		}
     }
 
@@ -50,8 +39,13 @@ public class HB1 {
         while(!actor2Started) {}
 
 		for(int i = 0; i < iterations; i++) {
-			nonvol[i] = i + 1;
-			vol[i].data = i + 1;
+		    synchronized(monitor) {
+		        a[i]++;
+		        a[i]++;
+		        a[i]++;
+		        a[i]++;
+		        a[i]++;
+		    }
 		}
     }
 
@@ -62,8 +56,13 @@ public class HB1 {
         while(!actor1Started) {}
 
 		for(int i = 0; i < iterations; i++) {
-			volRead[i] = vol[i].data;
-			nonvolRead[i] = nonvol[i];
+		    synchronized(monitor) {
+		        a[i]++;
+		        a[i]++;
+		        a[i]++;
+		        a[i]++;
+		        a[i]++;
+		    }
 		}
     }
 
@@ -71,14 +70,10 @@ public class HB1 {
      */
     public static void calcResults() {
         errors = 0;
-        happenedBefore = 0;
 		for(int i = 0; i < iterations; i++) {
-			if (volRead[i] != 0) {
-				happenedBefore++;
-			}
-			if (volRead[i] == i + 1 && nonvolRead[i] != i + 1) {
-				errors++;
-			}
+		    if (a[i] != 10) {
+		        errors++;
+		    }
 		}
     }
 }
