@@ -2164,7 +2164,7 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
   mv_if_needed(R11_ARG1, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
+  assert(arg_2 != R11_ARG1, "smashed argument");
   mv_if_needed(R12_ARG2, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }

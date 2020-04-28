@@ -309,11 +309,9 @@ inline void MacroAssembler::null_check_throw(Register a, int offset, Register te
       trap_null_check(a);
     } else {
       Label ok;
-      cmpdi_PPC(CCR0, a, 0);
-      bne_PPC(CCR0, ok);
-      load_const_optimized(temp_reg, exception_entry);
-      mtctr_PPC(temp_reg);
-      bctr_PPC();
+      bnez(a, ok);
+      li(temp_reg, exception_entry);
+      jr(temp_reg);
       bind(ok);
     }
   }

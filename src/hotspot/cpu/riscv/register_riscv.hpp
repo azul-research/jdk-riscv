@@ -778,9 +778,7 @@ REGISTER_DECLARATION(Register, R19_inline_cache_reg_PPC, R19);
 //    LcpoolCache: constant pool cache
 //    mdx: method data index
 #define R23_method_handle_PPC     AS_REGISTER(Register, R23)
-#define R24_dispatch_addr_PPC     AS_REGISTER(Register, R24)
 #define R26_monitor_PPC           AS_REGISTER(Register, R26)
-#define R27_constPoolCache_PPC    AS_REGISTER(Register, R27)
 #define R28_mdx_PPC               AS_REGISTER(Register, R28)
 #endif
 

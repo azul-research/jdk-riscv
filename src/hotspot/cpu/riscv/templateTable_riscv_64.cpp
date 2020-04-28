@@ -2317,22 +2317,23 @@ void TemplateTable::load_invoke_cp_cache_entry(int byte_no,
   // Access constant pool cache fields.
   const int index_offset  = in_bytes(cp_base_offset + ConstantPoolCacheEntry::f2_offset());
 
-  Register Rcache = R21; // Note: same register as R21_sender_SP.
+  {
+    Register Rcache = Rflags;
 
-  if (is_invokevfinal) {
-    assert(Ritable_index == noreg, "register not used");
-    // Already resolved.
-    __ get_cache_and_index_at_bcp(Rcache, 1);
-  } else {
+    if (is_invokevfinal) {
+      assert(Ritable_index == noreg, "register not used");
+      // Already resolved.
+      __ get_cache_and_index_at_bcp(Rcache, 1);
+    } else {
+      resolve_cache_and_index(byte_no, Rcache, /* temp */ Rmethod, is_invokedynamic ? sizeof(u4) : sizeof(u2));
+    }
 
-    resolve_cache_and_index(byte_no, Rcache, /* temp */ Rmethod, is_invokedynamic ? sizeof(u4) : sizeof(u2));
-  }
+    if (Ritable_index != noreg) {
+      __ ld(Ritable_index, Rcache, index_offset);
+    }
 
-  __ ld(Rmethod, Rcache, method_offset);
-  __ ld(Rflags, Rcache, flags_offset);
-
-  if (Ritable_index != noreg) {
-    __ ld(Ritable_index, Rcache, index_offset);
+    __ ld(Rmethod, Rcache, method_offset);
+    __ ld(Rflags, Rcache, flags_offset); // Rcache is dead now
   }
 }
 
@@ -3407,27 +3408,20 @@ void TemplateTable::prepare_invoke(int byte_no,
 // Kills all passed registers.
 void TemplateTable::generate_vtable_call(Register Rrecv_klass, Register Rindex, Register Rret, Register Rtemp) {
 
-  // FIXME_RISCV change registers
-//  assert_different_registers(Rrecv_klass, Rtemp, Rret);
+  assert_different_registers(Rrecv_klass, Rtemp, Rret);
   const Register Rtarget_method = Rindex;
 
   // Get target method & entry point.
   const int base = in_bytes(Klass::vtable_start_offset());
   // Calc vtable addr scale the vtable index by 8.
- 
-  //__ sldi_PPC(Rindex, Rindex, exact_log2(vtableEntry::size_in_bytes()));
-
-  printf("generate_vtable_call-1 %p %d %d\n", __ pc(), vtableEntry::size_in_bytes(), exact_log2(vtableEntry::size_in_bytes()));
   __ slli(Rindex, Rindex, exact_log2(vtableEntry::size_in_bytes()));
-
   // Load target.
-//  __ addi_PPC(Rrecv_klass, Rrecv_klass, base + vtableEntry::method_offset_in_bytes());
-    printf("generate_vtable_call-1 %p %d %d\n", __ pc(), base, vtableEntry::method_offset_in_bytes());
+  assert(Assembler::is_simm12(base + vtableEntry::method_offset_in_bytes()), "Argument should be small");
   __ addi(Rrecv_klass, Rrecv_klass, base + vtableEntry::method_offset_in_bytes());
 
   __ ld(Rtarget_method, Rindex, Rrecv_klass);
   // Argument and return type profiling.
-  //__ profile_arguments_type(Rtarget_method, Rrecv_klass /* scratch1 */, Rtemp /* scratch2 */, true);
+  __ profile_arguments_type(Rtarget_method, Rrecv_klass /* scratch1 */, Rtemp /* scratch2 */, true);
 
   __ call_from_interpreter(Rtarget_method, Rret, Rrecv_klass /* scratch1 */, Rtemp /* scratch2 */);
 }
@@ -3440,29 +3434,30 @@ void TemplateTable::invokevirtual(int byte_no) {
 
   Register Rtable_addr = R5_scratch1,
            Rret_type = R6_scratch2,
-           Rret_addr = R13_ARG3,
-           Rflags = R7_TMP2, // Should survive C call.
-           Rrecv = R11_ARG1,
+           Rret_addr = R12_ARG2,
+           Rflags = R7_TMP2,
+           Rrecv = R10_ARG0,
            Rrecv_klass = Rrecv,
-           Rvtableindex_or_method = R31, // Should survive C call.
-           Rnum_params = R12_ARG2,
-           Rnew_bc = R14_ARG4,
+           Rvtableindex_or_method = R28_TMP3,
+           Rnum_params = R11_ARG1,
+           Rnew_bc = R13_ARG3,
            Rtmp2 = AS_REGISTER(Register, R6); //R7_scratch3;
 
   Label LnotFinal;
+  assert_different_registers(Rtable_addr, Rret_type);
 
   load_invoke_cp_cache_entry(byte_no, Rvtableindex_or_method, noreg, Rflags, /*virtual*/ true, false, false);
 
-  printf("invokevirtual-2: %p %d %0x\n", __ pc(), ConstantPoolCacheEntry::is_vfinal_shift, 1 << ConstantPoolCacheEntry::is_vfinal_shift);
   __ li(Rtmp2, 1 << ConstantPoolCacheEntry::is_vfinal_shift);
   __ andr(Rtmp2, Rflags, Rtmp2);
   __ beqz(Rtmp2, LnotFinal);
-//  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
-  //__ bfalse_PPC(CCR0, LnotFinal);
   
   if (RewriteBytecodes && !UseSharedSpaces && !DumpSharedSpaces) {
-//	  __ unimplemented("invokevirtual - patch bytecode");
- //   patch_bytecode(Bytecodes::_fast_invokevfinal, Rnew_bc, R6_scratch2);
+	  __ unimplemented("invokevirtual - patch bytecode");
+	  // TODO make Rflags and Rvtableindex_or_method nonvolatile or save it somewhere
+	  assert(Rflags->is_nonvolatile(), "Rflags should be nonvlolatile");
+	  assert(Rvtableindex_or_method->is_nonvolatile(), "Rvtableindex_or_method should be nonvlolatile");
+    patch_bytecode(Bytecodes::_fast_invokevfinal, Rnew_bc, R6_scratch2);
   }
   invokevfinal_helper(Rvtableindex_or_method, Rflags, R5_scratch1, R6_scratch2);
 
@@ -3470,45 +3465,22 @@ void TemplateTable::invokevirtual(int byte_no) {
   __ bind(LnotFinal);
 
   // Load "this" pointer (receiver).
-  printf("invokevirtual-8: %p\n", __ pc());
   __ andi(Rnum_params, Rflags, ConstantPoolCacheEntry::parameter_size_mask);
-  printf("invokevirtual-9: %p %d\n", __ pc(), ConstantPoolCacheEntry::parameter_size_bits);
-
   __ load_receiver(Rnum_params, Rrecv);
-  printf("invokevirtual-10: %p\n", __ pc());
-
   __ verify_oop(Rrecv);
 
-  printf("invokevirtual-11: %p %d %d\n", __ pc(), ConstantPoolCacheEntry::tos_state_shift, ConstantPoolCacheEntry::tos_state_bits);
-
   // Get return type. It's coded into the upper 4 bits of the lower half of the 64 bit value.
-
   __ srli(Rret_type,  Rflags, ConstantPoolCacheEntry::tos_state_shift);
-
-    printf("invokevirtual-12: %p %d %d\n", __ pc(), ConstantPoolCacheEntry::tos_state_shift, ConstantPoolCacheEntry::tos_state_bits);
   __ andi(Rret_type,  Rret_type, ConstantPoolCacheEntry::tos_state_mask);
-    printf("invokevirtual-13: %p %d %d\n", __ pc(), ConstantPoolCacheEntry::tos_state_shift, ConstantPoolCacheEntry::tos_state_bits);
-
-  __ load_dispatch_table(Rtable_addr, Interpreter::invoke_return_entry_table());
-    printf("invokevirtual-14: %p\n", __ pc());
-
   __ slli(Rret_type, Rret_type, LogBytesPerWord);
-  printf("invokevirtual-14: %p\n", __ pc());
-
+  __ load_dispatch_table(Rtable_addr, Interpreter::invoke_return_entry_table());
   __ ld(Rret_addr, Rret_type, Rtable_addr);
 
-    printf("invokevirtual-15: %p\n", __ pc());
-
-
-  //__ null_check_throw(Rrecv, oopDesc::klass_offset_in_bytes(), R5_scratch1);
+  __ null_check_throw(Rrecv, oopDesc::klass_offset_in_bytes(), R5_scratch1);
   __ load_klass(Rrecv_klass, Rrecv);
+  __ verify_klass_ptr(Rrecv_klass);
+  __ profile_virtual_call(Rrecv_klass, R5_scratch1, R6_scratch2, false);
 
-  printf("invokevirtual-16: %p\n", __ pc());
-
-  //__ verify_klass_ptr(Rrecv_klass);
-  //__ profile_virtual_call(Rrecv_klass, R5_scratch1, R6_scratch2, false);
-
-  // FIXME_RISCV use different registers
   generate_vtable_call(Rrecv_klass, Rvtableindex_or_method, Rret_addr, R5_scratch1);
 }
 
