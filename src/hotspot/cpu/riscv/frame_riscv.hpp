@@ -377,9 +377,11 @@ monitor-> |                 |       }
   // Accessors for fields
   intptr_t* fp() const { return _fp; }
 
+  inline intptr_t* sender_fp() const { return (intptr_t*)own_abi()->fp; }
+
   // Accessors for ABIs
-  inline abi_frame* own_abi()     const { return (abi_frame*) (_fp - abi_frame_size); }
-  inline abi_frame* callers_abi() const { return (abi_frame*) (own_abi()->fp - abi_frame_size); }
+  inline abi_frame* own_abi()     const { return (abi_frame*) ((address) _fp - abi_frame_size); }
+  inline abi_frame* callers_abi() const { return (abi_frame*) ((address) sender_fp() - abi_frame_size); }
 
  private:
 
@@ -423,10 +425,8 @@ monitor-> |                 |       }
 
   // Additional interface for entry frames:
   inline entry_frame_locals* get_entry_frame_locals() const {
-    return (entry_frame_locals*) (((address) fp()) - entry_frame_locals_size);
+    return (entry_frame_locals*) (((address) fp()) - entry_frame_size);
   }
-
-  inline intptr_t* sender_fp() const { return (intptr_t*)own_abi()->fp; }
 
   enum {
     // normal return address is 1 bundle past PC

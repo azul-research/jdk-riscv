@@ -31,4 +31,4 @@ while getopts "htbvJ:l" opt; do
     esac
 done
 
-QEMU_GDB=12345 /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java -XX:+BreakAtStartup $testFlags
+QEMU_GDB=12345 /jdk-riscv/build/linux-riscv64-$variant-$level/jdk/bin/java -XX:+BreakAtStartup $testFlags  -XX:+UseHeavyMonitors

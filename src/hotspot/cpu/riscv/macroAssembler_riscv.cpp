@@ -3013,7 +3013,7 @@ void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame_2(Register sp,
 
 printf("FFFFFFFFFFFFFFFFFFFFFFF: %p\n", pc());
 
-  li(tmp1, /*entry*/ (void*)4);
+  li(tmp1, /*entry*/ entry);
 
   set_last_Java_frame(/*sp=*/sp, fp, /*pc=*/tmp1);
 }

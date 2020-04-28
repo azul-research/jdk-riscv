@@ -36,7 +36,7 @@ frame JavaThread::pd_last_frame() {
 
   // Last_Java_pc ist not set, if we come here from compiled code.
   if (pc == NULL) {
-    pc = (address) *(sp + 2);
+    pc = (address) *((address)fp + _abi(ra));
   }
 
   return frame(sp, fp, pc);

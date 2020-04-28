@@ -104,9 +104,9 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
   const Register type_mask      = R5_scratch1;
   const Register abs_arg        = R6_scratch2;
 #endif
-  const Register arg_java       = R23_esp; // we can rewrite this register since we call this function only from genrate_native_entry
+  const Register arg_java       = R23_esp; // we should restore this register in the end
   const Register arg_c          = R7_TMP2;
-  const Register signature      = R25_tos; // we can rewrite this register since we call this function only from genrate_native_entry
+  const Register signature      = R22_bcp; // we should restore this register in the end
   const Register sig_byte       = R28_TMP3;
   const Register fpcnt          = R29_TMP4;
   const Register ipcnt          = R30_TMP5;
@@ -318,6 +318,10 @@ address TemplateInterpreterGenerator::generate_slow_signature_handler() {
 
   __ bind(loop_end);
 
+  assert(signature == R22_bcp, "We should restore bcp");
+  assert(arg_java == R23_esp, "We should restore esp");
+  __ ld(R22_bcp, R8_FP, _ijava_state(bcp));
+  __ ld(R23_esp, R8_FP, _ijava_state(esp));
   __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
   __ ret();
 
@@ -1216,8 +1220,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   const Register signature_handler_fd = R7_TMP2;
   const Register native_method_fd     = R7_TMP2;
-  const Register access_flags         = R22_bcp;
-  const Register result_handler_addr  = R23_esp;
+  const Register access_flags         = R25_tos;
+  const Register result_handler_addr  = R25_tos;
 
   //=============================================================================
   // Allocate new frame and initialize interpreter state.
@@ -1349,17 +1353,6 @@ __ addi(size_of_parameters, size_of_parameters, 0);
 
   __ call_stub(signature_handler_fd);
 
-  // Remove the register parameter varargs slots we allocated in
-  // compute_interpreter_state. SP+16 ends up pointing to the ABI
-  // outgoing argument area.
-  //
-  // Not needed on RISCV64.
-  //__ add_PPC(SP, SP, Argument::n_int_register_parameters*BytesPerWord);
-
-  assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
-  // Save across call to native method.
-  __ mv(result_handler_addr, R10_RET1);
-
   __ acquire(); // Acquire signature handler before trying to fetch the native entry point and klass mirror.
 
   // Set up fixed parameters and call the native method.
@@ -1379,6 +1372,10 @@ __ addi(size_of_parameters, size_of_parameters, 0);
     __ sd(R6_scratch2/*mirror*/, R8_FP, _ijava_state(oop_tmp));
     BIND(method_is_not_static);
   }
+
+  assert(result_handler_addr->is_nonvolatile(), "result_handler_addr must be in a non-volatile register");
+  // Save across call to native method.
+  __ mv(result_handler_addr, R10_RET1);
 
   // At this point, arguments have been copied off the stack into
   // their JNI positions. Oops are boxed in-place on the stack, with
@@ -1411,7 +1408,7 @@ __ addi(size_of_parameters, size_of_parameters, 0);
   // overwritten since "__ call_stub(signature_handler);" (except for
   // ARG1 and ARG2 for static methods).
 
-  printf("native-345: ", __ pc());
+  printf("native-345: %p\n", __ pc());
   __ call_c(native_method_fd);
 
   __ sd(R10_RET1, R8_FP, _ijava_state(lresult));

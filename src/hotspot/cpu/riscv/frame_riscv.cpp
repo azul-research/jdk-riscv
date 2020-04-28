@@ -197,12 +197,12 @@ frame frame::sender_for_entry_frame(RegisterMap *map) const {
   assert(map->include_argument_oops(), "should be set by clear");
 
   if (jfa->last_Java_pc() != NULL) {
-      frame fr(jfa->last_Java_sp(), NULL /* FIXME_RISCV last_Java_fp() */, jfa->last_Java_pc());
+      frame fr(jfa->last_Java_sp(), jfa->last_Java_fp(), jfa->last_Java_pc());
     return fr;
   }
   // Last_java_pc is not set, if we come here from compiled code. The
   // constructor retrieves the PC from the stack.
-  frame fr(jfa->last_Java_sp(), NULL /* FIXME_RISCV last_Java_fp() */);
+  frame fr(jfa->last_Java_sp(), jfa->last_Java_fp());
   return fr;
 }
 
@@ -366,7 +366,7 @@ intptr_t *frame::initial_deoptimization_info() {
 #ifndef PRODUCT
 // This is a generic constructor which is only used by pns() in debug.cpp.
 frame::frame(void* sp, void* fp, void* pc) : _sp((intptr_t*)sp), _unextended_sp((intptr_t*)sp) {
-  find_codeblob_and_set_pc_and_deopt_state((address)pc); // also sets _fp and adjusts _unextended_sp
+  find_codeblob_and_set_pc_and_deopt_state((address)pc);
 }
 
 void frame::pd_ps() {}
