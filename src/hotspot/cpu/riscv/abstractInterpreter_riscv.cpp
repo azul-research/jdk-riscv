@@ -121,6 +121,8 @@ void AbstractInterpreter::layout_activation(Method* method,
                                             bool is_top_frame,
                                             bool is_bottom_frame) {
 
+  assert(false, "PPC ABI here");
+
   const int abi_scratch = is_top_frame ? (frame::abi_reg_args_ppc_size / Interpreter::stackElementSize) :
                                          (frame::abi_minframe_ppc_size / Interpreter::stackElementSize);
 

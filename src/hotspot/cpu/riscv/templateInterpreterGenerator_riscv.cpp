@@ -515,7 +515,7 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // the load of the previous value.
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-  __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+  __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
 
   __ blr_PPC();
 
@@ -1035,7 +1035,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
   __ load_mirror_from_const_method(R6_scratch2, Rconst_method);
 
   // Store values.
-  // R23_esp, R22_bcp, R26_monitor_PPC, R28_mdx_PPC are saved at java calls
+  // R23_esp, R22_bcp, R18_monitor, R28_mdx_PPC are saved at java calls
   // in InterpreterMacroAssembler::call_from_interpreter.
 
   __ sd(R27_method, R8_FP, _ijava_state(method));
@@ -1293,7 +1293,7 @@ __ addi(size_of_parameters, size_of_parameters, 0);
     lock_method(access_flags, R5_scratch1, R6_scratch2, true);
 
     // Update monitor in state.
-    __ sd(R26_monitor_PPC, R8_FP, _ijava_state(monitors));
+    __ sd(R18_monitor, R8_FP, _ijava_state(monitors));
   }
 
   // jvmti/jvmpi support
@@ -1525,7 +1525,7 @@ __ addi(size_of_parameters, size_of_parameters, 0);
   if (synchronized) {
     // Don't check for exceptions since we're still in the i2n frame. Do that
     // manually afterwards.
-    __ unlock_object(R26_monitor_PPC, false); // Can also unlock methods.
+    __ unlock_object(R18_monitor, false); // Can also unlock methods.
   }
 
   // Reset active handles after returning from native.
@@ -1565,7 +1565,7 @@ __ addi(size_of_parameters, size_of_parameters, 0);
   if (synchronized) {
     // Don't check for exceptions since we're still in the i2n frame. Do that
     // manually afterwards.
-    __ unlock_object(R26_monitor_PPC, false); // Can also unlock methods.
+    __ unlock_object(R18_monitor, false); // Can also unlock methods.
   }
   BIND(exception_return_sync_check_already_unlocked);
 
@@ -1800,7 +1800,7 @@ address TemplateInterpreterGenerator::generate_CRC32_update_entry() {
     __ kernel_crc32_singleByteReg(crc, data, table, true);
 
     // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-    __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+    __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
     __ blr_PPC();
 
     // Generate a vanilla native entry as the slow path.
@@ -1871,7 +1871,7 @@ address TemplateInterpreterGenerator::generate_CRC32_updateBytes_entry(AbstractI
     __ crc32(crc, data, dataLen, R2, R6, R7, R8, R9, R10, R11, R12, false);
 
     // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-    __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+    __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
     __ blr_PPC();
 
     // Generate a vanilla native entry as the slow path.
@@ -1942,7 +1942,7 @@ address TemplateInterpreterGenerator::generate_CRC32C_updateBytes_entry(Abstract
     __ crc32(crc, data, dataLen, R2, R6, R7, R8, R9, R10, R11, R12, true);
 
     // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-    __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+    __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
     __ blr_PPC();
 
     BLOCK_COMMENT("} CRC32C_update{Bytes|DirectByteBuffer}");
@@ -1965,7 +1965,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   {
     __ restore_interpreter_state();
     __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
-    __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+    __ resize_frame_absolute(R6_scratch2, R8_FP);
 
     // Compiled code destroys templateTableBase, reload.
     __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
@@ -2073,7 +2073,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     __ restore_interpreter_state(R5_scratch1);
     __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
-    __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+    __ resize_frame_absolute(R6_scratch2, R8_FP);
     if (ProfileInterpreter) {
       __ set_method_data_pointer_for_bcp();
       __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);

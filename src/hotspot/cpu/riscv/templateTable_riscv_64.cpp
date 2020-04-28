@@ -3566,48 +3566,24 @@ void TemplateTable::invokevfinal_helper(Register Rmethod, Register Rflags, Regis
 }
 
 void TemplateTable::invokespecial(int byte_no) {
-  Register Rtable_addr = R10_ARG0,
-           Rret_addr   = R11_ARG1,
-           Rflags      = R12_ARG2,
-           Rrecv       = R13_ARG3;
-
-    prepare_invoke(byte_no, R27_method, Rret_addr, noreg, Rrecv, Rflags, R5_scratch1);
-
-   __ add(R5_scratch1, 0, R5_scratch1);
-
-  __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
-
-
-//  prepare_invoke(byte_no, rbx, noreg,  // get f1 Method*
-          //       rcx);  // get receiver also for null check
-  //__ verify_oop(rcx);
-  //__ null_check(rcx);
-  // do the call
-  //__ profile_call(rax);
-  //__ profile_arguments_type(rax, rbx, rbcp, false);
-  //__ jump_from_interpreted(rbx, rax);
-
-  //FIXME_RISCiV
-  /*assert(byte_no == f1_byte, "use this argument");
+  assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
-  // FIXME_RISCV begin: check all registers
   Register Rtable_addr = R10_ARG0,
            Rret_addr   = R11_ARG1,
            Rflags      = R12_ARG2,
-           Rreceiver   = R13_ARG3,
-           Rmethod     = R31;
-  // FIXME_RISCV end
+           Rreceiver   = R13_ARG3;
 
-  prepare_invoke(byte_no, Rmethod, Rret_addr, noreg, Rreceiver, Rflags, R5_scratch1);
+  prepare_invoke(byte_no, R27_method, Rret_addr, noreg, Rreceiver, Rflags, R5_scratch1);
 
   // Receiver NULL check.
-  __ null_check_throw(Rreceiver, -1, R5_scratch1);
+  tty->print_cr("TODO: explicit nullcheck is commented out");
+  //__ null_check_throw(Rreceiver, -1, R5_scratch1);
 
   __ profile_call(R5_scratch1, R6_scratch2);
   // Argument and return type profiling.
-  __ profile_arguments_type(Rmethod, R5_scratch1, R6_scratch2, false);
-  __ call_from_interpreter(Rmethod, Rret_addr, R5_scratch1, R6_scratch2);*/
+  __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
+  __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
 }
 
 void TemplateTable::invokestatic(int byte_no) {

@@ -1096,6 +1096,9 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
 
   save_interpreter_state();
 #ifdef ASSERT
+  // TODO RISCV what are hell is going on with this field?
+  // actual: 0x400191cdd0
+  // expected: 0x400191cdc0
   ld(Rscratch2, R8_FP, _ijava_state(top_frame_sp));
   asm_assert_eq(R21_sender_SP, Rscratch2, "top_frame_sp incorrect", 0x951);
 #endif
@@ -1958,8 +1961,8 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
                                (unsigned int)frame::alignment_in_bytes),
          "size of a monitor must respect alignment of SP");
 
-  resize_frame(-monitor_size, /*temp*/esp); // Allocate space for new monitor
-  sd(R2_SP, esp, _ijava_state(top_frame_sp)); // esp contains fp
+  resize_frame(-monitor_size, Rtemp1); // Allocate space for new monitor
+  sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
 
   // Shuffle expression stack down. Recall that stack_base points
   // just above the new expression stack bottom. Old_tos and new_tos
@@ -1969,7 +1972,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
     const Register n_slots = slot;
 
     addi(esp, R23_esp, Interpreter::stackElementSize); // Point to first element (pre-pushed stack).
-    sub(n_slots, R26_monitor_PPC, esp);
+    sub(n_slots, R18_monitor, esp);
     srli(n_slots, n_slots, LogBytesPerWord); // Compute number of slots to copy.
     assert(LogBytesPerWord == 3, "conflicts assembler instructions");
     beqz(n_slots, copy_slot_finished); // Nothing to copy.
@@ -1988,7 +1991,7 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
   }
 
   addi(R23_esp, R23_esp, -monitor_size);
-  addi(R26_monitor_PPC, R26_monitor_PPC, -monitor_size);
+  addi(R18_monitor, R18_monitor, -monitor_size);
 
   // Restart interpreter
 }

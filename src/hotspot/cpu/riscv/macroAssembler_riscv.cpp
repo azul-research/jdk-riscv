@@ -888,43 +888,28 @@ address MacroAssembler::get_PC_trash_LR(Register result) {
 }
 
 void MacroAssembler::resize_frame(Register offset, Register tmp) {
-#ifdef ASSERT // FIXME_RISCV
+#ifdef ASSERT
   assert_different_registers(offset, tmp, R2_SP);
-//  andi__PPC(tmp, offset, frame::alignment_in_bytes-1);
-//  asm_assert_eq("resize_frame: unaligned", 0x204);
+  andi(tmp, offset, frame::alignment_in_bytes-1);
+  asm_assert_eq(tmp, R0_ZERO, "resize_frame: unaligned", 0x204);
 #endif
-
-  // tmp <- *(SP)
-  ld(tmp, R2_SP, _abi_PPC(callers_sp));
-  // SP <- SP + offset;
-  // *(SP) <- tmp;
   add(R2_SP, R2_SP, offset);
-  sd(tmp, R2_SP, 0);
 }
 
 void MacroAssembler::resize_frame(int offset, Register tmp) {
-  assert(is_simm(offset, 16), "too big an offset");
+  assert(is_simm(offset, 12), "too big an offset");
   assert_different_registers(tmp, R2_SP);
   assert((offset & (frame::alignment_in_bytes-1))==0, "resize_frame: unaligned");
-  // tmp <- *(SP)
-  ld(tmp, R2_SP, _abi(fp));
-  // addr <- SP + offset;
-  // *(addr) <- tmp;
-  // SP <- addr
-  sd(tmp, R2_SP, offset);
   addi(R2_SP, R2_SP, offset);
 }
 
-void MacroAssembler::resize_frame_absolute(Register addr, Register tmp1, Register tmp2) {
-  // (addr == tmp1) || (addr == tmp2) is allowed here!
-  assert(tmp1 != tmp2, "must be distinct");
-
-  // compute offset w.r.t. current stack pointer
-  // tmp_1 <- addr - SP (!)
-  sub(tmp1, addr, R2_SP);
-
-  // atomically update SP keeping back link.
-  resize_frame(tmp1/* offset */, tmp2/* tmp */);
+void MacroAssembler::resize_frame_absolute(Register addr, Register tmp) {
+  #ifdef ASSERT
+    assert_different_registers(addr, tmp, R2_SP);
+    andi(tmp, addr, frame::alignment_in_bytes-1);
+    asm_assert_eq(tmp, R0_ZERO, "resize_frame: unaligned", 0x204);
+  #endif
+    mv(R2_SP, addr);
 }
 
 void MacroAssembler::push_frame(Register bytes, Register tmp) {
@@ -950,13 +935,8 @@ void MacroAssembler::push_frame(unsigned int bytes, Register tmp) {
 
 // Push a frame of size `bytes' plus abi_reg_args_ppc on top.
 void MacroAssembler::push_frame_reg_args(unsigned int bytes, Register tmp) {
+  should_not_reach_here(); // PPC abi
   push_frame(bytes + frame::abi_reg_args_ppc_size, tmp);
-}
-
-// Setup up a new C frame with a spill area for non-volatile GPRs and
-// additional space for local variables.
-void MacroAssembler::push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp) {
-  push_frame(bytes + frame::abi_frame_size + frame::spill_nonvolatiles_size, tmp);
 }
 
 // Pop current C frame.
