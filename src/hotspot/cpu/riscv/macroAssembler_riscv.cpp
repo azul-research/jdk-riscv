@@ -949,7 +949,7 @@ void MacroAssembler::pop_C_frame(bool restoreRA) {
 }
 
 void MacroAssembler::pop_java_frame(bool restoreRA) {
-  ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
+//  ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp)); TODO RISCV we don't need to restore register here
   if (restoreRA) {
     ld(R1_RA, R8_FP, _abi(ra));
   }

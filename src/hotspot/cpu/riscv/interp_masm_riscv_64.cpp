@@ -1384,8 +1384,7 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
 
 // Count a taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register bumped_count) {
-  //FIXME RISCV
-  /*if (ProfileInterpreter) {
+  if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1397,13 +1396,12 @@ void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register 
     // The method data pointer needs to be updated to reflect the new target.
     update_mdp_by_offset(in_bytes(JumpData::displacement_offset()), scratch);
     bind (profile_continue);
-  }*/
+  }
 }
 
 // Count a not-taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Register scratch2) {
-  //FIXME RISCV
-  /*if (ProfileInterpreter) {
+  if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1416,7 +1414,7 @@ void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Regi
     // next bytecode.
     update_mdp_by_constant(in_bytes(BranchData::branch_data_size()));
     bind (profile_continue);
-  }*/
+  }
 }
 
 // Count a non-virtual call in the bytecodes.
@@ -1608,8 +1606,7 @@ void InterpreterMacroAssembler::profile_switch_case(Register index,
 }
 
 void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register Rscratch2) {
-  //FIXME_RISCV
-  /*if (ProfileInterpreter) {
+  if (ProfileInterpreter) {
     assert_different_registers(Rscratch1, Rscratch2);
     Label profile_continue;
 
@@ -1626,7 +1623,7 @@ void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register R
     update_mdp_by_constant(mdp_delta);
 
     bind (profile_continue);
-  }*/
+  }
 }
 
 void InterpreterMacroAssembler::record_klass_in_profile(Register Rreceiver,
