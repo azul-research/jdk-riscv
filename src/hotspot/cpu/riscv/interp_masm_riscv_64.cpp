@@ -1096,9 +1096,6 @@ void InterpreterMacroAssembler::call_from_interpreter(Register Rtarget_method, R
 
   save_interpreter_state();
 #ifdef ASSERT
-  // TODO RISCV what are hell is going on with this field?
-  // actual: 0x400191cdd0
-  // expected: 0x400191cdc0
   ld(Rscratch2, R8_FP, _ijava_state(top_frame_sp));
   asm_assert_eq(R21_sender_SP, Rscratch2, "top_frame_sp incorrect", 0x951);
 #endif
