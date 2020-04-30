@@ -4126,6 +4126,7 @@ void TemplateTable::monitorenter() {
     Label Lloop;
     Register Rcurrent_addr = Rscratch1;
     __ addi(R2_SP, R2_SP, -entry_size);
+    __ sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
     __ addi(R23_esp, R23_esp, -entry_size);
     __ addi(R18_monitor, R18_monitor, -entry_size);
     __ mv(Rcurrent_addr, R2_SP);
