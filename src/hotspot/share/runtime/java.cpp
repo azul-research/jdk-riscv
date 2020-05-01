@@ -303,6 +303,8 @@ void print_statistics() {
     BytecodePairHistogram::print();
   }
 
+  DataCounter::print();
+
   if (PrintCodeCache) {
     MutexLocker mu(CodeCache_lock, Mutex::_no_safepoint_check_flag);
     CodeCache::print();

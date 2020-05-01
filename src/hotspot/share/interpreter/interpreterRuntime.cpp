@@ -121,8 +121,6 @@ public:
   ConstantPoolCacheEntry* cache_entry() const    { return cache_entry_at(Bytes::get_native_u2(bcp() + 1)); }
 
   oop callee_receiver(Symbol* signature) {
-	  ResourceMark rm;
-	  printf("callee_receiver: %s\n", signature->as_C_string());
     return _last_frame.interpreter_callee_receiver(signature);
   }
   BasicObjectLock* monitor_begin() const {

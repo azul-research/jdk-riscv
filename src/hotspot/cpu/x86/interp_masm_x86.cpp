@@ -95,7 +95,6 @@ void InterpreterMacroAssembler::profile_arguments_type(Register mdp, Register ca
   if (!ProfileInterpreter) {
     return;
   }
-
   if (MethodData::profile_arguments() || MethodData::profile_return()) {
     Label profile_continue;
 
@@ -119,7 +118,7 @@ void InterpreterMacroAssembler::profile_arguments_type(Register mdp, Register ca
           cmpl(tmp, TypeStackSlotEntries::per_arg_count());
           jcc(Assembler::less, done);
         }
-        movptr(tmp, Address(callee, Method::const_offset()));
+        movptr(tmp, Address(callee, Method::const_offset())); // +
         load_unsigned_short(tmp, Address(tmp, ConstMethod::size_of_parameters_offset()));
         // stack offset o (zero based) from the start of the argument
         // list, for n arguments translates into offset n - o - 1 from
@@ -507,9 +506,8 @@ void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result
                                                                  Register tmp) {
   assert_different_registers(result, index);
 
-  get_constant_pool(result);
   // load pointer for resolved_references[] objArray
-  movptr(result, Address(result, ConstantPool::cache_offset_in_bytes()));
+  get_constant_pool_cache(result);
   movptr(result, Address(result, ConstantPoolCache::resolved_references_offset_in_bytes()));
   resolve_oop_handle(result, tmp);
   load_heap_oop(result, Address(result, index,
@@ -915,8 +913,7 @@ void InterpreterMacroAssembler::dispatch_via(TosState state, address* table) {
 void InterpreterMacroAssembler::narrow(Register result) {
 
   // Get method->_constMethod->_result_type
-  movptr(rcx, Address(rbp, frame::interpreter_frame_method_offset * wordSize));
-  movptr(rcx, Address(rcx, Method::const_offset()));
+  get_const(rcx);
   load_unsigned_byte(rcx, Address(rcx, ConstMethod::result_type_offset()));
 
   Label done, notBool, notByte, notChar;
@@ -994,7 +991,7 @@ void InterpreterMacroAssembler::remove_activation(
   movbool(do_not_unlock_if_synchronized, false); // reset the flag
 
  // get method access flags
-  movptr(rcx, Address(rbp, frame::interpreter_frame_method_offset * wordSize));
+  get_method(rcx);
   movl(rcx, Address(rcx, Method::access_flags_offset()));
   testl(rcx, JVM_ACC_SYNCHRONIZED);
   jcc(Assembler::zero, unlocked);
@@ -1379,7 +1376,7 @@ void InterpreterMacroAssembler::verify_method_data_pointer() {
   // consistent with the bcp.  The converse is highly probable also.
   load_unsigned_short(arg2_reg,
                       Address(arg3_reg, in_bytes(DataLayout::bci_offset())));
-  addptr(arg2_reg, Address(rbx, Method::const_offset()));
+  addptr(arg2_reg, Address(rbx, Method::const_offset())); // +
   lea(arg2_reg, Address(arg2_reg, ConstMethod::codes_offset()));
   cmpptr(arg2_reg, _bcp_register);
   jcc(Assembler::equal, verify_continue);

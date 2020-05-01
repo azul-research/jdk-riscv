@@ -3799,16 +3799,10 @@ void print_hb_test_results(Symbol* class_name, TRAPS) {
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   TraceTime timer("Initialize java.lang classes", TRACETIME_LOG(Info, startuptime));
 
-  printf("Threads::initialize_java_lang_classes-1\n");
-
-
 
   if (EagerXrunInit && Arguments::init_libraries_at_startup()) {
     create_vm_init_libraries();
   }
-
-  printf("Threads::initialize_java_lang_classes-2\n");
-
 
   if (CallTestMethod) {
     if (TestMethodClass && TestMethodName) {
@@ -3868,9 +3862,6 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
     }
   }
 
-  printf("Threads::initialize_java_lang_classes-3\n");
-
-
   if (TestJmm) {
     char* methods[4] = { "actor1", "actor2", "actor3", "actor4" };
     JmmTest tests[14] = {
@@ -3892,14 +3883,7 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
     JmmTest::run_all(tests, 14, THREAD);
   }
 
-  printf("Threads::initialize_java_lang_classes-4\n");
-  std::raise(SIGTRAP); // TODO_RISCV remove it
-
-
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
-
-  printf("Threads::initialize_java_lang_classes-5\n");
-
 
   initialize_class(vmSymbols::java_lang_String(), CHECK);
 
@@ -3911,20 +3895,14 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   // The VM creates & returns objects of this class. Make sure it's initialized.
   initialize_class(vmSymbols::java_lang_Class(), CHECK);
   initialize_class(vmSymbols::java_lang_ThreadGroup(), CHECK);
-  printf("Threads::initialize_java_lang_classes-9\n");
 
   Handle thread_group = create_initial_thread_group(CHECK);
-  printf("Threads::initialize_java_lang_classes-10\n");
 
   Universe::set_main_thread_group(thread_group());
 
-  printf("Threads::initialize_java_lang_classes-11\n");
-
   initialize_class(vmSymbols::java_lang_Thread(), CHECK);
-  printf("Threads::initialize_java_lang_classes-12\n");
 
   oop thread_object = create_initial_thread(thread_group, main_thread, CHECK);
-  printf("Threads::initialize_java_lang_classes-13\n");
 
   main_thread->set_threadObj(thread_object);
 

@@ -5228,10 +5228,14 @@ void MacroAssembler::load_mirror(Register mirror, Register method, Register tmp)
 
 void MacroAssembler::load_method_holder_cld(Register rresult, Register rmethod) {
   load_method_holder(rresult, rmethod);
+  incrementl(ExternalAddress((address) &DataCounter::class_loader_data));
   movptr(rresult, Address(rresult, InstanceKlass::class_loader_data_offset()));
 }
 
 void MacroAssembler::load_method_holder(Register holder, Register method) {
+  incrementl(ExternalAddress((address) &DataCounter::constantPool));
+  incrementl(ExternalAddress((address) &DataCounter::constMethod));
+  incrementl(ExternalAddress((address) &DataCounter::InstanceKlass));
   movptr(holder, Address(method, Method::const_offset()));                      // ConstMethod*
   movptr(holder, Address(holder, ConstMethod::constants_offset()));             // ConstantPool*
   movptr(holder, Address(holder, ConstantPool::pool_holder_offset_in_bytes())); // InstanceKlass*

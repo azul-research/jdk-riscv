@@ -663,8 +663,8 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
   __ enter();          // save old & set new rbp
   __ push(rbcp);        // set sender sp
   __ push((int)NULL_WORD); // leave last_sp as null
-  __ movptr(rbcp, Address(rbx, Method::const_offset()));      // get ConstMethod*
-  __ lea(rbcp, Address(rbcp, ConstMethod::codes_offset())); // get codebase
+  __ get_const(rbcp, rbx); // get ConstMethod*
+  __ get_codes(rbcp, rbcp); // get codebase
   __ push(rbx);        // save Method*
   // Get mirror and store it in the frame as GC root for this Method*
   __ load_mirror(rdx, rbx);
@@ -681,9 +681,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
     __ push(0);
   }
 
-  __ movptr(rdx, Address(rbx, Method::const_offset()));
-  __ movptr(rdx, Address(rdx, ConstMethod::constants_offset()));
-  __ movptr(rdx, Address(rdx, ConstantPool::cache_offset_in_bytes()));
+  __ get_constant_pool_cache(rdx);
   __ push(rdx); // set constant pool cache
   __ push(rlocals); // set locals pointer
   if (native_call) {
@@ -792,10 +790,14 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry_point = __ pc();
 
-  const Address constMethod       (rbx, Method::const_offset());
-  const Address access_flags      (rbx, Method::access_flags_offset());
+  __ incrementl(ExternalAddress((address) &DataCounter::constMethod));
+  __ incrementl(ExternalAddress((address) &DataCounter::access_flags));
+  __ incrementl(ExternalAddress((address) &DataCounter::size_of_parameters));
+
+  const Address constMethod       (rbx, Method::const_offset()); // +
+  const Address access_flags      (rbx, Method::access_flags_offset()); // +
   const Address size_of_parameters(rcx, ConstMethod::
-                                        size_of_parameters_offset());
+                                        size_of_parameters_offset()); // +
 
 
   // get parameter size (always needed)

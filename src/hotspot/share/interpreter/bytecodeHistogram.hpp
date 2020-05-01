@@ -95,4 +95,30 @@ class BytecodePairHistogram: AllStatic {
   static void print(float cutoff = -0.01F)   PRODUCT_RETURN;   // cutoff in percent
 };
 
+class DataCounter: AllStatic {
+public:
+  static long method;
+  static long constMethod;
+  static long constMethod_codes;
+  static long InstanceKlass;
+  static long class_loader_data;
+  static long constantPool;
+  static long constantPool_Cache;
+  static long constantPool_Cache_tags;
+  static long constantPool_Cache_ResolvedReference;
+  static long thread_jvmtiThreadState;
+  static long thread_jvmci_alternate_call_target;
+  static long thread_callee_target;
+  static long thread_jni_environment;
+  static long access_flags;
+  static long size_of_parameters;
+
+  static long total_count();
+  static void print();
+
+  friend class TemplateInterpreterGenerator;
+  friend class          BytecodeInterpreter;
+  friend class    InterpreterMacroAssembler;
+};
+
 #endif // SHARE_INTERPRETER_BYTECODEHISTOGRAM_HPP

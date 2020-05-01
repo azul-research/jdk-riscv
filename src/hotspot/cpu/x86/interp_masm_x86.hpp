@@ -25,6 +25,7 @@
 #ifndef CPU_X86_INTERP_MASM_X86_HPP
 #define CPU_X86_INTERP_MASM_X86_HPP
 
+#include "interpreter/bytecodeHistogram.hpp"
 #include "asm/macroAssembler.hpp"
 #include "interpreter/invocationCounter.hpp"
 #include "runtime/frame.hpp"
@@ -78,27 +79,42 @@ class InterpreterMacroAssembler: public MacroAssembler {
 
   // Helpers for runtime call arguments/results
   void get_method(Register reg) {
-    movptr(reg, Address(rbp, frame::interpreter_frame_method_offset * wordSize));
+    incrementl(ExternalAddress((address) &DataCounter::method));
+    movptr(reg, Address(rbp, frame::interpreter_frame_method_offset * wordSize)); // +
+  }
+
+  void get_const(Register reg, Register method) {
+    incrementl(ExternalAddress((address) &DataCounter::constMethod));
+    movptr(reg, Address(method, Method::const_offset())); // +
+  }
+
+  void get_codes(Register reg, Register constM) {
+    incrementl(ExternalAddress((address) &DataCounter::constMethod_codes));
+    lea(reg, Address(constM, ConstMethod::codes_offset())); // +
   }
 
   void get_const(Register reg) {
     get_method(reg);
-    movptr(reg, Address(reg, Method::const_offset()));
+    incrementl(ExternalAddress((address) &DataCounter::constMethod));
+    movptr(reg, Address(reg, Method::const_offset())); // +
   }
 
   void get_constant_pool(Register reg) {
     get_const(reg);
-    movptr(reg, Address(reg, ConstMethod::constants_offset()));
+    incrementl(ExternalAddress((address) &DataCounter::constantPool));
+    movptr(reg, Address(reg, ConstMethod::constants_offset())); // +
   }
 
   void get_constant_pool_cache(Register reg) {
     get_constant_pool(reg);
-    movptr(reg, Address(reg, ConstantPool::cache_offset_in_bytes()));
+    incrementl(ExternalAddress((address) &DataCounter::constantPool_Cache));
+    movptr(reg, Address(reg, ConstantPool::cache_offset_in_bytes())); // +
   }
 
   void get_cpool_and_tags(Register cpool, Register tags) {
     get_constant_pool(cpool);
-    movptr(tags, Address(cpool, ConstantPool::tags_offset_in_bytes()));
+    incrementl(ExternalAddress((address) &DataCounter::constantPool_Cache_tags));
+    movptr(tags, Address(cpool, ConstantPool::tags_offset_in_bytes())); // +
   }
 
   void get_unsigned_2_byte_index_at_bcp(Register reg, int bcp_offset);

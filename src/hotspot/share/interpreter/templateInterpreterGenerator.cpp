@@ -113,17 +113,13 @@ void TemplateInterpreterGenerator::generate_all() {
     const int invokeinterface_length = Bytecodes::length_for(Bytecodes::_invokeinterface);
     const int invokedynamic_length = Bytecodes::length_for(Bytecodes::_invokedynamic);
 
-    printf("AAAAAAAAAAAAAAAAAAAAAa\n");
     for (int i = 0; i < Interpreter::number_of_return_addrs; i++) {
       TosState state = states[i];
       assert(state != ilgl, "states array is wrong above");
-      printf("i: %d\n", i);
       Interpreter::_invoke_return_entry[i] = generate_return_entry_for(state, invoke_length, sizeof(u2));
       Interpreter::_invokeinterface_return_entry[i] = generate_return_entry_for(state, invokeinterface_length, sizeof(u2));
       Interpreter::_invokedynamic_return_entry[i] = generate_return_entry_for(state, invokedynamic_length, sizeof(u4));
     }
-    printf("AAAAAAAAAAAAAAAAAAAAAa22222222222\n");
-
   }
 
   { CodeletMark cm(_masm, "earlyret entry points");
@@ -482,14 +478,10 @@ address TemplateInterpreterGenerator::generate_method_entry(
     }
   } else {
     entry_point = Interpreter::entry_for_kind(synchronized ? Interpreter::zerolocals_synchronized : Interpreter::zerolocals);
-
     if (entry_point == NULL) {
       entry_point = generate_normal_entry(synchronized);
-        printf("kind-3: %d, entry point: %p\n", kind, entry_point);
-
     }
   }
-
 
   return entry_point;
 }

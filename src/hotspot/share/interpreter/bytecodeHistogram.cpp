@@ -187,4 +187,67 @@ void BytecodePairHistogram::print(float cutoff) {
   tty->cr();
 }
 
+
+long DataCounter::method = 0;
+long DataCounter::constMethod = 0;
+long DataCounter::constMethod_codes = 0;
+long DataCounter::InstanceKlass = 0;
+long DataCounter::class_loader_data = 0;
+long DataCounter::constantPool = 0;
+long DataCounter::constantPool_Cache = 0;
+long DataCounter::constantPool_Cache_tags = 0;
+long DataCounter::constantPool_Cache_ResolvedReference = 0;
+long DataCounter::thread_jvmtiThreadState = 0;
+long DataCounter::thread_jvmci_alternate_call_target = 0;
+long DataCounter::thread_callee_target = 0;
+long DataCounter::thread_jni_environment = 0;
+long DataCounter::access_flags = 0;
+long DataCounter::size_of_parameters = 0;
+
+long DataCounter::total_count() {
+  return method
+  + constMethod
+  + constMethod_codes
+  + InstanceKlass
+  + class_loader_data
+  + constantPool
+  + constantPool_Cache
+  + constantPool_Cache_tags
+  + constantPool_Cache_ResolvedReference
+  + thread_jvmtiThreadState
+  + thread_jvmci_alternate_call_target
+  + thread_callee_target
+  + thread_jni_environment
+  + access_flags
+  + size_of_parameters;
+}
+
+#define print_data(data)  tty->print_cr("%10ld  %7.2f%%   %s", data, 100.0 * data / tot, #data);
+
+void DataCounter::print() {
+  ResourceMark rm;
+  long tot     = total_count();
+  tty->cr();
+  tty->print_cr("Histogram of %ld executed data getters:", tot);
+  tty->cr();
+  tty->print_cr("  absolute  relative    name");
+  tty->print_cr("----------------------------------------------------------------------");
+  print_data(method)
+  print_data(constMethod)
+  print_data(constMethod_codes)
+  print_data(InstanceKlass)
+  print_data(class_loader_data)
+  print_data(constantPool)
+  print_data(constantPool_Cache)
+  print_data(constantPool_Cache_tags)
+  print_data(constantPool_Cache_ResolvedReference)
+  print_data(thread_jvmtiThreadState)
+  print_data(thread_jvmci_alternate_call_target)
+  print_data(thread_callee_target)
+  print_data(thread_jni_environment)
+  print_data(access_flags)
+  print_data(size_of_parameters)
+  tty->print_cr("----------------------------------------------------------------------");
+  tty->cr();
+}
 #endif

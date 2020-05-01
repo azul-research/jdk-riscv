@@ -58,17 +58,12 @@
 void AbstractInterpreter::initialize() {
   if (_code != NULL) return;
 
-  printf("ai. INIT: %p\n", _entry_table[2]);
-
   // make sure 'imported' classes are initialized
   if (CountBytecodes || TraceBytecodes || StopInterpreterAt) BytecodeCounter::reset();
   if (PrintBytecodeHistogram)                                BytecodeHistogram::reset();
   if (PrintBytecodePairHistogram)                            BytecodePairHistogram::reset();
 
   InvocationCounter::reinitialize();
-
-  printf("ai. INIT-9: %p\n", _entry_table[2]);
-
 }
 
 void AbstractInterpreter::print() {
@@ -220,8 +215,6 @@ address AbstractInterpreter::get_trampoline_code_buffer(AbstractInterpreter::Met
 }
 
 void AbstractInterpreter::update_cds_entry_table(AbstractInterpreter::MethodKind kind) {
-	        printf("ai. update_cds: %p\n", _entry_table[2]);
-
   if (DumpSharedSpaces || UseSharedSpaces) {
     address trampoline = get_trampoline_code_buffer(kind);
     _cds_entry_table[kind] = trampoline;
@@ -234,8 +227,6 @@ void AbstractInterpreter::update_cds_entry_table(AbstractInterpreter::MethodKind
       Disassembler::decode(buffer.insts_begin(), buffer.insts_end());
     }
   }
-                  printf("ai. update_cds-9: %p\n", _entry_table[2]);
-
 }
 
 #endif
