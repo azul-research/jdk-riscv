@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "$(uname -m)" = "riscv64" ]; then
+    echo "Don't run this script in qemu"
+    exit 1
+fi
+
 OPTIND=1
 
 variant=core

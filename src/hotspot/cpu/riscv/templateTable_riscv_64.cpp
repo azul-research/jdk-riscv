@@ -1266,8 +1266,6 @@ void TemplateTable::lop2(Operation op) {
 void TemplateTable::idiv() {
   transition(itos, itos);
 
-  __ ebreak();
-
   Label Lnormal, Lexception, Ldone;
   Register Rdividend = R5_scratch1; // Used by irem.
 
@@ -3417,7 +3415,7 @@ void TemplateTable::generate_vtable_call(Register Rrecv_klass, Register Rindex, 
   // Get target method & entry point.
   const int base = in_bytes(Klass::vtable_start_offset());
   // Calc vtable addr scale the vtable index by 8.
- 
+
   //__ sldi_PPC(Rindex, Rindex, exact_log2(vtableEntry::size_in_bytes()));
 
   printf("generate_vtable_call-1 %p %d %d\n", __ pc(), vtableEntry::size_in_bytes(), exact_log2(vtableEntry::size_in_bytes()));
@@ -3462,7 +3460,7 @@ void TemplateTable::invokevirtual(int byte_no) {
   __ beqz(Rtmp2, LnotFinal);
 //  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
   //__ bfalse_PPC(CCR0, LnotFinal);
-  
+
   if (RewriteBytecodes && !UseSharedSpaces && !DumpSharedSpaces) {
 //	  __ unimplemented("invokevirtual - patch bytecode");
  //   patch_bytecode(Bytecodes::_fast_invokevfinal, Rnew_bc, R6_scratch2);
@@ -3574,7 +3572,7 @@ void TemplateTable::invokevfinal_helper(Register Rmethod, Register Rflags, Regis
            Rret_type   = Rret_addr;
   // Get return type. It's coded into the upper 4 bits of the lower half of the 64 bit value.
 
-  __ srli(Rret_type, Rflags, ConstantPoolCacheEntry::tos_state_shift); 
+  __ srli(Rret_type, Rflags, ConstantPoolCacheEntry::tos_state_shift);
   __ andi(Rret_type, Rret_type, ConstantPoolCacheEntry::tos_state_mask);
 
   //__ rldicl_PPC(Rret_type, Rflags, 64-ConstantPoolCacheEntry::tos_state_shift, 64-ConstantPoolCacheEntry::tos_state_bits);
@@ -3656,7 +3654,7 @@ void TemplateTable::invokestatic(int byte_no) {
   // Argument and return type profiling.
   // FIXME_RISCV
   // __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
- 
+
    printf("invokestatic-5: %p\n", __ pc());
    __ add(R5_scratch1, 0, R5_scratch1);
 
