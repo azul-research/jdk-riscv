@@ -32,7 +32,7 @@
 
 class BytecodeCounter: AllStatic {
  private:
-  NOT_PRODUCT(static int   _counter_value;)
+  NOT_PRODUCT(static long  _counter_value;)
   NOT_PRODUCT(static jlong _reset_time;)
 
   friend class TemplateInterpreterGenerator;
@@ -43,7 +43,7 @@ class BytecodeCounter: AllStatic {
   static void reset()                      PRODUCT_RETURN;
 
   // Counter info (all info since last reset)
-  static int    counter_value()            PRODUCT_RETURN0 NOT_PRODUCT({ return _counter_value; });
+  static long   counter_value()            PRODUCT_RETURN0 NOT_PRODUCT({ return _counter_value; });
   static double elapsed_time()             PRODUCT_RETURN0; // in seconds
   static double frequency()                PRODUCT_RETURN0; // bytecodes/seconds
 
@@ -56,7 +56,7 @@ class BytecodeCounter: AllStatic {
 
 class BytecodeHistogram: AllStatic {
  private:
-  NOT_PRODUCT(static int _counters[Bytecodes::number_of_codes];)   // a counter for each bytecode
+  NOT_PRODUCT(static long _counters[Bytecodes::number_of_codes];)   // a counter for each bytecode
 
   friend class TemplateInterpreterGenerator;
   friend class         BytecodeInterpreter;
@@ -83,7 +83,7 @@ class BytecodePairHistogram: AllStatic {
 
  private:
   NOT_PRODUCT(static int  _index;)                      // new bytecode is shifted in - used to index into _counters
-  NOT_PRODUCT(static int  _counters[number_of_pairs];)  // a counter for each pair
+  NOT_PRODUCT(static long  _counters[number_of_pairs];)  // a counter for each pair
 
   friend class TemplateInterpreterGenerator;
 
@@ -92,7 +92,7 @@ class BytecodePairHistogram: AllStatic {
   static void reset()                       PRODUCT_RETURN;   // reset counters
 
   // Profile printing
-  static void print(float cutoff = 0.01F)   PRODUCT_RETURN;   // cutoff in percent
+  static void print(float cutoff = -0.01F)   PRODUCT_RETURN;   // cutoff in percent
 };
 
 #endif // SHARE_INTERPRETER_BYTECODEHISTOGRAM_HPP

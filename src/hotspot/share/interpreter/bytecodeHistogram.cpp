@@ -34,7 +34,7 @@
 
 // Implementation of BytecodeCounter
 
-int   BytecodeCounter::_counter_value = 0;
+long  BytecodeCounter::_counter_value = 0;
 jlong BytecodeCounter::_reset_time    = 0;
 
 
@@ -56,7 +56,7 @@ double BytecodeCounter::frequency() {
 
 void BytecodeCounter::print() {
   tty->print_cr(
-    "%d bytecodes executed in %.1fs (%.3fMHz)",
+    "%ld bytecodes executed in %.1fs (%.3fMHz)",
     counter_value(),
     elapsed_time(),
     frequency() / 1000000.0
@@ -69,20 +69,20 @@ void BytecodeCounter::print() {
 class HistoEntry: public ResourceObj {
  private:
   int             _index;
-  int             _count;
+  long            _count;
 
  public:
-  HistoEntry(int index, int count)                         { _index = index; _count = count; }
+  HistoEntry(int index, long count)                        { _index = index; _count = count; }
   int             index() const                            { return _index; }
-  int             count() const                            { return _count; }
+  long            count() const                            { return _count; }
 
-  static int      compare(HistoEntry** x, HistoEntry** y)  { return (*x)->count() - (*y)->count(); }
+  static long      compare(HistoEntry** x, HistoEntry** y)  { return (*x)->count() - (*y)->count(); }
 };
 
 
 // Helper functions
 
-static GrowableArray<HistoEntry*>* sorted_array(int* array, int length) {
+static GrowableArray<HistoEntry*>* sorted_array(long* array, int length) {
   GrowableArray<HistoEntry*>* a = new GrowableArray<HistoEntry*>(length);
   int i = length;
   while (i-- > 0) a->append(new HistoEntry(i, array[i]));
@@ -91,8 +91,8 @@ static GrowableArray<HistoEntry*>* sorted_array(int* array, int length) {
 }
 
 
-static int total_count(GrowableArray<HistoEntry*>* profile) {
-  int sum = 0;
+static long total_count(GrowableArray<HistoEntry*>* profile) {
+  long sum = 0;
   int i = profile->length();
   while (i-- > 0) sum += profile->at(i)->count();
   return sum;
@@ -106,7 +106,7 @@ static const char* name_for(int i) {
 
 // Implementation of BytecodeHistogram
 
-int BytecodeHistogram::_counters[Bytecodes::number_of_codes];
+long BytecodeHistogram::_counters[Bytecodes::number_of_codes];
 
 
 void BytecodeHistogram::reset() {
@@ -119,26 +119,27 @@ void BytecodeHistogram::print(float cutoff) {
   ResourceMark rm;
   GrowableArray<HistoEntry*>* profile = sorted_array(_counters, Bytecodes::number_of_codes);
   // print profile
-  int tot     = total_count(profile);
-  int abs_sum = 0;
+  cutoff = -1;
+  long tot     = total_count(profile);
+  long abs_sum = 0;
   tty->cr();   //0123456789012345678901234567890123456789012345678901234567890123456789
-  tty->print_cr("Histogram of %d executed bytecodes:", tot);
+  tty->print_cr("Histogram of %ld executed bytecodes:", tot);
   tty->cr();
   tty->print_cr("  absolute  relative  code    name");
   tty->print_cr("----------------------------------------------------------------------");
   int i = profile->length();
   while (i-- > 0) {
     HistoEntry* e = profile->at(i);
-    int       abs = e->count();
+    long      abs = e->count();
     float     rel = abs * 100.0F / tot;
     if (cutoff <= rel) {
-      tty->print_cr("%10d  %7.2f%%    %02x    %s", abs, rel, e->index(), name_for(e->index()));
+      tty->print_cr("%10ld  %7.2f%%    %02x    %s", abs, rel, e->index(), name_for(e->index()));
       abs_sum += abs;
     }
   }
   tty->print_cr("----------------------------------------------------------------------");
   float rel_sum = abs_sum * 100.0F / tot;
-  tty->print_cr("%10d  %7.2f%%    (cutoff = %.2f%%)", abs_sum, rel_sum, cutoff);
+  tty->print_cr("%10ld  %7.2f%%    (cutoff = %.2f%%)", abs_sum, rel_sum, cutoff);
   tty->cr();
 }
 
@@ -146,7 +147,7 @@ void BytecodeHistogram::print(float cutoff) {
 // Implementation of BytecodePairHistogram
 
 int BytecodePairHistogram::_index;
-int BytecodePairHistogram::_counters[BytecodePairHistogram::number_of_pairs];
+long BytecodePairHistogram::_counters[BytecodePairHistogram::number_of_pairs];
 
 
 void BytecodePairHistogram::reset() {
@@ -161,28 +162,28 @@ void BytecodePairHistogram::print(float cutoff) {
   ResourceMark rm;
   GrowableArray<HistoEntry*>* profile = sorted_array(_counters, number_of_pairs);
   // print profile
-  int tot     = total_count(profile);
-  int abs_sum = 0;
+  long tot     = total_count(profile);
+  long abs_sum = 0;
   tty->cr();   //0123456789012345678901234567890123456789012345678901234567890123456789
-  tty->print_cr("Histogram of %d executed bytecode pairs:", tot);
+  tty->print_cr("Histogram of %ld executed bytecode pairs:", tot);
   tty->cr();
   tty->print_cr("  absolute  relative    codes    1st bytecode        2nd bytecode");
   tty->print_cr("----------------------------------------------------------------------");
   int i = profile->length();
   while (i-- > 0) {
     HistoEntry* e = profile->at(i);
-    int       abs = e->count();
+    long       abs = e->count();
     float     rel = abs * 100.0F / tot;
     if (cutoff <= rel) {
       int   c1 = e->index() % number_of_codes;
       int   c2 = e->index() / number_of_codes;
-      tty->print_cr("%10d   %6.3f%%    %02x %02x    %-19s %s", abs, rel, c1, c2, name_for(c1), name_for(c2));
+      tty->print_cr("%10ld   %6.3f%%    %02x %02x    %-19s %s", abs, rel, c1, c2, name_for(c1), name_for(c2));
       abs_sum += abs;
     }
   }
   tty->print_cr("----------------------------------------------------------------------");
   float rel_sum = abs_sum * 100.0F / tot;
-  tty->print_cr("%10d   %6.3f%%    (cutoff = %.3f%%)", abs_sum, rel_sum, cutoff);
+  tty->print_cr("%10ld   %6.3f%%    (cutoff = %.3f%%)", abs_sum, rel_sum, cutoff);
   tty->cr();
 }
 
