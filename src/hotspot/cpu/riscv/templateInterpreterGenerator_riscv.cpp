@@ -515,7 +515,7 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // the load of the previous value.
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-  __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+  __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
 
   __ blr_PPC();
 
@@ -1798,7 +1798,7 @@ address TemplateInterpreterGenerator::generate_CRC32_update_entry() {
     __ kernel_crc32_singleByteReg(crc, data, table, true);
 
     // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-    __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+    __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
     __ blr_PPC();
 
     // Generate a vanilla native entry as the slow path.
@@ -1869,7 +1869,7 @@ address TemplateInterpreterGenerator::generate_CRC32_updateBytes_entry(AbstractI
     __ crc32(crc, data, dataLen, R2, R6, R7, R8, R9, R10, R11, R12, false);
 
     // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-    __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+    __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
     __ blr_PPC();
 
     // Generate a vanilla native entry as the slow path.
@@ -1940,7 +1940,7 @@ address TemplateInterpreterGenerator::generate_CRC32C_updateBytes_entry(Abstract
     __ crc32(crc, data, dataLen, R2, R6, R7, R8, R9, R10, R11, R12, true);
 
     // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
-    __ resize_frame_absolute(R21_sender_SP, R5_scratch1, R0);
+    __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
     __ blr_PPC();
 
     BLOCK_COMMENT("} CRC32C_update{Bytes|DirectByteBuffer}");
@@ -1963,7 +1963,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   {
     __ restore_interpreter_state();
     __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
-    __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+    __ resize_frame_absolute(R6_scratch2, R8_FP);
 
     // Compiled code destroys templateTableBase, reload.
     __ load_const_optimized(R19_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R5_scratch1);
@@ -2071,7 +2071,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     __ restore_interpreter_state(R5_scratch1);
     __ ld_PPC(R6_scratch2, _ijava_state(top_frame_sp), R8_FP);
-    __ resize_frame_absolute(R6_scratch2, R8_FP, R0);
+    __ resize_frame_absolute(R6_scratch2, R8_FP);
     if (ProfileInterpreter) {
       __ set_method_data_pointer_for_bcp();
       __ ld_PPC(R5_scratch1, 0, R1_SP_PPC);

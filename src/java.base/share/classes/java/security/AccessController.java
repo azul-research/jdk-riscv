@@ -969,15 +969,15 @@ public final class AccessController {
 
     public static AccessControlContext getContext()
     {
-//	return null; // new AccessControlContext(null, true);
-        AccessControlContext acc = getStackAccessControlContext();
+	return null; // new AccessControlContext(null, true);
+       /* AccessControlContext acc = getStackAccessControlContext();
         if (acc == null) {
             // all we had was privileged system code. We don't want
             // to return null though, so we construct a real ACC.
             return new AccessControlContext(null, true);
         } else {
             return acc.optimize();
-        }
+        }*/
     }
 
     /**

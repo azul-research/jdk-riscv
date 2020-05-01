@@ -282,7 +282,7 @@ class MacroAssembler: public Assembler {
   // Resize current frame either relatively wrt to current SP or absolute.
   void resize_frame(Register offset, Register tmp);
   void resize_frame(int      offset, Register tmp);
-  void resize_frame_absolute(Register addr, Register tmp1, Register tmp2);
+  void resize_frame_absolute(Register addr, Register tmp);
 
   // Push a frame of size bytes.
   void push_frame(Register bytes, Register tmp);
@@ -292,10 +292,6 @@ class MacroAssembler: public Assembler {
 
   // Push a frame of size `bytes' plus abi_reg_args_ppc on top.
   void push_frame_reg_args(unsigned int bytes, Register tmp);
-
-  // Setup up a new C frame with a spill area for non-volatile GPRs and additional
-  // space for local variables
-  void push_frame_reg_args_nonvolatiles(unsigned int bytes, Register tmp);
 
   // pop current C frame
   void pop_C_frame(bool restoreRA = true);

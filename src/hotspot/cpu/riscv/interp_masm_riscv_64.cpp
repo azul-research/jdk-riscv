@@ -1381,8 +1381,7 @@ void InterpreterMacroAssembler::increment_backedge_counter(const Register Rcount
 
 // Count a taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register bumped_count) {
-  //FIXME RISCV
-  /*if (ProfileInterpreter) {
+  if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1394,13 +1393,12 @@ void InterpreterMacroAssembler::profile_taken_branch(Register scratch, Register 
     // The method data pointer needs to be updated to reflect the new target.
     update_mdp_by_offset(in_bytes(JumpData::displacement_offset()), scratch);
     bind (profile_continue);
-  }*/
+  }
 }
 
 // Count a not-taken branch in the bytecodes.
 void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Register scratch2) {
-  //FIXME RISCV
-  /*if (ProfileInterpreter) {
+  if (ProfileInterpreter) {
     Label profile_continue;
 
     // If no method data exists, go to profile_continue.
@@ -1413,7 +1411,7 @@ void InterpreterMacroAssembler::profile_not_taken_branch(Register scratch1, Regi
     // next bytecode.
     update_mdp_by_constant(in_bytes(BranchData::branch_data_size()));
     bind (profile_continue);
-  }*/
+  }
 }
 
 // Count a non-virtual call in the bytecodes.
@@ -1605,8 +1603,7 @@ void InterpreterMacroAssembler::profile_switch_case(Register index,
 }
 
 void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register Rscratch2) {
-  //FIXME_RISCV
-  /*if (ProfileInterpreter) {
+  if (ProfileInterpreter) {
     assert_different_registers(Rscratch1, Rscratch2);
     Label profile_continue;
 
@@ -1623,7 +1620,7 @@ void InterpreterMacroAssembler::profile_null_seen(Register Rscratch1, Register R
     update_mdp_by_constant(mdp_delta);
 
     bind (profile_continue);
-  }*/
+  }
 }
 
 void InterpreterMacroAssembler::record_klass_in_profile(Register Rreceiver,
@@ -1958,8 +1955,8 @@ void InterpreterMacroAssembler::add_monitor_to_stack(bool stack_is_empty, Regist
                                (unsigned int)frame::alignment_in_bytes),
          "size of a monitor must respect alignment of SP");
 
-  resize_frame(-monitor_size, /*temp*/esp); // Allocate space for new monitor
-  sd(R2_SP, esp, _ijava_state(top_frame_sp)); // esp contains fp
+  resize_frame(-monitor_size, Rtemp1); // Allocate space for new monitor
+  sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
 
   // Shuffle expression stack down. Recall that stack_base points
   // just above the new expression stack bottom. Old_tos and new_tos
@@ -2164,7 +2161,7 @@ void InterpreterMacroAssembler::call_VM(Register oop_result, address entry_point
                                         bool check_exceptions) {
   // ARG1 is reserved for the thread.
   mv_if_needed(R11_ARG1, arg_1);
-  assert(arg_2 != R4_ARG2_PPC, "smashed argument");
+  assert(arg_2 != R11_ARG1, "smashed argument");
   mv_if_needed(R12_ARG2, arg_2);
   call_VM(oop_result, entry_point, check_exceptions);
 }
