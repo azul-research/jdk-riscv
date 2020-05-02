@@ -115,8 +115,9 @@ NASHORN_JAR=$DIR/dist/nashorn.jar
 
 # Type profiling default level is 111, 222 adds some compile time, but is faster
 
+
+#$ENABLE_ASSERTIONS_FLAGS \ removed from this
 $JAVA_HOME/bin/java \
-$ENABLE_ASSERTIONS_FLAGS \
 $LAMBDAFORM_FLAGS \
 $TRUSTED_FLAGS \
 $USE_NEW_CODE_FLAGS \

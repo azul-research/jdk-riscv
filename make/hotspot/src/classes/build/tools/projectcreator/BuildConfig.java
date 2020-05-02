@@ -507,7 +507,7 @@ abstract class GenericDebugConfig extends BuildConfig {
 
     protected void init(Vector includes, Vector defines) {
         defines.add("_DEBUG");
-        defines.add("ASSERT");
+//        defines.add("ASSERT");
 
         super.init(includes, defines);
 

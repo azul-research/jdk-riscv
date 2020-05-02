@@ -56,7 +56,7 @@ ifeq ($(call check-jvm-feature, compiler2), true)
 
   # NOTE: The old build didn't set -DASSERT for windows but it doesn't seem to
   # hurt.
-  ADLC_CFLAGS += -DASSERT
+#  ADLC_CFLAGS += -DASSERT
 
   ADLC_CFLAGS += -D$(HOTSPOT_TARGET_CPU_DEFINE)
 

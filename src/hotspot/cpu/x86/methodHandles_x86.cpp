@@ -182,7 +182,8 @@ void MethodHandles::jump_to_lambda_form(MacroAssembler* _masm,
 
   if (VerifyMethodHandles && !for_compiler_entry) {
     // make sure recv is already on stack
-    __ movptr(temp2, Address(method_temp, Method::const_offset()));
+    __ should_not_reach_here();
+    __ movptr(temp2, Address(method_temp, Method::const_offset())); // +
     __ load_sized_value(temp2,
                         Address(temp2, ConstMethod::size_of_parameters_offset()),
                         sizeof(u2), /*is_signed*/ false);

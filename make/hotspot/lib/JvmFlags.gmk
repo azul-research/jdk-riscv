@@ -73,14 +73,15 @@ ifeq ($(DEBUG_LEVEL), release)
     JVM_CFLAGS_DEBUGLEVEL := -DPRODUCT
   endif
 else ifeq ($(DEBUG_LEVEL), fastdebug)
-  JVM_CFLAGS_DEBUGLEVEL := -DASSERT
+#  JVM_CFLAGS_DEBUGLEVEL := -DASSERT
   ifeq ($(call isTargetOs, windows aix), false)
     # NOTE: Old build did not define CHECK_UNHANDLED_OOPS on Windows and AIX.
     JVM_CFLAGS_DEBUGLEVEL += -DCHECK_UNHANDLED_OOPS
   endif
 else ifeq ($(DEBUG_LEVEL), slowdebug)
   # _NMT_NOINLINE_ informs NMT that no inlining is done by the compiler
-  JVM_CFLAGS_DEBUGLEVEL := -DASSERT -D_NMT_NOINLINE_
+#  JVM_CFLAGS_DEBUGLEVEL := -DASSERT -D_NMT_NOINLINE_
+  JVM_CFLAGS_DEBUGLEVEL := -D_NMT_NOINLINE_
 endif
 
 JVM_CFLAGS += \
