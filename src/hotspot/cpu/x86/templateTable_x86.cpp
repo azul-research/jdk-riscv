@@ -2201,7 +2201,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
 
     // check if MethodCounters exists
     Label has_counters;
-    __ movptr(rax, Address(rcx, Method::method_counters_offset()));
+    __ get_method_counters_(rax, rcx);
     __ testptr(rax, rax);
     __ jcc(Assembler::notZero, has_counters);
     __ push(rdx);
@@ -2210,7 +2210,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
                rcx);
     __ pop(rcx);
     __ pop(rdx);
-    __ movptr(rax, Address(rcx, Method::method_counters_offset()));
+    __ get_method_counters_(rax, rcx);
     __ testptr(rax, rax);
     __ jcc(Assembler::zero, dispatch);
     __ bind(has_counters);
@@ -2233,14 +2233,14 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       }
       __ bind(no_mdo);
       // Increment backedge counter in MethodCounters*
-      __ movptr(rcx, Address(rcx, Method::method_counters_offset()));
+      __ get_method_counters_(rcx, rcx);
       const Address mask(rcx, in_bytes(MethodCounters::backedge_mask_offset()));
       __ increment_mask_and_jump(Address(rcx, be_offset), increment, mask,
                                  rax, false, Assembler::zero,
                                  UseOnStackReplacement ? &backedge_counter_overflow : NULL);
     } else { // not TieredCompilation
       // increment counter
-      __ movptr(rcx, Address(rcx, Method::method_counters_offset()));
+      __ get_method_counters_(rcx, rcx);
       __ movl(rax, Address(rcx, be_offset));        // load backedge counter
       __ incrementl(rax, InvocationCounter::count_increment); // increment counter
       __ movl(Address(rcx, be_offset), rax);        // store counter

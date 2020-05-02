@@ -143,11 +143,12 @@ void MethodHandles::jump_from_method_handle(MacroAssembler* _masm, Register meth
     // Is a cmpl faster?
     __ cmpb(Address(rthread, JavaThread::interp_only_mode_offset()), 0);
     __ jccb(Assembler::zero, run_compiled_code);
-    __ jmp(Address(method, Method::interpreter_entry_offset()));
+    __ incrementl(ExternalAddress((address) &DataCounter::interpreter_entry));
+    __ jmp(Address(method, Method::interpreter_entry_offset())); // +
     __ BIND(run_compiled_code);
   }
 
-  const ByteSize entry_offset = for_compiler_entry ? Method::from_compiled_offset() :
+  const ByteSize entry_offset = for_compiler_entry ? Method::from_compiled_offset() : // +
                                                      Method::from_interpreted_offset();
   __ jmp(Address(method, entry_offset));
 

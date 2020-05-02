@@ -699,7 +699,8 @@ static void gen_c2i_adapter(MacroAssembler *masm,
   }
 
   // Schedule the branch target address early.
-  __ movptr(rcx, Address(rbx, in_bytes(Method::interpreter_entry_offset())));
+  __ incrementl(ExternalAddress((address) &DataCounter::interpreter_entry));
+  __ movptr(rcx, Address(rbx, in_bytes(Method::interpreter_entry_offset()))); // +
   __ jmp(rcx);
 }
 
@@ -811,7 +812,7 @@ void SharedRuntime::gen_i2c_adapter(MacroAssembler *masm,
 
   // Will jump to the compiled code just as if compiled code was doing it.
   // Pre-load the register-jump target early, to schedule it better.
-  __ movptr(r11, Address(rbx, in_bytes(Method::from_compiled_offset())));
+  __ movptr(r11, Address(rbx, in_bytes(Method::from_compiled_offset()))); // +
 
 #if INCLUDE_JVMCI
   if (EnableJVMCI || UseAOT) {

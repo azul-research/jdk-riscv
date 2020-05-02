@@ -114,7 +114,11 @@ public:
   static long size_of_parameters; // +
   static long size_of_locals; // +
   static long monitors_top; // +
+  static long interpreter_entry; // +
   static long last_sp;
+  static long method_counters; // +
+  static long dispatch_table; // +
+  static long normal_table; // +
 
   static long total_count();
   static void print();

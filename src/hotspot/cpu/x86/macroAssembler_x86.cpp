@@ -5291,6 +5291,11 @@ void MacroAssembler::get_constant_pool_cache(Register reg) {
   movptr(reg, Address(reg, ConstantPool::cache_offset_in_bytes())); // +
 }
 
+void MacroAssembler::get_method_counters_(Register reg, Register method) {
+  incrementl(ExternalAddress((address) &DataCounter::method_counters));
+  movptr(reg, Address(method, Method::method_counters_offset())); // +
+}
+
 void MacroAssembler::get_cpool_and_tags(Register cpool, Register tags) {
   get_constant_pool(cpool);
   incrementl(ExternalAddress((address) &DataCounter::constantPool_Cache_tags));

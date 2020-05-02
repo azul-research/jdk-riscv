@@ -22,6 +22,7 @@
  *
  */
 
+#include "interpreter/bytecodeHistogram.hpp"
 #include "precompiled.hpp"
 #include "interp_masm_x86.hpp"
 #include "interpreter/interpreter.hpp"
@@ -806,7 +807,8 @@ void InterpreterMacroAssembler::jump_from_interpreted(Register method, Register 
     NOT_LP64(get_thread(temp);)
     cmpb(Address(temp, JavaThread::interp_only_mode_offset()), 0);
     jccb(Assembler::zero, run_compiled_code);
-    jmp(Address(method, Method::interpreter_entry_offset()));
+    incrementl(ExternalAddress((address) &DataCounter::interpreter_entry));
+    jmp(Address(method, Method::interpreter_entry_offset())); // +
     bind(run_compiled_code);
   }
 
@@ -884,14 +886,17 @@ void InterpreterMacroAssembler::dispatch_base(TosState state,
 }
 
 void InterpreterMacroAssembler::dispatch_only(TosState state, bool generate_poll) {
+  incrementl(ExternalAddress((address) &DataCounter::dispatch_table));
   dispatch_base(state, Interpreter::dispatch_table(state), true, generate_poll);
 }
 
 void InterpreterMacroAssembler::dispatch_only_normal(TosState state) {
+  incrementl(ExternalAddress((address) &DataCounter::normal_table));
   dispatch_base(state, Interpreter::normal_table(state));
 }
 
 void InterpreterMacroAssembler::dispatch_only_noverify(TosState state) {
+  incrementl(ExternalAddress((address) &DataCounter::normal_table));
   dispatch_base(state, Interpreter::normal_table(state), false);
 }
 
@@ -901,6 +906,7 @@ void InterpreterMacroAssembler::dispatch_next(TosState state, int step, bool gen
   load_unsigned_byte(rbx, Address(_bcp_register, step));
   // advance _bcp_register
   increment(_bcp_register, step);
+  incrementl(ExternalAddress((address) &DataCounter::dispatch_table));
   dispatch_base(state, Interpreter::dispatch_table(state), true, generate_poll);
 }
 
@@ -1145,12 +1151,12 @@ void InterpreterMacroAssembler::remove_activation(
 void InterpreterMacroAssembler::get_method_counters(Register method,
                                                     Register mcs, Label& skip) {
   Label has_counters;
-  movptr(mcs, Address(method, Method::method_counters_offset()));
+  get_method_counters_(mcs, method);
   testptr(mcs, mcs);
   jcc(Assembler::notZero, has_counters);
   call_VM(noreg, CAST_FROM_FN_PTR(address,
           InterpreterRuntime::build_method_counters), method);
-  movptr(mcs, Address(method,Method::method_counters_offset()));
+  get_method_counters_(mcs, method);
   testptr(mcs, mcs);
   jcc(Assembler::zero, skip); // No MethodCounters allocated, OutOfMemory
   bind(has_counters);

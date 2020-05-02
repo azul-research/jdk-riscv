@@ -22,6 +22,7 @@
  *
  */
 
+#include "interpreter/bytecodeHistogram.hpp"
 #include "precompiled.hpp"
 #include "asm/macroAssembler.hpp"
 #include "compiler/disassembler.hpp"
@@ -365,7 +366,8 @@ address TemplateInterpreterGenerator::generate_safept_entry_for(
   address entry = __ pc();
   __ push(state);
   __ call_VM(noreg, runtime_entry);
-  __ dispatch_via(vtos, Interpreter::_normal_table.table_for(vtos));
+  __ incrementl(ExternalAddress((address) &DataCounter::normal_table));
+  __ dispatch_via(vtos, Interpreter::normal_table(vtos));
   return entry;
 }
 
@@ -443,7 +445,7 @@ void TemplateInterpreterGenerator::generate_counter_incr(
 
     if (ProfileInterpreter && profile_method != NULL) {
       // Test to see if we should create a method data oop
-      __ movptr(rax, Address(rbx, Method::method_counters_offset()));
+      __ get_method_counters_(rax, rbx);
       __ cmp32(rcx, Address(rax, in_bytes(MethodCounters::interpreter_profile_limit_offset())));
       __ jcc(Assembler::less, *profile_method_continue);
 
@@ -451,7 +453,7 @@ void TemplateInterpreterGenerator::generate_counter_incr(
       __ test_method_data_pointer(rax, *profile_method);
     }
 
-    __ movptr(rax, Address(rbx, Method::method_counters_offset()));
+    __ get_method_counters_(rax, rbx);
     __ cmp32(rcx, Address(rax, in_bytes(MethodCounters::interpreter_invocation_limit_offset())));
     __ jcc(Assembler::aboveEqual, *overflow);
     __ bind(done);
