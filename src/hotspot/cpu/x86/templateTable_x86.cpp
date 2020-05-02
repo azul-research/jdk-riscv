@@ -2167,10 +2167,11 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
     // Pre-load the next target bytecode into rbx
     __ load_unsigned_byte(rbx, Address(rbcp, rdx, Address::times_1, 0));
 
+    __ incrementl(ExternalAddress((address) &DataCounter::constMethod));
+    __ incrementl(ExternalAddress((address) &DataCounter::constMethod_codes));
     // compute return address as bci in rax
-    __ lea(rax, at_bcp((is_wide ? 5 : 3) -
-                        in_bytes(ConstMethod::codes_offset())));
-    __ subptr(rax, Address(rcx, Method::const_offset()));
+    __ lea(rax, at_bcp((is_wide ? 5 : 3) - in_bytes(ConstMethod::codes_offset()))); // +
+    __ subptr(rax, Address(rcx, Method::const_offset())); // +
     // Adjust the bcp in r13 by the displacement in rdx
     __ addptr(rbcp, rdx);
     // jsr returns atos that is not an oop
@@ -2421,9 +2422,8 @@ void TemplateTable::ret() {
   NOT_LP64(__ movptr(rbx, iaddress(rbx)));
   __ profile_ret(rbx, rcx);
   __ get_method(rax);
-  __ movptr(rbcp, Address(rax, Method::const_offset()));
-  __ lea(rbcp, Address(rbcp, rbx, Address::times_1,
-                      ConstMethod::codes_offset()));
+  __ get_const(rbcp, rax);
+  __ get_codes(rbcp, rbcp);
   __ dispatch_next(vtos, 0, true);
 }
 
@@ -2433,8 +2433,8 @@ void TemplateTable::wide_ret() {
   __ movptr(rbx, aaddress(rbx)); // get return bci, compute return bcp
   __ profile_ret(rbx, rcx);
   __ get_method(rax);
-  __ movptr(rbcp, Address(rax, Method::const_offset()));
-  __ lea(rbcp, Address(rbcp, rbx, Address::times_1, ConstMethod::codes_offset()));
+  __ get_const(rbcp, rax);
+  __ get_codes(rbcp, rbcp);
   __ dispatch_next(vtos, 0, true);
 }
 

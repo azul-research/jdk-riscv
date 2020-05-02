@@ -794,15 +794,13 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ incrementl(ExternalAddress((address) &DataCounter::access_flags));
   __ incrementl(ExternalAddress((address) &DataCounter::size_of_parameters));
 
-  const Address constMethod       (rbx, Method::const_offset()); // +
+#ifdef ASSERT
   const Address access_flags      (rbx, Method::access_flags_offset()); // +
-  const Address size_of_parameters(rcx, ConstMethod::
-                                        size_of_parameters_offset()); // +
-
+#endif
 
   // get parameter size (always needed)
-  __ movptr(rcx, constMethod);
-  __ load_unsigned_short(rcx, size_of_parameters);
+  __ get_const(rcx, rbx);
+  __ get_size_of_parameters(rcx, rcx);
 
   // native calls don't need the stack size check since they have no
   // expression stack and the arguments are already on the stack and
@@ -917,8 +915,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // allocate space for parameters
   __ get_method(method);
-  __ movptr(t, Address(method, Method::const_offset()));
-  __ load_unsigned_short(t, Address(t, ConstMethod::size_of_parameters_offset()));
+  __ get_const(t, method);
+  __ get_size_of_parameters(t, t);
 
 #ifndef _LP64
   __ shlptr(t, Interpreter::logStackElementSize); // Convert parameter count to bytes.
@@ -973,7 +971,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // pass mirror handle if static call
   {
     Label L;
-    __ movl(t, Address(method, Method::access_flags_offset()));
+    __ get_access_flags(t, method);
     __ testl(t, JVM_ACC_STATIC);
     __ jcc(Assembler::zero, L);
     // get mirror
@@ -1210,8 +1208,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ get_method(method);
 
   // restore to have legal interpreter frame, i.e., bci == 0 <=> code_base()
-  __ movptr(rbcp, Address(method, Method::const_offset()));   // get ConstMethod*
-  __ lea(rbcp, Address(rbcp, ConstMethod::codes_offset()));    // get codebase
+  __ get_const(rbcp, method); // get ConstMethod*
+  __ get_codes(rbcp, rbcp);   // get codebase
 
   // handle exceptions (exception handling will handle unlocking!)
   {
@@ -1334,22 +1332,17 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // rbcp: sender sp
   address entry_point = __ pc();
 
-  const Address constMethod(rbx, Method::const_offset());
-  const Address access_flags(rbx, Method::access_flags_offset());
-  const Address size_of_parameters(rdx,
-                                   ConstMethod::size_of_parameters_offset());
-  const Address size_of_locals(rdx, ConstMethod::size_of_locals_offset());
-
+  const Address access_flags(rbx, Method::access_flags_offset()); // + only in asserts
 
   // get parameter size (always needed)
-  __ movptr(rdx, constMethod);
-  __ load_unsigned_short(rcx, size_of_parameters);
+  __ get_const(rdx, rbx);
+  __ get_size_of_parameters(rcx, rdx);
 
   // rbx: Method*
   // rcx: size of parameters
   // rbcp: sender_sp (could differ from sp+wordSize if we were called via c2i )
 
-  __ load_unsigned_short(rdx, size_of_locals); // get size of locals in words
+  __ get_size_of_locals(rdx, rdx);
   __ subl(rdx, rcx); // rdx = no. of additional locals
 
   // YYY
@@ -1582,10 +1575,9 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     // Compute size of arguments for saving when returning to
     // deoptimized caller
-    __ get_method(rax);
-    __ movptr(rax, Address(rax, Method::const_offset()));
-    __ load_unsigned_short(rax, Address(rax, in_bytes(ConstMethod::
-                                                size_of_parameters_offset())));
+    __ get_const(rax);
+    __ get_size_of_parameters(rax, rax);
+
     __ shll(rax, Interpreter::logStackElementSize);
     __ restore_locals();
     __ subptr(rlocals, rax);

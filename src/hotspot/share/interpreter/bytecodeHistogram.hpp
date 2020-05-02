@@ -112,6 +112,7 @@ public:
   static long thread_jni_environment;
   static long access_flags;
   static long size_of_parameters;
+  static long size_of_locals;
 
   static long total_count();
   static void print();

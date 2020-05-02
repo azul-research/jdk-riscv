@@ -25,6 +25,7 @@
 #ifndef CPU_X86_MACROASSEMBLER_X86_HPP
 #define CPU_X86_MACROASSEMBLER_X86_HPP
 
+#include "interpreter/bytecodeHistogram.hpp"
 #include "asm/assembler.hpp"
 #include "utilities/macros.hpp"
 #include "runtime/rtmLocking.hpp"
@@ -1790,6 +1791,17 @@ public:
   void byte_array_inflate(Register src, Register dst, Register len,
                           XMMRegister tmp1, Register tmp2);
 
+  void get_method(Register reg);
+  void get_const(Register reg, Register method);
+  void get_size_of_parameters(Register reg, Register constMethod);
+  void get_size_of_locals(Register reg, Register constMethod);
+  void get_access_flags(Register reg, Register method);
+  void get_codes(Register reg, Register constM);
+  void get_const(Register reg);
+  void get_constant_pool(Register reg);
+  void get_constant_pool(Register reg, Register method);
+  void get_constant_pool_cache(Register reg);
+  void get_cpool_and_tags(Register cpool, Register tags);
 };
 
 /**

@@ -118,7 +118,7 @@ void InterpreterMacroAssembler::profile_arguments_type(Register mdp, Register ca
           cmpl(tmp, TypeStackSlotEntries::per_arg_count());
           jcc(Assembler::less, done);
         }
-        movptr(tmp, Address(callee, Method::const_offset())); // +
+        get_const(tmp, callee);
         load_unsigned_short(tmp, Address(tmp, ConstMethod::size_of_parameters_offset()));
         // stack offset o (zero based) from the start of the argument
         // list, for n arguments translates into offset n - o - 1 from
@@ -1377,7 +1377,7 @@ void InterpreterMacroAssembler::verify_method_data_pointer() {
   load_unsigned_short(arg2_reg,
                       Address(arg3_reg, in_bytes(DataLayout::bci_offset())));
   addptr(arg2_reg, Address(rbx, Method::const_offset())); // +
-  lea(arg2_reg, Address(arg2_reg, ConstMethod::codes_offset()));
+  lea(arg2_reg, Address(arg2_reg, ConstMethod::codes_offset())); // +
   cmpptr(arg2_reg, _bcp_register);
   jcc(Assembler::equal, verify_continue);
   // rbx: method

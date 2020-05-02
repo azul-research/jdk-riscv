@@ -203,6 +203,7 @@ long DataCounter::thread_callee_target = 0;
 long DataCounter::thread_jni_environment = 0;
 long DataCounter::access_flags = 0;
 long DataCounter::size_of_parameters = 0;
+long DataCounter::size_of_locals = 0;
 
 long DataCounter::total_count() {
   return method
@@ -219,7 +220,8 @@ long DataCounter::total_count() {
   + thread_callee_target
   + thread_jni_environment
   + access_flags
-  + size_of_parameters;
+  + size_of_parameters
+  + size_of_locals;
 }
 
 #define print_data(data)  tty->print_cr("%10ld  %7.2f%%   %s", data, 100.0 * data / tot, #data);
@@ -247,6 +249,7 @@ void DataCounter::print() {
   print_data(thread_jni_environment)
   print_data(access_flags)
   print_data(size_of_parameters)
+  print_data(size_of_locals)
   tty->print_cr("----------------------------------------------------------------------");
   tty->cr();
 }
