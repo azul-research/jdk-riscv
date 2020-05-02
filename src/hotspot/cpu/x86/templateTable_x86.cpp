@@ -1634,9 +1634,8 @@ void TemplateTable::dop2(Operation op) {
     case mul: {
       Label L_strict;
       Label L_join;
-      const Address access_flags      (rcx, Method::access_flags_offset());
       __ get_method(rcx);
-      __ movl(rcx, access_flags);
+      __ get_access_flags(rcx, rcx);
       __ testl(rcx, JVM_ACC_STRICT);
       __ jccb(Assembler::notZero, L_strict);
       __ fmul_d (at_rsp());
@@ -1653,9 +1652,8 @@ void TemplateTable::dop2(Operation op) {
     case div: {
       Label L_strict;
       Label L_join;
-      const Address access_flags      (rcx, Method::access_flags_offset());
       __ get_method(rcx);
-      __ movl(rcx, access_flags);
+      __ get_access_flags(rcx, rcx);
       __ testl(rcx, JVM_ACC_STRICT);
       __ jccb(Assembler::notZero, L_strict);
       __ fdivr_d(at_rsp());

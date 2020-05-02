@@ -1792,6 +1792,8 @@ public:
                           XMMRegister tmp1, Register tmp2);
 
   void get_method(Register reg);
+  void get_monitors_top(Register reg);
+  void set_monitors_top(Register reg);
   void get_const(Register reg, Register method);
   void get_size_of_parameters(Register reg, Register constMethod);
   void get_size_of_locals(Register reg, Register constMethod);

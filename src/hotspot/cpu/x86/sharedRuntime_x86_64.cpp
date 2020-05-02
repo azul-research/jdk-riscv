@@ -979,7 +979,7 @@ AdapterHandlerEntry* SharedRuntime::generate_i2c2i_adapters(MacroAssembler *masm
 
     { // Bypass the barrier for non-static methods
       Register flags  = rscratch1;
-      __ movl(flags, Address(method, Method::access_flags_offset()));
+      __ get_access_flags(flags, method);
       __ testl(flags, JVM_ACC_STATIC);
       __ jcc(Assembler::zero, L_skip_barrier); // non-static
     }

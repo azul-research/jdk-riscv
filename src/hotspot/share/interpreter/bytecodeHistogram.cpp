@@ -204,6 +204,7 @@ long DataCounter::thread_jni_environment = 0;
 long DataCounter::access_flags = 0;
 long DataCounter::size_of_parameters = 0;
 long DataCounter::size_of_locals = 0;
+long DataCounter::monitors_top = 0;
 
 long DataCounter::total_count() {
   return method
@@ -222,6 +223,7 @@ long DataCounter::total_count() {
   + access_flags
   + size_of_parameters
   + size_of_locals;
+  + monitors_top;
 }
 
 #define print_data(data)  tty->print_cr("%10ld  %7.2f%%   %s", data, 100.0 * data / tot, #data);

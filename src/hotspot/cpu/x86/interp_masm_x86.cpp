@@ -119,7 +119,7 @@ void InterpreterMacroAssembler::profile_arguments_type(Register mdp, Register ca
           jcc(Assembler::less, done);
         }
         get_const(tmp, callee);
-        load_unsigned_short(tmp, Address(tmp, ConstMethod::size_of_parameters_offset()));
+        get_size_of_parameters(tmp, tmp);
         // stack offset o (zero based) from the start of the argument
         // list, for n arguments translates into offset n - o - 1 from
         // the end of the argument list
@@ -992,7 +992,7 @@ void InterpreterMacroAssembler::remove_activation(
 
  // get method access flags
   get_method(rcx);
-  movl(rcx, Address(rcx, Method::access_flags_offset()));
+  get_access_flags(rcx, rcx);
   testl(rcx, JVM_ACC_SYNCHRONIZED);
   jcc(Assembler::zero, unlocked);
 

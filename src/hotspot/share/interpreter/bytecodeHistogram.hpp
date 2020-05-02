@@ -97,22 +97,23 @@ class BytecodePairHistogram: AllStatic {
 
 class DataCounter: AllStatic {
 public:
-  static long method;
-  static long constMethod;
-  static long constMethod_codes;
-  static long InstanceKlass;
-  static long class_loader_data;
-  static long constantPool;
-  static long constantPool_Cache;
-  static long constantPool_Cache_tags;
+  static long method; // +
+  static long constMethod; // +
+  static long constMethod_codes; // +
+  static long InstanceKlass; // +
+  static long class_loader_data; // +
+  static long constantPool; // +
+  static long constantPool_Cache; // +
+  static long constantPool_Cache_tags; // +
   static long constantPool_Cache_ResolvedReference;
   static long thread_jvmtiThreadState;
   static long thread_jvmci_alternate_call_target;
   static long thread_callee_target;
   static long thread_jni_environment;
-  static long access_flags;
-  static long size_of_parameters;
-  static long size_of_locals;
+  static long access_flags; // +
+  static long size_of_parameters; // +
+  static long size_of_locals; // +
+  static long monitors_top;
 
   static long total_count();
   static void print();

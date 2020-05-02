@@ -5223,6 +5223,16 @@ void MacroAssembler::get_method(Register reg) {
   movptr(reg, Address(rbp, frame::interpreter_frame_method_offset * wordSize)); // +
 }
 
+void MacroAssembler::get_monitors_top(Register reg) {
+  incrementl(ExternalAddress((address) &DataCounter::monitors_top));
+  movptr(reg, Address(rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize)); // +
+}
+
+void MacroAssembler::set_monitors_top(Register reg) {
+  incrementl(ExternalAddress((address) &DataCounter::monitors_top));
+  movptr(Address(rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize), reg); // +
+}
+
 void MacroAssembler::get_const(Register reg, Register method) {
   incrementl(ExternalAddress((address) &DataCounter::constMethod));
   movptr(reg, Address(method, Method::const_offset())); // +
@@ -5288,7 +5298,7 @@ void MacroAssembler::load_mirror(Register mirror, Register method, Register tmp)
 void MacroAssembler::load_method_holder_cld(Register rresult, Register rmethod) {
   load_method_holder(rresult, rmethod);
   incrementl(ExternalAddress((address) &DataCounter::class_loader_data));
-  movptr(rresult, Address(rresult, InstanceKlass::class_loader_data_offset()));
+  movptr(rresult, Address(rresult, InstanceKlass::class_loader_data_offset())); // +
 }
 
 void MacroAssembler::load_method_holder(Register holder, Register method) {

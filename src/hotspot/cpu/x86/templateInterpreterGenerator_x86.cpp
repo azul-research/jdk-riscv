@@ -597,16 +597,12 @@ void TemplateInterpreterGenerator::generate_stack_overflow_check(void) {
 //      rscratch1, rscratch2 (scratch regs)
 void TemplateInterpreterGenerator::lock_method() {
   // synchronize method
-  const Address access_flags(rbx, Method::access_flags_offset());
-  const Address monitor_block_top(
-        rbp,
-        frame::interpreter_frame_monitor_block_top_offset * wordSize);
   const int entry_size = frame::interpreter_frame_monitor_size() * wordSize;
 
 #ifdef ASSERT
   {
     Label L;
-    __ movl(rax, access_flags);
+    __ get_access_flags(rax, rbx);
     __ testl(rax, JVM_ACC_SYNCHRONIZED);
     __ jcc(Assembler::notZero, L);
     __ stop("method doesn't need synchronization");
@@ -617,7 +613,7 @@ void TemplateInterpreterGenerator::lock_method() {
   // get synchronization object
   {
     Label done;
-    __ movl(rax, access_flags);
+    __ get_access_flags(rax, rbx);
     __ testl(rax, JVM_ACC_STATIC);
     // get receiver (assume this is frequent case)
     __ movptr(rax, Address(rlocals, Interpreter::local_offset_in_bytes(0)));
@@ -640,7 +636,7 @@ void TemplateInterpreterGenerator::lock_method() {
 
   // add space for monitor & lock
   __ subptr(rsp, entry_size); // add space for a monitor entry
-  __ movptr(monitor_block_top, rsp);  // set new monitor block top
+  __ set_monitors_top(rsp);  // set new monitor block top
   // store object
   __ movptr(Address(rsp, BasicObjectLock::obj_offset_in_bytes()), rax);
   const Register lockreg = NOT_LP64(rdx) LP64_ONLY(c_rarg1);
@@ -789,10 +785,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // rbcp: sender sp
 
   address entry_point = __ pc();
-
-  __ incrementl(ExternalAddress((address) &DataCounter::constMethod));
-  __ incrementl(ExternalAddress((address) &DataCounter::access_flags));
-  __ incrementl(ExternalAddress((address) &DataCounter::size_of_parameters));
 
 #ifdef ASSERT
   const Address access_flags      (rbx, Method::access_flags_offset()); // +
@@ -1230,7 +1222,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // do unlocking if necessary
   {
     Label L;
-    __ movl(t, Address(method, Method::access_flags_offset()));
+    __ get_access_flags(t, method);
     __ testl(t, JVM_ACC_SYNCHRONIZED);
     __ jcc(Assembler::zero, L);
     // the code below should be shared with interpreter macro
@@ -1332,7 +1324,9 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // rbcp: sender sp
   address entry_point = __ pc();
 
-  const Address access_flags(rbx, Method::access_flags_offset()); // + only in asserts
+#ifdef ASSERT
+  const Address access_flags(rbx, Method::access_flags_offset()); // +
+#endif
 
   // get parameter size (always needed)
   __ get_const(rdx, rbx);

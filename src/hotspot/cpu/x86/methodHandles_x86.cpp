@@ -184,10 +184,7 @@ void MethodHandles::jump_to_lambda_form(MacroAssembler* _masm,
     // make sure recv is already on stack
     __ should_not_reach_here();
     __ get_const(temp2, method_temp);
-    __ load_sized_value(temp2,
-                        Address(temp2, ConstMethod::size_of_parameters_offset()),
-                        sizeof(u2), /*is_signed*/ false);
-    // assert(sizeof(u2) == sizeof(Method::_size_of_parameters), "");
+    __ get_size_of_parameters(temp2, temp2);
     Label L;
     __ cmpoop(recv, __ argument_address(temp2, -1));
     __ jcc(Assembler::equal, L);
