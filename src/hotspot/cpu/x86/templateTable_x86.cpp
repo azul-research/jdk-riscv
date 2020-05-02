@@ -4362,10 +4362,8 @@ void TemplateTable::monitorenter() {
 
   __ resolve(IS_NOT_NULL, rax);
 
-  const Address monitor_block_top(
-        rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize);
   const Address monitor_block_bot(
-        rbp, frame::interpreter_frame_initial_sp_offset * wordSize);
+        rbp, frame::interpreter_frame_monitor_block_bottom_offset * wordSize);
   const int entry_size = frame::interpreter_frame_monitor_size() * wordSize;
 
   Label allocated;
@@ -4380,7 +4378,7 @@ void TemplateTable::monitorenter() {
   // find a free slot in the monitor block (result in rmon)
   {
     Label entry, loop, exit;
-    __ movptr(rtop, monitor_block_top); // points to current entry,
+    __ get_monitors_top(rtop);          // points to current entry,
                                         // starting with top-most entry
     __ lea(rbot, monitor_block_bot);    // points to word before bottom
                                         // of monitor block
@@ -4461,10 +4459,8 @@ void TemplateTable::monitorexit() {
 
   __ resolve(IS_NOT_NULL, rax);
 
-  const Address monitor_block_top(
-        rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize);
   const Address monitor_block_bot(
-        rbp, frame::interpreter_frame_initial_sp_offset * wordSize);
+        rbp, frame::interpreter_frame_monitor_block_bottom_offset * wordSize);
   const int entry_size = frame::interpreter_frame_monitor_size() * wordSize;
 
   Register rtop = LP64_ONLY(c_rarg1) NOT_LP64(rdx);
@@ -4475,7 +4471,7 @@ void TemplateTable::monitorexit() {
   // find matching slot
   {
     Label entry, loop;
-    __ movptr(rtop, monitor_block_top); // points to current entry,
+    __ get_monitors_top(rtop);          // points to current entry,
                                         // starting with top-most entry
     __ lea(rbot, monitor_block_bot);    // points to word before bottom
                                         // of monitor block

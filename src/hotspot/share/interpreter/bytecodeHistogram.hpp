@@ -113,7 +113,8 @@ public:
   static long access_flags; // +
   static long size_of_parameters; // +
   static long size_of_locals; // +
-  static long monitors_top;
+  static long monitors_top; // +
+  static long last_sp;
 
   static long total_count();
   static void print();

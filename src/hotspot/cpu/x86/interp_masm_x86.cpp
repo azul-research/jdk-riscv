@@ -1050,15 +1050,13 @@ void InterpreterMacroAssembler::remove_activation(
   {
     Label loop, exception, entry, restart;
     const int entry_size = frame::interpreter_frame_monitor_size() * wordSize;
-    const Address monitor_block_top(
-        rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize);
     const Address monitor_block_bot(
-        rbp, frame::interpreter_frame_initial_sp_offset * wordSize);
+        rbp, frame::interpreter_frame_monitor_block_bottom_offset * wordSize);
 
     bind(restart);
     // We use c_rarg1 so that if we go slow path it will be the correct
     // register for unlock_object to pass to VM directly
-    movptr(rmon, monitor_block_top); // points to current entry, starting
+    get_monitors_top(rmon);       // points to current entry, starting
                                   // with top-most entry
     lea(rbx, monitor_block_bot);  // points to word before bottom of
                                   // monitor block

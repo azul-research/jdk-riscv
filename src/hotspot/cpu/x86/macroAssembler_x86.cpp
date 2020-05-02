@@ -5233,6 +5233,16 @@ void MacroAssembler::set_monitors_top(Register reg) {
   movptr(Address(rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize), reg); // +
 }
 
+void MacroAssembler::get_last_sp(Register reg) {
+  incrementl(ExternalAddress((address) &DataCounter::last_sp));
+  movptr(reg, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize)); // +
+}
+
+void MacroAssembler::set_last_sp(int32_t value) {
+  incrementl(ExternalAddress((address) &DataCounter::last_sp));
+  movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), value); // +
+}
+
 void MacroAssembler::get_const(Register reg, Register method) {
   incrementl(ExternalAddress((address) &DataCounter::constMethod));
   movptr(reg, Address(method, Method::const_offset())); // +

@@ -147,9 +147,9 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void push(void* v);   // Add unimplemented ambiguous method
 
   void empty_expression_stack() {
-    movptr(rsp, Address(rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize));
+    get_monitors_top(rsp);
     // NULL last_sp until next java call
-    movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+    set_last_sp((int32_t)NULL_WORD);
     NOT_LP64(empty_FPU_stack());
   }
 

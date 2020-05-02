@@ -205,6 +205,7 @@ long DataCounter::access_flags = 0;
 long DataCounter::size_of_parameters = 0;
 long DataCounter::size_of_locals = 0;
 long DataCounter::monitors_top = 0;
+long DataCounter::last_sp = 0;
 
 long DataCounter::total_count() {
   return method
@@ -224,6 +225,7 @@ long DataCounter::total_count() {
   + size_of_parameters
   + size_of_locals;
   + monitors_top;
+  + last_sp;
 }
 
 #define print_data(data)  tty->print_cr("%10ld  %7.2f%%   %s", data, 100.0 * data / tot, #data);
