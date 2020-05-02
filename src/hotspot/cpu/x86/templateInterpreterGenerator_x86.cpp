@@ -1277,9 +1277,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ call(t);
 
   // remove activation
-  __ movptr(t, Address(rbp,
-                       frame::interpreter_frame_sender_sp_offset *
-                       wordSize)); // get sender sp
+  __ get_sender_sp(t);
   __ leave();                                // remove frame anchor
   __ pop(rdi);                               // get return address
   __ mov(rsp, t);                            // set sp to sender sp

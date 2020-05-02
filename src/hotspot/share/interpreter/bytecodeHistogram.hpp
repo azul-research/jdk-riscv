@@ -119,6 +119,7 @@ public:
   static long method_counters; // +
   static long dispatch_table; // +
   static long normal_table; // +
+  static long sender_sp; // +
 
   static long total_count();
   static void print();

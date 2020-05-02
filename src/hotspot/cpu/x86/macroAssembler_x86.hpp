@@ -1807,6 +1807,8 @@ public:
   void get_constant_pool_cache(Register reg);
   void get_cpool_and_tags(Register cpool, Register tags);
   void get_method_counters_(Register reg, Register method);
+  void get_sender_sp(Register reg);
+  void set_sender_sp(Register reg);
 };
 
 /**

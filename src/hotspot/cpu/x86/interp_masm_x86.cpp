@@ -1120,8 +1120,7 @@ void InterpreterMacroAssembler::remove_activation(
 
   // remove activation
   // get sender sp
-  movptr(rbx,
-         Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize));
+  get_sender_sp(rbx);
   if (StackReservedPages > 0) {
     // testing if reserved zone needs to be re-enabled
     Register rthread = LP64_ONLY(r15_thread) NOT_LP64(rcx);

@@ -2348,7 +2348,7 @@ void TemplateTable::branch(bool is_jsr, bool is_wide) {
       const Register sender_sp = LP64_ONLY(j_rarg1) NOT_LP64(rdx);
 
       // pop the interpreter frame
-      __ movptr(sender_sp, Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize)); // get sender sp
+      __ get_sender_sp(sender_sp);
       __ leave();                                // remove frame anchor
       __ pop(retaddr);                           // get return address
       __ mov(rsp, sender_sp);                   // set sp to sender sp

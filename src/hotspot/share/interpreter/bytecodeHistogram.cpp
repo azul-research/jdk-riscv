@@ -210,6 +210,7 @@ long DataCounter::last_sp = 0;
 long DataCounter::method_counters = 0;
 long DataCounter::dispatch_table = 0;
 long DataCounter::normal_table = 0;
+long DataCounter::sender_sp = 0;
 
 long DataCounter::total_count() {
   return method
@@ -234,10 +235,20 @@ long DataCounter::total_count() {
   + method_counters
   + dispatch_table
   + normal_table
+  + sender_sp
   ;
 }
 
-#define print_data(data)  tty->print_cr("%10ld  %7.2f%%   %s", data, 100.0 * data / tot, #data);
+int ____log10(long data) {
+  int res = 0;
+  while (data) {
+    res ++;
+    data /= 10;
+  }
+  return res;
+}
+
+#define print_data(data) if (data >= 1000) tty->print_cr("%10ld  %7.2f%%  %4d   %s", data, 100.0 * data / tot, ____log10(data), #data);
 
 void DataCounter::print() {
   ResourceMark rm;
@@ -245,7 +256,7 @@ void DataCounter::print() {
   tty->cr();
   tty->print_cr("Histogram of %ld executed data getters:", tot);
   tty->cr();
-  tty->print_cr("  absolute  relative    name");
+  tty->print_cr("  absolute  relative log10  name");
   tty->print_cr("----------------------------------------------------------------------");
   print_data(method)
   print_data(constMethod)
@@ -269,6 +280,7 @@ void DataCounter::print() {
   print_data(method_counters)
   print_data(dispatch_table)
   print_data(normal_table)
+  print_data(sender_sp)
   tty->print_cr("----------------------------------------------------------------------");
   tty->cr();
 }

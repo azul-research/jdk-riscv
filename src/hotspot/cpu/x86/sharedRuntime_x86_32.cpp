@@ -2654,7 +2654,7 @@ void SharedRuntime::generate_deopt_blob() {
   __ movptr(rbx, sp_temp);              // sender's sp
   // This value is corrected by layout_activation_impl
   __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), NULL_WORD);
-  __ movptr(Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize), rbx); // Make it walkable
+  __ set_sender_sp(rbx);                // Make it walkable
   __ movptr(sp_temp, rsp);              // pass to next frame
   __ addptr(rsi, wordSize);             // Bump array pointer (sizes)
   __ addptr(rcx, wordSize);             // Bump array pointer (pcs)

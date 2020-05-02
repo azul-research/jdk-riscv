@@ -5302,6 +5302,16 @@ void MacroAssembler::get_cpool_and_tags(Register cpool, Register tags) {
   movptr(tags, Address(cpool, ConstantPool::tags_offset_in_bytes())); // +
 }
 
+void MacroAssembler::get_sender_sp(Register reg) {
+  incrementl(ExternalAddress((address) &DataCounter::sender_sp));
+  movptr(reg, Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize)); // +
+}
+
+void MacroAssembler::set_sender_sp(Register reg) {
+  incrementl(ExternalAddress((address) &DataCounter::sender_sp));
+  movptr(Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize), reg); // +
+}
+
 void MacroAssembler::load_mirror(Register mirror, Register method, Register tmp) {
   // get mirror
   const int mirror_offset = in_bytes(Klass::java_mirror_offset());

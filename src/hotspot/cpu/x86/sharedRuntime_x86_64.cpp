@@ -3183,7 +3183,7 @@ void SharedRuntime::generate_deopt_blob() {
   __ subptr(rsp, rbx);                  // Prolog
   // This value is corrected by layout_activation_impl
   __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD );
-  __ movptr(Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize), sender_sp); // Make it walkable
+  __ set_sender_sp(sender_sp); // Make it walkable
   __ mov(sender_sp, rsp);               // Pass sender_sp to next frame
   __ addptr(rsi, wordSize);             // Bump array pointer (sizes)
   __ addptr(rcx, wordSize);             // Bump array pointer (pcs)
