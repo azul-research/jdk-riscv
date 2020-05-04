@@ -1634,7 +1634,7 @@ void TemplateTable::dop2(Operation op) {
     case mul: {
       Label L_strict;
       Label L_join;
-      __ get_method(rcx);
+      __ get_method(rcx, false);
       __ get_access_flags(rcx, rcx);
       __ testl(rcx, JVM_ACC_STRICT);
       __ jccb(Assembler::notZero, L_strict);
@@ -1652,7 +1652,7 @@ void TemplateTable::dop2(Operation op) {
     case div: {
       Label L_strict;
       Label L_join;
-      __ get_method(rcx);
+      __ get_method(rcx, false);
       __ get_access_flags(rcx, rcx);
       __ testl(rcx, JVM_ACC_STRICT);
       __ jccb(Assembler::notZero, L_strict);
@@ -2419,8 +2419,8 @@ void TemplateTable::ret() {
   LP64_ONLY(__ movslq(rbx, iaddress(rbx))); // get return bci, compute return bcp
   NOT_LP64(__ movptr(rbx, iaddress(rbx)));
   __ profile_ret(rbx, rcx);
-  __ get_method(rax);
-  __ get_const(rbcp, rax);
+  __ get_method(rax, false);
+  __ get_const(rbcp, rax, false);
   __ get_codes(rbcp, rbcp);
   __ dispatch_next(vtos, 0, true);
 }
@@ -2430,8 +2430,8 @@ void TemplateTable::wide_ret() {
   locals_index_wide(rbx);
   __ movptr(rbx, aaddress(rbx)); // get return bci, compute return bcp
   __ profile_ret(rbx, rcx);
-  __ get_method(rax);
-  __ get_const(rbcp, rax);
+  __ get_method(rax, false);
+  __ get_const(rbcp, rax, false);
   __ get_codes(rbcp, rbcp);
   __ dispatch_next(vtos, 0, true);
 }

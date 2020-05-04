@@ -5218,8 +5218,10 @@ void MacroAssembler::resolve_weak_handle(Register rresult, Register rtmp) {
   bind(resolved);
 }
 
-void MacroAssembler::get_method(Register reg) {
-  incrementl(ExternalAddress((address) &DataCounter::method));
+bool STAT_COUNT_FLAG = true;
+
+void MacroAssembler::get_method(Register reg, bool count) {
+  if (STAT_COUNT_FLAG || count) incrementl(ExternalAddress((address) &DataCounter::method));
   movptr(reg, Address(rbp, frame::interpreter_frame_method_offset * wordSize)); // +
 }
 
@@ -5238,13 +5240,18 @@ void MacroAssembler::get_last_sp(Register reg) {
   movptr(reg, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize)); // +
 }
 
+void MacroAssembler::set_last_sp(Register reg) {
+  incrementl(ExternalAddress((address) &DataCounter::last_sp));
+  movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), reg); // +
+}
+
 void MacroAssembler::set_last_sp(int32_t value) {
   incrementl(ExternalAddress((address) &DataCounter::last_sp));
   movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), value); // +
 }
 
-void MacroAssembler::get_const(Register reg, Register method) {
-  incrementl(ExternalAddress((address) &DataCounter::constMethod));
+void MacroAssembler::get_const(Register reg, Register method, bool count) {
+  if (STAT_COUNT_FLAG || count) incrementl(ExternalAddress((address) &DataCounter::constMethod));
   movptr(reg, Address(method, Method::const_offset())); // +
 }
 
@@ -5268,26 +5275,26 @@ void MacroAssembler::get_codes(Register reg, Register constM) {
   lea(reg, Address(constM, ConstMethod::codes_offset())); // +
 }
 
-void MacroAssembler::get_const(Register reg) {
-  get_method(reg);
-  get_const(reg, reg);
+void MacroAssembler::get_const(Register reg, bool count) {
+  get_method(reg, false);
+  get_const(reg, reg, count);
 }
 
-void MacroAssembler::get_constant_pool(Register reg) {
-  get_const(reg);
-  incrementl(ExternalAddress((address) &DataCounter::constantPool));
+void MacroAssembler::get_constant_pool(Register reg, bool count) {
+  get_const(reg, false);
+  if (STAT_COUNT_FLAG || count) incrementl(ExternalAddress((address) &DataCounter::constantPool));
   movptr(reg, Address(reg, ConstMethod::constants_offset())); // +
 }
 
-void MacroAssembler::get_constant_pool(Register reg, Register method) {
-  get_const(reg, method);
-  incrementl(ExternalAddress((address) &DataCounter::constantPool));
+void MacroAssembler::get_constant_pool(Register reg, Register method, bool count) {
+  get_const(reg, method, false);
+  if (STAT_COUNT_FLAG || count) incrementl(ExternalAddress((address) &DataCounter::constantPool));
   movptr(reg, Address(reg, ConstMethod::constants_offset())); // +
 }
 
-void MacroAssembler::get_constant_pool_cache(Register reg) {
-  get_constant_pool(reg);
-  incrementl(ExternalAddress((address) &DataCounter::constantPool_Cache));
+void MacroAssembler::get_constant_pool_cache(Register reg, bool count) {
+  get_constant_pool(reg, false);
+  if (STAT_COUNT_FLAG || count) incrementl(ExternalAddress((address) &DataCounter::constantPool_Cache));
   movptr(reg, Address(reg, ConstantPool::cache_offset_in_bytes())); // +
 }
 
@@ -5297,7 +5304,7 @@ void MacroAssembler::get_method_counters_(Register reg, Register method) {
 }
 
 void MacroAssembler::get_cpool_and_tags(Register cpool, Register tags) {
-  get_constant_pool(cpool);
+  get_constant_pool(cpool, true);
   incrementl(ExternalAddress((address) &DataCounter::constantPool_Cache_tags));
   movptr(tags, Address(cpool, ConstantPool::tags_offset_in_bytes())); // +
 }
@@ -5310,6 +5317,16 @@ void MacroAssembler::get_sender_sp(Register reg) {
 void MacroAssembler::set_sender_sp(Register reg) {
   incrementl(ExternalAddress((address) &DataCounter::sender_sp));
   movptr(Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize), reg); // +
+}
+
+void MacroAssembler::set_thread_state(Register thread, JavaThreadState state) {
+  incrementl(ExternalAddress((address) &DataCounter::thread_state));
+  movl(Address(thread, JavaThread::thread_state_offset()), state); // +
+}
+
+void MacroAssembler::get_jvmti_thread_state(Register reg, Register thread) {
+  incrementl(ExternalAddress((address) &DataCounter::thread_jvmtiThreadState));
+  movptr(reg, Address(thread, JavaThread::jvmti_thread_state_offset())); // +
 }
 
 void MacroAssembler::load_mirror(Register mirror, Register method, Register tmp) {
@@ -5327,7 +5344,7 @@ void MacroAssembler::load_method_holder_cld(Register rresult, Register rmethod) 
 }
 
 void MacroAssembler::load_method_holder(Register holder, Register method) {
-  get_constant_pool(holder, method);
+  get_constant_pool(holder, method, false);
   incrementl(ExternalAddress((address) &DataCounter::InstanceKlass));
   movptr(holder, Address(holder, ConstantPool::pool_holder_offset_in_bytes())); // InstanceKlass*
 }

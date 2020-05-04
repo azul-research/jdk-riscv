@@ -214,6 +214,7 @@ address TemplateInterpreterGenerator::generate_CRC32_update_entry() {
     // _areturn
     __ pop(rdi);                // get return address
     __ mov(rsp, r13);           // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     // generate a vanilla native entry as the slow path
@@ -272,6 +273,7 @@ address TemplateInterpreterGenerator::generate_CRC32_updateBytes_entry(AbstractI
     // _areturn
     __ pop(rdi);                // get return address
     __ mov(rsp, r13);           // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     // generate a vanilla native entry as the slow path
@@ -326,6 +328,7 @@ address TemplateInterpreterGenerator::generate_CRC32C_updateBytes_entry(Abstract
     // _areturn
     __ pop(rdi);                // get return address
     __ mov(rsp, r13);           // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     return entry;
@@ -347,6 +350,7 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
   if (!InlineIntrinsics) return NULL; // Generate a vanilla entry
 
   address entry_point = __ pc();
+  __ incrementl(ExternalAddress((address) &DataCounter::math_entry));
 
   // These don't need a safepoint check because they aren't virtually
   // callable. We won't enter these intrinsics from compiled code.
@@ -453,6 +457,7 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
 
   __ pop(rax);
   __ mov(rsp, r13);
+  __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
   __ jmp(rax);
 
   return entry_point;

@@ -198,6 +198,7 @@ long DataCounter::constantPool_Cache = 0;
 long DataCounter::constantPool_Cache_tags = 0;
 long DataCounter::constantPool_Cache_ResolvedReference = 0;
 long DataCounter::thread_jvmtiThreadState = 0;
+long DataCounter::thread_state = 0;
 long DataCounter::thread_jvmci_alternate_call_target = 0;
 long DataCounter::thread_callee_target = 0;
 long DataCounter::thread_jni_environment = 0;
@@ -211,6 +212,12 @@ long DataCounter::method_counters = 0;
 long DataCounter::dispatch_table = 0;
 long DataCounter::normal_table = 0;
 long DataCounter::sender_sp = 0;
+long DataCounter::call_stub = 0;
+long DataCounter::normal_entry = 0;
+long DataCounter::native_entry = 0;
+long DataCounter::math_entry = 0;
+long DataCounter::ref_get_entry = 0;
+long DataCounter::synchronized_methods = 0;
 
 long DataCounter::total_count() {
   return method
@@ -223,6 +230,7 @@ long DataCounter::total_count() {
   + constantPool_Cache_tags
   + constantPool_Cache_ResolvedReference
   + thread_jvmtiThreadState
+  + thread_state
   + thread_jvmci_alternate_call_target
   + thread_callee_target
   + thread_jni_environment
@@ -248,7 +256,9 @@ int ____log10(long data) {
   return res;
 }
 
-#define print_data(data) if (data >= 1000) tty->print_cr("%10ld  %7.2f%%  %4d   %s", data, 100.0 * data / tot, ____log10(data), #data);
+#define print_some__(data) tty->print_cr("%10ld            %5d   %s", data, ____log10(data), #data);
+#define print_data__(data) if (data > 0) tty->print_cr("%10ld  %7.2f%%  %5d   %s", data, 100.0 * data / tot, ____log10(data), #data);
+#define print_data_n(data, name) if (data > 0) tty->print_cr("%10ld  %7.2f%%  %5d   %s", data, 100.0 * data / tot, ____log10(data), name);
 
 void DataCounter::print() {
   ResourceMark rm;
@@ -256,31 +266,39 @@ void DataCounter::print() {
   tty->cr();
   tty->print_cr("Histogram of %ld executed data getters:", tot);
   tty->cr();
-  tty->print_cr("  absolute  relative log10  name");
+  tty->print_cr("  absolute  relative  log10   name");
   tty->print_cr("----------------------------------------------------------------------");
-  print_data(method)
-  print_data(constMethod)
-  print_data(constMethod_codes)
-  print_data(InstanceKlass)
-  print_data(class_loader_data)
-  print_data(constantPool)
-  print_data(constantPool_Cache)
-  print_data(constantPool_Cache_tags)
-  print_data(constantPool_Cache_ResolvedReference)
-  print_data(thread_jvmtiThreadState)
-  print_data(thread_jvmci_alternate_call_target)
-  print_data(thread_callee_target)
-  print_data(thread_jni_environment)
-  print_data(access_flags)
-  print_data(size_of_parameters)
-  print_data(size_of_locals)
-  print_data(monitors_top)
-  print_data(interpreter_entry)
-  print_data(last_sp)
-  print_data(method_counters)
-  print_data(dispatch_table)
-  print_data(normal_table)
-  print_data(sender_sp)
+  print_data__(method)
+  print_data_n(constMethod, "method -> constMethod")
+  print_data_n(constMethod_codes, "constMethod -> Codes")
+  print_data_n(InstanceKlass, "constantPool -> InstanceKlass")
+  print_data_n(class_loader_data, "InstanceKlass -> class loader data")
+  print_data_n(constantPool, "constMethod -> constantPool")
+  print_data_n(constantPool_Cache, "constantPool -> cache")
+  print_data_n(constantPool_Cache_tags, "constantPool -> tags")
+  print_data_n(constantPool_Cache_ResolvedReference, "cache -> resolved reference")
+  print_data__(thread_state)
+  print_data__(thread_jvmtiThreadState)
+  print_data__(thread_jvmci_alternate_call_target)
+  print_data__(thread_callee_target)
+  print_data__(thread_jni_environment)
+  print_data_n(access_flags, "method -> access_flags")
+  print_data_n(size_of_parameters, "constMethod -> size_of_parameters")
+  print_data_n(size_of_locals, "constMethod -> size_of_locals")
+  print_data_n(monitors_top, "frame -> monitors")
+  print_data_n(interpreter_entry, "method -> interpreter_entry")
+  print_data_n(last_sp, "frame -> last_sp")
+  print_data_n(method_counters, "metohd -> method counters")
+  print_data__(dispatch_table)
+  print_data__(normal_table)
+  print_data_n(sender_sp, "frame -> sender_sp")
+  tty->print_cr("----------------------------------------------------------------------");
+  print_some__(call_stub)
+  print_some__(normal_entry)
+  print_some__(native_entry)
+  print_some__(math_entry)
+  print_some__(ref_get_entry)
+  print_some__(synchronized_methods)
   tty->print_cr("----------------------------------------------------------------------");
   tty->cr();
 }

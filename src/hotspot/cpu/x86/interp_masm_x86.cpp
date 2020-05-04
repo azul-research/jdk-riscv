@@ -119,7 +119,7 @@ void InterpreterMacroAssembler::profile_arguments_type(Register mdp, Register ca
           cmpl(tmp, TypeStackSlotEntries::per_arg_count());
           jcc(Assembler::less, done);
         }
-        get_const(tmp, callee);
+        get_const(tmp, callee, false);
         get_size_of_parameters(tmp, tmp);
         // stack offset o (zero based) from the start of the argument
         // list, for n arguments translates into offset n - o - 1 from
@@ -264,7 +264,7 @@ void InterpreterMacroAssembler::call_VM_leaf_base(address entry_point,
 #ifdef ASSERT
   {
     Label L;
-    cmpptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+    cmpptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD); // +
     jcc(Assembler::equal, L);
     stop("InterpreterMacroAssembler::call_VM_leaf_base:"
          " last_sp != NULL");
@@ -296,7 +296,7 @@ void InterpreterMacroAssembler::call_VM_base(Register oop_result,
 #ifdef ASSERT
   {
     Label L;
-    cmpptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+    cmpptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD); // +
     jcc(Assembler::equal, L);
     stop("InterpreterMacroAssembler::call_VM_base:"
          " last_sp != NULL");
@@ -340,7 +340,7 @@ void InterpreterMacroAssembler::check_and_handle_popframe(Register java_thread) 
 void InterpreterMacroAssembler::load_earlyret_value(TosState state) {
   Register thread = LP64_ONLY(r15_thread) NOT_LP64(rcx);
   NOT_LP64(get_thread(thread);)
-  movptr(rcx, Address(thread, JavaThread::jvmti_thread_state_offset()));
+  get_jvmti_thread_state(rcx, thread);
   const Address tos_addr(rcx, JvmtiThreadState::earlyret_tos_offset());
   const Address oop_addr(rcx, JvmtiThreadState::earlyret_oop_offset());
   const Address val_addr(rcx, JvmtiThreadState::earlyret_value_offset());
@@ -396,7 +396,7 @@ void InterpreterMacroAssembler::check_and_handle_earlyret(Register java_thread) 
     Register tmp = LP64_ONLY(c_rarg0) NOT_LP64(java_thread);
     Register rthread = LP64_ONLY(r15_thread) NOT_LP64(java_thread);
 
-    movptr(tmp, Address(rthread, JavaThread::jvmti_thread_state_offset()));
+    get_jvmti_thread_state(rcx, rthread);
     testptr(tmp, tmp);
     jcc(Assembler::zero, L); // if (thread->jvmti_thread_state() == NULL) exit;
 
@@ -410,7 +410,7 @@ void InterpreterMacroAssembler::check_and_handle_earlyret(Register java_thread) 
     // Call Interpreter::remove_activation_early_entry() to get the address of the
     // same-named entrypoint in the generated interpreter code.
     NOT_LP64(get_thread(java_thread);)
-    movptr(tmp, Address(rthread, JavaThread::jvmti_thread_state_offset()));
+    get_jvmti_thread_state(tmp, rthread);
 #ifdef _LP64
     movl(tmp, Address(tmp, JvmtiThreadState::earlyret_tos_offset()));
     call_VM_leaf(CAST_FROM_FN_PTR(address, Interpreter::remove_activation_early_entry), tmp);
@@ -787,7 +787,7 @@ void InterpreterMacroAssembler::prepare_to_jump_from_interpreted() {
   // set sender sp
   lea(_bcp_register, Address(rsp, wordSize));
   // record last_sp
-  movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), _bcp_register);
+  set_last_sp(_bcp_register);
 }
 
 
@@ -997,7 +997,7 @@ void InterpreterMacroAssembler::remove_activation(
   movbool(do_not_unlock_if_synchronized, false); // reset the flag
 
  // get method access flags
-  get_method(rcx);
+  get_method(rcx, false);
   get_access_flags(rcx, rcx);
   testl(rcx, JVM_ACC_SYNCHRONIZED);
   jcc(Assembler::zero, unlocked);
@@ -1013,6 +1013,7 @@ void InterpreterMacroAssembler::remove_activation(
   // BasicObjectLock will be first in list, since this is a
   // synchronized method. However, need to check that the object has
   // not been unlocked by an explicit monitorexit bytecode.
+  incrementl(ExternalAddress((address) &DataCounter::monitors_top));
   const Address monitor(rbp, frame::interpreter_frame_initial_sp_offset *
                         wordSize - (int) sizeof(BasicObjectLock));
   // We use c_rarg1/rdx so that if we go slow path it will be the correct
@@ -1062,7 +1063,9 @@ void InterpreterMacroAssembler::remove_activation(
     bind(restart);
     // We use c_rarg1 so that if we go slow path it will be the correct
     // register for unlock_object to pass to VM directly
-    get_monitors_top(rmon);       // points to current entry, starting
+
+    // we can't cache it on RISC-V
+    movptr(rmon, Address(rbp, frame::interpreter_frame_monitor_block_top_offset * wordSize)); // points to current entry, starting
                                   // with top-most entry
     lea(rbx, monitor_block_bot);  // points to word before bottom of
                                   // monitor block

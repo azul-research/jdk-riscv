@@ -107,6 +107,7 @@ public:
   static long constantPool_Cache_tags; // +
   static long constantPool_Cache_ResolvedReference;
   static long thread_jvmtiThreadState;
+  static long thread_state;
   static long thread_jvmci_alternate_call_target;
   static long thread_callee_target;
   static long thread_jni_environment;
@@ -120,6 +121,12 @@ public:
   static long dispatch_table; // +
   static long normal_table; // +
   static long sender_sp; // +
+  static long call_stub; // +
+  static long normal_entry; // +
+  static long native_entry; // +
+  static long math_entry; // +
+  static long ref_get_entry; // +
+  static long synchronized_methods; // +
 
   static long total_count();
   static void print();

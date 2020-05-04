@@ -2044,7 +2044,7 @@ nmethod* SharedRuntime::generate_native_wrapper(MacroAssembler* masm,
 
   // get JNIEnv* which is first argument to native
   if (!is_critical_native) {
-    __ lea(rdx, Address(thread, in_bytes(JavaThread::jni_environment_offset())));
+    __ lea(rdx, Address(thread, in_bytes(JavaThread::jni_environment_offset()))); //+
     __ movptr(Address(rsp, 0), rdx);
   }
 
@@ -2653,7 +2653,7 @@ void SharedRuntime::generate_deopt_blob() {
   __ subptr(rsp, rbx);                  // Prolog!
   __ movptr(rbx, sp_temp);              // sender's sp
   // This value is corrected by layout_activation_impl
-  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), NULL_WORD);
+  __ set_last_sp((int32_t) NULL_WORD);
   __ set_sender_sp(rbx);                // Make it walkable
   __ movptr(sp_temp, rsp);              // pass to next frame
   __ addptr(rsi, wordSize);             // Bump array pointer (sizes)
@@ -2879,8 +2879,8 @@ void SharedRuntime::generate_uncommon_trap_blob() {
   __ subptr(rsp, rbx);                  // Prolog!
   __ movptr(rbx, sp_temp);              // sender's sp
   // This value is corrected by layout_activation_impl
-  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), NULL_WORD );
-  __ movptr(Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize), rbx); // Make it walkable
+  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), NULL_WORD ); // +
+  __ movptr(Address(rbp, frame::interpreter_frame_sender_sp_offset * wordSize), rbx); // Make it walkable // +
   __ movptr(sp_temp, rsp);              // pass to next frame
   __ addptr(rsi, wordSize);             // Bump array pointer (sizes)
   __ addptr(rcx, wordSize);             // Bump array pointer (pcs)

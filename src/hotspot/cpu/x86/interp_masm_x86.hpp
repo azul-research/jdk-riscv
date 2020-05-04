@@ -147,6 +147,7 @@ class InterpreterMacroAssembler: public MacroAssembler {
   void push(void* v);   // Add unimplemented ambiguous method
 
   void empty_expression_stack() {
+
     get_monitors_top(rsp);
     // NULL last_sp until next java call
     set_last_sp((int32_t)NULL_WORD);

@@ -215,6 +215,8 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", "call_stub");
     address start = __ pc();
 
+    __ incrementl(ExternalAddress((address) &DataCounter::call_stub));
+
     // same as in generate_catch_exception()!
     const Address rsp_after_call(rbp, rsp_after_call_off * wordSize);
 
@@ -329,6 +331,7 @@ class StubGenerator: public StubCodeGenerator {
     __ movptr(rbx, method);             // get Method*
     __ movptr(c_rarg1, entry_point);    // get entry_point
     __ mov(r13, rsp);                   // set sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     BLOCK_COMMENT("call Java function");
     __ call(c_rarg1);
 

@@ -84,6 +84,7 @@ address TemplateInterpreterGenerator::generate_CRC32_update_entry() {
 
     // _areturn
     __ pop(rdi);                // get return address
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ mov(rsp, rsi);           // set sp to sender sp
     __ jmp(rdi);
 
@@ -148,6 +149,7 @@ address TemplateInterpreterGenerator::generate_CRC32_updateBytes_entry(AbstractI
     // _areturn
     __ pop(rdi);                // get return address
     __ mov(rsp, rsi);           // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     // generate a vanilla native entry as the slow path
@@ -198,6 +200,7 @@ address TemplateInterpreterGenerator::generate_CRC32C_updateBytes_entry(Abstract
     // _areturn
     __ pop(rdi);                // get return address
     __ mov(rsp, rsi);           // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     return entry;
@@ -346,6 +349,7 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
     __ fmad(xmm0, xmm1, xmm2, xmm0);
     __ pop(rdi);                               // get return address
     __ mov(rsp, rsi);                          // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     return entry_point;
@@ -359,6 +363,7 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
     __ fmaf(xmm0, xmm1, xmm2, xmm0);
     __ pop(rdi);                               // get return address
     __ mov(rsp, rsi);                          // set sp to sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     __ jmp(rdi);
 
     return entry_point;

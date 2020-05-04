@@ -804,7 +804,8 @@ void TemplateTable::aload_0_internal(RewriteControl rc) {
   //
   // Also rewrite frequent pairs
   //   aload_0, aload_1
-  //   aload_0, iload_1
+  //   aload_0,
+  //   iload_1
   // These bytecodes with a small amount of code are most profitable
   // to rewrite.
 

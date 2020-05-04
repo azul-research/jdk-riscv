@@ -202,9 +202,9 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 #endif // _LP64
 
   // Restore stack bottom in case i2c adjusted stack
-  __ movptr(rsp, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize));
+  __ get_last_sp(rsp);
   // and NULL it as marker that esp is now tos until next java call
-  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+  __ set_last_sp((int32_t)NULL_WORD);
 
   __ restore_bcp();
   __ restore_locals();
@@ -252,7 +252,7 @@ address TemplateInterpreterGenerator::generate_deopt_entry_for(TosState state, i
 #endif // _LP64
 
   // NULL last_sp until next java call
-  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+  __ set_last_sp((int32_t)NULL_WORD);
   __ restore_bcp();
   __ restore_locals();
   const Register thread = NOT_LP64(rcx) LP64_ONLY(r15_thread);
@@ -262,7 +262,7 @@ address TemplateInterpreterGenerator::generate_deopt_entry_for(TosState state, i
   // only occur on method entry so emit it only for vtos with step 0.
   if ((EnableJVMCI || UseAOT) && state == vtos && step == 0) {
     Label L;
-    __ cmpb(Address(thread, JavaThread::pending_monitorenter_offset()), 0);
+    __ cmpb(Address(thread, JavaThread::pending_monitorenter_offset()), 0); //+
     __ jcc(Assembler::zero, L);
     // Clear flag.
     __ movb(Address(thread, JavaThread::pending_monitorenter_offset()), 0);
@@ -661,7 +661,7 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call) {
   __ enter();          // save old & set new rbp
   __ push(rbcp);        // set sender sp
   __ push((int)NULL_WORD); // leave last_sp as null
-  __ get_const(rbcp, rbx); // get ConstMethod*
+  __ get_const(rbcp, rbx, false); // get ConstMethod*
   __ get_codes(rbcp, rbcp); // get codebase
   __ push(rbx);        // save Method*
   // Get mirror and store it in the frame as GC root for this Method*
@@ -713,6 +713,7 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // r13: senderSP must preserve for slow path, set SP to it on fast path
 
   address entry = __ pc();
+  __ incrementl(ExternalAddress((address) &DataCounter::ref_get_entry));
 
   const int referent_offset = java_lang_ref_Reference::referent_offset;
   guarantee(referent_offset > 0, "referent offset not initialized");
@@ -745,6 +746,7 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   NOT_LP64(__ pop(rsi));      // get sender sp
   __ pop(rdi);                // get return address
   __ mov(rsp, sender_sp);     // set sp to sender sp
+  __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
   __ jmp(rdi);
   __ ret(0);
 
@@ -787,13 +789,17 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // rbcp: sender sp
 
   address entry_point = __ pc();
+  __ incrementl(ExternalAddress((address) &DataCounter::native_entry));
+  if (synchronized) {
+    __ incrementl(ExternalAddress((address) &DataCounter::synchronized_methods));
+  }
 
 #ifdef ASSERT
   const Address access_flags      (rbx, Method::access_flags_offset()); // +
 #endif
 
   // get parameter size (always needed)
-  __ get_const(rcx, rbx);
+  __ get_const(rcx, rbx, false);
   __ get_size_of_parameters(rcx, rcx);
 
   // native calls don't need the stack size check since they have no
@@ -909,7 +915,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // allocate space for parameters
   __ get_method(method);
-  __ get_const(t, method);
+  __ get_const(t, method, false);
   __ get_size_of_parameters(t, t);
 
 #ifndef _LP64
@@ -1022,7 +1028,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 #ifdef ASSERT
   {
     Label L;
-    __ movl(t, Address(thread, JavaThread::thread_state_offset()));
+    __ movl(t, Address(thread, JavaThread::thread_state_offset())); // +
     __ cmpl(t, _thread_in_Java);
     __ jcc(Assembler::equal, L);
     __ stop("Wrong thread state in native stub");
@@ -1032,8 +1038,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // Change state to native
 
-  __ movl(Address(thread, JavaThread::thread_state_offset()),
-          _thread_in_native);
+  __ set_thread_state(thread, _thread_in_native);
 
   // Call the native method.
   __ call(rax);
@@ -1081,8 +1086,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // change thread state
   NOT_LP64(__ get_thread(thread));
-  __ movl(Address(thread, JavaThread::thread_state_offset()),
-          _thread_in_native_trans);
+  __ set_thread_state(thread, _thread_in_native_trans);
 
   // Force this write out before the read below
   __ membar(Assembler::Membar_mask_bits(
@@ -1137,7 +1141,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   }
 
   // change thread state
-  __ movl(Address(thread, JavaThread::thread_state_offset()), _thread_in_Java);
+  __ set_thread_state(thread, _thread_in_Java);
 
   // reset_last_Java_frame
   __ reset_last_Java_frame(thread, true);
@@ -1202,7 +1206,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   __ get_method(method);
 
   // restore to have legal interpreter frame, i.e., bci == 0 <=> code_base()
-  __ get_const(rbcp, method); // get ConstMethod*
+  __ get_const(rbcp, method, false); // get ConstMethod*
   __ get_codes(rbcp, rbcp);   // get codebase
 
   // handle exceptions (exception handling will handle unlocking!)
@@ -1323,13 +1327,17 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // ebx: Method*
   // rbcp: sender sp
   address entry_point = __ pc();
+  __ incrementl(ExternalAddress((address) &DataCounter::normal_entry));
+  if (synchronized) {
+    __ incrementl(ExternalAddress((address) &DataCounter::synchronized_methods));
+  }
 
 #ifdef ASSERT
   const Address access_flags(rbx, Method::access_flags_offset()); // +
 #endif
 
   // get parameter size (always needed)
-  __ get_const(rdx, rbx);
+  __ get_const(rdx, rbx, false);
   __ get_size_of_parameters(rcx, rdx);
 
   // rbx: Method*
@@ -1490,7 +1498,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   Interpreter::_rethrow_exception_entry = __ pc();
   // Restore sp to interpreter_frame_last_sp even though we are going
   // to empty the expression stack for the exception processing.
-  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+  __ set_last_sp((int32_t)NULL_WORD);
   // rax: exception
   // rdx: return address/pc that threw exception
   __ restore_bcp();    // r13/rsi points to call/send
@@ -1569,7 +1577,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     // Compute size of arguments for saving when returning to
     // deoptimized caller
-    __ get_const(rax);
+    __ get_const(rax, false);
     __ get_size_of_parameters(rax, rax);
 
     __ shll(rax, Interpreter::logStackElementSize);
@@ -1618,7 +1626,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   // expression stack if necessary.
 #ifndef _LP64
   __ mov(rax, rsp);
-  __ movptr(rbx, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize));
+  __ movptr(rbx, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize)); // +
   __ get_thread(thread);
   // PC must point into interpreter here
   __ set_last_Java_frame(thread, noreg, rbp, __ pc());
@@ -1626,7 +1634,7 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   __ get_thread(thread);
 #else
   __ mov(c_rarg1, rsp);
-  __ movptr(c_rarg2, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize));
+  __ get_last_sp(c_rarg2);
   // PC must point into interpreter here
   __ set_last_Java_frame(noreg, rbp, __ pc());
   __ super_call_VM_leaf(CAST_FROM_FN_PTR(address, InterpreterRuntime::popframe_move_outgoing_args), r15_thread, c_rarg1, c_rarg2);
@@ -1634,8 +1642,8 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
   __ reset_last_Java_frame(thread, true);
 
   // Restore the last_sp and null it out
-  __ movptr(rsp, Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize));
-  __ movptr(Address(rbp, frame::interpreter_frame_last_sp_offset * wordSize), (int32_t)NULL_WORD);
+  __ get_last_sp(rsp);
+  __ set_last_sp((int32_t)NULL_WORD);
 
   __ restore_bcp();
   __ restore_locals();
@@ -1723,7 +1731,7 @@ address TemplateInterpreterGenerator::generate_earlyret_entry_for(TosState state
 
   const Register thread = NOT_LP64(rcx) LP64_ONLY(r15_thread);
   NOT_LP64(__ get_thread(thread));
-  __ movptr(rcx, Address(thread, JavaThread::jvmti_thread_state_offset()));
+  __ get_jvmti_thread_state(rcx, thread);
   Address cond_addr(rcx, JvmtiThreadState::earlyret_state_offset());
 
   // Clear the earlyret state

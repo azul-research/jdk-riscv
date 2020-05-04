@@ -1791,24 +1791,27 @@ public:
   void byte_array_inflate(Register src, Register dst, Register len,
                           XMMRegister tmp1, Register tmp2);
 
-  void get_method(Register reg);
+  void get_method(Register reg, bool count = true);
   void get_monitors_top(Register reg);
   void set_monitors_top(Register reg);
   void get_last_sp(Register reg);
+  void set_last_sp(Register reg);
   void set_last_sp(int32_t value);
-  void get_const(Register reg, Register method);
+  void get_const(Register reg, Register method, bool count = true);
   void get_size_of_parameters(Register reg, Register constMethod);
   void get_size_of_locals(Register reg, Register constMethod);
   void get_access_flags(Register reg, Register method);
   void get_codes(Register reg, Register constM);
-  void get_const(Register reg);
-  void get_constant_pool(Register reg);
-  void get_constant_pool(Register reg, Register method);
-  void get_constant_pool_cache(Register reg);
+  void get_const(Register reg, bool count = true);
+  void get_constant_pool(Register reg, bool count = true);
+  void get_constant_pool(Register reg, Register method, bool count = true);
+  void get_constant_pool_cache(Register reg, bool count = true);
   void get_cpool_and_tags(Register cpool, Register tags);
   void get_method_counters_(Register reg, Register method);
   void get_sender_sp(Register reg);
   void set_sender_sp(Register reg);
+  void set_thread_state(Register thread, JavaThreadState state);
+  void get_jvmti_thread_state(Register reg, Register thread);
 };
 
 /**

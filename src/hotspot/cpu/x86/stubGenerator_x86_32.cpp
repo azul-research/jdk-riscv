@@ -214,6 +214,7 @@ class StubGenerator: public StubCodeGenerator {
     __ movptr(rbx, method);           // get Method*
     __ movptr(rax, entry_point);      // get entry_point
     __ mov(rsi, rsp);                 // set sender sp
+    __ incrementl(ExternalAddress((address) &DataCounter::sender_sp));
     BLOCK_COMMENT("call Java function");
     __ call(rax);
 
