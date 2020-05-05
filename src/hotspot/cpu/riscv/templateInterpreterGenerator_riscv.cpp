@@ -1686,8 +1686,10 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // --------------------------------------------------------------------------
   // Locking of synchronized methods. Must happen AFTER invocation_counter
   // check and stack overflow check, so method is not locked if overflows.
-  if (synchronized) {
-    lock_method(R10_ARG0, R11_ARG1, R12_ARG2);
+
+    if (synchronized) {
+      tty->print_cr("synchronized method is not implemented yet");
+//    lock_method(R10_ARG0, R11_ARG1, R12_ARG2); // TODO_RISC_V
   }
 #ifdef ASSERT
   else {

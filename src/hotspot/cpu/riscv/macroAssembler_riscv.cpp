@@ -1151,12 +1151,8 @@ void MacroAssembler::bang_stack_with_offset(int offset) {
       sd(R0, R2_SP, (int)(signed short)stdoffset);
     }
   } else if (is_simm(stdoffset, 31)) {
-    const int hi = MacroAssembler::largeoffset_hi(stdoffset);
-    const int lo = MacroAssembler::largeoffset_lo(stdoffset);
-
-    Register tmp = R11;
-    lui(tmp, hi);
-    add(tmp, R2_SP, tmp);
+    Register tmp = R10_ARG0;
+    const int lo = add_const_optimized(tmp, R2_SP, stdoffset, noreg, true);
     if (UseLoadInstructionsForStackBangingRISCV64) {
       ld(R0, tmp, lo);
     } else {
