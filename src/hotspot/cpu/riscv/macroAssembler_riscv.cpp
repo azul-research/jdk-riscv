@@ -1661,7 +1661,7 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   Label search, found_method;
 
   printf("lookup-5: %p\n", pc());
-  addi(intf_klass, intf_klass, 0);
+  addi(intf_klass, intf_klass, 0); // TODO RISCV DELETE THIS LINE
 
   for (int peel = 1; peel >= 0; peel--) {
     // %%%% Could load both offset and interface in one ldx, if they were

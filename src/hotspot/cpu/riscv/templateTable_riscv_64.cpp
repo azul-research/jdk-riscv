@@ -2459,7 +2459,6 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   load_field_cp_cache_entry(Rclass_or_obj, Rcache, noreg, Roffset, Rflags, is_static);
 
   tty->print_cr("getfield cache resolved: %p", __ pc());
-  __ addi(Rflags, Rflags, 0);
 
   // Load pointer to branch table.
   __ li(Rbtable, (long)(unsigned long)(address)branch_table);
@@ -3570,8 +3569,6 @@ void TemplateTable::invokespecial(int byte_no) {
 
     printf("invokespecial-2: %p\n", __ pc());
 
-    __ addi(R27_method, R27_method, 0);
-
   // Receiver NULL check.
   tty->print_cr("TODO: explicit nullcheck is commented out");
   //__ null_check_throw(Rreceiver, -1, R5_scratch1);
@@ -3609,8 +3606,7 @@ void TemplateTable::invokeinterface_object_method(Register Rrecv_klass,
                                                   Register Rmethod,
                                                   Register Rtemp1,
                                                   Register Rtemp2) {
-// FIXME_RISCV use different registers
-//  assert_different_registers(Rmethod, Rret, Rrecv_klass, Rflags, Rtemp1, Rtemp2);
+  assert_different_registers(Rmethod, Rret, Rrecv_klass, Rflags, Rtemp1, Rtemp2);
   Label LnotFinal;
 
   // Check for vfinal.
@@ -3653,7 +3649,6 @@ void TemplateTable::invokeinterface(int byte_no) {
   prepare_invoke(byte_no, Rinterface_klass, Rret_addr, Rmethod, Rreceiver, Rflags, Rscratch1);
 
     printf("invokeinterface-3: %p\n", __ pc());
-    __ addi(Rmethod, Rmethod, 0);
 
 
   // First check for Object case, then private interface method,
@@ -3712,7 +3707,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   __ bind(LnotVFinal);
 
-  // FIXME_RISCV use different registers
   __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
                              L_no_such_interface, /*return_method=*/false);
 
@@ -3742,8 +3736,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
    printf("invokeinterface-42: %p\n", __ pc());
 
-
-  // FIXME_RISCV use different registers
   __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
                              L_no_such_interface);
 
@@ -4169,10 +4161,6 @@ void TemplateTable::athrow() {
 // at next monitor exit.
 void TemplateTable::monitorenter() {
   transition(atos, vtos);
-
-  __ addi(R25_tos, R25_tos, 0);
-  __ addi(R23_esp, R23_esp, 0);
-
 
   __ verify_oop(R25_tos);
 
