@@ -1627,22 +1627,26 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   int scan_step   = itableOffsetEntry::size() * wordSize;
   int log_vte_size= exact_log2(vtableEntry::size_in_bytes());
 
-  lwz_PPC(scan_temp, in_bytes(Klass::vtable_length_offset()), recv_klass);
+   printf("lookup-1: %d %p\n", return_method, pc());
+
+  lwu(scan_temp, recv_klass, in_bytes(Klass::vtable_length_offset()));
   // %%% We should store the aligned, prescaled offset in the klassoop.
   // Then the next several instructions would fold away.
 
-  sldi_PPC(scan_temp, scan_temp, log_vte_size);
-  addi_PPC(scan_temp, scan_temp, vtable_base);
-  add_PPC(scan_temp, recv_klass, scan_temp);
+  slli(scan_temp, scan_temp, log_vte_size);
+  addi(scan_temp, scan_temp, vtable_base);
+  add(scan_temp, recv_klass, scan_temp);
 
   // Adjust recv_klass by scaled itable_index, so we can free itable_index.
   if (return_method) {
     if (itable_index.is_register()) {
       Register itable_offset = itable_index.as_register();
-      sldi_PPC(method_result, itable_offset, logMEsize);
-      if (itentry_off) { addi_PPC(method_result, method_result, itentry_off); }
-      add_PPC(method_result, method_result, recv_klass);
+      slli(method_result, itable_offset, logMEsize);
+      if (itentry_off) { addi(method_result, method_result, itentry_off); }
+      add(method_result, method_result, recv_klass);
+      printf("lookup-3.1: %p\n", pc());
     } else {
+	    // FixME
       long itable_offset = (long)itable_index.as_constant();
       // static address, no relocation
       add_const_optimized(method_result, recv_klass, (itable_offset << logMEsize) + itentry_off, temp2);
@@ -1656,24 +1660,31 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   // }
   Label search, found_method;
 
+  printf("lookup-5: %p\n", pc());
+  addi(intf_klass, intf_klass, 0);
+
   for (int peel = 1; peel >= 0; peel--) {
     // %%%% Could load both offset and interface in one ldx, if they were
     // in the opposite order. This would save a load.
-    ld_PPC(temp2, itableOffsetEntry::interface_offset_in_bytes(), scan_temp);
+    ld(temp2, scan_temp, itableOffsetEntry::interface_offset_in_bytes());
 
     // Check that this entry is non-null. A null entry means that
     // the receiver class doesn't implement the interface, and wasn't the
     // same as when the caller was compiled.
-    cmpd_PPC(CCR0, temp2, intf_klass);
+    sub(temp2, temp2, intf_klass);
+    //_PPC(CCR0, temp2, intf_klass);
 
     if (peel) {
-      beq_PPC(CCR0, found_method);
+      beqz(temp2, found_method);
     } else {
+      unimplemented("itable loop not implemented");
       bne_PPC(CCR0, search);
       // (invert the test to fall through to found_method...)
     }
 
     if (!peel) break;
+
+      unimplemented("itable loop not implemented -2");
 
     bind(search);
 
@@ -1684,11 +1695,14 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
 
   bind(found_method);
 
+  printf("lookup-9: %p\n", pc());
+
+
   // Got a hit.
   if (return_method) {
     int ito_offset = itableOffsetEntry::offset_offset_in_bytes();
-    lwz_PPC(scan_temp, ito_offset, scan_temp);
-    ldx_PPC(method_result, scan_temp, method_result);
+    lw(scan_temp, scan_temp, ito_offset);
+    ld(method_result, scan_temp, method_result);
   }
 }
 
@@ -2989,9 +3003,6 @@ void MacroAssembler::set_top_ijava_frame_at_SP_as_last_Java_frame_2(Register sp,
   // TOP_IJAVA_FRAME_ABI.
   // FIXME: assert that we really have a TOP_IJAVA_FRAME here!
   address entry = pc();
-
-
-printf("FFFFFFFFFFFFFFFFFFFFFFF: %p\n", pc());
 
   li(tmp1, /*entry*/ entry);
 

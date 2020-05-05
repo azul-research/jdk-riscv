@@ -2150,9 +2150,6 @@ void TemplateTable::_return(TosState state) {
     __ bind(Lskip_register_finalizer);
   }
 
- tty->print_cr("return-35 #%i: %p %d", state, __ pc(), atos);
-
-
   if (SafepointMechanism::uses_thread_local_poll() && _desc->bytecode() != Bytecodes::_return_register_finalizer) {
     Label no_safepoint;
     __ ld(R5_scratch1, R24_thread, in_bytes(Thread::polling_page_offset()));
@@ -2163,8 +2160,6 @@ void TemplateTable::_return(TosState state) {
     __ pop(state);
     __ bind(no_safepoint);
   }
-
-  tty->print_cr("return-55 #%i: %p %d", state, __ pc(), atos);
 
   // Move the result value into the correct register and remove memory stack frame.
   __ remove_activation(state, /* throw_monitor_exception */ true);
@@ -2221,12 +2216,14 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
   }
 
   assert(byte_no == f1_byte || byte_no == f2_byte, "byte_no out of range");
+
   // We are resolved if the indices offset contains the current bytecode.
 #if defined(VM_LITTLE_ENDIAN)
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + byte_no + 1);
 #else
   __ lbu(Rscratch, Rcache, in_bytes(ConstantPoolCache::base_offset() + ConstantPoolCacheEntry::indices_offset()) + 7 - (byte_no + 1));
 #endif
+
   __ li(R11_ARG1, (int) code);
 
   __ beq(Rscratch, R11_ARG1, Lresolved);
@@ -2243,6 +2240,7 @@ void TemplateTable::resolve_cache_and_index(int byte_no, Register Rcache, Regist
 
   // Update registers with resolved info.
   __ get_cache_and_index_at_bcp(Rcache, 1, index_size);
+
   __ j(Ldone);
 
   __ bind(Lresolved);
@@ -2683,7 +2681,6 @@ void TemplateTable::nofast_getfield(int byte_no) {
 }
 
 void TemplateTable::getstatic(int byte_no) {
-	printf("getstatic: %p\n", __ pc());
   getfield_or_static(byte_no, true);
 }
 
@@ -2778,8 +2775,6 @@ void TemplateTable::jvmti_post_field_mod(Register Rcache, Register Rscratch, boo
 // RISCV64: implement volatile stores as release-store (return bytecode contains an additional release).
 void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteControl rc) {
   Label Lvolatile;
-
-  printf("put: %d %d\n", byte_no, is_static);
 
   const Register Rcache        = R13_ARG3,  // Do not use ARG1/2 (causes trouble in jvmti_post_field_mod).
                  Rclass_or_obj = R31_TMP6,  // Needs to survive C call.
@@ -3012,7 +3007,6 @@ void TemplateTable::nofast_putfield(int byte_no) {
 }
 
 void TemplateTable::putstatic(int byte_no) {
-	printf("putstatic: %p\n", __ pc());
   putfield_or_static(byte_no, true);
 }
 
@@ -3380,7 +3374,6 @@ void TemplateTable::prepare_invoke(int byte_no,
     __ andi(Rparam_count, Rflags, ConstantPoolCacheEntry::parameter_size_mask);
 
     __ load_receiver(Rparam_count, Rrecv);
-     printf("prepare_invoke-4.2: %p\n", __ pc());
 
     __ verify_oop(Rrecv);
   }
@@ -3395,10 +3388,10 @@ void TemplateTable::prepare_invoke(int byte_no,
     __ srli(Rret_type, Rflags, ConstantPoolCacheEntry::tos_state_shift);
     __ andi(Rret_type, Rret_type, ConstantPoolCacheEntry::tos_state_mask);
     __ load_dispatch_table(Rtable_addr, (address*)table_addr);
+
     __ slli(Rret_type, Rret_type, LogBytesPerWord);
     // Get return address.
     __ add(Rtable_addr, Rtable_addr, Rret_type);
-    printf("prepare_invoke-99: %p\n", __ pc());
 
     __ ld(Rret_addr, Rtable_addr);
   }
@@ -3429,8 +3422,6 @@ void TemplateTable::generate_vtable_call(Register Rrecv_klass, Register Rindex, 
 // Virtual or final call. Final calls are rewritten on the fly to run through "fast_finalcall" next time.
 void TemplateTable::invokevirtual(int byte_no) {
   transition(vtos, vtos);
-
-  printf("invokevirtual-1: %p\n", __ pc());
 
   Register Rtable_addr = R5_scratch1,
            Rret_type = R6_scratch2,
@@ -3569,6 +3560,8 @@ void TemplateTable::invokespecial(int byte_no) {
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
+  printf("invokespecial: %p\n", __ pc());
+
   Register Rtable_addr = R10_ARG0,
            Rret_addr   = R11_ARG1,
            Rflags      = R12_ARG2,
@@ -3576,18 +3569,21 @@ void TemplateTable::invokespecial(int byte_no) {
 
   prepare_invoke(byte_no, R27_method, Rret_addr, noreg, Rreceiver, Rflags, R5_scratch1);
 
+    printf("invokespecial-2: %p\n", __ pc());
+
+    __ addi(R27_method, R27_method, 0);
+
   // Receiver NULL check.
   tty->print_cr("TODO: explicit nullcheck is commented out");
   //__ null_check_throw(Rreceiver, -1, R5_scratch1);
 
-  __ profile_call(R5_scratch1, R6_scratch2);
+  //__ profile_call(R5_scratch1, R6_scratch2);
   // Argument and return type profiling.
-  __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
+  //__ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
   __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
 }
 
 void TemplateTable::invokestatic(int byte_no) {
-	printf("------------------------- invokestatic-1: %p %d\n", __ pc(), byte_no);
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
@@ -3597,7 +3593,7 @@ void TemplateTable::invokestatic(int byte_no) {
 
   prepare_invoke(byte_no, R27_method, Rret_addr, noreg, noreg, Rflags, R5_scratch1);
 
-  __ profile_call(R5_scratch1, R6_scratch2);
+  //__ profile_call(R5_scratch1, R6_scratch2);
   // Argument and return type profiling.
   // FIXME_RISCV
   // __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
@@ -3641,6 +3637,8 @@ void TemplateTable::invokeinterface(int byte_no) {
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
+  printf("invokeinterface: %p\n", __ pc());
+
 
   // FIXME_RISCV begin: check all registers
   const Register Rscratch1        = R5_scratch1,
@@ -3658,12 +3656,19 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   prepare_invoke(byte_no, Rinterface_klass, Rret_addr, Rmethod, Rreceiver, Rflags, Rscratch1);
 
+    printf("invokeinterface-3: %p\n", __ pc());
+    __ addi(Rmethod, Rmethod, 0);
+
+
   // First check for Object case, then private interface method,
   // then regular interface method.
 
   // Get receiver klass - this is also a null check
-  __ null_check_throw(Rreceiver, oopDesc::klass_offset_in_bytes(), Rscratch2);
+//  __ null_check_throw(Rreceiver, oopDesc::klass_offset_in_bytes(), Rscratch2);
   __ load_klass(Rrecv_klass, Rreceiver);
+
+      printf("invokeinterface-4: %p\n", __ pc());
+
 
   // Check corner case object method.
   // Special case of invokeinterface called for virtual method of
@@ -3672,16 +3677,28 @@ void TemplateTable::invokeinterface(int byte_no) {
   // to handle this corner case.
 
   Label LnotObjectMethod, Lthrow_ame;
-  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_forced_virtual_shift);
-  __ bfalse_PPC(CCR0, LnotObjectMethod);
+
+  __ li(Rscratch2, 1 << ConstantPoolCacheEntry::is_forced_virtual_shift);
+  __ andr(Rscratch2, Rflags, Rscratch2); 
+  __ beqz(Rscratch2, LnotObjectMethod);
+
+//  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_forced_virtual_shift);
+//  __ bfalse_PPC(CCR0, LnotObjectMethod);
+
   invokeinterface_object_method(Rrecv_klass, Rret_addr, Rflags, Rmethod, Rscratch1, Rscratch2);
   __ bind(LnotObjectMethod);
+
+  printf("invokeinterface-8: %p\n", __ pc());
 
   // Check for private method invocation - indicated by vfinal
   Label LnotVFinal, L_no_such_interface, L_subtype;
 
-  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
-  __ bfalse_PPC(CCR0, LnotVFinal);
+  __ li(Rscratch2, 1 << ConstantPoolCacheEntry::is_vfinal_shift);
+  __ andr(Rscratch2, Rflags, Rscratch2);
+  __ beqz(Rscratch2, LnotVFinal);
+
+//  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
+//  __ bfalse_PPC(CCR0, LnotVFinal);
 
   // FIXME_RISCV use different registers
 //  __ check_klass_subtype(Rrecv_klass, Rinterface_klass, Rscratch1, Rscratch2, L_subtype);
@@ -3701,29 +3718,51 @@ void TemplateTable::invokeinterface(int byte_no) {
   __ bind(LnotVFinal);
 
   // FIXME_RISCV use different registers
-//  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
-//                             L_no_such_interface, /*return_method=*/false);
+  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
+                             L_no_such_interface, /*return_method=*/false);
+
+  printf("invokeinterface-33: %p\n", __ pc());
 
   __ profile_virtual_call(Rrecv_klass, Rscratch1, Rscratch2, false);
 
   // Find entry point to call.
 
   // Get declaring interface class from method
+
+  printf("invokeinterface-37: %p\n", __ pc());
+
   __ load_method_holder(Rinterface_klass, Rmethod);
 
   // Get itable index from method
-  __ lwa_PPC(Rindex, in_bytes(Method::itable_index_offset()), Rmethod);
-  __ subfic_PPC(Rindex, Rindex, Method::itable_index_max);
+  //__ lwa_PPC(Rindex, in_bytes(Method::itable_index_offset()), Rmethod);
+  printf("invokeinterface-40: %d %p\n", Method::itable_index_max, __ pc());
+
+  __ lw(Rindex, Rmethod, in_bytes(Method::itable_index_offset()));
+
+  __ sub(Rindex, R0_ZERO, Rindex);  
+  __ addi(Rindex, Rindex, Method::itable_index_max);
+
+
+//  __ subfic_PPC(Rindex, Rindex, Method::itable_index_max);
+
+   printf("invokeinterface-42: %p\n", __ pc());
+
 
   // FIXME_RISCV use different registers
-//  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
-//                             L_no_such_interface);
+  __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
+                             L_no_such_interface);
 
-  __ cmpdi_PPC(CCR0, Rmethod2, 0);
-  __ beq_PPC(CCR0, Lthrow_ame);
+   printf("invokeinterface-45: %p\n", __ pc());
+
+   __ sub(Rmethod2, Rmethod2, 0);
+//  __ cmpdi_PPC(CCR0, Rmethod2, 0);
+  __ beqz(Rmethod2, Lthrow_ame);
   // Found entry. Jump off!
   // Argument and return type profiling.
+ 
   __ profile_arguments_type(Rmethod2, Rscratch1, Rscratch2, true);
+
+
   //__ profile_called_method(Rindex, Rscratch1);
   __ call_from_interpreter(Rmethod2, Rret_addr, Rscratch1, Rscratch2);
 
