@@ -1864,8 +1864,7 @@ void TemplateTable::ret() {
   locals_index(R5_scratch1);
   __ load_local_ptr(R25_tos, R5_scratch1, R5_scratch1);
 
-// TODO_RISCV: following line
-//  __ profile_ret(vtos, R25_tos, R5_scratch1, R6_scratch2);
+  __ profile_ret(vtos, R25_tos, R5_scratch1, R6_scratch2);
 
   __ ld(R5_scratch1, R27_method, in_bytes(Method::const_offset()));
   __ add(R5_scratch1, R25_tos, R5_scratch1);
@@ -2141,10 +2140,11 @@ void TemplateTable::_return(TosState state) {
     // Load klass of this obj.
     __ load_klass(Rklass, R25_tos);
     __ lwu(Rklass_flags, Rklass, in_bytes(Klass::access_flags_offset()));
-    __ andi(Rscratch, Rklass_flags, exact_log2(JVM_ACC_HAS_FINALIZER));
+    __ li(Rscratch, JVM_ACC_HAS_FINALIZER);
+    __ andr(Rscratch, Rklass_flags,Rscratch);
     __ beqz(Rscratch, Lskip_register_finalizer);
 
-    // __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::register_finalizer), R25_tos /* obj */);
+    __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::register_finalizer), R25_tos /* obj */);
 
     __ align(32, 12);
     __ bind(Lskip_register_finalizer);
@@ -3479,10 +3479,9 @@ void TemplateTable::fast_invokevfinal(int byte_no) {
   transition(vtos, vtos);
 
   assert(byte_no == f2_byte, "use this argument");
-  Register Rflags  = R22_tmp2_PPC,
-           Rmethod = R31;
-  load_invoke_cp_cache_entry(byte_no, Rmethod, noreg, Rflags, /*virtual*/ true, /*is_invokevfinal*/ true, false);
-  invokevfinal_helper(Rmethod, Rflags, R5_scratch1, R6_scratch2);
+  Register Rflags  = R7_TMP2;
+  load_invoke_cp_cache_entry(byte_no, R27_method, noreg, Rflags, /*virtual*/ true, /*is_invokevfinal*/ true, false);
+  invokevfinal_helper(R27_method, Rflags, R5_scratch1, R6_scratch2);
 }
 
 void TemplateTable::invokevfinal_helper(Register Rmethod, Register Rflags, Register Rscratch1, Register Rscratch2) {
@@ -3640,7 +3639,6 @@ void TemplateTable::invokeinterface(int byte_no) {
   printf("invokeinterface: %p\n", __ pc());
 
 
-  // FIXME_RISCV begin: check all registers
   const Register Rscratch1        = R5_scratch1,
                  Rscratch2        = R6_scratch2,
                  Rmethod          = R13_ARG3,
@@ -3651,8 +3649,6 @@ void TemplateTable::invokeinterface(int byte_no) {
                  Rreceiver        = R10_ARG0,
                  Rrecv_klass      = R11_ARG1,
                  Rflags           = R14_ARG4;
-
-  // FIXME_RISCV end
 
   prepare_invoke(byte_no, Rinterface_klass, Rret_addr, Rmethod, Rreceiver, Rflags, Rscratch1);
 
@@ -3700,8 +3696,7 @@ void TemplateTable::invokeinterface(int byte_no) {
 //  __ testbitdi_PPC(CCR0, R0, Rflags, ConstantPoolCacheEntry::is_vfinal_shift);
 //  __ bfalse_PPC(CCR0, LnotVFinal);
 
-  // FIXME_RISCV use different registers
-//  __ check_klass_subtype(Rrecv_klass, Rinterface_klass, Rscratch1, Rscratch2, L_subtype);
+  __ check_klass_subtype(Rrecv_klass, Rinterface_klass, Rscratch1, Rscratch2, L_subtype);
   // If we get here the typecheck failed
   __ b_PPC(L_no_such_interface);
   __ bind(L_subtype);
