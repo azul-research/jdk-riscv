@@ -520,7 +520,10 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   __ blr_PPC();
 
   __ bind(slow_path);
+
   __ jump_to_entry(Interpreter::entry_for_kind(Interpreter::zerolocals), R5_scratch1);
+
+
   return entry;
 }
 
@@ -609,11 +612,6 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     default  : ShouldNotReachHere();
   }
 
-  if (state == 9) {
-      printf("return entry-2: %p %d %d\n", __ pc(), state, atos);
-  }
-
-
   __ restore_interpreter_state();
 
     if (state == 9) {
@@ -647,11 +645,6 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 
   __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
   __ check_and_handle_earlyret(R5_scratch1, R6_scratch2);
-
-    if (state == 9) {
-      printf("return entry-99: %p %d %d\n", __ pc(), state, atos);
-  }
-
 
   __ dispatch_next(state, step);
   return entry;
@@ -1203,8 +1196,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
 
-  printf("NATIVE ENTRY: %p\n", entry);
-
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
   // -----------------------------------------------------------------------------
@@ -1236,11 +1227,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   Register size_of_parameters = R7_TMP2;
 
-  printf("native-5: %p\n", __ pc());
-__ addi(size_of_parameters, size_of_parameters, 0);
-  printf("native-6: %p\n", __ pc());
   generate_fixed_frame(true, size_of_parameters, noreg /* unused */);
-  tty->print_cr("native entry: %p", __ pc());
 
   //=============================================================================
   // Increment invocation counter. On overflow, entry to JNI method
@@ -1263,8 +1250,6 @@ __ addi(size_of_parameters, size_of_parameters, 0);
 
     BIND(continue_after_compile);
   }
-
-  printf("native-10: %p\n", __ pc());
 
   bang_stack_shadow_pages(true);
 
@@ -1408,7 +1393,6 @@ __ addi(size_of_parameters, size_of_parameters, 0);
   // overwritten since "__ call_stub(signature_handler);" (except for
   // ARG1 and ARG2 for static methods).
 
-  printf("native-345: %p\n", __ pc());
   __ call_c(native_method_fd);
 
   __ sd(R10_RET1, R8_FP, _ijava_state(lresult));
@@ -1715,8 +1699,6 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // --------------------------------------------------------------------------
   // Start executing instructions.
 
-  printf("normal entry: dnext: %p\n", __ pc());
-
   __ dispatch_next(vtos);
 
   // --------------------------------------------------------------------------
@@ -1736,6 +1718,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
     __ bind(invocation_counter_overflow);
     generate_counter_overflow(profile_method_continue);
   }
+
   return entry;
 }
 
@@ -1765,6 +1748,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
  *   int java.util.zip.CRC32.update(int crc, int b)
  */
 address TemplateInterpreterGenerator::generate_CRC32_update_entry() {
+
   if (UseCRC32Intrinsics) {
     address start = __ pc();  // Remember stub start address (is rtn value).
     Label slow_path;
@@ -2216,8 +2200,6 @@ void TemplateInterpreterGenerator::set_vtos_entry_points(Template* t,
 address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   //__ flush_bundle();
   address entry = __ pc();
-
-  printf("generate_trace_code: %p\n", entry);
 
   const char *bname = NULL;
   uint tsize = 0;

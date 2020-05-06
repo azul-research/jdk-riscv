@@ -493,19 +493,37 @@ void InterpreterMacroAssembler::load_resolved_reference_at_index(Register result
 void InterpreterMacroAssembler::load_resolved_klass_at_offset(Register Rcpool, Register Roffset, Register Rklass) {
   // int value = *(Rcpool->int_at_addr(which));
   // int resolved_klass_index = extract_low_short_from_int(value);
-  add_PPC(Roffset, Rcpool, Roffset);
+  //add_PPC(Roffset, Rcpool, Roffset);
+  add(Roffset, Rcpool, Roffset);
 #if defined(VM_LITTLE_ENDIAN)
-  lhz_PPC(Roffset, sizeof(ConstantPool), Roffset);     // Roffset = resolved_klass_index
+  printf("load_resolved_klass_at_offset-1.1: %p\n", pc());
+  lhu(Roffset, Roffset, sizeof(ConstantPool));
+//  lhz_PPC(Roffset, sizeof(ConstantPool), Roffset);     // Roffset = resolved_klass_index
 #else
+  printf("load_resolved_klass_at_offset-1.2: %p\n", pc());
+
+  unimplemented("load_resolved_klass_at_offset bigendian");
   lhz_PPC(Roffset, sizeof(ConstantPool) + 2, Roffset); // Roffset = resolved_klass_index
 #endif
+  printf("load_resolved_klass_at_offset-2: %p\n", pc());
 
-  ld_PPC(Rklass, ConstantPool::resolved_klasses_offset_in_bytes(), Rcpool); // Rklass = Rcpool->_resolved_klasses
+//  ld_PPC(Rklass, ConstantPool::resolved_klasses_offset_in_bytes(), Rcpool); // Rklass = Rcpool->_resolved_klasses
 
-  sldi_PPC(Roffset, Roffset, LogBytesPerWord);
-  addi_PPC(Roffset, Roffset, Array<Klass*>::base_offset_in_bytes());
-  isync_PPC(); // Order load of instance Klass wrt. tags.
-  ldx_PPC(Rklass, Rklass, Roffset);
+  ld(Rklass, Rcpool, ConstantPool::resolved_klasses_offset_in_bytes()); // Rklass = Rcpool->_resolved_klasses
+
+  printf("load_resolved_klass_at_offset-3: %p\n", pc());
+
+//  sldi_PPC(Roffset, Roffset, LogBytesPerWord);
+  slli(Roffset, Roffset, LogBytesPerWord);
+
+//  addi_PPC(Roffset, Roffset, Array<Klass*>::base_offset_in_bytes());
+  addi(Roffset, Roffset, Array<Klass*>::base_offset_in_bytes());
+
+ // isync_PPC(); // Order load of instance Klass wrt. tags.
+ acquire();
+
+//  ldx_PPC(Rklass, Rklass, Roffset);
+  ld(Rklass, Rklass, Roffset);
 }
 
 void InterpreterMacroAssembler::load_resolved_method_at_index(int byte_no,

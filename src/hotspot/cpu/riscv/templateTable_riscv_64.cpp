@@ -2458,9 +2458,6 @@ void TemplateTable::getfield_or_static(int byte_no, bool is_static, RewriteContr
   // Load after possible GC.
   load_field_cp_cache_entry(Rclass_or_obj, Rcache, noreg, Roffset, Rflags, is_static);
 
-  tty->print_cr("getfield cache resolved: %p", __ pc());
-  __ addi(Rflags, Rflags, 0);
-
   // Load pointer to branch table.
   __ li(Rbtable, (long)(unsigned long)(address)branch_table);
 
@@ -2805,7 +2802,6 @@ void TemplateTable::putfield_or_static(int byte_no, bool is_static, RewriteContr
   // Load pointer to branch table.
   __ li(Rbtable, (address)branch_table);
 
-  tty->print_cr("putfield cache resolved: %p", __ pc());
   // Get volatile flag.
   __ srli(Rscratch, Rflags, ConstantPoolCacheEntry::is_volatile_shift);
   __ andi(Rscratch, Rscratch, 1); // Extract volatile bit.
@@ -3442,6 +3438,7 @@ void TemplateTable::invokevirtual(int byte_no) {
   __ li(Rtmp2, 1 << ConstantPoolCacheEntry::is_vfinal_shift);
   __ andr(Rtmp2, Rflags, Rtmp2);
   __ beqz(Rtmp2, LnotFinal);
+
   
   if (RewriteBytecodes && !UseSharedSpaces && !DumpSharedSpaces) {
 	  __ unimplemented("invokevirtual - patch bytecode");
@@ -3450,6 +3447,8 @@ void TemplateTable::invokevirtual(int byte_no) {
 	  assert(Rvtableindex_or_method->is_nonvolatile(), "Rvtableindex_or_method should be nonvlolatile");
     patch_bytecode(Bytecodes::_fast_invokevfinal, Rnew_bc, R6_scratch2);
   }
+
+  //__ j(LnotFinal); // fixme riscv
   invokevfinal_helper(Rvtableindex_or_method, Rflags, R5_scratch1, R6_scratch2);
 
   __ align(32, 12);
@@ -3559,8 +3558,6 @@ void TemplateTable::invokespecial(int byte_no) {
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
-  printf("invokespecial: %p\n", __ pc());
-
   Register Rtable_addr = R10_ARG0,
            Rret_addr   = R11_ARG1,
            Rflags      = R12_ARG2,
@@ -3568,12 +3565,7 @@ void TemplateTable::invokespecial(int byte_no) {
 
   prepare_invoke(byte_no, R27_method, Rret_addr, noreg, Rreceiver, Rflags, R5_scratch1);
 
-    printf("invokespecial-2: %p\n", __ pc());
-
-    __ addi(R27_method, R27_method, 0);
-
   // Receiver NULL check.
-  tty->print_cr("TODO: explicit nullcheck is commented out");
   //__ null_check_throw(Rreceiver, -1, R5_scratch1);
 
   //__ profile_call(R5_scratch1, R6_scratch2);
@@ -3597,9 +3589,6 @@ void TemplateTable::invokestatic(int byte_no) {
   // FIXME_RISCV
   // __ profile_arguments_type(R27_method, R5_scratch1, R6_scratch2, false);
  
-   printf("invokestatic-5: %p\n", __ pc());
-   __ add(R5_scratch1, 0, R5_scratch1);
-
   __ call_from_interpreter(R27_method, Rret_addr, R5_scratch1, R6_scratch2);
 }
 
@@ -3636,9 +3625,6 @@ void TemplateTable::invokeinterface(int byte_no) {
   assert(byte_no == f1_byte, "use this argument");
   transition(vtos, vtos);
 
-  printf("invokeinterface: %p\n", __ pc());
-
-
   const Register Rscratch1        = R5_scratch1,
                  Rscratch2        = R6_scratch2,
                  Rmethod          = R13_ARG3,
@@ -3652,19 +3638,12 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   prepare_invoke(byte_no, Rinterface_klass, Rret_addr, Rmethod, Rreceiver, Rflags, Rscratch1);
 
-    printf("invokeinterface-3: %p\n", __ pc());
-    __ addi(Rmethod, Rmethod, 0);
-
-
   // First check for Object case, then private interface method,
   // then regular interface method.
 
   // Get receiver klass - this is also a null check
 //  __ null_check_throw(Rreceiver, oopDesc::klass_offset_in_bytes(), Rscratch2);
   __ load_klass(Rrecv_klass, Rreceiver);
-
-      printf("invokeinterface-4: %p\n", __ pc());
-
 
   // Check corner case object method.
   // Special case of invokeinterface called for virtual method of
@@ -3683,8 +3662,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   invokeinterface_object_method(Rrecv_klass, Rret_addr, Rflags, Rmethod, Rscratch1, Rscratch2);
   __ bind(LnotObjectMethod);
-
-  printf("invokeinterface-8: %p\n", __ pc());
 
   // Check for private method invocation - indicated by vfinal
   Label LnotVFinal, L_no_such_interface, L_subtype;
@@ -3716,21 +3693,16 @@ void TemplateTable::invokeinterface(int byte_no) {
   __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
                              L_no_such_interface, /*return_method=*/false);
 
-  printf("invokeinterface-33: %p\n", __ pc());
-
   __ profile_virtual_call(Rrecv_klass, Rscratch1, Rscratch2, false);
 
   // Find entry point to call.
 
   // Get declaring interface class from method
 
-  printf("invokeinterface-37: %p\n", __ pc());
-
   __ load_method_holder(Rinterface_klass, Rmethod);
 
   // Get itable index from method
   //__ lwa_PPC(Rindex, in_bytes(Method::itable_index_offset()), Rmethod);
-  printf("invokeinterface-40: %d %p\n", Method::itable_index_max, __ pc());
 
   __ lw(Rindex, Rmethod, in_bytes(Method::itable_index_offset()));
 
@@ -3740,14 +3712,10 @@ void TemplateTable::invokeinterface(int byte_no) {
 
 //  __ subfic_PPC(Rindex, Rindex, Method::itable_index_max);
 
-   printf("invokeinterface-42: %p\n", __ pc());
-
 
   // FIXME_RISCV use different registers
   __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
                              L_no_such_interface);
-
-   printf("invokeinterface-45: %p\n", __ pc());
 
    __ sub(Rmethod2, Rmethod2, 0);
 //  __ cmpdi_PPC(CCR0, Rmethod2, 0);
@@ -4002,47 +3970,57 @@ void TemplateTable::checkcast() {
   transition(atos, atos);
 
   Label Ldone, Lis_null, Lquicked, Lresolved;
-  Register Roffset         = R6_ARG4_PPC,
-           RobjKlass       = R4_ARG2_PPC,
-           RspecifiedKlass = R5_ARG3_PPC, // Generate_ClassCastException_verbose_handler will read value from this register.
+  Register Roffset         = R10_ARG0,
+           RobjKlass       = R11_ARG1,
+           RspecifiedKlass = R12_ARG2, // Generate_ClassCastException_verbose_handler will read value from this register.
            Rcpool          = R5_scratch1,
            Rtags           = R6_scratch2;
 
   // Null does not pass.
-  __ cmpdi_PPC(CCR0, R25_tos, 0);
-  __ beq_PPC(CCR0, Lis_null);
+  __ beqz(R25_tos, Lis_null);
 
   // Get constant pool tag to find out if the bytecode has already been "quickened".
   __ get_cpool_and_tags(Rcpool, Rtags);
 
   __ get_2_byte_integer_at_bcp(1, Roffset, InterpreterMacroAssembler::Unsigned);
 
-  __ addi_PPC(Rtags, Rtags, Array<u1>::base_offset_in_bytes());
-  __ lbzx_PPC(Rtags, Rtags, Roffset);
+  __ addi(Rtags, Rtags, Array<u1>::base_offset_in_bytes());
+  __ lbu(Rtags, Rtags, Roffset);
 
-  __ cmpdi_PPC(CCR0, Rtags, JVM_CONSTANT_Class);
-  __ beq_PPC(CCR0, Lquicked);
+  __ li(R13_ARG3, JVM_CONSTANT_Class);
+  __ sub(R13_ARG3, Rtags, R13_ARG3);
+  __ beqz(R13_ARG3, Lquicked);
 
   // Call into the VM to "quicken" instanceof.
   __ push_ptr();  // for GC
   call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::quicken_io_cc));
+ 
   __ get_vm_result_2(RspecifiedKlass);
   __ pop_ptr();   // Restore receiver.
-  __ b_PPC(Lresolved);
+
+  __ j(Lresolved);
 
   // Extract target class from constant pool.
   __ bind(Lquicked);
-  __ sldi_PPC(Roffset, Roffset, LogBytesPerWord);
+//    __ unimplemented("unimplemented part of checkcast");
+
+//  __ sldi_PPC(Roffset, Roffset, LogBytesPerWord);
+  __ slli(Roffset, Roffset, LogBytesPerWord);
+
   __ load_resolved_klass_at_offset(Rcpool, Roffset, RspecifiedKlass);
 
   // Do the checkcast.
   __ bind(Lresolved);
   // Get value klass in RobjKlass.
+
+      printf("checkcast-15: %p\n", __ pc());
+
   __ load_klass(RobjKlass, R25_tos);
   // Generate a fast subtype check. Branch to cast_ok if no failure. Return 0 if failure.
 
-  // FIXME_RISCV use different registers
-//  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
+    printf("checkcast-16: %p\n", __ pc());
+
+  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
 
   // Not a subtype; so must throw exception
   // Target class oop is in register R6_ARG4_PPC == RspecifiedKlass by convention.
@@ -4066,49 +4044,67 @@ void TemplateTable::instanceof() {
   transition(atos, itos);
 
   Label Ldone, Lis_null, Lquicked, Lresolved;
-  Register Roffset         = R6_ARG4_PPC,
-           RobjKlass       = R4_ARG2_PPC,
-           RspecifiedKlass = R5_ARG3_PPC,
+  Register Roffset         = R10_ARG0,
+           RobjKlass       = R11_ARG1,
+           RspecifiedKlass = R12_ARG2,
            Rcpool          = R5_scratch1,
            Rtags           = R6_scratch2;
 
   // Null does not pass.
-  __ cmpdi_PPC(CCR0, R25_tos, 0);
-  __ beq_PPC(CCR0, Lis_null);
+ // __ cmpdi_PPC(CCR0, R25_tos, 0);
+  __ beqz(R25_tos, Lis_null);
 
   // Get constant pool tag to find out if the bytecode has already been "quickened".
   __ get_cpool_and_tags(Rcpool, Rtags);
 
   __ get_2_byte_integer_at_bcp(1, Roffset, InterpreterMacroAssembler::Unsigned);
 
-  __ addi_PPC(Rtags, Rtags, Array<u1>::base_offset_in_bytes());
-  __ lbzx_PPC(Rtags, Rtags, Roffset);
+//  __ addi_PPC(Rtags, Rtags, Array<u1>::base_offset_in_bytes());
+//  __ lbzx_PPC(Rtags, Rtags, Roffset);
+  __ addi(Rtags, Rtags, Array<u1>::base_offset_in_bytes());
+  __ lbu(Rtags, Rtags, Roffset);
 
-  __ cmpdi_PPC(CCR0, Rtags, JVM_CONSTANT_Class);
-  __ beq_PPC(CCR0, Lquicked);
+    printf("instanceof-7: %p\n", __ pc());
+
+//  __ cmpdi_PPC(CCR0, Rtags, JVM_CONSTANT_Class);
+//  __ beq_PPC(CCR0, Lquicked);
+
+    __ li(R13_ARG3, JVM_CONSTANT_Class);
+    __ beq(R13_ARG3, Rtags, Lquicked);
+
+//    __ unimplemented("instanceof: it is not JVM_CONSTANT_Class");
 
   // Call into the VM to "quicken" instanceof.
   __ push_ptr();  // for GC
   call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::quicken_io_cc));
   __ get_vm_result_2(RspecifiedKlass);
   __ pop_ptr();   // Restore receiver.
-  __ b_PPC(Lresolved);
+  __ j(Lresolved);
 
   // Extract target class from constant pool.
   __ bind(Lquicked);
-  __ sldi_PPC(Roffset, Roffset, LogBytesPerWord);
+//  __ sldi_PPC(Roffset, Roffset, LogBytesPerWord);
+//  __ load_resolved_klass_at_offset(Rcpool, Roffset, RspecifiedKlass);
+
+  __ slli(Roffset, Roffset, LogBytesPerWord);
   __ load_resolved_klass_at_offset(Rcpool, Roffset, RspecifiedKlass);
+
 
   // Do the checkcast.
   __ bind(Lresolved);
   // Get value klass in RobjKlass.
   __ load_klass(RobjKlass, R25_tos);
+
+    printf("instanceof-17: %p\n", __ pc());
+
+
   // Generate a fast subtype check. Branch to cast_ok if no failure. Return 0 if failure.
-  __ li_PPC(R25_tos, 1);
+//  __ li_PPC(R25_tos, 1);
+  __ li(R25_tos, 1);
 
   // FIXME_RISCV use different registers
-  //  __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
-  __ li_PPC(R25_tos, 0);
+    __ gen_subtype_check(RobjKlass, RspecifiedKlass, /*3 temp regs*/ Roffset, Rcpool, Rtags, /*target if subtype*/ Ldone);
+  __ li(R25_tos, 0l);
 
   if (ProfileInterpreter) {
     __ b_PPC(Ldone);
@@ -4310,6 +4306,10 @@ void TemplateTable::monitorexit() {
 
   // Fell through without finding the basic obj lock => throw up!
   __ bind(Lillegal_monitor_state);
+
+Label Ldone;
+__ j(Ldone);
+
   __ unimplemented("IllegalMonitorStateException");
   //call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::throw_illegal_monitor_state_exception)); FIXME_RISCV
   __ should_not_reach_here();
@@ -4318,6 +4318,9 @@ void TemplateTable::monitorexit() {
   __ bind(Lfound);
   __ addi(Rcurrent_monitor, Rcurrent_obj_addr, -BasicObjectLock::obj_offset_in_bytes());
   __ unlock_object(Rcurrent_monitor);
+
+
+__ bind(Ldone);
 }
 
 // ============================================================================

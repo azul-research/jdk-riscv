@@ -1627,8 +1627,6 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   int scan_step   = itableOffsetEntry::size() * wordSize;
   int log_vte_size= exact_log2(vtableEntry::size_in_bytes());
 
-   printf("lookup-1: %d %p\n", return_method, pc());
-
   lwu(scan_temp, recv_klass, in_bytes(Klass::vtable_length_offset()));
   // %%% We should store the aligned, prescaled offset in the klassoop.
   // Then the next several instructions would fold away.
@@ -1644,7 +1642,6 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
       slli(method_result, itable_offset, logMEsize);
       if (itentry_off) { addi(method_result, method_result, itentry_off); }
       add(method_result, method_result, recv_klass);
-      printf("lookup-3.1: %p\n", pc());
     } else {
 	    // FixME
       long itable_offset = (long)itable_index.as_constant();
@@ -1660,8 +1657,6 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   // }
   Label search, found_method;
 
-  printf("lookup-5: %p\n", pc());
-  addi(intf_klass, intf_klass, 0);
 
   for (int peel = 1; peel >= 0; peel--) {
     // %%%% Could load both offset and interface in one ldx, if they were
@@ -1694,9 +1689,6 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
   }
 
   bind(found_method);
-
-  printf("lookup-9: %p\n", pc());
-
 
   // Got a hit.
   if (return_method) {
@@ -1734,7 +1726,6 @@ void MacroAssembler::check_klass_subtype_fast_path(Register sub_klass,
                                                    Label* L_failure,
                                                    Label* L_slow_path,
                                                    RegisterOrConstant super_check_offset) {
-
   const Register check_cache_offset = temp1_reg;
   const Register cached_super       = temp2_reg;
 
@@ -1762,21 +1753,30 @@ void MacroAssembler::check_klass_subtype_fast_path(Register sub_klass,
   // We move this check to the front of the fast path because many
   // type checks are in fact trivially successful in this manner,
   // so we get a nicely predicted branch right at the start of the check.
-  cmpd_PPC(CCR0, sub_klass, super_klass);
-  beq_PPC(CCR0, *L_success);
+
+  beq(sub_klass, super_klass, *L_success);
+
+  addi(sub_klass, sub_klass, 0);
+  addi(super_klass, super_klass, 0);
+
 
   // Check the supertype display:
   if (must_load_sco) {
     // The super check offset is always positive...
-    lwz_PPC(check_cache_offset, sco_offset, super_klass);
+    lwu(check_cache_offset, super_klass, sco_offset);
     super_check_offset = RegisterOrConstant(check_cache_offset);
     // super_check_offset is register.
     assert_different_registers(sub_klass, super_klass, cached_super, super_check_offset.as_register());
   }
   // The loaded value is the offset from KlassOopDesc.
+  //
 
-  ld_PPC(cached_super, super_check_offset, sub_klass);
-  cmpd_PPC(CCR0, cached_super, super_klass);
+
+//  ld_PPC(cached_super, super_check_offset, sub_klass);
+  ld(cached_super, sub_klass, super_check_offset);
+
+
+//  cmpd_PPC(CCR0, cached_super, super_klass);
 
   // This check has worked decisively for primary supers.
   // Secondary supers are sought in the super_cache ('super_cache_addr').
@@ -1789,18 +1789,46 @@ void MacroAssembler::check_klass_subtype_fast_path(Register sub_klass,
   // So if it was a primary super, we can just fail immediately.
   // Otherwise, it's the slow path for us (no success at this point).
 
-#define FINAL_JUMP(label) if (&(label) != &L_fallthrough) { b_PPC(label); }
+#define FINAL_JUMP(label) if (&(label) != &L_fallthrough) { j(label); }
 
   if (super_check_offset.is_register()) {
-    beq_PPC(CCR0, *L_success);
-    cmpwi_PPC(CCR0, super_check_offset.as_register(), sc_offset);
+   // beq_PPC(CCR0, *L_success);
+    beq(cached_super, super_klass, *L_success);
+
+//    unimplemented("fast path. super_check_offset.is_register() true, ne");
+ //   cmpwi_PPC(CCR0, super_check_offset.as_register(), sc_offset);
     if (L_failure == &L_fallthrough) {
+	    unimplemented("fast path. super_check_offset.is_register() true, ne 1");
+
       beq_PPC(CCR0, *L_slow_path);
     } else {
-      bne_PPC(CCR0, *L_failure);
+//	    unimplemented("fast path. super_check_offset.is_register() true, ne 2");
+
+//      bne_PPC(CCR0, *L_failure);
+  Label lbl0;
+
+       addi(super_check_offset.as_register(), super_check_offset.as_register(), -sc_offset);
+       beqz(super_check_offset.as_register(), lbl0);
+
+        addi(super_check_offset.as_register(), super_check_offset.as_register(), sc_offset);
+
+        j(*L_failure);
+
+
+         bind(lbl0);
+        addi(super_check_offset.as_register(), super_check_offset.as_register(), sc_offset);
       FINAL_JUMP(*L_slow_path);
+
+//
+//
+//
+ //      bne(super_check_offset.as_register(), sc_offset, *L_failure);
+
+//      FINAL_JUMP(*L_slow_path);
     }
   } else {
+	      unimplemented("fast path. super_check_offset.is_register() false");
+
     if (super_check_offset.as_constant() == sc_offset) {
       // Need a slow path; fast failure is impossible.
       if (L_slow_path == &L_fallthrough) {
@@ -1830,6 +1858,8 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
                                                    Register temp2_reg,
                                                    Label* L_success,
                                                    Register result_reg) {
+	unimplemented("check_klass_subtype_slow_path\n");
+
   const Register array_ptr = temp1_reg; // current value from cache array
   const Register temp      = temp2_reg;
 

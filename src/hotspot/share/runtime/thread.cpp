@@ -3957,8 +3957,14 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
   initialize_class(vmSymbols::java_lang_ref_Finalizer(), CHECK);
 
+  printf("Threads::initialize_java_lang_classes-20\n");
+
   // Phase 1 of the system initialization in the library, java.lang.System class initialization
   call_initPhase1(CHECK);
+
+  return;
+  printf("Threads::initialize_java_lang_classes-21\n");
+
 
   // get the Java runtime name after java.lang.System is initialized
   JDK_Version::set_runtime_name(get_java_runtime_name(THREAD));
