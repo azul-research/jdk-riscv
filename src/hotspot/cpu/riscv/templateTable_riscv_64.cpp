@@ -3598,8 +3598,7 @@ void TemplateTable::invokeinterface_object_method(Register Rrecv_klass,
                                                   Register Rmethod,
                                                   Register Rtemp1,
                                                   Register Rtemp2) {
-// FIXME_RISCV use different registers
-//  assert_different_registers(Rmethod, Rret, Rrecv_klass, Rflags, Rtemp1, Rtemp2);
+  assert_different_registers(Rmethod, Rret, Rrecv_klass, Rflags, Rtemp1, Rtemp2);
   Label LnotFinal;
 
   // Check for vfinal.
@@ -3689,7 +3688,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
   __ bind(LnotVFinal);
 
-  // FIXME_RISCV use different registers
   __ lookup_interface_method(Rrecv_klass, Rinterface_klass, noreg, noreg, Rscratch1, Rscratch2,
                              L_no_such_interface, /*return_method=*/false);
 
@@ -3712,8 +3710,6 @@ void TemplateTable::invokeinterface(int byte_no) {
 
 //  __ subfic_PPC(Rindex, Rindex, Method::itable_index_max);
 
-
-  // FIXME_RISCV use different registers
   __ lookup_interface_method(Rrecv_klass, Rinterface_klass, Rindex, Rmethod2, Rscratch1, Rscratch2,
                              L_no_such_interface);
 
@@ -4165,10 +4161,6 @@ void TemplateTable::athrow() {
 // at next monitor exit.
 void TemplateTable::monitorenter() {
   transition(atos, vtos);
-
-  __ addi(R25_tos, R25_tos, 0);
-  __ addi(R23_esp, R23_esp, 0);
-
 
   __ verify_oop(R25_tos);
 

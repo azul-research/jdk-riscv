@@ -116,9 +116,12 @@ bool frame::safe_for_sender(JavaThread *thread) {
       return false;
     }
 
-    abi_minframe_ppc* sender_abi = (abi_minframe_ppc*) fp;
-    intptr_t* sender_sp = (intptr_t*) fp;
-    address   sender_pc = (address) sender_abi->lr;;
+    tty->print_cr("WARNING: Dangerous unchecked frame code here"); // FIXME_RISCV
+
+    abi_frame* sender_abi = (abi_frame*) fp;
+    address sender_sp = (address) this->sender_sp();
+    address sender_fp = (address) this->sender_fp();
+    address sender_pc = this->sender_pc();
 
     // We must always be able to find a recognizable pc.
     CodeBlob* sender_blob = CodeCache::find_blob_unsafe(sender_pc);
@@ -131,18 +134,16 @@ bool frame::safe_for_sender(JavaThread *thread) {
       return false;
     }
 
-    // It should be safe to construct the sender though it might not be valid.
-
-      frame sender(sender_sp, NULL /* FIXME_RISCV sender_fp */, sender_pc);
-
     // Do we have a valid fp?
-    address sender_fp = (address) sender.fp();
 
     // sender_fp must be within the stack and above (but not
     // equal) current frame's fp.
     if (sender_fp > thread->stack_base() || sender_fp <= fp) {
         return false;
     }
+
+    // It should be safe to construct the sender though it might not be valid.
+    frame sender(sender_sp, sender_fp, sender_pc);
 
     // If the potential sender is the interpreter then we can do some more checking.
     if (Interpreter::contains(sender_pc)) {

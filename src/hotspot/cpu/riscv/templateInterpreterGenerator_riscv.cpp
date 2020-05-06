@@ -1626,8 +1626,6 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   __ bind(Lno_locals);
 
-  synchronized = false; // FIXME_RISCV
-
   // --------------------------------------------------------------------------
   // Counter increment and overflow check.
   Label invocation_counter_overflow,
@@ -1635,7 +1633,6 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
         profile_method_continue;
   if (inc_counter || ProfileInterpreter) {
 
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     Register Rdo_not_unlock_if_synchronized_addr = R5_scratch1;
     if (synchronized) {
       // Since at this point in the method invocation the exception handler
@@ -1646,12 +1643,12 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
       // check this thread local flag.
       // This flag has two effects, one is to force an unwind in the topmost
       // interpreter frame and not perform an unlock while doing so.
-      __ li_PPC(R0, 1);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ li(R6_scratch2, 1);
+      __ sb(R6_scratch2, thread_(do_not_unlock_if_synchronized));
     }
 
     // Argument and return type profiling.
-    __ profile_parameters_type(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC, R6_ARG4_PPC);
+    __ profile_parameters_type(R10_ARG0, R11_ARG1, R12_ARG2, R13_ARG3);
 
     // Increment invocation counter and check for overflow.
     if (inc_counter) {
@@ -1662,39 +1659,35 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
     __ bind(profile_method_continue);
   }
 
-//  bang_stack_shadow_pages(false); // FIXME_RISCV, TODO check that this is unnecessary
+  bang_stack_shadow_pages(false);
 
   if (inc_counter || ProfileInterpreter) {
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     // Reset the _do_not_unlock_if_synchronized flag.
     if (synchronized) {
-      __ li_PPC(R0, 0);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ sb(R0_ZERO, thread_(do_not_unlock_if_synchronized));
     }
   }
 
   // --------------------------------------------------------------------------
   // Locking of synchronized methods. Must happen AFTER invocation_counter
   // check and stack overflow check, so method is not locked if overflows.
-  if (synchronized) {
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
-    lock_method(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC);
+
+    if (synchronized) {
+      tty->print_cr("synchronized method is not implemented yet");
+//    lock_method(R10_ARG0, R11_ARG1, R12_ARG2); // TODO_RISC_V
   }
-#ifdef ASSERT // FIXME_RISCV
-//  else {
-//    Label Lok;
-//    __ lwz_PPC(R0, in_bytes(Method::access_flags_offset()), R27_method);
-//    __ andi__PPC(R0, R0, JVM_ACC_SYNCHRONIZED);
-//    __ asm_assert_eq("method needs synchronization", 0x8521);
-//    __ bind(Lok);
-//  }
+#ifdef ASSERT
+  else {
+    __ lwu(R5_scratch1, method_(access_flags));
+    __ andi(R5_scratch1, R5_scratch1, JVM_ACC_SYNCHRONIZED);
+    __ asm_assert_eq(R5_scratch1, R0_ZERO, "method needs synchronization", 0x8521);
+  }
 #endif // ASSERT
 
   __ verify_thread();
 
   // --------------------------------------------------------------------------
-  // JVMTI support FIXME_RISCV
-//  __ notify_method_entry();
+  __ notify_method_entry();
 
   // --------------------------------------------------------------------------
   // Start executing instructions.
@@ -1705,7 +1698,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // Out of line counter overflow and MDO creation code.
   if (ProfileInterpreter) { // FIXME_RISCV
     // We have decided to profile this method in the interpreter.
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV unimplemented
     __ bind(profile_method);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::profile_method));
     __ set_method_data_pointer_for_bcp();
@@ -1713,7 +1706,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   }
 
   if (inc_counter) {
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV unimplemented
     // Handle invocation counter overflow.
     __ bind(invocation_counter_overflow);
     generate_counter_overflow(profile_method_continue);

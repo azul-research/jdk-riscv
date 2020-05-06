@@ -785,9 +785,9 @@ REGISTER_DECLARATION(Register, R19_inline_cache_reg_PPC, R19);
 // Temporary registers to be used within frame manager. We can use
 // the non-volatiles because the call stub has saved them.
 // Use only non-volatile registers in order to keep values across C-calls.
-REGISTER_DECLARATION(Register, R19_templateTableBase,   R19);
-REGISTER_DECLARATION(Register, R20_TOC,                 R20);
-REGISTER_DECLARATION(Register, R21_sender_SP,           R21);
+REGISTER_DECLARATION(Register, R19_templateTableBase,   R19); // asm s3
+REGISTER_DECLARATION(Register, R20_TOC,                 R20); // asm s4
+REGISTER_DECLARATION(Register, R21_sender_SP,           R21); // asm s5
 #ifndef DONT_USE_REGISTER_DEFINES
 #define R19_templateTableBase   AS_REGISTER(Register, R19)
 #define R20_TOC                 AS_REGISTER(Register, R20)
@@ -795,8 +795,8 @@ REGISTER_DECLARATION(Register, R21_sender_SP,           R21);
 #endif
 
 // Scratch registers are volatile.
-REGISTER_DECLARATION(Register, R5_scratch1, R5);
-REGISTER_DECLARATION(Register, R6_scratch2, R6);
+REGISTER_DECLARATION(Register, R5_scratch1, R5); // asm t0
+REGISTER_DECLARATION(Register, R6_scratch2, R6); // asm t1
 #ifndef DONT_USE_REGISTER_DEFINES
 #define R5_scratch1   AS_REGISTER(Register, R5)
 #define R6_scratch2   AS_REGISTER(Register, R6)
@@ -805,13 +805,13 @@ REGISTER_DECLARATION(Register, R6_scratch2, R6);
 
 // Register declarations to be used in frame manager assembly code.
 // Use only callee save registers in order to keep values across C-calls.
-REGISTER_DECLARATION(Register, R22_bcp,        R22);
-REGISTER_DECLARATION(Register, R23_esp,        R23);
+REGISTER_DECLARATION(Register, R22_bcp,        R22);      // asm s6
+REGISTER_DECLARATION(Register, R23_esp,        R23);      // asm s7
 REGISTER_DECLARATION(FloatRegister, F23_ftos,  F23);
-REGISTER_DECLARATION(Register, R24_thread,     R24);      // address of current thread
-REGISTER_DECLARATION(Register, R25_tos,        R25);      // address of Java tos (prepushed).
-REGISTER_DECLARATION(Register, R26_locals,     R26);      // address of first param slot (receiver).
-REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current method
+REGISTER_DECLARATION(Register, R24_thread,     R24);      // address of current thread                 asm s8
+REGISTER_DECLARATION(Register, R25_tos,        R25);      // address of Java tos (prepushed).          asm s9
+REGISTER_DECLARATION(Register, R26_locals,     R26);      // address of first param slot (receiver).   asm s10
+REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current method                 asm s11
 #ifndef DONT_USE_REGISTER_DEFINES
 #define R22_bcp           AS_REGISTER(Register, R22)
 #define R23_esp           AS_REGISTER(Register, R23)
@@ -826,34 +826,34 @@ REGISTER_DECLARATION(Register, R27_method,     R27);      // address of current 
 //    Lmonitors  : monitor pointer
 //    LcpoolCache: constant pool cache
 //    mdx: method data index
-#define R18_monitor           AS_REGISTER(Register, R18)
-#define R29_mdx               AS_REGISTER(Register, R29)
-#define R9_constPoolCache     AS_REGISTER(Register, R9)
+#define R18_monitor           AS_REGISTER(Register, R18)  // asm s2
+#define R29_mdx               AS_REGISTER(Register, R29)  // asm t4
+#define R9_constPoolCache     AS_REGISTER(Register, R9)   // asm s1
 #endif
 
 // Common register declarations used in assembler code.
 REGISTER_DECLARATION(Register, R0_ZERO,  R0);  // saver: n/a
-REGISTER_DECLARATION(Register, R1_RA,    R1);  // saver: caller
-REGISTER_DECLARATION(Register, R2_SP,    R2);  // saver: callee
-REGISTER_DECLARATION(Register, R5_TMP0,  R5);  // saver: caller
-REGISTER_DECLARATION(Register, R6_TMP1,  R6);  // saver: caller
-REGISTER_DECLARATION(Register, R7_TMP2,  R7);  // saver: caller
-REGISTER_DECLARATION(Register, R8_FP,    R8);  // saver: callee
-REGISTER_DECLARATION(Register, R10_RET1, R10); // saver: caller
-REGISTER_DECLARATION(Register, R10_ARG0, R10); // saver: caller
-REGISTER_DECLARATION(Register, R11_RET2, R11); // saver: caller
-REGISTER_DECLARATION(Register, R11_ARG1, R11); // saver: caller
-REGISTER_DECLARATION(Register, R12_ARG2, R12); // saver: caller
-REGISTER_DECLARATION(Register, R13_ARG3, R13); // saver: caller
-REGISTER_DECLARATION(Register, R14_ARG4, R14); // saver: caller
-REGISTER_DECLARATION(Register, R15_ARG5, R15); // saver: caller
-REGISTER_DECLARATION(Register, R16_ARG6, R16); // saver: caller
-REGISTER_DECLARATION(Register, R17_ARG7, R17); // saver: caller
+REGISTER_DECLARATION(Register, R1_RA,    R1);  // saver: caller         asm ra
+REGISTER_DECLARATION(Register, R2_SP,    R2);  // saver: callee         asm sp
+REGISTER_DECLARATION(Register, R5_TMP0,  R5);  // saver: caller         asm t0
+REGISTER_DECLARATION(Register, R6_TMP1,  R6);  // saver: caller         asm t1
+REGISTER_DECLARATION(Register, R7_TMP2,  R7);  // saver: caller         asm t2
+REGISTER_DECLARATION(Register, R8_FP,    R8);  // saver: callee         asm s0 or fp
+REGISTER_DECLARATION(Register, R10_RET1, R10); // saver: caller         asm a0
+REGISTER_DECLARATION(Register, R10_ARG0, R10); // saver: caller         asm a0
+REGISTER_DECLARATION(Register, R11_RET2, R11); // saver: caller         asm a1
+REGISTER_DECLARATION(Register, R11_ARG1, R11); // saver: caller         asm a1
+REGISTER_DECLARATION(Register, R12_ARG2, R12); // saver: caller         asm a2
+REGISTER_DECLARATION(Register, R13_ARG3, R13); // saver: caller         asm a3
+REGISTER_DECLARATION(Register, R14_ARG4, R14); // saver: caller         asm a4
+REGISTER_DECLARATION(Register, R15_ARG5, R15); // saver: caller         asm a5
+REGISTER_DECLARATION(Register, R16_ARG6, R16); // saver: caller         asm a6
+REGISTER_DECLARATION(Register, R17_ARG7, R17); // saver: caller         asm a7
 // R19_S3 - R27_S11
-REGISTER_DECLARATION(Register, R28_TMP3, R28); // saver: caller
-REGISTER_DECLARATION(Register, R29_TMP4, R29); // saver: caller
-REGISTER_DECLARATION(Register, R30_TMP5, R30); // saver: caller
-REGISTER_DECLARATION(Register, R31_TMP6, R31); // saver: caller
+REGISTER_DECLARATION(Register, R28_TMP3, R28); // saver: caller         asm t3
+REGISTER_DECLARATION(Register, R29_TMP4, R29); // saver: caller         asm t4
+REGISTER_DECLARATION(Register, R30_TMP5, R30); // saver: caller         asm t5
+REGISTER_DECLARATION(Register, R31_TMP6, R31); // saver: caller         asm t6
 
 REGISTER_DECLARATION(FloatRegister, F0_TMP0,   F0);  // saver: caller
 REGISTER_DECLARATION(FloatRegister, F1_TMP1,   F1);  // saver: caller

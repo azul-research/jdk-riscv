@@ -821,6 +821,7 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
                                                   bool throw_monitor_exception,
                                                   bool install_monitor_exception) {
   BLOCK_COMMENT("remove_activation {");
+  tty->print_cr("unlock_if_synchronized_method in remove activation still not implemented");
 #if 0 // TODO_RISCV
   unlock_if_synchronized_method(state, throw_monitor_exception, install_monitor_exception);
 #endif
@@ -869,8 +870,6 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
 //
 void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
   if (UseHeavyMonitors) {
-    addi(monitor, monitor, 0);
-    addi(object, object, 0);
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter),
             monitor, /*check_for_exceptions=*/true);
   } else {
