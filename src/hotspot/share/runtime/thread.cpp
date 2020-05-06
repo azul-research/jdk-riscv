@@ -3752,6 +3752,498 @@ void print_jmm_test_results(TRAPS) {
   fprintf(stderr, "b_outruns_a: %i\n", b_outruns_a);
 }
 
+static void test_op2_int(const int *values, int size, Klass *klass, TRAPS) {
+  Method *iadd = findTestMethod(InstanceKlass::cast(klass), "testIadd");
+  Method *isub = findTestMethod(InstanceKlass::cast(klass), "testIsub");
+  Method *imul = findTestMethod(InstanceKlass::cast(klass), "testImul");
+  Method *idiv = findTestMethod(InstanceKlass::cast(klass), "testIdiv");
+  Method *irem = findTestMethod(InstanceKlass::cast(klass), "testIrem");
+  Method *ior = findTestMethod(InstanceKlass::cast(klass), "testIor");
+  Method *iand = findTestMethod(InstanceKlass::cast(klass), "testIand");
+  Method *ixor = findTestMethod(InstanceKlass::cast(klass), "testIxor");
+
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      int a = values[i];
+      int b = values[j];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(2);
+      iargs.push_int(a);
+      iargs.push_int(b);
+
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iadd, &iargs, CHECK);
+        tty->print_cr("%i + %i = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, isub, &iargs, CHECK);
+        tty->print_cr("%i - %i = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, imul, &iargs, CHECK);
+        tty->print_cr("%i * %i = %i", a, b, result.get_jint());
+      }
+      if (b != 0) {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, idiv, &iargs, CHECK);
+        tty->print_cr("%i / %i = %i", a, b, result.get_jint());
+      }
+      if (b != 0) {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, irem, &iargs, CHECK);
+        tty->print_cr("%i %% %i = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, ior, &iargs, CHECK);
+        tty->print_cr("%i | %i = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iand, &iargs, CHECK);
+        tty->print_cr("%i & %i = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, ixor, &iargs, CHECK);
+        tty->print_cr("%i ^ %i = %i", a, b, result.get_jint());
+      }
+    }
+  }
+}
+
+static void test_op2_long(const long long *values, int size, Klass *klass, TRAPS) {
+  Method *ladd = findTestMethod(InstanceKlass::cast(klass), "testJadd");
+  Method *lsub = findTestMethod(InstanceKlass::cast(klass), "testJsub");
+  Method *lmul = findTestMethod(InstanceKlass::cast(klass), "testJmul");
+  Method *ldiv = findTestMethod(InstanceKlass::cast(klass), "testJdiv");
+  Method *lrem = findTestMethod(InstanceKlass::cast(klass), "testJrem");
+  Method *lor = findTestMethod(InstanceKlass::cast(klass), "testJor");
+  Method *land = findTestMethod(InstanceKlass::cast(klass), "testJand");
+  Method *lxor = findTestMethod(InstanceKlass::cast(klass), "testJxor");
+  Method *lcmp = findTestMethod(InstanceKlass::cast(klass), "testJcmp");
+
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      long long a = values[i];
+      long long b = values[j];
+
+      JavaCallArguments largs(2);
+      largs.push_long(a);
+      largs.push_long(b);
+
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, ladd, &largs, CHECK);
+        tty->print_cr("%lli + %lli = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lsub, &largs, CHECK);
+        tty->print_cr("%lli - %lli = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lmul, &largs, CHECK);
+        tty->print_cr("%lli * %lli = %li", a, b, result.get_jlong());
+      }
+      if (b != 0) {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, ldiv, &largs, CHECK);
+        tty->print_cr("%lli / %lli = %li", a, b, result.get_jlong());
+      }
+      if (b != 0) {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lrem, &largs, CHECK);
+        tty->print_cr("%lli %% %lli = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lor, &largs, CHECK);
+        tty->print_cr("%lli | %lli = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, land, &largs, CHECK);
+        tty->print_cr("%lli & %lli = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lxor, &largs, CHECK);
+        tty->print_cr("%lli ^ %lli = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, lcmp, &largs, CHECK);
+        tty->print_cr("%lli <> %lli = %i", a, b, result.get_jint());
+      }
+    }
+  }
+}
+
+static void test_op2_float(const float *values, int size, Klass *klass, TRAPS) {
+  Method *fadd = findTestMethod(InstanceKlass::cast(klass), "testFadd");
+  Method *fsub = findTestMethod(InstanceKlass::cast(klass), "testFsub");
+  Method *fmul = findTestMethod(InstanceKlass::cast(klass), "testFmul");
+  Method *fdiv = findTestMethod(InstanceKlass::cast(klass), "testFdiv");
+  Method *frem = findTestMethod(InstanceKlass::cast(klass), "testFrem");
+  Method *fcmpg = findTestMethod(InstanceKlass::cast(klass), "testFcmpg");
+  Method *fcmpl = findTestMethod(InstanceKlass::cast(klass), "testFcmpl");
+
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      float a = values[i];
+      float b = values[j];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(2);
+      iargs.push_float(a);
+      iargs.push_float(b);
+
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fadd, &iargs, CHECK);
+        tty->print_cr("%f + %f = %f", a, b, result.get_jfloat());
+      }
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fsub, &iargs, CHECK);
+        tty->print_cr("%f - %f = %f", a, b, result.get_jfloat());
+      }
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fmul, &iargs, CHECK);
+        tty->print_cr("%f * %f = %f", a, b, result.get_jfloat());
+      }
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fdiv, &iargs, CHECK);
+        tty->print_cr("%f / %f = %f", a, b, result.get_jfloat());
+      }
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, frem, &iargs, CHECK);
+        tty->print_cr("%f %% %f = %f", a, b, result.get_jfloat());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, fcmpg, &iargs, CHECK);
+        tty->print_cr("%f <g> %f = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, fcmpl, &iargs, CHECK);
+        tty->print_cr("%f <l> %f = %i", a, b, result.get_jint());
+      }
+    }
+  }
+}
+
+static void test_op2_double(const double *values, int size, Klass *klass, TRAPS) {
+  Method *dadd = findTestMethod(InstanceKlass::cast(klass), "testDadd");
+  Method *dsub = findTestMethod(InstanceKlass::cast(klass), "testDsub");
+  Method *dmul = findTestMethod(InstanceKlass::cast(klass), "testDmul");
+  Method *ddiv = findTestMethod(InstanceKlass::cast(klass), "testDdiv");
+  Method *drem = findTestMethod(InstanceKlass::cast(klass), "testDrem");
+  Method *dcmpg = findTestMethod(InstanceKlass::cast(klass), "testDcmpg");
+  Method *dcmpl = findTestMethod(InstanceKlass::cast(klass), "testDcmpl");
+
+  for (int i = 0; i < size; ++i) {
+    for (int j = 0; j < size; ++j) {
+      double a = values[i];
+      double b = values[j];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(2);
+      iargs.push_double(a);
+      iargs.push_double(b);
+
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, dadd, &iargs, CHECK);
+        tty->print_cr("%lf + %lf = %lf", a, b, result.get_jdouble());
+      }
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, dsub, &iargs, CHECK);
+        tty->print_cr("%lf - %lf = %lf", a, b, result.get_jdouble());
+      }
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, dmul, &iargs, CHECK);
+        tty->print_cr("%lf * %lf = %lf", a, b, result.get_jdouble());
+      }
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, ddiv, &iargs, CHECK);
+        tty->print_cr("%lf / %lf = %lf", a, b, result.get_jdouble());
+      }
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, drem, &iargs, CHECK);
+        tty->print_cr("%lf %% %lf = %lf", a, b, result.get_jdouble());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, dcmpg, &iargs, CHECK);
+        tty->print_cr("%lf <g> %lf = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, dcmpl, &iargs, CHECK);
+        tty->print_cr("%lf <l> %lf = %i", a, b, result.get_jint());
+      }
+    }
+  }
+}
+
+static void test_unary_int(const int *values, int size, Klass *klass, TRAPS) {
+  Method *ineg = findTestMethod(InstanceKlass::cast(klass), "testIneg");
+  Method *iincm128 = findTestMethod(InstanceKlass::cast(klass), "testIincm128");
+  Method *iincm127 = findTestMethod(InstanceKlass::cast(klass), "testIincm127");
+  Method *iincm1 = findTestMethod(InstanceKlass::cast(klass), "testIincm1");
+  Method *iinc0 = findTestMethod(InstanceKlass::cast(klass), "testIinc0");
+  Method *iinc1 = findTestMethod(InstanceKlass::cast(klass), "testIinc1");
+  Method *iinc127 = findTestMethod(InstanceKlass::cast(klass), "testIinc127");
+
+  for (int i = 0; i < size; ++i) {
+      int x = values[i];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(1);
+      iargs.push_int(x);
+
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, ineg, &iargs, CHECK);
+        tty->print_cr("-(%i) = %i", x, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iincm128, &iargs, CHECK);
+        tty->print_cr("%i ++ -128 = %i", x, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iincm127, &iargs, CHECK);
+        tty->print_cr("%i ++ -127 = %i", x, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iincm1, &iargs, CHECK);
+        tty->print_cr("%i ++ -1 = %i", x, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iinc0, &iargs, CHECK);
+        tty->print_cr("%i ++ 0 = %i", x, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iinc1, &iargs, CHECK);
+        tty->print_cr("%i ++ 1 = %i", x, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, iinc127, &iargs, CHECK);
+        tty->print_cr("%i ++ 127 = %i", x, result.get_jint());
+      }
+    }
+}
+
+static void test_unary_long(const long long *values, int size, Klass *klass, TRAPS) {
+  Method *lneg = findTestMethod(InstanceKlass::cast(klass), "testJneg");
+
+  for (int i = 0; i < size; ++i) {
+      long long x = values[i];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(1);
+      iargs.push_long(x);
+
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lneg, &iargs, CHECK);
+        tty->print_cr("-(%lli) = %li", x, result.get_jlong());
+      }
+    }
+}
+
+static void test_unary_float(const float *values, int size, Klass *klass, TRAPS) {
+  Method *fneg = findTestMethod(InstanceKlass::cast(klass), "testFneg");
+
+  for (int i = 0; i < size; ++i) {
+      float x = values[i];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(1);
+      iargs.push_float(x);
+
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fneg, &iargs, CHECK);
+        tty->print_cr("-(%f) = %f", x, result.get_jfloat());
+      }
+    }
+}
+
+static void test_unary_double(const double *values, int size, Klass *klass, TRAPS) {
+  Method *dneg = findTestMethod(InstanceKlass::cast(klass), "testDneg");
+
+  for (int i = 0; i < size; ++i) {
+      double x = values[i];
+
+      ResourceMark rm;
+      JavaCallArguments iargs(1);
+      iargs.push_double(x);
+
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, dneg, &iargs, CHECK);
+        tty->print_cr("-(%lf) = %lf", x, result.get_jdouble());
+      }
+    }
+}
+
+static void test_shift_int(const int *values, int val_size, const int *shifts, int sh_size, Klass *klass, TRAPS) {
+  Method *ishl =  findTestMethod(InstanceKlass::cast(klass), "testIshl");
+  Method *ishr =  findTestMethod(InstanceKlass::cast(klass), "testIshr");
+  Method *iushr = findTestMethod(InstanceKlass::cast(klass), "testIushr");
+
+  for (int i = 0; i < val_size; ++i) {
+      for (int j = 0; j < sh_size; ++j) {
+          int a = values[i];
+          int b = shifts[j];
+
+          ResourceMark rm;
+          JavaCallArguments iargs(2);
+          iargs.push_int(a);
+          iargs.push_int(b);
+
+          {
+            JavaValue result(T_INT);
+            JavaCalls::call(&result, ishl, &iargs, CHECK);
+            tty->print_cr("%i << %i = %i", a, b, result.get_jint());
+          }
+          {
+            JavaValue result(T_INT);
+            JavaCalls::call(&result, ishr, &iargs, CHECK);
+            tty->print_cr("%i >> %i = %i", a, b, result.get_jint());
+          }
+          {
+            JavaValue result(T_INT);
+            JavaCalls::call(&result, iushr, &iargs, CHECK);
+            tty->print_cr("%i >>(u) %i = %i", a, b, result.get_jint());
+          }
+        }
+    }
+}
+
+static void test_shift_long(const long long *values, int val_size, const int *shifts, int sh_size, Klass *klass, TRAPS) {
+  Method *lshl =  findTestMethod(InstanceKlass::cast(klass), "testJshl");
+  Method *lshr =  findTestMethod(InstanceKlass::cast(klass), "testJshr");
+  Method *lushr = findTestMethod(InstanceKlass::cast(klass), "testJushr");
+
+  for (int i = 0; i < val_size; ++i) {
+      for (int j = 0; j < sh_size; ++j) {
+          long long a = values[i];
+          int b = shifts[j];
+
+          ResourceMark rm;
+          JavaCallArguments iargs(2);
+          iargs.push_long(a);
+          iargs.push_int(b);
+
+          {
+            JavaValue result(T_LONG);
+            JavaCalls::call(&result, lshl, &iargs, CHECK);
+            tty->print_cr("%lli << %i = %li", a, b, result.get_jlong());
+          }
+          {
+            JavaValue result(T_LONG);
+            JavaCalls::call(&result, lshr, &iargs, CHECK);
+            tty->print_cr("%lli >> %i = %li", a, b, result.get_jlong());
+          }
+          {
+            JavaValue result(T_LONG);
+            JavaCalls::call(&result, lushr, &iargs, CHECK);
+            tty->print_cr("%lli >>(u) %i = %li", a, b, result.get_jlong());
+          }
+        }
+    }
+}
+
+void test_all(TRAPS) {
+  float POSITIVE_INFINITY_F = 1.0f / 0.0f;
+  float NEGATIVE_INFINITY_F = -1.0f / 0.0f;
+  float NaN_F = 0.0f / 0.0f;
+  float MAX_VALUE_F = 0x1.fffffeP+127f;
+  float MIN_NORMAL_F = 0x1.0p-126f;
+  float MIN_VALUE_F = 0x0.000002P-126f;
+
+  float float_values[] = {
+      NEGATIVE_INFINITY_F, -MAX_VALUE_F, -42, -1, -MIN_NORMAL_F, -MIN_VALUE_F, -0,
+      NaN_F,
+      +0, MIN_VALUE_F, MIN_NORMAL_F, 1, 42, MAX_VALUE_F, POSITIVE_INFINITY_F
+  };
+  int float_size = sizeof(float_values) / sizeof(*float_values);
+
+  double POSITIVE_INFINITY_D = 1.0 / 0.0;
+  double NEGATIVE_INFINITY_D = -1.0 / 0.0;
+  double NaN_D = 0.0 / 0.0;
+  double MAX_VALUE_D = 0x1.fffffffffffffP+1023;
+  double MIN_NORMAL_D = 0x1.0p-1022;
+  double MIN_VALUE_D = 0x0.0000000000001P-1022;
+
+  double double_values[] = {
+      NEGATIVE_INFINITY_D, -MAX_VALUE_D, -42, -1, -MIN_NORMAL_D, -MIN_VALUE_D, -0,
+      NaN_D,
+      +0, MIN_VALUE_D, MIN_NORMAL_D, 1, 42, MAX_VALUE_D, POSITIVE_INFINITY_D
+  };
+  int double_size = sizeof(double_values) / sizeof(*double_values);
+
+  int int_values[] = {
+      (int) INT64_MIN, (int) INT64_MIN + 1, INT32_MIN, INT32_MIN + 1,
+      -42, -1, 0, 1, 42,
+      INT32_MAX - 1, INT32_MAX, (int) INT64_MAX - 1, (int) INT64_MAX
+  };
+  int int_size = sizeof(int_values) / sizeof(*int_values);
+
+  long long long_values[] = {
+      INT64_MIN, INT64_MIN + 1, INT32_MIN, INT32_MIN + 1,
+      -42, -1, 0, 1, 42,
+      INT32_MAX - 1, INT32_MAX, INT64_MAX - 1, INT64_MAX
+  };
+  int long_size = sizeof(long_values) / sizeof(*long_values);
+
+  int shifts[] = {
+      -2, -1, 0, 1, 2, 3, 4, 5, 7, 8, 16, 30, 31, 32, 33, 34, 61, 62, 63, 64, 65, 66
+  };
+  int shifts_size = sizeof(shifts) / sizeof(*shifts);
+
+  Symbol *classNameSymbol = vmSymbols::symbol_at(vmSymbols::find_sid("java/lang/T0"));
+  Klass *klass = SystemDictionary::resolve_or_fail(classNameSymbol, true, CHECK);
+  InstanceKlass *instanceKlass = InstanceKlass::cast(klass);
+  instanceKlass->link_class(CHECK);
+
+  test_op2_int(int_values, int_size, klass, CHECK);
+  test_op2_long(long_values, long_size, klass, CHECK);
+  test_op2_float(float_values, float_size, klass, CHECK);
+  test_op2_double(double_values, double_size, klass, CHECK);
+
+  test_unary_int(int_values, int_size, klass, CHECK);
+  test_unary_long(long_values, long_size, klass, CHECK);
+  test_unary_float(float_values, float_size, klass, CHECK);
+  test_unary_double(double_values, double_size, klass, CHECK);
+
+  test_shift_int(int_values, int_size, shifts, shifts_size, klass, CHECK);
+  test_shift_long(long_values, long_size, shifts, shifts_size, klass, CHECK);
+}
+
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   TraceTime timer("Initialize java.lang classes", TRACETIME_LOG(Info, startuptime));
 
@@ -3788,32 +4280,11 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
       } else {
         printf("TestMethodValue unknown");
       }
-      if (ExitAfterTestMethod) {
-        exit(0);
-      }
     } else {
-      Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
-      Method *method = InstanceKlass::cast(klass)->methods()->at(15);
-
-      ResourceMark rm;
-      JavaCallArguments args(11);
-      // jint aInt, jlong aLong, jfloat aFloat, jchar aChar, jbyte aByte, jboolean aBool
-
-      tty->print_cr("\n<<< jint %d, jlong %ld, jfloat %f, jchar %c, jbyte %d, jboolean %d", -13, 15L, 0.123f, '!', 17, 0);
-      args.push_int(-13);
-      args.push_long(15L);
-      args.push_float(0.123f);
-      args.push_int('!');
-      args.push_int(17);
-      args.push_int(0);
-      args.push_int(1);
-      args.push_int(2);
-      args.push_int(3);
-      args.push_int(4);
-      args.push_int(5);
-      JavaValue result(T_VOID);
-      JavaCalls::call(&result, method, &args, CHECK);
-      fprintf(stderr, "Default test method call result: %d\n", 1/*result.get_jint()*/);
+      test_all(CHECK);
+    }
+    if (ExitAfterTestMethod) {
+      exit(0);
     }
   }
 

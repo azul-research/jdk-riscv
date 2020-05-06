@@ -1,0 +1,374 @@
+package  java/lang;
+
+super public class T0
+	version 50:0
+{
+
+	public static Method testIadd:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		iadd;
+		ireturn;
+	}
+	public static Method testJadd:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		ladd;
+		lreturn;
+	}
+	public static Method testFadd:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		fadd;
+		freturn;
+	}
+	public static Method testDadd:"(DD)D"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		dadd;
+		dreturn;
+	}
+	public static Method testIsub:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		isub;
+		ireturn;
+	}
+	public static Method testJsub:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		lsub;
+		lreturn;
+	}
+	public static Method testFsub:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		fsub;
+		freturn;
+	}
+	public static Method testDsub:"(DD)D"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		dsub;
+		dreturn;
+	}
+	public static Method testImul:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		imul;
+		ireturn;
+	}
+	public static Method testJmul:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		lmul;
+		lreturn;
+	}
+	public static Method testFmul:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		fmul;
+		freturn;
+	}
+	public static Method testDmul:"(DD)D"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		dmul;
+		dreturn;
+	}
+	public static Method testIdiv:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		idiv;
+		ireturn;
+	}
+	public static Method testJdiv:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		ldiv;
+		lreturn;
+	}
+	public static Method testFdiv:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		fdiv;
+		freturn;
+	}
+	public static Method testDdiv:"(DD)D"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		ddiv;
+		dreturn;
+	}
+	public static Method testIrem:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		irem;
+		ireturn;
+	}
+	public static Method testJrem:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		lrem;
+		lreturn;
+	}
+	public static Method testFrem:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		frem;
+		freturn;
+	}
+	public static Method testDrem:"(DD)D"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		drem;
+		dreturn;
+	}
+	public static Method testIneg:"(I)I"
+		stack 1 locals 1
+	{
+		iload_0;
+		ineg;
+		ireturn;
+	}
+	public static Method testJneg:"(J)J"
+		stack 1 locals 2
+	{
+		lload_0;
+		lneg;
+		lreturn;
+	}
+	public static Method testFneg:"(F)F"
+		stack 1 locals 1
+	{
+		fload_0;
+		fneg;
+		freturn;
+	}
+	public static Method testDneg:"(D)D"
+		stack 1 locals 2
+	{
+		dload_0;
+		dneg;
+		dreturn;
+	}
+	public static Method testIshl:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		ishl;
+		ireturn;
+	}
+	public static Method testJshl:"(JI)J"
+		stack 2 locals 3
+	{
+		lload_0;
+		iload_2;
+		lshl;
+		lreturn;
+	}
+	public static Method testIshr:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		ishr;
+		ireturn;
+	}
+	public static Method testJshr:"(JI)J"
+		stack 2 locals 3
+	{
+		lload_0;
+		iload_2;
+		lshr;
+		lreturn;
+	}
+	public static Method testIushr:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		iushr;
+		ireturn;
+	}
+	public static Method testJushr:"(JI)J"
+		stack 2 locals 3
+	{
+		lload_0;
+		iload_2;
+		lushr;
+		lreturn;
+	}
+	public static Method testIor:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		ior;
+		ireturn;
+	}
+	public static Method testJor:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		lor;
+		lreturn;
+	}
+	public static Method testIand:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		iand;
+		ireturn;
+	}
+	public static Method testJand:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		land;
+		lreturn;
+	}
+	public static Method testIxor:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		ixor;
+		ireturn;
+	}
+	public static Method testJxor:"(JJ)J"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		lxor;
+		lreturn;
+	}
+	public static Method testIincm128:"(I)I"
+		stack 1 locals 1
+	{
+		iinc 0, -128;
+		iload_0;
+		ireturn;
+	}
+	public static Method testIincm127:"(I)I"
+		stack 1 locals 1
+	{
+		iinc 0, -127;
+		iload_0;
+		ireturn;
+	}
+	public static Method testIincm1:"(I)I"
+		stack 1 locals 1
+	{
+		iinc 0, -1;
+		iload_0;
+		ireturn;
+	}
+	public static Method testIinc0:"(I)I"
+		stack 1 locals 1
+	{
+		iinc 0, 0;
+		iload_0;
+		ireturn;
+	}
+	public static Method testIinc1:"(I)I"
+		stack 1 locals 1
+	{
+		iinc 0, 1;
+		iload_0;
+		ireturn;
+	}
+	public static Method testIinc127:"(I)I"
+		stack 1 locals 1
+	{
+		iinc 0, 127;
+		iload_0;
+		ireturn;
+	}
+	public static Method testFcmpl:"(FF)I"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		fcmpl;
+		ireturn;
+	}
+	public static Method testDcmpl:"(DD)I"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		dcmpl;
+		ireturn;
+	}
+	public static Method testFcmpg:"(FF)I"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		fcmpg;
+		ireturn;
+	}
+	public static Method testDcmpg:"(DD)I"
+		stack 2 locals 4
+	{
+		dload_0;
+		dload_2;
+		dcmpg;
+		ireturn;
+	}
+	public static Method testJcmp:"(JJ)I"
+		stack 2 locals 4
+	{
+		lload_0;
+		lload_2;
+		lcmp;
+		ireturn;
+	}
+
+} // end Class T0
