@@ -500,14 +500,13 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // continue and the thread will safepoint at the next bytecode dispatch.
 
   // If the receiver is null then it is OK to jump to the slow path.
-  __ ld_PPC(R3_RET_PPC, Interpreter::stackElementSize, R23_esp); // get receiver
+  __ ld(R10_RET1, R23_esp, Interpreter::stackElementSize); // get receiver
 
   // Check if receiver == NULL and go the slow path.
-  __ cmpdi_PPC(CCR0, R3_RET_PPC, 0);
-  __ beq_PPC(CCR0, slow_path);
+  __ beq(R10_RET1, R0, slow_path);
 
-  __ load_heap_oop(R3_RET_PPC, referent_offset, R3_RET_PPC,
-                   /* non-volatile temp */ R31, R5_scratch1, true, ON_WEAK_OOP_REF);
+  __ load_heap_oop(R10_RET1, referent_offset, R10_RET1, // TODO RISCV R7_TMP2 is volatile. Check that it is ok
+                   /* non-volatile temp */ R7_TMP2, R5_scratch1, true, ON_WEAK_OOP_REF);
 
   // Generate the G1 pre-barrier code to log the value of
   // the referent field in an SATB buffer. Note with
@@ -517,7 +516,7 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
   __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
 
-  __ blr_PPC();
+  __ ret();
 
   __ bind(slow_path);
 
@@ -2043,7 +2042,6 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     // Get out of the current method and re-execute the call that called us.
     // pop_java_frame(false) :
-    __ ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
     __ ld(R8_FP, R8_FP, _abi(fp));
     __ sub(R5_scratch1, R21_sender_SP, R2_SP); // size of pop frame
     __ mv(R2_SP, R21_sender_SP);

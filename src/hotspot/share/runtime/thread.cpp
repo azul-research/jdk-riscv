@@ -3893,8 +3893,9 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   }
 
   printf("Threads::initialize_java_lang_classes-4\n");
-  std::raise(SIGTRAP); // TODO_RISCV remove it
-
+  if (BreakAtStartup) {
+    std::raise(SIGTRAP); // TODO_RISCV remove it
+  }
 
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
 
