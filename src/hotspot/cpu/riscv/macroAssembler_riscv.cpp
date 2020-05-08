@@ -1661,26 +1661,20 @@ void MacroAssembler::lookup_interface_method(Register recv_klass,
     // Check that this entry is non-null. A null entry means that
     // the receiver class doesn't implement the interface, and wasn't the
     // same as when the caller was compiled.
-    sub(temp2, temp2, intf_klass);
-    //_PPC(CCR0, temp2, intf_klass);
 
     if (peel) {
-      beqz(temp2, found_method);
+      beq(temp2, intf_klass, found_method);
     } else {
-      unimplemented("itable loop not implemented");
-      bne_PPC(CCR0, search);
+      bne(temp2, intf_klass, search);
       // (invert the test to fall through to found_method...)
     }
 
     if (!peel) break;
 
-      unimplemented("itable loop not implemented -2");
-
     bind(search);
 
-    cmpdi_PPC(CCR0, temp2, 0);
-    beq_PPC(CCR0, L_no_such_interface);
-    addi_PPC(scan_temp, scan_temp, scan_step);
+    beqz(temp2, L_no_such_interface);
+    addi(scan_temp, scan_temp, scan_step);
   }
 
   bind(found_method);
@@ -1853,8 +1847,6 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
                                                    Register temp2_reg,
                                                    Label* L_success,
                                                    Register result_reg) {
-	unimplemented("check_klass_subtype_slow_path\n");
-
   const Register array_ptr = temp1_reg; // current value from cache array
   const Register temp      = temp2_reg;
 
@@ -1868,32 +1860,30 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
 
   Label hit, loop, failure, fallthru;
 
-  ld_PPC(array_ptr, source_offset, sub_klass);
+  ld(array_ptr, sub_klass, source_offset);
 
   // TODO: RISCV port: assert(4 == arrayOopDesc::length_length_in_bytes(), "precondition violated.");
-  lwz_PPC(temp, length_offset, array_ptr);
-  cmpwi_PPC(CCR0, temp, 0);
-  beq_PPC(CCR0, result_reg!=noreg ? failure : fallthru); // length 0
-
-  mtctr_PPC(temp); // load ctr
+  lwu(temp, array_ptr, length_offset);
+  beqz(temp, result_reg != noreg ? failure : fallthru);
 
   bind(loop);
   // Oops in table are NO MORE compressed.
-  ld_PPC(temp, base_offset, array_ptr);
-  cmpd_PPC(CCR0, temp, super_klass);
-  beq_PPC(CCR0, hit);
-  addi_PPC(array_ptr, array_ptr, BytesPerWord);
-  bdnz_PPC(loop);
+  ld(temp, array_ptr, base_offset);
+  beq(temp, super_klass, hit);
+  addi(array_ptr, array_ptr, BytesPerWord);
+
+  addi(temp, temp, -1);
+  bnez(temp, loop);
 
   bind(failure);
-  if (result_reg!=noreg) li_PPC(result_reg, 1); // load non-zero result (indicates a miss)
-  b_PPC(fallthru);
+  if (result_reg != noreg) li(result_reg, 1); // load non-zero result (indicates a miss)
+  j(fallthru);
 
   bind(hit);
-  std_PPC(super_klass, target_offset, sub_klass); // save result to cache
-  if (result_reg != noreg) { li_PPC(result_reg, 0); } // load zero result (indicates a hit)
-  if (L_success != NULL) { b_PPC(*L_success); }
-  else if (result_reg == noreg) { blr_PPC(); } // return with CR0.eq if neither label nor result reg provided
+  sd(super_klass, sub_klass, target_offset); // save result to cache
+  if (result_reg != noreg) { li(result_reg, 0L); } // load zero result (indicates a hit)
+  if (L_success != NULL) { j(*L_success); }
+  else if (result_reg == noreg) { ret(); } // return with CR0.eq if neither label nor result reg provided
 
   bind(fallthru);
 }
