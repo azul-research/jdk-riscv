@@ -2273,7 +2273,7 @@ address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
 void TemplateInterpreterGenerator::count_bytecode() {
   __ li(R5_scratch1, &BytecodeCounter::_counter_value);
   __ lwu(R6_scratch2, R5_scratch1, 0);
-  __ addi(R6_scratch2, R0, 1);
+  __ addi(R6_scratch2, R6_scratch2, 1);
   __ sw(R6_scratch2, R5_scratch1, 0);
 }
 
