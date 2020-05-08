@@ -500,14 +500,13 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // continue and the thread will safepoint at the next bytecode dispatch.
 
   // If the receiver is null then it is OK to jump to the slow path.
-  __ ld_PPC(R3_RET_PPC, Interpreter::stackElementSize, R23_esp); // get receiver
+  __ ld(R10_RET1, R23_esp, Interpreter::stackElementSize); // get receiver
 
   // Check if receiver == NULL and go the slow path.
-  __ cmpdi_PPC(CCR0, R3_RET_PPC, 0);
-  __ beq_PPC(CCR0, slow_path);
+  __ beq(R10_RET1, R0, slow_path);
 
-  __ load_heap_oop(R3_RET_PPC, referent_offset, R3_RET_PPC,
-                   /* non-volatile temp */ R31, R5_scratch1, true, ON_WEAK_OOP_REF);
+  __ load_heap_oop(R10_RET1, referent_offset, R10_RET1, // TODO RISCV R7_TMP2 is volatile. Check that it is ok
+                   /* non-volatile temp */ R7_TMP2, R5_scratch1, true, ON_WEAK_OOP_REF);
 
   // Generate the G1 pre-barrier code to log the value of
   // the referent field in an SATB buffer. Note with
@@ -517,10 +516,13 @@ address TemplateInterpreterGenerator::generate_Reference_get_entry(void) {
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
   __ resize_frame_absolute(R21_sender_SP, R5_scratch1);
 
-  __ blr_PPC();
+  __ ret();
 
   __ bind(slow_path);
+
   __ jump_to_entry(Interpreter::entry_for_kind(Interpreter::zerolocals), R5_scratch1);
+
+
   return entry;
 }
 
@@ -607,11 +609,6 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
     default  : ShouldNotReachHere();
   }
 
-  if (state == 9) {
-      printf("return entry-2: %p %d %d\n", __ pc(), state, atos);
-  }
-
-
   __ restore_interpreter_state();
 
     if (state == 9) {
@@ -645,11 +642,6 @@ address TemplateInterpreterGenerator::generate_return_entry_for(TosState state, 
 
   __ check_and_handle_popframe(R5_scratch1, R6_scratch2);
   __ check_and_handle_earlyret(R5_scratch1, R6_scratch2);
-
-    if (state == 9) {
-      printf("return entry-99: %p %d %d\n", __ pc(), state, atos);
-  }
-
 
   __ dispatch_next(state, step);
   return entry;
@@ -1201,8 +1193,6 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   address entry = __ pc();
 
-  printf("NATIVE ENTRY: %p\n", entry);
-
   const bool inc_counter = UseCompiler || CountCompiledCalls || LogTouchedMethods;
 
   // -----------------------------------------------------------------------------
@@ -1234,11 +1224,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   Register size_of_parameters = R7_TMP2;
 
-  printf("native-5: %p\n", __ pc());
-__ addi(size_of_parameters, size_of_parameters, 0);
-  printf("native-6: %p\n", __ pc());
   generate_fixed_frame(true, size_of_parameters, noreg /* unused */);
-  tty->print_cr("native entry: %p", __ pc());
 
   //=============================================================================
   // Increment invocation counter. On overflow, entry to JNI method
@@ -1261,8 +1247,6 @@ __ addi(size_of_parameters, size_of_parameters, 0);
 
     BIND(continue_after_compile);
   }
-
-  printf("native-10: %p\n", __ pc());
 
   bang_stack_shadow_pages(true);
 
@@ -1406,7 +1390,6 @@ __ addi(size_of_parameters, size_of_parameters, 0);
   // overwritten since "__ call_stub(signature_handler);" (except for
   // ARG1 and ARG2 for static methods).
 
-  printf("native-345: %p\n", __ pc());
   __ call_c(native_method_fd);
 
   __ sd(R10_RET1, R8_FP, _ijava_state(lresult));
@@ -1640,8 +1623,6 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
 
   __ bind(Lno_locals);
 
-  synchronized = false; // FIXME_RISCV
-
   // --------------------------------------------------------------------------
   // Counter increment and overflow check.
   Label invocation_counter_overflow,
@@ -1649,7 +1630,6 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
         profile_method_continue;
   if (inc_counter || ProfileInterpreter) {
 
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     Register Rdo_not_unlock_if_synchronized_addr = R5_scratch1;
     if (synchronized) {
       // Since at this point in the method invocation the exception handler
@@ -1660,12 +1640,12 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
       // check this thread local flag.
       // This flag has two effects, one is to force an unwind in the topmost
       // interpreter frame and not perform an unlock while doing so.
-      __ li_PPC(R0, 1);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ li(R6_scratch2, 1);
+      __ sb(R6_scratch2, thread_(do_not_unlock_if_synchronized));
     }
 
     // Argument and return type profiling.
-    __ profile_parameters_type(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC, R6_ARG4_PPC);
+    __ profile_parameters_type(R10_ARG0, R11_ARG1, R12_ARG2, R13_ARG3);
 
     // Increment invocation counter and check for overflow.
     if (inc_counter) {
@@ -1676,44 +1656,38 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
     __ bind(profile_method_continue);
   }
 
-//  bang_stack_shadow_pages(false); // FIXME_RISCV, TODO check that this is unnecessary
+  bang_stack_shadow_pages(false);
 
   if (inc_counter || ProfileInterpreter) {
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
     // Reset the _do_not_unlock_if_synchronized flag.
     if (synchronized) {
-      __ li_PPC(R0, 0);
-      __ stb_PPC(R0, in_bytes(JavaThread::do_not_unlock_if_synchronized_offset()), R24_thread);
+      __ sb(R0_ZERO, thread_(do_not_unlock_if_synchronized));
     }
   }
 
   // --------------------------------------------------------------------------
   // Locking of synchronized methods. Must happen AFTER invocation_counter
   // check and stack overflow check, so method is not locked if overflows.
-  if (synchronized) {
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
-    lock_method(R3_ARG1_PPC, R4_ARG2_PPC, R5_ARG3_PPC);
+
+    if (synchronized) {
+      tty->print_cr("synchronized method is not implemented yet");
+//    lock_method(R10_ARG0, R11_ARG1, R12_ARG2); // TODO_RISC_V
   }
-#ifdef ASSERT // FIXME_RISCV
-//  else {
-//    Label Lok;
-//    __ lwz_PPC(R0, in_bytes(Method::access_flags_offset()), R27_method);
-//    __ andi__PPC(R0, R0, JVM_ACC_SYNCHRONIZED);
-//    __ asm_assert_eq("method needs synchronization", 0x8521);
-//    __ bind(Lok);
-//  }
+#ifdef ASSERT
+  else {
+    __ lwu(R5_scratch1, method_(access_flags));
+    __ andi(R5_scratch1, R5_scratch1, JVM_ACC_SYNCHRONIZED);
+    __ asm_assert_eq(R5_scratch1, R0_ZERO, "method needs synchronization", 0x8521);
+  }
 #endif // ASSERT
 
   __ verify_thread();
 
   // --------------------------------------------------------------------------
-  // JVMTI support FIXME_RISCV
-//  __ notify_method_entry();
+  __ notify_method_entry();
 
   // --------------------------------------------------------------------------
   // Start executing instructions.
-
-  printf("normal entry: dnext: %p\n", __ pc());
 
   __ dispatch_next(vtos);
 
@@ -1721,7 +1695,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   // Out of line counter overflow and MDO creation code.
   if (ProfileInterpreter) { // FIXME_RISCV
     // We have decided to profile this method in the interpreter.
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV unimplemented
     __ bind(profile_method);
     __ call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::profile_method));
     __ set_method_data_pointer_for_bcp();
@@ -1729,11 +1703,12 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
   }
 
   if (inc_counter) {
-    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV
+    report_should_not_reach_here(__FILE__, __LINE__); // FIXME_RISCV unimplemented
     // Handle invocation counter overflow.
     __ bind(invocation_counter_overflow);
     generate_counter_overflow(profile_method_continue);
   }
+
   return entry;
 }
 
@@ -1763,6 +1738,7 @@ address TemplateInterpreterGenerator::generate_normal_entry(bool synchronized) {
  *   int java.util.zip.CRC32.update(int crc, int b)
  */
 address TemplateInterpreterGenerator::generate_CRC32_update_entry() {
+
   if (UseCRC32Intrinsics) {
     address start = __ pc();  // Remember stub start address (is rtn value).
     Label slow_path;
@@ -2064,7 +2040,6 @@ void TemplateInterpreterGenerator::generate_throw_exception() {
 
     // Get out of the current method and re-execute the call that called us.
     // pop_java_frame(false) :
-    __ ld(R21_sender_SP, R8_FP, _ijava_state(sender_sp));
     __ ld(R8_FP, R8_FP, _abi(fp));
     __ sub(R5_scratch1, R21_sender_SP, R2_SP); // size of pop frame
     __ mv(R2_SP, R21_sender_SP);
@@ -2214,8 +2189,6 @@ void TemplateInterpreterGenerator::set_vtos_entry_points(Template* t,
 address TemplateInterpreterGenerator::generate_trace_code(TosState state) {
   //__ flush_bundle();
   address entry = __ pc();
-
-  printf("generate_trace_code: %p\n", entry);
 
   const char *bname = NULL;
   uint tsize = 0;

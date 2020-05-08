@@ -66,9 +66,6 @@ void AbstractInterpreter::initialize() {
   if (PrintBytecodePairHistogram)                            BytecodePairHistogram::reset();
 
   InvocationCounter::reinitialize();
-
-  printf("ai. INIT-9: %p\n", _entry_table[2]);
-
 }
 
 void AbstractInterpreter::print() {

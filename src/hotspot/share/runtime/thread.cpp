@@ -3893,8 +3893,9 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   }
 
   printf("Threads::initialize_java_lang_classes-4\n");
-//  std::raise(SIGTRAP); // TODO_RISCV remove it
-
+  if (BreakAtStartup) {
+    std::raise(SIGTRAP); // TODO_RISCV remove it
+  }
 
   initialize_class(vmSymbols::java_lang_Object(), CHECK);
 
@@ -3927,14 +3928,17 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   printf("Threads::initialize_java_lang_classes-13\n");
 
   main_thread->set_threadObj(thread_object);
+  printf("Threads::initialize_java_lang_classes-14\n");
 
   // Set thread status to running since main thread has
   // been started and running.
   java_lang_Thread::set_thread_status(thread_object,
                                       java_lang_Thread::RUNNABLE);
+  printf("Threads::initialize_java_lang_classes-15\n");
 
   // The VM creates objects of this class.
   initialize_class(vmSymbols::java_lang_Module(), CHECK);
+  printf("Threads::initialize_java_lang_classes-16\n");
 
 #ifdef ASSERT
   InstanceKlass *k = SystemDictionary::UnsafeConstants_klass();
@@ -3943,14 +3947,25 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
   // initialize the hardware-specific constants needed by Unsafe
   initialize_class(vmSymbols::jdk_internal_misc_UnsafeConstants(), CHECK);
+  printf("Threads::initialize_java_lang_classes-17\n");
+
   jdk_internal_misc_UnsafeConstants::set_unsafe_constants();
+  printf("Threads::initialize_java_lang_classes-18\n");
 
   // The VM preresolves methods to these classes. Make sure that they get initialized
   initialize_class(vmSymbols::java_lang_reflect_Method(), CHECK);
+  printf("Threads::initialize_java_lang_classes-19\n");
+
   initialize_class(vmSymbols::java_lang_ref_Finalizer(), CHECK);
+
+  printf("Threads::initialize_java_lang_classes-20\n");
 
   // Phase 1 of the system initialization in the library, java.lang.System class initialization
   call_initPhase1(CHECK);
+
+  return;
+  printf("Threads::initialize_java_lang_classes-21\n");
+
 
   // get the Java runtime name after java.lang.System is initialized
   JDK_Version::set_runtime_name(get_java_runtime_name(THREAD));
