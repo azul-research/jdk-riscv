@@ -1627,14 +1627,14 @@ void TemplateTable::float_cmp(bool is_float, int unordered_result) {
   if (unordered_result) {
     if (is_float) {
         __ fclasss(Rscratch1, Rfirst);  // set bit 8 or 9 if NaN
-        __ fclasss(Rscratch1, Rsecond); // set bit 8 or 9 if NaN
+        __ fclasss(Rscratch2, Rsecond); // set bit 8 or 9 if NaN
     } else {
         __ fclassd(Rscratch1, Rfirst);  // set bit 8 or 9 if NaN
-        __ fclassd(Rscratch1, Rsecond); // set bit 8 or 9 if NaN
+        __ fclassd(Rscratch2, Rsecond); // set bit 8 or 9 if NaN
     }
     __ orr(Rscratch1, Rscratch1, Rscratch2);
     __ srli(Rscratch1, Rscratch1, 8);
-    __ beqz(Rscratch1, Lunordered);
+    __ bnez(Rscratch1, Lunordered);
   }
   if (is_float) {
       __ flts(Rscratch1, Rfirst, Rsecond);
@@ -1643,12 +1643,12 @@ void TemplateTable::float_cmp(bool is_float, int unordered_result) {
       __ fltd(Rscratch1, Rfirst, Rsecond);
       __ fltd(Rscratch2, Rsecond, Rfirst);
   }
-  __ sub(Rscratch1, R0_ZERO, Rscratch1);
+  __ neg(Rscratch1, Rscratch1);
   __ orr(R25_tos, Rscratch1, Rscratch2); // set result as follows: <: -1, =: 0, >: 1
   if (unordered_result) {
     __ j(Ldone);
     __ bind(Lunordered);
-    __ addi(R25_tos, R0_ZERO, unordered_result);
+    __ li(R25_tos, unordered_result);
   }
   __ bind(Ldone);
 }
@@ -2170,7 +2170,7 @@ void TemplateTable::_return(TosState state) {
     case ltos:
     case atos: __ mv(R10_RET1, R25_tos); break;
     case ftos:
-    case dtos: __ fmvd(F11_RET1, F23_ftos); break;
+    case dtos: __ fmvd(F10_RET, F23_ftos); break;
     case vtos: // This might be a constructor. Final fields (and volatile fields on RISCV64) need
                // to get visible before the reference to the object gets stored anywhere.
                __ membar(Assembler::StoreStore); break;
