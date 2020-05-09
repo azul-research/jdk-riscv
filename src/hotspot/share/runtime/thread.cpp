@@ -3801,6 +3801,8 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
 
   printf("Threads::initialize_java_lang_classes-1\n");
 
+        std::raise(SIGTRAP); // TODO_RISCV remove it
+
 
 
   if (EagerXrunInit && Arguments::init_libraries_at_startup()) {
@@ -3963,7 +3965,6 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   // Phase 1 of the system initialization in the library, java.lang.System class initialization
   call_initPhase1(CHECK);
 
-  return;
   printf("Threads::initialize_java_lang_classes-21\n");
 
 
