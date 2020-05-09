@@ -1849,8 +1849,9 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
                                                    Register result_reg) {
   const Register array_ptr = temp1_reg; // current value from cache array
   const Register temp      = temp2_reg;
+  const Register counter   = R28_TMP3;
 
-  assert_different_registers(sub_klass, super_klass, array_ptr, temp);
+  assert_different_registers(sub_klass, super_klass, array_ptr, temp, counter);
 
   int source_offset = in_bytes(Klass::secondary_supers_offset());
   int target_offset = in_bytes(Klass::secondary_super_cache_offset());
@@ -1863,8 +1864,8 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
   ld(array_ptr, sub_klass, source_offset);
 
   // TODO: RISCV port: assert(4 == arrayOopDesc::length_length_in_bytes(), "precondition violated.");
-  lwu(temp, array_ptr, length_offset);
-  beqz(temp, result_reg != noreg ? failure : fallthru);
+  lwu(counter, array_ptr, length_offset);
+  beqz(counter, result_reg != noreg ? failure : fallthru);
 
   bind(loop);
   // Oops in table are NO MORE compressed.
@@ -1872,8 +1873,8 @@ void MacroAssembler::check_klass_subtype_slow_path(Register sub_klass,
   beq(temp, super_klass, hit);
   addi(array_ptr, array_ptr, BytesPerWord);
 
-  addi(temp, temp, -1);
-  bnez(temp, loop);
+  addi(counter, counter, -1);
+  bnez(counter, loop);
 
   bind(failure);
   if (result_reg != noreg) li(result_reg, 1); // load non-zero result (indicates a miss)
