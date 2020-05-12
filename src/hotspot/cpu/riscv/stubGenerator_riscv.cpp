@@ -77,7 +77,7 @@ class StubGenerator: public StubCodeGenerator {
     // native_entry, and process result.
 
     StubCodeMark mark(this, "StubRoutines", "call_stub");
-    
+
     printf("gcs: %p\n", __ pc());
 
 
@@ -351,7 +351,6 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", "catch_exception");
 
     address start = __ pc();
-    return start;
 
     // Registers alive
     //
@@ -359,24 +358,21 @@ class StubGenerator: public StubCodeGenerator {
     //  R3_ARG1_PPC - address of pending exception
     //  R4_ARG2_PPC - return address in call stub
 
-    const Register exception_file = R21_tmp1_PPC;
-    const Register exception_line = R22_tmp2_PPC;
+    const Register tmp = R5_scratch1;
 
-    __ load_const(exception_file, (void *) __FILE__);
-    __ load_const(exception_line, (void *) __LINE__);
+    __ sd(R10_ARG0, R24_thread, in_bytes(JavaThread::pending_exception_offset()));
 
-    __ std_PPC(R3_ARG1_PPC, in_bytes(JavaThread::pending_exception_offset()), R24_thread);
-    // store into `char *'
-    __ std_PPC(exception_file, in_bytes(JavaThread::exception_file_offset()), R24_thread);
-    // store into `int'
-    __ stw_PPC(exception_line, in_bytes(JavaThread::exception_line_offset()), R24_thread);
+    __ li(tmp, (void *) __FILE__);
+    __ sd(tmp, R24_thread, in_bytes(JavaThread::exception_file_offset()));
+
+    __ li(tmp, (void *) __LINE__);
+    __ sw(tmp, R24_thread, in_bytes(JavaThread::exception_line_offset()));
 
     // complete return to VM
     assert(StubRoutines::_call_stub_return_address != NULL, "must have been generated before");
 
-    __ mtlr_PPC(R4_ARG2_PPC);
     // continue in call stub
-    __ blr_PPC();
+    __ jr(R11_ARG1);
 
     return start;
   }
@@ -399,7 +395,7 @@ class StubGenerator: public StubCodeGenerator {
   //
   // Update:
   //
-  //   R4_ARG2_PPC: exception
+  //   R11_ARG1: exception
   //
   // (LR is unchanged and is live out).
   //
@@ -407,69 +403,57 @@ class StubGenerator: public StubCodeGenerator {
     StubCodeMark mark(this, "StubRoutines", "forward_exception");
     address start = __ pc();
 
-    return start;
-
 #if !defined(PRODUCT)
     if (VerifyOops) {
       // Get pending exception oop.
-      __ ld_PPC(R3_ARG1_PPC,
-                in_bytes(Thread::pending_exception_offset()),
-                R24_thread);
+      __ ld(R10_ARG0, R24_thread, in_bytes(Thread::pending_exception_offset()));
       // Make sure that this code is only executed if there is a pending exception.
       {
         Label L;
-        __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
-        __ bne_PPC(CCR0, L);
+        __ bnez(R10_ARG0, L);
         __ stop("StubRoutines::forward exception: no pending exception (1)");
         __ bind(L);
       }
-      __ verify_oop(R3_ARG1_PPC, "StubRoutines::forward exception: not an oop");
+      __ verify_oop(R10_ARG0, "StubRoutines::forward exception: not an oop");
     }
 #endif
 
-    // Save LR/CR and copy exception pc (LR) into R4_ARG2_PPC.
-    __ save_LR_CR(R4_ARG2_PPC);
-    __ push_frame_reg_args(0, R0);
+    __ mv(R11_ARG1, R1_RA);
+
     // Find exception handler.
     __ call_VM_leaf(CAST_FROM_FN_PTR(address,
                      SharedRuntime::exception_handler_for_return_address),
                     R24_thread,
-                    R4_ARG2_PPC);
+                    R11_ARG1);
+
     // Copy handler's address.
-    __ mtctr_PPC(R3_RET_PPC);
-    __ pop_C_frame();
+    __ mv(R5_TMP0, R10_RET1);
 
     // Set up the arguments for the exception handler:
-    //  - R3_ARG1_PPC: exception oop
-    //  - R4_ARG2_PPC: exception pc.
+    //  - R10_ARG0: exception oop
+    //  - R11_ARG1: exception pc.
 
     // Load pending exception oop.
-    __ ld_PPC(R3_ARG1_PPC,
-              in_bytes(Thread::pending_exception_offset()),
-              R24_thread);
+    __ ld(R10_ARG0, R24_thread, in_bytes(Thread::pending_exception_offset()));
 
     // The exception pc is the return address in the caller.
-    // Must load it into R4_ARG2_PPC.
-    __ mflr_PPC(R4_ARG2_PPC);
+    __ mv(R11_ARG1, R1_RA);
 
 #ifdef ASSERT
     // Make sure exception is set.
     {
       Label L;
-      __ cmpdi_PPC(CCR0, R3_ARG1_PPC, 0);
-      __ bne_PPC(CCR0, L);
+      __ bnez(R10_ARG0, L);
       __ stop("StubRoutines::forward exception: no pending exception (2)");
       __ bind(L);
     }
 #endif
 
     // Clear the pending exception.
-    __ li_PPC(R0, 0);
-    __ std_PPC(R0,
-               in_bytes(Thread::pending_exception_offset()),
-               R24_thread);
+    __ sd(R0_ZERO, R24_thread, in_bytes(Thread::pending_exception_offset()));
+
     // Jump to exception handler.
-    __ bctr_PPC();
+    __ jr(R5_TMP0);
 
     return start;
   }
@@ -3042,27 +3026,27 @@ class StubGenerator: public StubCodeGenerator {
     //   intptr_t SafeFetchN (intptr_t* adr, intptr_t errValue);
     //
     // arguments:
-    //   R3_ARG1_PPC = adr
-    //   R4_ARG2_PPC = errValue
+    //   R10_ARG0 = adr
+    //   R11_ARG1 = errValue
     //
     // result:
-    //   R3_RET_PPC  = *adr or errValue
+    //   R10_RET1  = *adr or errValue
 
     StubCodeMark mark(this, "StubRoutines", name);
 
     // Entry point, pc or function descriptor.
     *entry = __ pc();
 
-    // Load *adr into R4_ARG2_PPC, may fault.
+    // Load *adr into R11_ARG1, may fault.
     *fault_pc = __ pc();
     switch (size) {
       case 4:
         // int32_t, signed extended
-        __ lwa_PPC(R4_ARG2_PPC, 0, R3_ARG1_PPC);
+        __ lw(R11_ARG1, R10_ARG0, 0);
         break;
       case 8:
         // int64_t
-        __ ld_PPC(R4_ARG2_PPC, 0, R3_ARG1_PPC);
+        __ ld(R11_ARG1, R10_ARG0, 0);
         break;
       default:
         ShouldNotReachHere();
@@ -3070,8 +3054,8 @@ class StubGenerator: public StubCodeGenerator {
 
     // return errValue or *adr
     *continuation_pc = __ pc();
-    __ mr_PPC(R3_RET_PPC, R4_ARG2_PPC);
-    __ blr_PPC();
+    __ mv(R10_RET1, R11_ARG1);
+    __ ret();
   }
 
   // Stub for BigInteger::multiplyToLen()
