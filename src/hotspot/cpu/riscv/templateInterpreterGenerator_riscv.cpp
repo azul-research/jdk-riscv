@@ -1062,6 +1062,88 @@ void TemplateInterpreterGenerator::generate_fixed_frame(bool native_call, Regist
 // End of helpers
 
 address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::MethodKind kind) {
+  switch (kind) {
+      case Interpreter::java_lang_math_sin  :
+      case Interpreter::java_lang_math_cos  :
+      case Interpreter::java_lang_math_tan  :
+      case Interpreter::java_lang_math_sqrt :
+      case Interpreter::java_lang_math_log  :
+      case Interpreter::java_lang_math_log10:
+      case Interpreter::java_lang_math_pow  :
+      case Interpreter::java_lang_math_exp  :
+      case Interpreter::java_lang_math_minF :
+      case Interpreter::java_lang_math_maxF :
+      case Interpreter::java_lang_math_minD :
+      case Interpreter::java_lang_math_maxD :
+      case Interpreter::java_lang_math_absF :
+      case Interpreter::java_lang_math_absD :
+      case Interpreter::java_lang_math_fmaF :
+      case Interpreter::java_lang_math_fmaD : return generate_math_entry_float(kind);
+      case Interpreter::java_lang_math_minI :
+      case Interpreter::java_lang_math_maxI :
+      case Interpreter::java_lang_math_absI :
+      case Interpreter::java_lang_math_absL : return generate_math_entry_int(kind);
+      default: ShouldNotReachHere();
+    }
+}
+
+address TemplateInterpreterGenerator::generate_math_entry_int(AbstractInterpreter::MethodKind kind) {
+
+  int num_args = 1;
+  bool is_long = false;
+
+  // RISCV64 specific:
+  switch (kind) {
+    case Interpreter::java_lang_math_minI:
+    case Interpreter::java_lang_math_maxI: num_args = 2;   break;
+    case Interpreter::java_lang_math_absI:                 break;
+    case Interpreter::java_lang_math_absL: is_long = true; break;
+    default: ShouldNotReachHere();
+  }
+
+  address entry = __ pc();
+
+  // Load arguments
+  assert(num_args <= 8, "passed in registers");
+  if (is_long) {
+    int offset = (2 * num_args - 1) * Interpreter::stackElementSize;
+    for (int i = 0; i < num_args; ++i) {
+      __ ld(as_Register(R10_ARG0->encoding() + i), R23_esp, offset);
+      offset -= 2 * Interpreter::stackElementSize;
+    }
+  } else {
+    int offset = num_args * Interpreter::stackElementSize;
+    for (int i = 0; i < num_args; ++i) {
+      __ lw(as_Register(R10_ARG0->encoding() + i), R23_esp, offset);
+      offset -= Interpreter::stackElementSize;
+    }
+  }
+
+  Label ret;
+
+  // If branch happens, the result is equal to the value in R10_ARG0 (same register as R10_RET1).
+  switch (kind) {
+    case Interpreter::java_lang_math_minI: __ blt(R10_ARG0, R11_ARG1, ret); __ mv(R10_RET1, R11_ARG1);  break;
+    case Interpreter::java_lang_math_maxI: __ bge(R10_ARG0, R11_ARG1, ret); __ mv(R10_RET1, R11_ARG1);  break;
+    case Interpreter::java_lang_math_absI:
+    case Interpreter::java_lang_math_absL: __ bge(R0_ZERO,  R10_ARG0, ret); __ neg(R10_RET1, R10_ARG0); break;
+    default: ShouldNotReachHere();
+  }
+
+  __ bind(ret);
+
+  // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
+  __ mv(R2_SP, R21_sender_SP);
+  __ ret();
+
+
+
+  __ flush();
+
+  return entry;
+}
+
+address TemplateInterpreterGenerator::generate_math_entry_float(AbstractInterpreter::MethodKind kind) {
 
   // Decide what to do: Use same platform specific instructions and runtime calls as compilers.
   bool use_instruction = false;
@@ -1072,7 +1154,12 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
   // RISCV64 specific:
   switch (kind) {
     case Interpreter::java_lang_math_sqrt:
-    case Interpreter::java_lang_math_abs : use_instruction = true;   break;
+    case Interpreter::java_lang_math_minF:
+    case Interpreter::java_lang_math_minD:
+    case Interpreter::java_lang_math_maxF:
+    case Interpreter::java_lang_math_maxD:
+    case Interpreter::java_lang_math_absF:
+    case Interpreter::java_lang_math_absD: use_instruction = true;   break;
     case Interpreter::java_lang_math_fmaF:
     case Interpreter::java_lang_math_fmaD: use_instruction = UseFMA; break;
     default: break; // Fall back to runtime call.
@@ -1082,14 +1169,19 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
     case Interpreter::java_lang_math_sin  : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dsin);   break;
     case Interpreter::java_lang_math_cos  : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dcos);   break;
     case Interpreter::java_lang_math_tan  : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dtan);   break;
-    case Interpreter::java_lang_math_abs  : /* run interpreted */ break;
     case Interpreter::java_lang_math_sqrt : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dsqrt);  break;
     case Interpreter::java_lang_math_log  : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dlog);   break;
     case Interpreter::java_lang_math_log10: runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dlog10); break;
     case Interpreter::java_lang_math_pow  : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dpow); num_args = 2; break;
     case Interpreter::java_lang_math_exp  : runtime_entry = CAST_FROM_FN_PTR(address, SharedRuntime::dexp);   break;
+    case Interpreter::java_lang_math_minF :
+    case Interpreter::java_lang_math_maxF : /* run interpreted */ num_args = 2; double_precision = false; break;
+    case Interpreter::java_lang_math_minD :
+    case Interpreter::java_lang_math_maxD : /* run interpreted */ num_args = 2;                           break;
+    case Interpreter::java_lang_math_absF : /* run interpreted */               double_precision = false; break;
+    case Interpreter::java_lang_math_absD : /* run interpreted */                                         break;
     case Interpreter::java_lang_math_fmaF : /* run interpreted */ num_args = 3; double_precision = false; break;
-    case Interpreter::java_lang_math_fmaD : /* run interpreted */ num_args = 3; break;
+    case Interpreter::java_lang_math_fmaD : /* run interpreted */ num_args = 3;                           break;
     default: ShouldNotReachHere();
   }
 
@@ -1120,13 +1212,17 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
     if (double_precision) {
       switch (kind) {
         case Interpreter::java_lang_math_sqrt: __ fsqrtd(F10_RET, F10_ARG0, rm);                      break;
-        case Interpreter::java_lang_math_abs:  __ fsgnjxd(F10_RET, F10_ARG0, F10_ARG0);               break;
+        case Interpreter::java_lang_math_minD: __ fmind(F10_RET, F10_ARG0, F11_ARG1);                 break;
+        case Interpreter::java_lang_math_maxD: __ fmaxd(F10_RET, F10_ARG0, F11_ARG1);                 break;
+        case Interpreter::java_lang_math_absD: __ fsgnjxd(F10_RET, F10_ARG0, F10_ARG0);               break;
         case Interpreter::java_lang_math_fmaD: __ fmaddd(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
         default: ShouldNotReachHere();
       }
     } else {
       switch (kind) {
-        case Interpreter::java_lang_math_abs:  __ fsgnjxs(F10_RET, F10_ARG0, F10_ARG0);               break;
+        case Interpreter::java_lang_math_minF: __ fmins(F10_RET, F10_ARG0, F11_ARG1);                 break;
+        case Interpreter::java_lang_math_maxF: __ fmaxs(F10_RET, F10_ARG0, F11_ARG1);                 break;
+        case Interpreter::java_lang_math_absF: __ fsgnjxs(F10_RET, F10_ARG0, F10_ARG0);               break;
         case Interpreter::java_lang_math_fmaF: __ fmadds(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
         default: ShouldNotReachHere();
       }
@@ -1135,7 +1231,7 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
     __ sd(R1_RA, R8_FP, _ijava_state(saved_ra));
     __ call_VM_leaf(runtime_entry);
     __ ld(R1_RA, R8_FP, _ijava_state(saved_ra));
-    }
+  }
 
   // Restore caller sp for c2i case (from compiled) and for resized sender frame (from interpreted).
   __ mv(R2_SP, R21_sender_SP);

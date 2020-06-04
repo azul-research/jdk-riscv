@@ -71,7 +71,20 @@ class AbstractInterpreter: AllStatic {
     java_lang_math_sin,                                         // implementation of java.lang.Math.sin   (x)
     java_lang_math_cos,                                         // implementation of java.lang.Math.cos   (x)
     java_lang_math_tan,                                         // implementation of java.lang.Math.tan   (x)
+#ifdef RISCV
+    java_lang_math_minI,                                        // implementation of java.lang.Math.min   (x, y)
+    java_lang_math_minF,                                        // implementation of java.lang.Math.min   (x, y)
+    java_lang_math_minD,                                        // implementation of java.lang.Math.min   (x, y)
+    java_lang_math_maxI,                                        // implementation of java.lang.Math.max   (x, y)
+    java_lang_math_maxF,                                        // implementation of java.lang.Math.max   (x, y)
+    java_lang_math_maxD,                                        // implementation of java.lang.Math.max   (x, y)
+    java_lang_math_absI,                                        // implementation of java.lang.Math.abs   (x)
+    java_lang_math_absL,                                        // implementation of java.lang.Math.abs   (x)
+    java_lang_math_absF,                                        // implementation of java.lang.Math.abs   (x)
+    java_lang_math_absD,                                        // implementation of java.lang.Math.abs   (x)
+#else
     java_lang_math_abs,                                         // implementation of java.lang.Math.abs   (x)
+#endif
     java_lang_math_sqrt,                                        // implementation of java.lang.Math.sqrt  (x)
     java_lang_math_log,                                         // implementation of java.lang.Math.log   (x)
     java_lang_math_log10,                                       // implementation of java.lang.Math.log10 (x)
