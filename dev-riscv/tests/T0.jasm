@@ -13,7 +13,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJadd:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -29,7 +29,7 @@ super public class T0
 		freturn;
 	}
 	public static Method testDadd:"(DD)D"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -45,7 +45,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJsub:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -61,7 +61,7 @@ super public class T0
 		freturn;
 	}
 	public static Method testDsub:"(DD)D"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -77,7 +77,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJmul:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -93,7 +93,7 @@ super public class T0
 		freturn;
 	}
 	public static Method testDmul:"(DD)D"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -109,7 +109,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJdiv:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -125,7 +125,7 @@ super public class T0
 		freturn;
 	}
 	public static Method testDdiv:"(DD)D"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -141,7 +141,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJrem:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -157,7 +157,7 @@ super public class T0
 		freturn;
 	}
 	public static Method testDrem:"(DD)D"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -172,7 +172,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJneg:"(J)J"
-		stack 1 locals 2
+		stack 2 locals 2
 	{
 		lload_0;
 		lneg;
@@ -186,7 +186,7 @@ super public class T0
 		freturn;
 	}
 	public static Method testDneg:"(D)D"
-		stack 1 locals 2
+		stack 2 locals 2
 	{
 		dload_0;
 		dneg;
@@ -201,7 +201,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJshl:"(JI)J"
-		stack 2 locals 3
+		stack 3 locals 3
 	{
 		lload_0;
 		iload_2;
@@ -217,7 +217,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJshr:"(JI)J"
-		stack 2 locals 3
+		stack 3 locals 3
 	{
 		lload_0;
 		iload_2;
@@ -233,7 +233,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJushr:"(JI)J"
-		stack 2 locals 3
+		stack 3 locals 3
 	{
 		lload_0;
 		iload_2;
@@ -249,7 +249,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJor:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -265,7 +265,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJand:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -281,7 +281,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJxor:"(JJ)J"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
@@ -339,7 +339,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testDcmpl:"(DD)I"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -355,7 +355,7 @@ super public class T0
 		ireturn;
 	}
 	public static Method testDcmpg:"(DD)I"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		dload_0;
 		dload_2;
@@ -363,12 +363,63 @@ super public class T0
 		ireturn;
 	}
 	public static Method testJcmp:"(JJ)I"
-		stack 2 locals 4
+		stack 4 locals 4
 	{
 		lload_0;
 		lload_2;
 		lcmp;
 		ireturn;
+	}
+	public static Method testDsqrt:"(D)D"
+		stack 2 locals 2
+	{
+		dload_0;
+		invokestatic  java/lang/Math.sqrt:"(D)D";
+		dreturn;
+	}
+
+	public static Method testFabs:"(F)F"
+		stack 1 locals 1
+	{
+		fload_0;
+		invokestatic  java/lang/Math.abs:"(F)F";
+		freturn;
+	}
+
+	public static Method testDabs:"(D)D"
+		stack 2 locals 2
+	{
+		dload_0;
+		invokestatic  java/lang/Math.abs:"(D)D";
+		dreturn;
+	}
+
+	public static Method testFfma:"(FFF)F"
+		stack 3 locals 3
+	{
+		fload_0;
+		fload_1;
+		fload_2;
+		invokestatic  java/lang/Math.fma:"(FFF)F";
+		freturn;
+	}
+
+	public static Method testDfma:"(DDD)D"
+		stack 6 locals 6
+	{
+		dload_0;
+		dload_2;
+		dload 4;
+		invokestatic  java/lang/Math.fma:"(DDD)D";
+		dreturn;
+	}
+
+	public static Method testDsin:"(D)D"
+		stack 2 locals 2
+	{
+		dload_0;
+		invokestatic  java/lang/Math.sin:"(D)D";
+		dreturn;
 	}
 
 } // end Class T0

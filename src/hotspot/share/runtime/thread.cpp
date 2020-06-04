@@ -4177,6 +4177,94 @@ static void test_shift_long(const long long *values, int val_size, const int *sh
     }
 }
 
+void test_math_float(const float *values, int size, Klass *klass, TRAPS) {
+  Method *fabs =  findTestMethod(InstanceKlass::cast(klass), "testFabs");
+  Method *ffma =  findTestMethod(InstanceKlass::cast(klass), "testFfma");
+
+  for (int i = 0; i < size; ++i) {
+    float a = values[i];
+
+    ResourceMark rm;
+    JavaCallArguments fargs1(1);
+    fargs1.push_float(a);
+
+    {
+      JavaValue result(T_FLOAT);
+      JavaCalls::call(&result, fabs, &fargs1, CHECK);
+      tty->print_cr("abs(%f) = %f", a, result.get_jfloat());
+    }
+
+//    for (int j = 0; j < size; ++j) {
+//      for (int k = 0; k < size; ++k) {
+//        float b = values[j];
+//        float c = values[k];
+//
+//        ResourceMark rm1;
+//        JavaCallArguments fargs3(3);
+//        fargs3.push_float(a);
+//        fargs3.push_float(b);
+//        fargs3.push_float(c);
+//
+//        {
+//          JavaValue result(T_FLOAT);
+//          JavaCalls::call(&result, ffma, &fargs3, CHECK);
+//          tty->print_cr("fma(%f, %f, %f) = %f", a, b, c, result.get_jfloat());
+//        }
+//      }
+//    }
+  }
+}
+
+void test_math_double(const double *values, int size, Klass *klass, TRAPS) {
+  Method *dabs =  findTestMethod(InstanceKlass::cast(klass), "testDabs");
+  Method *dsqrt =  findTestMethod(InstanceKlass::cast(klass), "testDsqrt");
+  Method *dsin =  findTestMethod(InstanceKlass::cast(klass), "testDsin");
+  Method *dfma =  findTestMethod(InstanceKlass::cast(klass), "testDfma");
+
+  for (int i = 0; i < size; ++i) {
+    double a = values[i];
+
+    ResourceMark rm;
+    JavaCallArguments dargs1(1);
+    dargs1.push_double(a);
+
+    {
+      JavaValue result(T_DOUBLE);
+      JavaCalls::call(&result, dabs, &dargs1, CHECK);
+      tty->print_cr("abs(%lf) = %lf", a, result.get_jdouble());
+    }
+    {
+      JavaValue result(T_DOUBLE);
+      JavaCalls::call(&result, dsqrt, &dargs1, CHECK);
+      tty->print_cr("sqrt(%lf) = %lf", a, result.get_jdouble());
+    }
+    {
+      JavaValue result(T_DOUBLE);
+      JavaCalls::call(&result, dsin, &dargs1, CHECK);
+      tty->print_cr("sin(%lf) = %lf", a, result.get_jdouble());
+    }
+
+//    for (int j = 0; j < size; ++j) {
+//      for (int k = 0; k < size; ++k) {
+//        double b = values[j];
+//        double c = values[k];
+//
+//        ResourceMark rm1;
+//        JavaCallArguments fargs3(3);
+//        fargs3.push_double(a);
+//        fargs3.push_double(b);
+//        fargs3.push_double(c);
+//
+//        {
+//          JavaValue result(T_DOUBLE);
+//          JavaCalls::call(&result, dfma, &fargs3, CHECK);
+//          tty->print_cr("fma(%lf, %lf, %lf) = %lf", a, b, c, result.get_jdouble());
+//        }
+//      }
+//    }
+  }
+}
+
 void test_all(TRAPS) {
   float POSITIVE_INFINITY_F = 1.0f / 0.0f;
   float NEGATIVE_INFINITY_F = -1.0f / 0.0f;
@@ -4186,7 +4274,7 @@ void test_all(TRAPS) {
   float MIN_VALUE_F = 0x0.000002P-126f;
 
   float float_values[] = {
-      NEGATIVE_INFINITY_F, -MAX_VALUE_F, -42, -1, -MIN_NORMAL_F, -MIN_VALUE_F, -0,
+      0, NEGATIVE_INFINITY_F, -MAX_VALUE_F, -42, -1, -MIN_NORMAL_F, -MIN_VALUE_F, -0,
       NaN_F,
       +0, MIN_VALUE_F, MIN_NORMAL_F, 1, 42, MAX_VALUE_F, POSITIVE_INFINITY_F
   };
@@ -4200,7 +4288,7 @@ void test_all(TRAPS) {
   double MIN_VALUE_D = 0x0.0000000000001P-1022;
 
   double double_values[] = {
-      NEGATIVE_INFINITY_D, -MAX_VALUE_D, -42, -1, -MIN_NORMAL_D, -MIN_VALUE_D, -0,
+      0, NEGATIVE_INFINITY_D, -MAX_VALUE_D, -42, -1, -MIN_NORMAL_D, -MIN_VALUE_D, -0,
       NaN_D,
       +0, MIN_VALUE_D, MIN_NORMAL_D, 1, 42, MAX_VALUE_D, POSITIVE_INFINITY_D
   };
@@ -4230,18 +4318,22 @@ void test_all(TRAPS) {
   InstanceKlass *instanceKlass = InstanceKlass::cast(klass);
   instanceKlass->link_class(CHECK);
 
-  test_op2_int(int_values, int_size, klass, CHECK);
-  test_op2_long(long_values, long_size, klass, CHECK);
-  test_op2_float(float_values, float_size, klass, CHECK);
-  test_op2_double(double_values, double_size, klass, CHECK);
+//  test_op2_int(int_values, int_size, klass, CHECK);
+//  test_op2_long(long_values, long_size, klass, CHECK);
+//  test_op2_float(float_values, float_size, klass, CHECK);
+//  test_op2_double(double_values, double_size, klass, CHECK);
+//
+//  test_unary_int(int_values, int_size, klass, CHECK);
+//  test_unary_long(long_values, long_size, klass, CHECK);
+//  test_unary_float(float_values, float_size, klass, CHECK);
+//  test_unary_double(double_values, double_size, klass, CHECK);
+//
+//  test_shift_int(int_values, int_size, shifts, shifts_size, klass, CHECK);
+//  test_shift_long(long_values, long_size, shifts, shifts_size, klass, CHECK);
 
-  test_unary_int(int_values, int_size, klass, CHECK);
-  test_unary_long(long_values, long_size, klass, CHECK);
-  test_unary_float(float_values, float_size, klass, CHECK);
-  test_unary_double(double_values, double_size, klass, CHECK);
-
-  test_shift_int(int_values, int_size, shifts, shifts_size, klass, CHECK);
-  test_shift_long(long_values, long_size, shifts, shifts_size, klass, CHECK);
+  test_math_float(float_values, float_size, klass, CHECK);
+  tty->print_cr("==================================================");
+  test_math_double(double_values, double_size, klass, CHECK);
 }
 
 void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
