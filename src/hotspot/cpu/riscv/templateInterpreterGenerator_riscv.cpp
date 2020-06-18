@@ -1080,7 +1080,9 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
       case Interpreter::java_lang_math_fmaF :
       case Interpreter::java_lang_math_fmaD : return generate_math_entry_float(kind);
       case Interpreter::java_lang_math_minI :
+      case Interpreter::java_lang_math_minL :
       case Interpreter::java_lang_math_maxI :
+      case Interpreter::java_lang_math_maxL :
       case Interpreter::java_lang_math_absI :
       case Interpreter::java_lang_math_absL : return generate_math_entry_int(kind);
       default: ShouldNotReachHere();
@@ -1095,7 +1097,9 @@ address TemplateInterpreterGenerator::generate_math_entry_int(AbstractInterprete
   // RISCV64 specific:
   switch (kind) {
     case Interpreter::java_lang_math_minI:
-    case Interpreter::java_lang_math_maxI: num_args = 2;   break;
+    case Interpreter::java_lang_math_minL:
+    case Interpreter::java_lang_math_maxI:
+    case Interpreter::java_lang_math_maxL: num_args = 2;   break;
     case Interpreter::java_lang_math_absI:                 break;
     case Interpreter::java_lang_math_absL: is_long = true; break;
     default: ShouldNotReachHere();
@@ -1123,7 +1127,9 @@ address TemplateInterpreterGenerator::generate_math_entry_int(AbstractInterprete
 
   // If branch happens, the result is equal to the value in R10_ARG0 (same register as R10_RET1).
   switch (kind) {
+    case Interpreter::java_lang_math_minL: tty->print_cr("minL: %p", __ pc());
     case Interpreter::java_lang_math_minI: __ blt(R10_ARG0, R11_ARG1, ret); __ mv(R10_RET1, R11_ARG1);  break;
+    case Interpreter::java_lang_math_maxL: tty->print_cr("maxL: %p", __ pc());
     case Interpreter::java_lang_math_maxI: __ bge(R10_ARG0, R11_ARG1, ret); __ mv(R10_RET1, R11_ARG1);  break;
     case Interpreter::java_lang_math_absI:
     case Interpreter::java_lang_math_absL: __ blt(R0_ZERO,  R10_ARG0, ret); __ neg(R10_RET1, R10_ARG0); break;

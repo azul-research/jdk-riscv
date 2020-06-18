@@ -178,10 +178,12 @@ AbstractInterpreter::MethodKind AbstractInterpreter::method_kind(const methodHan
     case vmIntrinsics::_dcos  : return java_lang_math_cos  ;
     case vmIntrinsics::_dtan  : return java_lang_math_tan  ;
 #ifdef RISCV
-    case vmIntrinsics::_min   : return java_lang_math_minI ;
+    case vmIntrinsics::_minI  : return java_lang_math_minI ;
+    case vmIntrinsics::_minL  : return java_lang_math_minL ;
     case vmIntrinsics::_minF  : return java_lang_math_minF ;
     case vmIntrinsics::_minD  : return java_lang_math_minD ;
-    case vmIntrinsics::_max   : return java_lang_math_maxI ;
+    case vmIntrinsics::_maxI  : return java_lang_math_maxI ;
+    case vmIntrinsics::_maxL  : return java_lang_math_maxL ;
     case vmIntrinsics::_maxF  : return java_lang_math_maxF ;
     case vmIntrinsics::_maxD  : return java_lang_math_maxD ;
     case vmIntrinsics::_iabs  : return java_lang_math_absI ;
@@ -316,9 +318,11 @@ void AbstractInterpreter::print_method_kind(MethodKind kind) {
     case java_lang_math_tan     : tty->print("java_lang_math_tan"     ); break;
 #ifdef RISCV
     case java_lang_math_minI    : tty->print("java_lang_math_minI"    ); break;
+    case java_lang_math_minL    : tty->print("java_lang_math_minL"    ); break;
     case java_lang_math_minF    : tty->print("java_lang_math_minF"    ); break;
     case java_lang_math_minD    : tty->print("java_lang_math_minD"    ); break;
     case java_lang_math_maxI    : tty->print("java_lang_math_maxI"    ); break;
+    case java_lang_math_maxL    : tty->print("java_lang_math_maxL"    ); break;
     case java_lang_math_maxF    : tty->print("java_lang_math_maxF"    ); break;
     case java_lang_math_maxD    : tty->print("java_lang_math_maxD"    ); break;
     case java_lang_math_absI    : tty->print("java_lang_math_absI"    ); break;
