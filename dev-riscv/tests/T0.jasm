@@ -378,6 +378,22 @@ super public class T0
 		dreturn;
 	}
 
+	public static Method testIabs:"(I)I"
+		stack 1 locals 1
+	{
+		iload_0;
+		invokestatic  java/lang/Math.abs:"(I)I";
+		ireturn;
+	}
+
+	public static Method testLabs:"(J)J"
+		stack 2 locals 2
+	{
+		lload_0;
+		invokestatic  java/lang/Math.abs:"(J)J";
+		lreturn;
+	}
+
 	public static Method testFabs:"(F)F"
 		stack 1 locals 1
 	{
@@ -391,6 +407,78 @@ super public class T0
 	{
 		dload_0;
 		invokestatic  java/lang/Math.abs:"(D)D";
+		dreturn;
+	}
+
+	public static Method testImax:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		invokestatic  java/lang/Math.max:"(II)I";
+		ireturn;
+	}
+
+	public static Method testLmax:"(JJ)J"
+		stack 4 locals 4
+	{
+		lload_0;
+		lload_2;
+		invokestatic  java/lang/Math.max:"(JJ)J";
+		lreturn;
+	}
+
+	public static Method testFmax:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		invokestatic  java/lang/Math.max:"(FF)F";
+		freturn;
+	}
+
+	public static Method testDmax:"(DD)D"
+		stack 4 locals 4
+	{
+		dload_0;
+		dload_2;
+		invokestatic  java/lang/Math.max:"(DD)D";
+		dreturn;
+	}
+
+	public static Method testImin:"(II)I"
+		stack 2 locals 2
+	{
+		iload_0;
+		iload_1;
+		invokestatic  java/lang/Math.min:"(II)I";
+		ireturn;
+	}
+
+	public static Method testLmin:"(JJ)J"
+		stack 4 locals 4
+	{
+		lload_0;
+		lload_2;
+		invokestatic  java/lang/Math.min:"(JJ)J";
+		lreturn;
+	}
+
+	public static Method testFmin:"(FF)F"
+		stack 2 locals 2
+	{
+		fload_0;
+		fload_1;
+		invokestatic  java/lang/Math.min:"(FF)F";
+		freturn;
+	}
+
+	public static Method testDmin:"(DD)D"
+		stack 4 locals 4
+	{
+		dload_0;
+		dload_2;
+		invokestatic  java/lang/Math.min:"(DD)D";
 		dreturn;
 	}
 

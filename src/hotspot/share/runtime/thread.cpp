@@ -4177,14 +4177,96 @@ static void test_shift_long(const long long *values, int val_size, const int *sh
     }
 }
 
+void test_math_int(const int *values, int size, Klass *klass, TRAPS) {
+  Method *iabs =  findTestMethod(InstanceKlass::cast(klass), "testIabs");
+  Method *imin =  findTestMethod(InstanceKlass::cast(klass), "testImin");
+  Method *imax =  findTestMethod(InstanceKlass::cast(klass), "testImax");
+
+  for (int i = 0; i < size; ++i) {
+    int a = values[i];
+
+    ResourceMark rm1;
+    JavaCallArguments iargs1(1);
+    iargs1.push_int(a);
+
+    {
+      JavaValue result(T_INT);
+      JavaCalls::call(&result, iabs, &iargs1, CHECK);
+      tty->print_cr("abs(%i) = %i", a, result.get_jint());
+    }
+
+    for (int j = 0; j < size; ++j) {
+      int b = values[j];
+
+      ResourceMark rm2;
+      JavaCallArguments iargs2(2);
+      iargs2.push_int(a);
+      iargs2.push_int(b);
+
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, imin, &iargs2, CHECK);
+        tty->print_cr("min(%i, %i) = %i", a, b, result.get_jint());
+      }
+      {
+        JavaValue result(T_INT);
+        JavaCalls::call(&result, imax, &iargs2, CHECK);
+        tty->print_cr("max(%i, %i) = %i", a, b, result.get_jint());
+      }
+    }
+  }
+}
+
+void test_math_long(const long long *values, int size, Klass *klass, TRAPS) {
+  Method *labs =  findTestMethod(InstanceKlass::cast(klass), "testLabs");
+  Method *lmin =  findTestMethod(InstanceKlass::cast(klass), "testLmin");
+  Method *lmax =  findTestMethod(InstanceKlass::cast(klass), "testLmax");
+
+  for (int i = 0; i < size; ++i) {
+    long long a = values[i];
+
+    ResourceMark rm1;
+    JavaCallArguments largs1(1);
+    largs1.push_long(a);
+
+    {
+      JavaValue result(T_LONG);
+      JavaCalls::call(&result, labs, &largs1, CHECK);
+      tty->print_cr("abs(%lli) = %li", a, result.get_jlong());
+    }
+
+    for (int j = 0; j < size; ++j) {
+      long long b = values[j];
+
+      ResourceMark rm2;
+      JavaCallArguments largs2(2);
+      largs2.push_long(a);
+      largs2.push_long(b);
+
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lmin, &largs2, CHECK);
+        tty->print_cr("min(%lli, %lli) = %li", a, b, result.get_jlong());
+      }
+      {
+        JavaValue result(T_LONG);
+        JavaCalls::call(&result, lmax, &largs2, CHECK);
+        tty->print_cr("max(%lli, %lli) = %li", a, b, result.get_jlong());
+      }
+    }
+  }
+}
+
 void test_math_float(const float *values, int size, Klass *klass, TRAPS) {
   Method *fabs =  findTestMethod(InstanceKlass::cast(klass), "testFabs");
+  Method *fmin =  findTestMethod(InstanceKlass::cast(klass), "testFmin");
+  Method *fmax =  findTestMethod(InstanceKlass::cast(klass), "testFmax");
   Method *ffma =  findTestMethod(InstanceKlass::cast(klass), "testFfma");
 
   for (int i = 0; i < size; ++i) {
     float a = values[i];
 
-    ResourceMark rm;
+    ResourceMark rm1;
     JavaCallArguments fargs1(1);
     fargs1.push_float(a);
 
@@ -4194,12 +4276,29 @@ void test_math_float(const float *values, int size, Klass *klass, TRAPS) {
       tty->print_cr("abs(%f) = %f", a, result.get_jfloat());
     }
 
-//    for (int j = 0; j < size; ++j) {
+    for (int j = 0; j < size; ++j) {
+      float b = values[j];
+
+      ResourceMark rm2;
+      JavaCallArguments fargs2(2);
+      fargs2.push_float(a);
+      fargs2.push_float(b);
+
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fmin, &fargs2, CHECK);
+        tty->print_cr("min(%f, %f) = %f", a, b, result.get_jfloat());
+      }
+      {
+        JavaValue result(T_FLOAT);
+        JavaCalls::call(&result, fmax, &fargs2, CHECK);
+        tty->print_cr("max(%f, %f) = %f", a, b, result.get_jfloat());
+      }
+
 //      for (int k = 0; k < size; ++k) {
-//        float b = values[j];
 //        float c = values[k];
 //
-//        ResourceMark rm1;
+//        ResourceMark rm3;
 //        JavaCallArguments fargs3(3);
 //        fargs3.push_float(a);
 //        fargs3.push_float(b);
@@ -4211,7 +4310,7 @@ void test_math_float(const float *values, int size, Klass *klass, TRAPS) {
 //          tty->print_cr("fma(%f, %f, %f) = %f", a, b, c, result.get_jfloat());
 //        }
 //      }
-//    }
+    }
   }
 }
 
@@ -4219,12 +4318,14 @@ void test_math_double(const double *values, int size, Klass *klass, TRAPS) {
   Method *dabs =  findTestMethod(InstanceKlass::cast(klass), "testDabs");
   Method *dsqrt =  findTestMethod(InstanceKlass::cast(klass), "testDsqrt");
   Method *dsin =  findTestMethod(InstanceKlass::cast(klass), "testDsin");
+  Method *dmin =  findTestMethod(InstanceKlass::cast(klass), "testDmin");
+  Method *dmax =  findTestMethod(InstanceKlass::cast(klass), "testDmax");
   Method *dfma =  findTestMethod(InstanceKlass::cast(klass), "testDfma");
 
   for (int i = 0; i < size; ++i) {
     double a = values[i];
 
-    ResourceMark rm;
+    ResourceMark rm1;
     JavaCallArguments dargs1(1);
     dargs1.push_double(a);
 
@@ -4233,23 +4334,40 @@ void test_math_double(const double *values, int size, Klass *klass, TRAPS) {
       JavaCalls::call(&result, dabs, &dargs1, CHECK);
       tty->print_cr("abs(%lf) = %lf", a, result.get_jdouble());
     }
-    {
-      JavaValue result(T_DOUBLE);
-      JavaCalls::call(&result, dsqrt, &dargs1, CHECK);
-      tty->print_cr("sqrt(%lf) = %lf", a, result.get_jdouble());
-    }
-    {
-      JavaValue result(T_DOUBLE);
-      JavaCalls::call(&result, dsin, &dargs1, CHECK);
-      tty->print_cr("sin(%lf) = %lf", a, result.get_jdouble());
-    }
+//    {
+//      JavaValue result(T_DOUBLE);
+//      JavaCalls::call(&result, dsqrt, &dargs1, CHECK);
+//      tty->print_cr("sqrt(%lf) = %lf", a, result.get_jdouble());
+//    }
+//    {
+//      JavaValue result(T_DOUBLE);
+//      JavaCalls::call(&result, dsin, &dargs1, CHECK);
+//      tty->print_cr("sin(%lf) = %lf", a, result.get_jdouble());
+//    }
 
-//    for (int j = 0; j < size; ++j) {
+    for (int j = 0; j < size; ++j) {
+      double b = values[j];
+
+      ResourceMark rm2;
+      JavaCallArguments dargs2(2);
+      dargs2.push_double(a);
+      dargs2.push_double(b);
+
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, dmin, &dargs2, CHECK);
+        tty->print_cr("min(%lf, %lf) = %lf", a, b, result.get_jdouble());
+      }
+      {
+        JavaValue result(T_DOUBLE);
+        JavaCalls::call(&result, dmax, &dargs2, CHECK);
+        tty->print_cr("max(%lf, %lf) = %lf", a, b, result.get_jdouble());
+      }
+
 //      for (int k = 0; k < size; ++k) {
-//        double b = values[j];
 //        double c = values[k];
 //
-//        ResourceMark rm1;
+//        ResourceMark rm3;
 //        JavaCallArguments fargs3(3);
 //        fargs3.push_double(a);
 //        fargs3.push_double(b);
@@ -4261,7 +4379,7 @@ void test_math_double(const double *values, int size, Klass *klass, TRAPS) {
 //          tty->print_cr("fma(%lf, %lf, %lf) = %lf", a, b, c, result.get_jdouble());
 //        }
 //      }
-//    }
+    }
   }
 }
 
@@ -4331,8 +4449,9 @@ void test_all(TRAPS) {
 //  test_shift_int(int_values, int_size, shifts, shifts_size, klass, CHECK);
 //  test_shift_long(long_values, long_size, shifts, shifts_size, klass, CHECK);
 
+  test_math_int(int_values, int_size, klass, CHECK);
+  test_math_long(long_values, long_size, klass, CHECK);
   test_math_float(float_values, float_size, klass, CHECK);
-  tty->print_cr("==================================================");
   test_math_double(double_values, double_size, klass, CHECK);
 }
 
