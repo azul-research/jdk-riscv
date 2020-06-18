@@ -126,6 +126,8 @@ class TemplateInterpreterGenerator: public AbstractInterpreterGenerator {
 #ifdef RISCV
   void lock_method(Register Rflags, Register Rscratch1, Register Rscratch2, bool flags_preloaded=false);
   void generate_fixed_frame(bool native_call, Register Rsize_of_parameters, Register Rsize_of_locals);
+  address generate_math_entry_float(AbstractInterpreter::MethodKind kind);
+  address generate_math_entry_int(AbstractInterpreter::MethodKind kind);
 #endif // RISCV
 
 public:
