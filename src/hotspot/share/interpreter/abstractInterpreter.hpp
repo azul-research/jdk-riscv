@@ -73,9 +73,11 @@ class AbstractInterpreter: AllStatic {
     java_lang_math_tan,                                         // implementation of java.lang.Math.tan   (x)
 #ifdef RISCV
     java_lang_math_minI,                                        // implementation of java.lang.Math.min   (x, y)
+    java_lang_math_minL,                                        // implementation of java.lang.Math.max   (x, y)
     java_lang_math_minF,                                        // implementation of java.lang.Math.min   (x, y)
     java_lang_math_minD,                                        // implementation of java.lang.Math.min   (x, y)
     java_lang_math_maxI,                                        // implementation of java.lang.Math.max   (x, y)
+    java_lang_math_maxL,                                        // implementation of java.lang.Math.max   (x, y)
     java_lang_math_maxF,                                        // implementation of java.lang.Math.max   (x, y)
     java_lang_math_maxD,                                        // implementation of java.lang.Math.max   (x, y)
     java_lang_math_absI,                                        // implementation of java.lang.Math.abs   (x)

@@ -1451,6 +1451,7 @@ public final class Math {
      * @param   b   another argument.
      * @return  the larger of {@code a} and {@code b}.
      */
+    @HotSpotIntrinsicCandidate
     public static long max(long a, long b) {
         return (a >= b) ? a : b;
     }
@@ -1538,6 +1539,7 @@ public final class Math {
      * @param   b   another argument.
      * @return  the smaller of {@code a} and {@code b}.
      */
+    @HotSpotIntrinsicCandidate
     public static long min(long a, long b) {
         return (a <= b) ? a : b;
     }

@@ -586,8 +586,15 @@ bool vmIntrinsics::is_disabled_by_flags(vmIntrinsics::ID id) {
   case vmIntrinsics::_dpow:
   case vmIntrinsics::_dlog10:
   case vmIntrinsics::_datan2:
+#ifdef RISCV
+  case vmIntrinsics::_minI:
+  case vmIntrinsics::_minL:
+  case vmIntrinsics::_maxI:
+  case vmIntrinsics::_maxL:
+#else
   case vmIntrinsics::_min:
   case vmIntrinsics::_max:
+#endif
   case vmIntrinsics::_floatToIntBits:
   case vmIntrinsics::_doubleToLongBits:
   case vmIntrinsics::_maxF:
@@ -1051,8 +1058,15 @@ void vmIntrinsics::verify_method(ID actual_id, Method* m) {
   if (declared_id == _none && actual_id != _none && mk == vmSymbols::java_lang_StrictMath()) {
     // Here are a few special cases in StrictMath not declared in vmSymbols.hpp.
     switch (actual_id) {
+#ifdef RISCV
+    case _minI:
+    case _minL:
+    case _maxI:
+    case _maxL:
+#else
     case _min:
     case _max:
+#endif
     case _dsqrt:
       declared_id = match_method_with_klass(m, vmSymbols::java_lang_Math());
       if (declared_id == actual_id)  return; // acceptable alias
