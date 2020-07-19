@@ -200,21 +200,19 @@ void TemplateInterpreterGenerator::generate_all() {
   method_entry(java_lang_math_cos  )
   method_entry(java_lang_math_tan  )
 #ifdef RISCV
-  method_entry(java_lang_math_minI )
+  method_entry(java_lang_math_min )
   method_entry(java_lang_math_minL )
   method_entry(java_lang_math_minF )
   method_entry(java_lang_math_minD )
-  method_entry(java_lang_math_maxI )
+  method_entry(java_lang_math_max )
   method_entry(java_lang_math_maxL )
   method_entry(java_lang_math_maxF )
   method_entry(java_lang_math_maxD )
   method_entry(java_lang_math_absI )
   method_entry(java_lang_math_absL )
   method_entry(java_lang_math_absF )
-  method_entry(java_lang_math_absD )
-#else
-  method_entry(java_lang_math_abs  )
 #endif
+  method_entry(java_lang_math_abs  )
   method_entry(java_lang_math_sqrt )
   method_entry(java_lang_math_log  )
   method_entry(java_lang_math_log10)
@@ -438,21 +436,19 @@ address TemplateInterpreterGenerator::generate_method_entry(
   case Interpreter::java_lang_math_cos     : // fall thru
   case Interpreter::java_lang_math_tan     : // fall thru
 #ifdef RISCV
-  case Interpreter::java_lang_math_minI    : // fall thru
+  case Interpreter::java_lang_math_min    : // fall thru
   case Interpreter::java_lang_math_minL    : // fall thru
   case Interpreter::java_lang_math_minF    : // fall thru
   case Interpreter::java_lang_math_minD    : // fall thru
-  case Interpreter::java_lang_math_maxI    : // fall thru
+  case Interpreter::java_lang_math_max    : // fall thru
   case Interpreter::java_lang_math_maxL    : // fall thru
   case Interpreter::java_lang_math_maxF    : // fall thru
   case Interpreter::java_lang_math_maxD    : // fall thru
   case Interpreter::java_lang_math_absI    : // fall thru
   case Interpreter::java_lang_math_absL    : // fall thru
   case Interpreter::java_lang_math_absF    : // fall thru
-  case Interpreter::java_lang_math_absD    : // fall thru
-#else
-  case Interpreter::java_lang_math_abs     : // fall thru
 #endif
+  case Interpreter::java_lang_math_abs     : // fall thru
   case Interpreter::java_lang_math_log     : // fall thru
   case Interpreter::java_lang_math_log10   : // fall thru
   case Interpreter::java_lang_math_sqrt    : // fall thru

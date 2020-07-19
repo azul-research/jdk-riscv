@@ -1076,12 +1076,12 @@ address TemplateInterpreterGenerator::generate_math_entry(AbstractInterpreter::M
       case Interpreter::java_lang_math_minD :
       case Interpreter::java_lang_math_maxD :
       case Interpreter::java_lang_math_absF :
-      case Interpreter::java_lang_math_absD :
+      case Interpreter::java_lang_math_abs  :
       case Interpreter::java_lang_math_fmaF :
       case Interpreter::java_lang_math_fmaD : return generate_math_entry_float(kind);
-      case Interpreter::java_lang_math_minI :
+      case Interpreter::java_lang_math_min  :
       case Interpreter::java_lang_math_minL :
-      case Interpreter::java_lang_math_maxI :
+      case Interpreter::java_lang_math_max  :
       case Interpreter::java_lang_math_maxL :
       case Interpreter::java_lang_math_absI :
       case Interpreter::java_lang_math_absL : return generate_math_entry_int(kind);
@@ -1098,8 +1098,8 @@ address TemplateInterpreterGenerator::generate_math_entry_int(AbstractInterprete
   switch (kind) {
     case Interpreter::java_lang_math_minL:
     case Interpreter::java_lang_math_maxL: is_long = true;
-    case Interpreter::java_lang_math_minI:
-    case Interpreter::java_lang_math_maxI: num_args = 2;   break;
+    case Interpreter::java_lang_math_min :
+    case Interpreter::java_lang_math_max : num_args = 2;   break;
     case Interpreter::java_lang_math_absL: is_long = true; break;
     case Interpreter::java_lang_math_absI:                 break;
     default: ShouldNotReachHere();
@@ -1127,9 +1127,9 @@ address TemplateInterpreterGenerator::generate_math_entry_int(AbstractInterprete
 
   // If branch happens, the result is equal to the value in R10_ARG0 (same register as R10_RET1).
   switch (kind) {
-    case Interpreter::java_lang_math_minI:
+    case Interpreter::java_lang_math_min :
     case Interpreter::java_lang_math_minL: __ blt(R10_ARG0, R11_ARG1, ret); __ mv(R10_RET1, R11_ARG1);  break;
-    case Interpreter::java_lang_math_maxI:
+    case Interpreter::java_lang_math_max :
     case Interpreter::java_lang_math_maxL: __ bge(R10_ARG0, R11_ARG1, ret); __ mv(R10_RET1, R11_ARG1);  break;
     case Interpreter::java_lang_math_absI:
     case Interpreter::java_lang_math_absL: __ blt(R0_ZERO,  R10_ARG0, ret); __ neg(R10_RET1, R10_ARG0); break;
@@ -1165,7 +1165,7 @@ address TemplateInterpreterGenerator::generate_math_entry_float(AbstractInterpre
     case Interpreter::java_lang_math_maxF:
     case Interpreter::java_lang_math_maxD:
     case Interpreter::java_lang_math_absF:
-    case Interpreter::java_lang_math_absD: use_instruction = true;   break;
+    case Interpreter::java_lang_math_abs : use_instruction = true;   break;
     case Interpreter::java_lang_math_fmaF:
     case Interpreter::java_lang_math_fmaD: use_instruction = UseFMA; break;
     default: break; // Fall back to runtime call.
@@ -1185,7 +1185,7 @@ address TemplateInterpreterGenerator::generate_math_entry_float(AbstractInterpre
     case Interpreter::java_lang_math_minD :
     case Interpreter::java_lang_math_maxD : /* run interpreted */ num_args = 2;                           break;
     case Interpreter::java_lang_math_absF : /* run interpreted */               double_precision = false; break;
-    case Interpreter::java_lang_math_absD : /* run interpreted */                                         break;
+    case Interpreter::java_lang_math_abs  : /* run interpreted */                                         break;
     case Interpreter::java_lang_math_fmaF : /* run interpreted */ num_args = 3; double_precision = false; break;
     case Interpreter::java_lang_math_fmaD : /* run interpreted */ num_args = 3;                           break;
     default: ShouldNotReachHere();
@@ -1244,7 +1244,7 @@ address TemplateInterpreterGenerator::generate_math_entry_float(AbstractInterpre
       case Interpreter::java_lang_math_sqrt: __ fsqrtd(F10_RET, F10_ARG0, rm);                      break;
       case Interpreter::java_lang_math_minD: __ fmind(F10_RET, F10_ARG0, F11_ARG1);                 break;
       case Interpreter::java_lang_math_maxD: __ fmaxd(F10_RET, F10_ARG0, F11_ARG1);                 break;
-      case Interpreter::java_lang_math_absD: __ fsgnjxd(F10_RET, F10_ARG0, F10_ARG0);               break;
+      case Interpreter::java_lang_math_abs : __ fsgnjxd(F10_RET, F10_ARG0, F10_ARG0);               break;
       case Interpreter::java_lang_math_fmaD: __ fmaddd(F10_RET, F10_ARG0, F11_ARG1, F12_ARG2, rm);  break;
       case Interpreter::java_lang_math_minF: __ fmins(F10_RET, F10_ARG0, F11_ARG1);                 break;
       case Interpreter::java_lang_math_maxF: __ fmaxs(F10_RET, F10_ARG0, F11_ARG1);                 break;

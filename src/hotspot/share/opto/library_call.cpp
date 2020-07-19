@@ -544,14 +544,9 @@ bool LibraryCallKit::try_to_inline(int predicate) {
   case vmIntrinsics::_dlog10:
   case vmIntrinsics::_dpow:                     return inline_math_native(intrinsic_id());
 
-#ifdef RISCV
   // FIXME_RISCV: add _minL and _maxL
-  case vmIntrinsics::_minI:
-  case vmIntrinsics::_maxI:                     return inline_min_max(intrinsic_id());
-#else
   case vmIntrinsics::_min:
   case vmIntrinsics::_max:                      return inline_min_max(intrinsic_id());
-#endif
 
 
   case vmIntrinsics::_notify:
@@ -2027,11 +2022,7 @@ LibraryCallKit::generate_min_max(vmIntrinsics::ID id, Node* x0, Node* y0) {
     return xvalue;
   }
 
-#ifdef RISCV
-  bool want_max = (id == vmIntrinsics::_maxI);
-#else
   bool want_max = (id == vmIntrinsics::_max);
-#endif
 
   const TypeInt* txvalue = _gvn.type(xvalue)->isa_int();
   const TypeInt* tyvalue = _gvn.type(yvalue)->isa_int();
@@ -2188,9 +2179,9 @@ LibraryCallKit::generate_min_max(vmIntrinsics::ID id, Node* x0, Node* y0) {
   // And they would interfere, anyway, with 'if' optimizations
   // and with CMoveI canonical forms.
   switch (id) {
-  case vmIntrinsics::_min: // FIXME_RISCV: _minI, _minL
+  case vmIntrinsics::_min: // FIXME_RISCV: add _minL
     result_val = _gvn.transform(new (C, 3) MinINode(x,y)); break;
-  case vmIntrinsics::_max: // FIXME_RISCV: _maxI, _maxL
+  case vmIntrinsics::_max: // FIXME_RISCV: add _maxL
     result_val = _gvn.transform(new (C, 3) MaxINode(x,y)); break;
   default:
     ShouldNotReachHere();
