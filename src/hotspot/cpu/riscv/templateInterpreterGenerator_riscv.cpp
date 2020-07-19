@@ -1263,18 +1263,18 @@ address TemplateInterpreterGenerator::generate_math_entry_float(AbstractInterpre
 
   __ bind(Lnan1);
   if (double_precision) {
-    __ fmind(F10_RET, F10_ARG0, F10_ARG0);
+    __ fmvd(F10_RET, F10_ARG0);
   } else {
-    __ fmins(F10_RET, F10_ARG0, F10_ARG0);
+    __ fmvs(F10_RET, F10_ARG0);
   }
   __ mv(R2_SP, R21_sender_SP);
   __ ret();
 
   __ bind(Lnan2);
   if (double_precision) {
-    __ fmind(F10_RET, F11_ARG1, F11_ARG1);
+    __ fmvd(F10_RET, F11_ARG1);
   } else {
-    __ fmins(F10_RET, F11_ARG1, F11_ARG1);
+    __ fmvs(F10_RET, F11_ARG1);
   }
   __ mv(R2_SP, R21_sender_SP);
   __ ret();
