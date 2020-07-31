@@ -37,13 +37,26 @@ import jdk.internal.HotSpotIntrinsicCandidate;
  * @since   1.0
  */
 public class Object {
-	private static int v;
 
     private static native void registerNatives();
 
+    private static int v;
+
+    private static float mf() {
+	    return 5.0f;
+    }
+
+    private static double md() {
+         return 5.0;
+    }
+
+
     static {
-	    v = 3;
+	v = (int) md();
+        v = (int) mf(); 	
         registerNatives();
+
+
     }
 
 	/**

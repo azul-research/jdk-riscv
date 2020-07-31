@@ -213,7 +213,7 @@ public final class String
      */
     static final boolean COMPACT_STRINGS;
 
-    private static class C {
+/*    private static class C {
 	    final int m1() {
 		    return 0;
 	    }
@@ -227,12 +227,42 @@ public final class String
 		    return "";
 	    }
     }
+    */
+
+  //  static Object vs = null;
+  //  static String s = "";
 
     static {
         COMPACT_STRINGS = true;
-	C.sm1();
-   //     (new C()).m1();
+
+    //    Object v;
+   //     synchronized (s) {
+    //        v = vs = new Object();
+   //     }
     }
+
+    /*
+    static final char[] digits = {
+        '0' , '1' , '2' , '3' , '4' , '5' ,
+        '6' , '7' , '8' , '9' , 'a' , 'b' ,
+        'c' , 'd' , 'e' , 'f' , 'g' , 'h' ,
+        'i' , 'j' , 'k' , 'l' , 'm' , 'n' ,
+        'o' , 'p' , 'q' , 'r' , 's' , 't' ,
+        'u' , 'v' , 'w' , 'x' , 'y' , 'z'
+    };
+
+    static int nums[];
+
+    static {
+        COMPACT_STRINGS = true;
+
+	int data[] = new int[10];
+	for (int i = 0; i < 10; ++i) {
+            data[i] = i; 
+	}
+        nums = data;
+    }
+*/
 
     /**
      * Class String is special cased within the Serialization Stream Protocol.
