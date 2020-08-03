@@ -815,6 +815,8 @@
   do_intrinsic(_dlog10,                   java_lang_Math,         log10_name, double_double_signature,           F_S)   \
   do_intrinsic(_dpow,                     java_lang_Math,         pow_name,   double2_double_signature,          F_S)   \
   do_intrinsic(_dexp,                     java_lang_Math,         exp_name,   double_double_signature,           F_S)   \
+  do_intrinsic(_minL,                     java_lang_Math,         min_name,   long2_long_signature,              F_S)   \
+  do_intrinsic(_maxL,                     java_lang_Math,         max_name,   long2_long_signature,              F_S)   \
   do_intrinsic(_min,                      java_lang_Math,         min_name,   int2_int_signature,                F_S)   \
   do_intrinsic(_max,                      java_lang_Math,         max_name,   int2_int_signature,                F_S)   \
   do_intrinsic(_addExactI,                java_lang_Math,         addExact_name, int2_int_signature,             F_S)   \

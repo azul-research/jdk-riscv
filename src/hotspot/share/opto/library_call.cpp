@@ -544,8 +544,10 @@ bool LibraryCallKit::try_to_inline(int predicate) {
   case vmIntrinsics::_dlog10:
   case vmIntrinsics::_dpow:                     return inline_math_native(intrinsic_id());
 
+  // FIXME_RISCV: add _minL and _maxL
   case vmIntrinsics::_min:
   case vmIntrinsics::_max:                      return inline_min_max(intrinsic_id());
+
 
   case vmIntrinsics::_notify:
   case vmIntrinsics::_notifyAll:
@@ -2177,9 +2179,9 @@ LibraryCallKit::generate_min_max(vmIntrinsics::ID id, Node* x0, Node* y0) {
   // And they would interfere, anyway, with 'if' optimizations
   // and with CMoveI canonical forms.
   switch (id) {
-  case vmIntrinsics::_min:
+  case vmIntrinsics::_min: // FIXME_RISCV: add _minL
     result_val = _gvn.transform(new (C, 3) MinINode(x,y)); break;
-  case vmIntrinsics::_max:
+  case vmIntrinsics::_max: // FIXME_RISCV: add _maxL
     result_val = _gvn.transform(new (C, 3) MaxINode(x,y)); break;
   default:
     ShouldNotReachHere();

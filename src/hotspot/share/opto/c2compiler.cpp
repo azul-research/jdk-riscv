@@ -469,6 +469,10 @@ bool C2Compiler::is_intrinsic_supported(const methodHandle& method, bool is_virt
   case vmIntrinsics::_dlog:
   case vmIntrinsics::_dlog10:
   case vmIntrinsics::_dpow:
+#ifdef RISCV
+  case vmIntrinsics::_minL:
+  case vmIntrinsics::_maxL:
+#endif
   case vmIntrinsics::_min:
   case vmIntrinsics::_max:
   case vmIntrinsics::_arraycopy:
