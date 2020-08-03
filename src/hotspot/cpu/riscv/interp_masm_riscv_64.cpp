@@ -581,6 +581,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
   lwu(Rlength, Rarray, arrayOopDesc::length_offset_in_bytes());
   blt(Rindex, Rlength, LnotOOR);
   // Index should be in R25_tos, array should be in R11_ARG1
+  unimplemented("Index out of bounds"); //FIXME_RISCV
   mv_if_needed(R25_tos, Rindex);
   mv_if_needed(R11_ARG1, Rarray);
   load_dispatch_table(Rtmp, (address*)Interpreter::_throw_ArrayIndexOutOfBoundsException_entry);
@@ -588,6 +589,7 @@ void InterpreterMacroAssembler::index_check_without_pop(Register Rarray, Registe
 
   if (!ImplicitNullChecks) {
     bind(LisNull);
+    unimplemented("Array is null"); //FIXME_RISCV
     load_dispatch_table(Rtmp, (address*)Interpreter::_throw_NullPointerException_entry);
     jr(Rtmp);
   }
@@ -903,12 +905,12 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
     ld(displaced_header, object, oopDesc::mark_offset_in_bytes());
 
     if (UseBiasedLocking) {
-      unimplemented("Biased locking is not implemented");
-      biased_locking_enter(CCR0, object, displaced_header, tmp, current_header, done, &slow_case);
+      untested("Biased locking is not tested");
+      biased_locking_enter(object, displaced_header, tmp, current_header, object_mark_addr, done, &slow_case);
     }
 
     // Set displaced_header to be (markOop of object | UNLOCK_VALUE).
-    ori(displaced_header, displaced_header, markOopDesc::unlocked_value);
+    ori(displaced_header, /*displaced_header*/R0_ZERO, markOopDesc::unlocked_value);
 
     // monitor->lock()->set_displaced_header(displaced_header);
 
@@ -1003,11 +1005,11 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     assert_different_registers(object, displaced_header, object_mark_addr, current_header);
 
     if (UseBiasedLocking) {
-      unimplemented("Biased locking is not implemented");
+      untested("Biased locking is not tested");
       // The object address from the monitor is in object.
-      ld_PPC(object, BasicObjectLock::obj_offset_in_bytes(), monitor);
+      ld(object, monitor, BasicObjectLock::obj_offset_in_bytes());
       assert(oopDesc::mark_offset_in_bytes() == 0, "offset of _mark is not 0");
-      biased_locking_exit(CCR0, object, displaced_header, free_slot);
+      biased_locking_exit(object, displaced_header, tmp, free_slot);
     }
 
     // Test first if we are in the fast recursive case.
@@ -1023,7 +1025,7 @@ void InterpreterMacroAssembler::unlock_object(Register monitor, bool check_for_e
     // If we still have a lightweight lock, unlock the object and be done.
 
     // The object address from the monitor is in object.
-    if (!UseBiasedLocking) { ld_PPC(object, BasicObjectLock::obj_offset_in_bytes(), monitor); }
+    if (!UseBiasedLocking) { ld(object, monitor, BasicObjectLock::obj_offset_in_bytes()); }
     addi(object_mark_addr, object, oopDesc::mark_offset_in_bytes());
 
     // We have the displaced header in displaced_header. If the lock is still

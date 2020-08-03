@@ -569,14 +569,14 @@ class MacroAssembler: public Assembler {
   // the expectation that the slow case in the runtime will be called.
   // In the fall-through case where the CAS-based lock is done,
   // mark_reg is not destroyed.
-  void biased_locking_enter(ConditionRegister cr_reg, Register obj_reg, Register mark_reg, Register temp_reg,
-                            Register temp2_reg, Label& done, Label* slow_case = NULL);
+  void biased_locking_enter(Register obj_reg, Register mark_reg, Register temp_reg,
+                            Register temp2_reg, Register temp3_reg, Label& done, Label* slow_case = NULL);
   // Upon entry, the base register of mark_addr must contain the oop.
   // Destroys temp_reg.
   // If allow_delay_slot_filling is set to true, the next instruction
   // emitted after this one will go in an annulled delay slot if the
   // biased locking exit case failed.
-  void biased_locking_exit(ConditionRegister cr_reg, Register mark_addr, Register temp_reg, Label& done);
+  void biased_locking_exit(Register mark_addr, Register temp_reg, Register temp2_reg, Label& done);
 
   // allocation (for C1)
   void eden_allocate(

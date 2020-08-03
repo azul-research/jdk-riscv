@@ -3756,8 +3756,7 @@ JavaValue call_method(const char *name, BasicType return_type, Symbol* class_nam
 
 void thread_entry_point(JavaThread* thread, TRAPS) {
   TestJavaThread* test_thread = (TestJavaThread*) thread;
-  JavaValue result = call_method(test_thread->get_test_method(), T_VOID, test_thread->get_class_name(), CHECK);
-  //fprintf(stderr, "Default test method call result: %d\n", result.get_jint());
+  call_method(test_thread->get_test_method(), T_VOID, test_thread->get_class_name(), CHECK);
 }
 
 void print_dekker_test_results(Symbol* class_name, TRAPS) {
@@ -3846,24 +3845,9 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
       }
     } else {
       Klass *klass = SystemDictionary::resolve_or_fail(vmSymbols::java_lang_Object(), true, CHECK);
-      Method *method = InstanceKlass::cast(klass)->methods()->at(15);
+      Method *method = InstanceKlass::cast(klass)->methods()->at(14);
 
-      ResourceMark rm;
-      JavaCallArguments args(11);
-      // jint aInt, jlong aLong, jfloat aFloat, jchar aChar, jbyte aByte, jboolean aBool
-
-      tty->print_cr("\n<<< jint %d, jlong %ld, jfloat %f, jchar %c, jbyte %d, jboolean %d", -13, 15L, 0.123f, '!', 17, 0);
-      args.push_int(-13);
-      args.push_long(15L);
-      args.push_float(0.123f);
-      args.push_int('!');
-      args.push_int(17);
-      args.push_int(0);
-      args.push_int(1);
-      args.push_int(2);
-      args.push_int(3);
-      args.push_int(4);
-      args.push_int(5);
+      JavaCallArguments args;
       JavaValue result(T_VOID);
       JavaCalls::call(&result, method, &args, CHECK);
       fprintf(stderr, "Default test method call result: %d\n", 1/*result.get_jint()*/);
@@ -3876,22 +3860,22 @@ void Threads::initialize_java_lang_classes(JavaThread* main_thread, TRAPS) {
   if (TestJmm) {
     char* methods[4] = { "actor1", "actor2", "actor3", "actor4" };
     JmmTest tests[14] = {
+        JmmTest(vmSymbols::java_lang_jmmtest_MonitorTest(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_DekkerTest(), &print_dekker_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_ReadAfterWrite(), &print_jmm_test_results),
+        JmmTest(vmSymbols::java_lang_jmmtest_AtomicLong(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_HB1(), &print_hb_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_HB2(), &print_hb_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CoherenceVolatile(), &print_jmm_test_results),
-        JmmTest(vmSymbols::java_lang_jmmtest_ReadAfterWrite(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest1(), methods, 4, &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest2(), methods, 4, &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest3(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest4(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest5(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_CausalityTest6(), methods, 3, &print_jmm_test_results),
-        JmmTest(vmSymbols::java_lang_jmmtest_AtomicLong(), &print_jmm_test_results),
         JmmTest(vmSymbols::java_lang_jmmtest_FinalFieldTest(), &print_jmm_test_results)
     };
-    JmmTest::run_all(tests, 14, THREAD);
+    JmmTest::run_all(tests + 11, 9, THREAD);
   }
 
   printf("Threads::initialize_java_lang_classes-4\n");

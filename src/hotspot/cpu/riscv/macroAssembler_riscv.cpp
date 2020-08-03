@@ -1578,7 +1578,8 @@ void MacroAssembler::cmpxchgd_simple(Register dest_current_value, Register compa
   // atomic emulation loop
   bind(retry);
   lrd(dest_current_value, addr_base);
-  bne(dest_current_value, compare_value, *failed_ext);
+  //bne(dest_current_value, compare_value, *failed_ext); FIXME_RISCV: Thread objects don't work so we can't use the slow path now
+  bne(dest_current_value, compare_value, retry);
   scd(tmp, exchange_value, addr_base);
   bnez(tmp, retry);
 
@@ -2009,9 +2010,8 @@ RegisterOrConstant MacroAssembler::argument_offset(RegisterOrConstant arg_slot,
 }
 
 // Supports temp2_reg = R0.
-void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj_reg,
-                                          Register mark_reg, Register temp_reg,
-                                          Register temp2_reg, Label& done, Label* slow_case) {
+void MacroAssembler::biased_locking_enter(Register obj_reg, Register mark_reg, Register temp_reg,
+                                          Register temp2_reg, Register temp3_reg, Label& done, Label* slow_case) {
   assert(UseBiasedLocking, "why call this otherwise?");
 
 #ifdef ASSERT
@@ -2038,21 +2038,20 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
     stwx_PPC(temp_reg, temp2_reg);
   }
 
-  andi_PPC(temp_reg, mark_reg, markOopDesc::biased_lock_mask_in_place);
-  cmpwi_PPC(cr_reg, temp_reg, markOopDesc::biased_lock_pattern);
-  bne_PPC(cr_reg, cas_label);
+  andi(temp_reg, mark_reg, markOopDesc::biased_lock_mask_in_place);
+  li(temp2_reg, markOopDesc::biased_lock_pattern);
+  bne(temp_reg, temp2_reg, cas_label);
 
   load_klass(temp_reg, obj_reg);
 
   load_const_optimized(temp2_reg, ~((int) markOopDesc::age_mask_in_place));
-  ld_PPC(temp_reg, in_bytes(Klass::prototype_header_offset()), temp_reg);
-  orr_PPC(temp_reg, R24_thread, temp_reg);
-  xorr_PPC(temp_reg, mark_reg, temp_reg);
-  andr_PPC(temp_reg, temp_reg, temp2_reg);
-  cmpdi_PPC(cr_reg, temp_reg, 0);
+  ld(temp_reg, temp_reg, in_bytes(Klass::prototype_header_offset()));
+  orr(temp_reg, R24_thread, temp_reg);
+  xorr(temp_reg, mark_reg, temp_reg);
+  andr(temp_reg, temp_reg, temp2_reg);
   if (PrintBiasedLockingStatistics) {
     Label l;
-    bne_PPC(cr_reg, l);
+    bnez(temp_reg, l);
     load_const(temp2_reg, (address) BiasedLocking::biased_lock_entry_count_addr());
     lwzx_PPC(mark_reg, temp2_reg);
     addi_PPC(mark_reg, mark_reg, 1);
@@ -2061,7 +2060,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
     ld_PPC(mark_reg, oopDesc::mark_offset_in_bytes(), obj_reg);
     bind(l);
   }
-  beq_PPC(cr_reg, done);
+  beqz(temp_reg, done);
 
   Label try_revoke_bias;
   Label try_rebias;
@@ -2075,9 +2074,8 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // If the low three bits in the xor result aren't clear, that means
   // the prototype header is no longer biased and we have to revoke
   // the bias on this object.
-  andi_PPC(temp2_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
-  cmpwi_PPC(cr_reg, temp2_reg, 0);
-  bne_PPC(cr_reg, try_revoke_bias);
+  andi(temp2_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
+  beqz(temp2_reg, try_revoke_bias);
 
   // Biasing is still enabled for this data type. See whether the
   // epoch of the current bias is still valid, meaning that the epoch
@@ -2088,13 +2086,8 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // that the current epoch is invalid in order to do this because
   // otherwise the manipulations it performs on the mark word are
   // illegal.
-
-  int shift_amount = 64 - markOopDesc::epoch_shift;
-  // rotate epoch bits to right (little) end and set other bits to 0
-  // [ big part | epoch | little part ] -> [ 0..0 | epoch ]
-  rldicl__PPC(temp2_reg, temp_reg, shift_amount, 64 - markOopDesc::epoch_bits);
-  // branch if epoch bits are != 0, i.e. they differ, because the epoch has been incremented
-  bne_PPC(CCR0, try_rebias);
+  andi(temp2_reg, temp_reg, markOopDesc::epoch_mask_in_place);
+  bnez(temp2_reg, try_rebias);
 
   // The epoch of the current bias is still valid but we know nothing
   // about the owner; it might be set or it might be clear. Try to
@@ -2102,20 +2095,17 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // fails we will go in to the runtime to revoke the object's bias.
   // Note that we first construct the presumed unbiased header so we
   // don't accidentally blow away another thread's valid bias.
-  andi_PPC(mark_reg, mark_reg, (markOopDesc::biased_lock_mask_in_place |
+  andi(mark_reg, mark_reg, (markOopDesc::biased_lock_mask_in_place |
                                 markOopDesc::age_mask_in_place |
                                 markOopDesc::epoch_mask_in_place));
-  orr_PPC(temp_reg, R24_thread, mark_reg);
+  orr(temp_reg, R24_thread, mark_reg);
 
   assert(oopDesc::mark_offset_in_bytes() == 0, "offset of _mark is not 0");
 
   // CmpxchgX sets cr_reg to cmpX(temp2_reg, mark_reg).
-  cmpxchgd(/*flag=*/cr_reg, /*current_value=*/temp2_reg,
-           /*compare_value=*/mark_reg, /*exchange_value=*/temp_reg,
-           /*where=*/obj_reg,
-           MacroAssembler::MemBarAcq,
-           MacroAssembler::cmpxchgx_hint_acquire_lock(),
-           noreg, slow_case_int); // bail out if failed
+  cmpxchgd_simple(/*current_value=*/temp2_reg, /*compare_value=*/mark_reg, /*exchange_value=*/temp_reg,
+                  /*where=*/obj_reg, temp3_reg, slow_case_int);
+  acquire();
 
   // If the biasing toward our thread failed, this means that
   // another thread succeeded in biasing it toward itself and we
@@ -2127,7 +2117,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
   }
-  b_PPC(done);
+  j(done);
 
   bind(try_rebias);
   // At this point we know the epoch has expired, meaning that the
@@ -2137,19 +2127,15 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // bias in the current epoch. In other words, we allow transfer of
   // the bias from one thread to another directly in this situation.
   load_klass(temp_reg, obj_reg);
-  andi_PPC(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
-  orr_PPC(temp2_reg, R24_thread, temp2_reg);
-  ld_PPC(temp_reg, in_bytes(Klass::prototype_header_offset()), temp_reg);
-  orr_PPC(temp_reg, temp2_reg, temp_reg);
+  andi(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
+  orr(temp2_reg, R24_thread, temp2_reg);
+  ld(temp_reg, temp_reg, in_bytes(Klass::prototype_header_offset()));
+  orr(temp_reg, temp2_reg, temp_reg);
 
   assert(oopDesc::mark_offset_in_bytes() == 0, "offset of _mark is not 0");
-
-  cmpxchgd(/*flag=*/cr_reg, /*current_value=*/temp2_reg,
-                 /*compare_value=*/mark_reg, /*exchange_value=*/temp_reg,
-                 /*where=*/obj_reg,
-                 MacroAssembler::MemBarAcq,
-                 MacroAssembler::cmpxchgx_hint_acquire_lock(),
-                 noreg, slow_case_int); // bail out if failed
+  cmpxchgd_simple(/*current_value=*/temp2_reg, /*compare_value=*/mark_reg, /*exchange_value=*/temp_reg,
+                  /*where=*/obj_reg, temp3_reg, slow_case_int);
+  acquire();
 
   // If the biasing toward our thread failed, this means that
   // another thread succeeded in biasing it toward itself and we
@@ -2161,7 +2147,7 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
   }
-  b_PPC(done);
+  j(done);
 
   bind(try_revoke_bias);
   // The prototype mark in the klass doesn't have the bias bit set any
@@ -2173,39 +2159,35 @@ void MacroAssembler::biased_locking_enter(ConditionRegister cr_reg, Register obj
   // bias of this particular object, so it's okay to continue in the
   // normal locking code.
   load_klass(temp_reg, obj_reg);
-  ld_PPC(temp_reg, in_bytes(Klass::prototype_header_offset()), temp_reg);
-  andi_PPC(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
-  orr_PPC(temp_reg, temp_reg, temp2_reg);
+  ld(temp_reg, temp_reg, in_bytes(Klass::prototype_header_offset()));
+  andi(temp2_reg, mark_reg, markOopDesc::age_mask_in_place);
+  orr(temp_reg, temp_reg, temp2_reg);
 
   assert(oopDesc::mark_offset_in_bytes() == 0, "offset of _mark is not 0");
 
-  // CmpxchgX sets cr_reg to cmpX(temp2_reg, mark_reg).
-  cmpxchgd(/*flag=*/cr_reg, /*current_value=*/temp2_reg,
-                 /*compare_value=*/mark_reg, /*exchange_value=*/temp_reg,
-                 /*where=*/obj_reg,
-                 MacroAssembler::MemBarAcq,
-                 MacroAssembler::cmpxchgx_hint_acquire_lock());
-
-  // reload markOop in mark_reg before continuing with lightweight locking
-  ld_PPC(mark_reg, oopDesc::mark_offset_in_bytes(), obj_reg);
+  cmpxchgd_simple(/*current_value=*/temp2_reg, /*compare_value=*/mark_reg, /*exchange_value=*/temp_reg,
+                  /*where=*/obj_reg, temp3_reg, slow_case_int);
+  acquire();
 
   // Fall through to the normal CAS-based lock, because no matter what
   // the result of the above CAS, some thread must have succeeded in
   // removing the bias bit from the object's header.
   if (PrintBiasedLockingStatistics) {
     Label l;
-    bne_PPC(cr_reg, l);
+    bne(temp2_reg, mark_reg, l);
     load_const(temp2_reg, (address) BiasedLocking::revoked_lock_entry_count_addr(), temp_reg);
     lwzx_PPC(temp_reg, temp2_reg);
     addi_PPC(temp_reg, temp_reg, 1);
     stwx_PPC(temp_reg, temp2_reg);
     bind(l);
   }
+  // reload markOop in mark_reg before continuing with lightweight locking
+  ld(mark_reg, obj_reg, oopDesc::mark_offset_in_bytes());
 
   bind(cas_label);
 }
 
-void MacroAssembler::biased_locking_exit (ConditionRegister cr_reg, Register mark_addr, Register temp_reg, Label& done) {
+void MacroAssembler::biased_locking_exit(Register mark_addr, Register temp_reg, Register temp2_reg, Label& done) {
   // Check for biased locking unlock case, which is a no-op
   // Note: we do not have to check the thread ID for two reasons.
   // First, the interpreter checks for IllegalMonitorStateException at
@@ -2213,11 +2195,11 @@ void MacroAssembler::biased_locking_exit (ConditionRegister cr_reg, Register mar
   // lock, the object could not be rebiased toward another thread, so
   // the bias bit would be clear.
 
-  ld_PPC(temp_reg, 0, mark_addr);
-  andi_PPC(temp_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
+  ld(temp_reg, mark_addr, 0);
+  andi(temp_reg, temp_reg, markOopDesc::biased_lock_mask_in_place);
 
-  cmpwi_PPC(cr_reg, temp_reg, markOopDesc::biased_lock_pattern);
-  beq_PPC(cr_reg, done);
+  li(temp2_reg, markOopDesc::biased_lock_mask_in_place);
+  beq(temp2_reg, temp_reg, done);
 }
 
 // allocation (for C1)
@@ -2789,7 +2771,7 @@ void MacroAssembler::compiler_fast_lock_object(ConditionRegister flag, Register 
 
 
   if (try_bias) {
-    biased_locking_enter(flag, oop, displaced_header, temp, current_header, cont);
+    biased_locking_enter(oop, displaced_header, temp, noreg, current_header, cont);
   }
 
 #if INCLUDE_RTM_OPT
@@ -2901,7 +2883,7 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
   Label object_has_monitor;
 
   if (try_bias) {
-    biased_locking_exit(flag, oop, current_header, cont);
+    biased_locking_exit(oop, current_header, noreg, cont);
   }
 
 #if INCLUDE_RTM_OPT

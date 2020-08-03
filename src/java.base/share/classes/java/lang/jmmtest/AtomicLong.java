@@ -17,7 +17,10 @@ public class AtomicLong {
     public static int iterations;
     /**
      */
-    public static volatile int errors;
+    public static long[] highest1, lowest1, highest2, lowest2;
+    /**
+     */
+    public static int errors;
 
     /**
      */
@@ -26,9 +29,16 @@ public class AtomicLong {
         actor1Started = false;
         actor2Started = false;
         l = 0;
-        errors = 0;
-        key1 = 231 << 32 | 231;
-        key2 = -56 << 32 | -56;
+        long n = 56;
+        key1 = n << 32;
+        key1 |= n;
+        n = 98;
+        key2 = n << 32;
+        key2 |= n;
+        highest1 = new long[iterations];
+        highest2 = new long[iterations];
+        lowest1 = new long[iterations];
+        lowest2 = new long[iterations];
     }
 
     /**
@@ -42,12 +52,8 @@ public class AtomicLong {
 		    long temp1 = temp >>> 32;
 		    long temp2 = (temp << 32) >>> 32;
 		    long temp3 = 0xffffffffL & temp;
-		    if (temp2 != temp3) {
-		        errors++;
-		    }
-		    if (temp1 != temp3) {
-		        errors++;
-		    }
+		    highest1[i] = temp1;
+		    lowest1[i] = temp3;
 		    l = key1;
 		}
     }
@@ -63,12 +69,8 @@ public class AtomicLong {
 		    long temp1 = temp >>> 32;
 		    long temp2 = (temp << 32) >>> 32;
 		    long temp3 = 0xffffffffL & temp;
-		    if (temp2 != temp3) {
-		        errors++;
-		    }
-		    if (temp1 != temp3) {
-		        errors++;
-		    }
+		    highest2[i] = temp1;
+		    lowest2[i] = temp3;
 		    l = key2;
 		}
     }
@@ -76,5 +78,14 @@ public class AtomicLong {
     /**
      */
     public static void calcResults() {
+        errors = 0;
+		for(int i = 0; i < iterations; i++) {
+		    if (highest1[i] != lowest1[i]) {
+		        errors++;
+		    }
+		    if (highest2[i] != lowest2[i]) {
+		        errors++;
+		    }
+		}
     }
 }

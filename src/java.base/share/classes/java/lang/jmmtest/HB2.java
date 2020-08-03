@@ -33,10 +33,13 @@ public class HB2 {
         actor1Started = false;
         actor2Started = false;
         nonvol = new int[iterations];
+        nonvolRead = new int[iterations];
+        volRead = new int[iterations];
         vol = new VolatileInt[iterations];
 		for(int i = 0; i < iterations; i++) {
-			nonvol[i] = 0;
+			vol[i] = new VolatileInt();
 			vol[i].data = 0;
+			nonvol[i] = 0;
 		}
     }
 
@@ -46,9 +49,9 @@ public class HB2 {
         actor1Started = true;
         while(!actor2Started) {}
 
-		for(int i = 1; i <= iterations; i++) {
+		for(int i = 0; i < iterations; i++) {
 			nonvolRead[i] = nonvol[i];
-			vol[i].data = i;
+			vol[i].data = i + 1;
 		}
     }
 
@@ -58,9 +61,9 @@ public class HB2 {
         actor2Started = true;
         while(!actor1Started) {}
 
-		for(int i = 1; i <= iterations; i++) {
+		for(int i = 0; i < iterations; i++) {
 			volRead[i] = vol[i].data;
-			nonvol[i] = i;
+			nonvol[i] = i + 1;
 		}
     }
 
@@ -73,7 +76,7 @@ public class HB2 {
 			if (volRead[i] != 0) {
 				happenedBefore++;
 			}
-			if (volRead[i] == i && nonvolRead[i] == i) {
+			if (volRead[i] == i + 1 && nonvolRead[i] == i + 1) {
 				errors++;
 			}
 		}

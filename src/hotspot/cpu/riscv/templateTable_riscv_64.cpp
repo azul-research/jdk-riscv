@@ -2673,7 +2673,6 @@ void TemplateTable::getfield(int byte_no) {
 }
 
 void TemplateTable::nofast_getfield(int byte_no) {
-  tty->print_cr("nofast_getstatic #%i: %p", byte_no, __ pc());
   getfield_or_static(byte_no, false, may_not_rewrite);
 }
 
@@ -2998,7 +2997,6 @@ void TemplateTable::putfield(int byte_no) {
 }
 
 void TemplateTable::nofast_putfield(int byte_no) {
-  tty->print_cr("nofast_putfield #%i: %p", byte_no, __ pc());
   putfield_or_static(byte_no, false, may_not_rewrite);
 }
 
@@ -3014,29 +3012,28 @@ void TemplateTable::jvmti_post_fast_field_mod() {
 void TemplateTable::fast_storefield(TosState state) {
   transition(state, vtos);
 
-  const Register Rcache        = R5_ARG3_PPC,  // Do not use ARG1/2 (causes trouble in jvmti_post_field_mod).
+  const Register Rcache        = R12_ARG2, // Do not use ARG0/1 (causes trouble in jvmti_post_field_mod).
                  Rclass_or_obj = R31,      // Needs to survive C call.
-                 Roffset       = R22_tmp2_PPC, // Needs to survive C call.
-                 Rflags        = R3_ARG1_PPC,
+                 Roffset       = R30_TMP5, // Needs to survive C call.
+                 Rflags        = R10_ARG0,
                  Rscratch      = R5_scratch1,
                  Rscratch2     = R6_scratch2,
-                 Rscratch3     = R4_ARG2_PPC;
-  const ConditionRegister CR_is_vol = CCR2; // Non-volatile condition register (survives runtime call in do_oop_store).
+                 Rscratch3     = R11_ARG1;
 
   // Constant pool already resolved => Load flags and offset of field.
   __ get_cache_and_index_at_bcp(Rcache, 1);
-  jvmti_post_field_mod(Rcache, Rscratch, false /* not static */);
+  //jvmti_post_field_mod(Rcache, Rscratch, false /* not static */); FIXME_RISCV
   load_field_cp_cache_entry(noreg, Rcache, noreg, Roffset, Rflags, false);
 
   // Get the obj and the final store addr.
   pop_and_check_object(Rclass_or_obj); // Kills R5_scratch1.
 
   // Get volatile flag.
-  __ rldicl__PPC(Rscratch, Rflags, 64-ConstantPoolCacheEntry::is_volatile_shift, 63); // Extract volatile bit.
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) { __ cmpdi_PPC(CR_is_vol, Rscratch, 1); }
+  __ srli(Rscratch, Rflags, ConstantPoolCacheEntry::is_volatile_shift);
+  __ andi(Rscratch, Rscratch, 1); // Extract volatile bit.
   {
     Label LnotVolatile;
-    __ beq_PPC(CCR0, LnotVolatile);
+    __ beqz(Rscratch, LnotVolatile);
     __ release();
     __ align(32, 12);
     __ bind(LnotVolatile);
@@ -3050,44 +3047,48 @@ void TemplateTable::fast_storefield(TosState state) {
       break;
 
     case Bytecodes::_fast_iputfield:
-      __ stwx_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ sw(R25_tos, Roffset, 0);
       break;
 
     case Bytecodes::_fast_lputfield:
-      __ stdx_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ sd(R25_tos, Roffset, 0);
       break;
 
     case Bytecodes::_fast_zputfield:
-      __ andi_PPC(R25_tos, R25_tos, 0x1);  // boolean is true if LSB is 1
+      __ andi(R25_tos, R25_tos, 0x1);  // boolean is true if LSB is 1
       // fall through to bputfield
     case Bytecodes::_fast_bputfield:
-      __ stbx_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ sb(R25_tos, Roffset, 0);
       break;
 
     case Bytecodes::_fast_cputfield:
     case Bytecodes::_fast_sputfield:
-      __ sthx_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ sh(R25_tos, Roffset, 0);
       break;
 
     case Bytecodes::_fast_fputfield:
-      __ stfsx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ fsw(F23_ftos, Roffset, 0);
       break;
 
     case Bytecodes::_fast_dputfield:
-      __ stfdx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ fsd(F23_ftos, Roffset, 0);
       break;
 
     default: ShouldNotReachHere();
   }
 
-  if (!support_IRIW_for_not_multiple_copy_atomic_cpu) {
-    Label LVolatile;
-    __ beq_PPC(CR_is_vol, LVolatile);
-    __ dispatch_epilog(vtos, Bytecodes::length_for(bytecode()));
-
-    __ align(32, 12);
-    __ bind(LVolatile);
+  {
+    Label LnotVolatile;
+    __ beqz(Rscratch, LnotVolatile);
     __ fence();
+    __ align(32, 12);
+    __ bind(LnotVolatile);
   }
 }
 
@@ -3097,10 +3098,10 @@ void TemplateTable::fast_accessfield(TosState state) {
   Label LisVolatile;
   ByteSize cp_base_offset = ConstantPoolCache::base_offset();
 
-  const Register Rcache        = R3_ARG1_PPC,
+  const Register Rcache        = R10_ARG0,
                  Rclass_or_obj = R25_tos,
-                 Roffset       = R22_tmp2_PPC,
-                 Rflags        = R23_tmp3_PPC,
+                 Roffset       = R30_TMP5,
+                 Rflags        = R31_TMP6,
                  Rscratch      = R6_scratch2;
 
   // Constant pool already resolved. Get the field offset.
@@ -3108,14 +3109,15 @@ void TemplateTable::fast_accessfield(TosState state) {
   load_field_cp_cache_entry(noreg, Rcache, noreg, Roffset, Rflags, false);
 
   // JVMTI support
-  jvmti_post_field_access(Rcache, Rscratch, false, true);
+  //jvmti_post_field_access(Rcache, Rscratch, false, true); FIXME_RISCV
 
   // Get the load address.
-  __ null_check_throw(Rclass_or_obj, -1, Rscratch);
+  //__ null_check_throw(Rclass_or_obj, -1, Rscratch); FIXME_RISCV
 
   // Get volatile flag.
-  __ rldicl__PPC(Rscratch, Rflags, 64-ConstantPoolCacheEntry::is_volatile_shift, 63); // Extract volatile bit.
-  __ bne_PPC(CCR0, LisVolatile);
+  __ srli(Rscratch, Rflags, ConstantPoolCacheEntry::is_volatile_shift);
+  __ andi(Rscratch, Rscratch, 1); // Extract volatile bit.
+  __ bnez(Rscratch, LisVolatile);
 
   switch(bytecode()) {
     case Bytecodes::_fast_agetfield:
@@ -3125,103 +3127,93 @@ void TemplateTable::fast_accessfield(TosState state) {
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
       do_oop_load(_masm, Rclass_or_obj, Roffset, R25_tos, Rscratch, /* nv temp */ Rflags, IN_HEAP);
       __ verify_oop(R25_tos);
-      __ twi_0_PPC(R25_tos);
-      __ isync_PPC();
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_igetfield:
     {
-      __ lwax_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lwu(R25_tos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ lwax_PPC(R25_tos, Rclass_or_obj, Roffset);
-      __ twi_0_PPC(R25_tos);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lwu(R25_tos, Roffset, 0);
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_lgetfield:
     {
-      __ ldx_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ ld(R25_tos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ ldx_PPC(R25_tos, Rclass_or_obj, Roffset);
-      __ twi_0_PPC(R25_tos);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ ld(R25_tos, Roffset, 0);
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_bgetfield:
     {
-      __ lbzx_PPC(R25_tos, Rclass_or_obj, Roffset);
-      __ extsb_PPC(R25_tos, R25_tos);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lb(R25_tos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ lbzx_PPC(R25_tos, Rclass_or_obj, Roffset);
-      __ twi_0_PPC(R25_tos);
-      __ extsb_PPC(R25_tos, R25_tos);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lb(R25_tos, Roffset, 0);
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_cgetfield:
     {
-      __ lhzx_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lhu(R25_tos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ lhzx_PPC(R25_tos, Rclass_or_obj, Roffset);
-      __ twi_0_PPC(R25_tos);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lhu(R25_tos, Roffset, 0);
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_sgetfield:
     {
-      __ lhax_PPC(R25_tos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lh(R25_tos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ lhax_PPC(R25_tos, Rclass_or_obj, Roffset);
-      __ twi_0_PPC(R25_tos);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ lh(R25_tos, Roffset, 0);
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_fgetfield:
     {
-      __ lfsx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ flw(F23_ftos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      Label Ldummy;
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ lfsx_PPC(F23_ftos, Rclass_or_obj, Roffset);
-      __ fcmpu_PPC(CCR0, F23_ftos, F23_ftos); // Acquire by cmp-br-isync.
-      __ bne_predict_not_taken_PPC(CCR0, Ldummy);
-      __ bind(Ldummy);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ flw(F23_ftos, Roffset, 0);
+      __ acquire();
       break;
     }
     case Bytecodes::_fast_dgetfield:
     {
-      __ lfdx_PPC(F23_ftos, Rclass_or_obj, Roffset);
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ fld(F23_ftos, Roffset, 0);
       __ dispatch_epilog(state, Bytecodes::length_for(bytecode()));
 
       __ bind(LisVolatile);
-      Label Ldummy;
-      if (support_IRIW_for_not_multiple_copy_atomic_cpu) { __ fence(); }
-      __ lfdx_PPC(F23_ftos, Rclass_or_obj, Roffset);
-      __ fcmpu_PPC(CCR0, F23_ftos, F23_ftos); // Acquire by cmp-br-isync.
-      __ bne_predict_not_taken_PPC(CCR0, Ldummy);
-      __ bind(Ldummy);
-      __ isync_PPC();
+      __ add(Roffset, Roffset, Rclass_or_obj);
+      __ fld(F23_ftos, Roffset, 0);
+      __ acquire();
       break;
     }
     default: ShouldNotReachHere();
@@ -4171,17 +4163,21 @@ void TemplateTable::monitorenter() {
            Rscratch2         = R11_ARG1,
            Rscratch3         = R12_ARG2,
            Rcurrent_obj_addr = R13_ARG3;
+  Label Lfind;
   const int entry_size = frame::interpreter_frame_monitor_size() * wordSize;
 
   // ------------------------------------------------------------------------------
   // Null pointer exception.
   //__ null_check_throw(Robj_to_lock, -1, R5_scratch1); FIXME_RISCV
+  __ bnez(Robj_to_lock, Lfind);
+  __ unimplemented("Monitor object is null");
 
   // Try to acquire a lock on the object.
   // Repeat until succeeded (i.e., until monitorenter returns true).
 
   // ------------------------------------------------------------------------------
   // Find a free slot in the monitor block.
+  __ bind(Lfind);
   Label Lfound, Lexit, Lallocate_new;
   {
     Label Lloop, Lno_free_slot;
@@ -4231,6 +4227,7 @@ void TemplateTable::monitorenter() {
     Label Lloop;
     Register Rcurrent_addr = Rscratch1;
     __ addi(R2_SP, R2_SP, -entry_size);
+    __ sd(R2_SP, R8_FP, _ijava_state(top_frame_sp));
     __ addi(R23_esp, R23_esp, -entry_size);
     __ addi(R18_monitor, R18_monitor, -entry_size);
     __ mv(Rcurrent_addr, R2_SP);
